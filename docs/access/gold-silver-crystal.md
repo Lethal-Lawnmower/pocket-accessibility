@@ -44,11 +44,30 @@ share the `gs` engine; Crystal is `crystal`.
 | House radio (`MapRadio`) | "Radio, <station>" | Each show line, queued |
 | Trainer card (`TrainerCard`) | "Trainer card", name, ID, money, Pokédex count, time, page N of 3 | JOHTO BADGES or KANTO BADGES with the badges earned |
 
+| Card Flip (`CardFlip`) | Coins and the question with YES/NO; each hand: coins, "Hand N of 12" | Bet square and its payout ("PIKACHU level 1, pays 72"), "played" on a blanked card; the cards played so far; the turned card, the result, coins |
+| Slots (`SlotMachine`) | Coins, prompt, bet with the lines it buys | Each reel once stopped, top to bottom; reel tells ("Reel 2 pauses"); the result with the matched symbol named; play again, queued |
+| Unown puzzle (`UnownPuzzle`) | Picture, controls, the cell | Cell ("piece 7, row 2, column 3" or "empty"); took or placed piece; complete. No placement hints |
+| Alph stamp (`UnownPrinter`) | Title, letter, position | Letter or VACANT |
+| Contest switch (`ContestMenu`) | Question, both Pokémon with level and health, YES/NO | YES/NO |
+| Battle Tower (`BattleTowerMenu`, Crystal) | Question, level, position, "Up raises the level" once | Level; refusal; cancel question |
+| Buena (`BuenaPassword`, Crystal) | Word, or prize with points and the balance | Row |
+| Day-Care, NPC trade (`DayCareMenu`, `TradeMenu`) | Each page as typing starts; the line a `cont` page repeats is not said again | YES/NO, queued once typed |
+| Decorations (`DecorationMenu`) | "Decoration", what is set up, row | Row; category; messages |
+| Mail (`MailCompose`, `MailRead`, `MailMenu`, `MailboxMenu`) | Compose keyboard as the naming screen; read: stationery, message, author; menu and mailbox rows | Cell, typed glyph, deleted, case |
+| Photo card, Magnet Train, diploma, Unown wall words | Read once (wall words: the word, then spelled) | (once) |
+| Trade animation (`TradeAnim`) | "Trade. B skips", the Pokémon given | Text beats and the Pokémon received, queued |
+| Hall of Fame (`HallOfFame`) | Induction: each member and the player card, queued; PC viewer: header, member, position | Member; header on a new team |
+| Credits (`Credits`) | (each screen) | Each screen's lines, queued; THE END |
+| Union Room list, Gen 2 battle and trade prep, arena (`union/List`, `Gen2BattlePrep`, `Gen2TradePrep`, `ArenaState`) | As Gen 1's link screens | (as Gen 1) |
+
 Rows follow what the screen draws: the party list draws no gender, and its
 held item is only an icon, so speech says "holding an item" without naming
 it. A missing PP count means full; only an explicit 0 is said as 0. Radio
 lines queue rather than interrupt, so a show is heard in order. The clock is
-read when its card is reached, not on every minute. Reading never changes
+read when its card is reached, not on every minute. Labels a screen keeps
+in file-local tables (decoration sides, slot bet rows, the diploma text) are
+read from the screen's own functions with `debug.getupvalue` by name, never
+copied, and stay silent if upstream renames them. Reading never changes
 game state: the radio is read from the screen's record (never through
 `ensureTuned` or `tuneRadio`), the Unown list from the save field (not
 `Unown.dex`, which creates it).
@@ -59,6 +78,7 @@ game state: the radio is read from the screen's record (never through
 |---|---|
 | Baseline (2026-11-01) | Game run, Crystal and Gold, new game to a wild battle (`drivers/gen2_walkthrough.lua`): only TextBox dialogue spoke before this work. |
 | Info screens | `gen2_info_test.lua` 106/106. `drivers/gen2_info.lua` run in Crystal, Gold and Silver (identities `pocket-access-info-<game>`): every section reached and spoken. Not run: Softboiled target mode, the battle party list, phone DELETE, out-of-area calls, Buena's Password station, Kanto on the map and AREA screens, the dex PRNT action. |
+| Special screens and minigames | `gen2_special_test.lua` 135/135 (checks that `Mail.lines`, `Mail.mailbox` are never called and decorations are never created by reading). `drivers/gen2_special.lua` run in Crystal, Gold and Silver (identities `pocket-access-special-<game>`): every screen reached. The driver forces some state (party, coins, decorations, mail, a Hall of Fame team, the first spin's reels); the contest, Battle Tower, Buena, mail and Union list screens were opened directly, not through their scripts. Unit tests only: some slot tells, Gen 2 Union prep (needs a second player), the arena failure message. |
 | Heard by the owner | Not yet. |
 
 ## Open questions for the owner
@@ -67,6 +87,10 @@ game state: the radio is read from the screen's record (never through
   names on the Johto badge flags (with only BOULDER earned it shows
   BOULDER and CASCADE). Speech copies the screen. Keep matching the screen,
   or read the save's Kanto badges?
+- Minigame defaults (agent recommendations): the Unown puzzle names
+  pieces by number and never says where a piece belongs; Card Flip says
+  only what a sighted player sees (squares, payouts, cards played), no
+  odds; Unown wall words are said, then spelled.
 - Wording: "PRNT" said as written; "holding an item" without the item's
   name; "Phone call" and "Radio" are our words.
 
@@ -76,6 +100,9 @@ game state: the radio is read from the screen's record (never through
   first page in the same frame and is not heard.
 - The phone card's signal meter (no service) is not spoken; no key re-reads
   the clock on request.
+- Union Room name tags, the Ruins of Alph chamber walls opening and the
+  heal machine animation are not spoken. A whole-board summary and a
+  repeat-held-piece key for the Unown puzzle would need command keys.
 
 ## Upstream observations (recorded, not fixed)
 
@@ -84,5 +111,12 @@ game state: the radio is read from the screen's record (never through
   straight after a reorder is lost.
 - The radio card's draw tunes the radio and starts its music as soon as
   RADIO is highlighted, before A.
+- Mail keyboard: `<PK>`, `<MN>`, `<PO>`, `<KE>` are appended as
+  multi-character strings but counted by bytes, so one token counts as 4
+  letters and DEL leaves `<PK` (reproduced headless with the real class).
+- Gold and Silver's NPC trade line names the two Pokémon the wrong way
+  round ("traded MACHOP for DROWZEE" when DROWZEE was given); Crystal's is
+  right (game-run traces; the cartridge wording itself was not checked).
+- The slot machine's lucky odds are never used (`opts.lucky` is never passed).
 - From source only: `Game2:useFieldItem`'s TM branch opens the party
   without the TM check, so rows show HP instead of able.
