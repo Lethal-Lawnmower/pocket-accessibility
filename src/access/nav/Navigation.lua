@@ -176,6 +176,9 @@ function Accessibility.new(game, opts)
     semanticSequence = 0,
     status = { enabled = false, available = opts.speech ~= nil },
   }, Accessibility)
+  -- decision 22: camera keys and help are off unless the player opts in;
+  -- nil (old tests) keeps the old behaviour
+  self.cameraEnabled = opts.cameraEnabled
   self:setCueVolume(cueVolume)
   self:setEnabled(opts.enabled ~= false, { silent = true })
   self:subscribeWorldEvents()
@@ -3100,14 +3103,25 @@ function Accessibility:handleCommand(actionId)
   if actionId == "read_command_help" then
     local puzzleHelp = self.generation == 2
       and " In an Unown puzzle, Shift E repeats the held piece." or ""
-    return self:announceManual({
+    local helpLines = {
       "Accessibility help. F6 repeats the last message. F7 toggles command mode. F8 reads this help.",
       "While command mode is on, use arrow keys to move. WASD is reserved so the historical letter commands stay exact. Y reads player coordinates. Shift Y reads sonar coordinates.",
       "J, K, and L browse map items. Shift J and Shift L change the item filter. M reads the map name. Q reads the in-game time when the game has a clock.",
-      "D, G, R, and V move sonar left, right, up, and down. Hold left Shift to move sonar through walls. F resets sonar.",
-      "P starts continuous navigation to the selected item. It speaks turns and corrections as you move. Press P again to stop. Shift F describes a route to sonar. C toggles sonar following. E reads nearby tile identifiers. Shift E describes the terrain at sonar." .. puzzleHelp,
+      -- v0.3.98 adaptation (decision 22): camera lines only when it is on
+      self.cameraEnabled ~= false
+        and "D, G, R, and V move sonar left, right, up, and down. Hold left Shift to move sonar through walls. F resets sonar."
+        or nil,
+      (self.cameraEnabled ~= false
+        and "P starts continuous navigation to the selected item. It speaks turns and corrections as you move. Press P again to stop. Shift F describes a route to sonar. C toggles sonar following. E reads nearby tile identifiers. Shift E describes the terrain at sonar."
+        or "P starts continuous navigation to the selected item. It speaks turns and corrections as you move. Press P again to stop. E reads nearby tile identifiers.") .. puzzleHelp,
       "T reads the active screen. H reads enemy health. Shift H reads player health. Shift K renames an item. Shift M renames the map.",
-    })
+    }
+    -- drop the camera line when it is off (announceManual stops at a nil)
+    local parts = {}
+    for i = 1, table.maxn(helpLines) do
+      if helpLines[i] then parts[#parts + 1] = helpLines[i] end
+    end
+    return self:announceManual(parts)
   end
   if actionId == "read_player_position" then
     local snapshot, reason = self:captureWorld()

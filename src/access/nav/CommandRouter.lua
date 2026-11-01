@@ -190,6 +190,11 @@ local function defaultRawKeyOwner(context)
       or (context.rawKeyOwner ~= nil and context.rawKeyOwner ~= false)
 end
 
+-- Camera ("sonar") actions: every action whose id names the camera.
+function CommandRouter.isCameraAction(actionId)
+  return type(actionId) == "string" and actionId:find("camera", 1, true) ~= nil
+end
+
 function CommandRouter.new(opts)
   opts = opts or {}
   assert(opts.modifierState == nil or type(opts.modifierState) == "function",
@@ -211,6 +216,8 @@ function CommandRouter.new(opts)
     onStatus = opts.onStatus,
     rawKeyOwner = opts.rawKeyOwner or defaultRawKeyOwner,
     navigationAllowed = opts.navigationAllowed,
+    -- nil keeps the old behaviour (camera on); init.lua passes the option
+    cameraEnabled = opts.cameraEnabled,
     heldChordByKey = {},
     heldGamepadButtons = {},
     heldGamepadAxes = {},
@@ -371,6 +378,11 @@ function CommandRouter:keypressed(key, context, isRepeat)
   end
   local actionId = CommandRouter.MAPPINGS[shifted and "shift" or "plain"][key]
   if not actionId then return false end
+  -- v0.3.98 adaptation (decision 22): with the camera off, its keys are not
+  -- commands at all and pass through to the game.
+  if self.cameraEnabled == false and CommandRouter.isCameraAction(actionId) then
+    return false
+  end
   if not NON_NAVIGATION[actionId] and not self:_navigationAllowed(context, actionId) then
     return false
   end

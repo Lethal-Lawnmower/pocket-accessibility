@@ -55,8 +55,11 @@ LUA_PATH="<repo>/?.lua;<repo>/?/init.lua;;" luajit "<repo>/tests/access/nav/worl
   it. Needs another source.
 - Interactive objects 12/13: the bedroom SNES does not appear in the object
   list (the PC does). Not yet investigated.
-- Camera keys (D, G, R, V, F) gave no speech in the game run; the old
-  design plays sound cues for the camera, not yet confirmed audible.
+- Camera ("sonar") is off by default (decision 22): its keys pass through
+  to the game and F8 help omits them unless `accessibilityCamera` is set in
+  the save options. `CommandRouter.isCameraAction` decides which actions
+  count; `tests/access/camera_option_test.lua` 8/8. No menu sets the
+  option yet, and the camera path was not re-checked in a game run.
 - Walking: step and terrain cues, ledges and continuous route guidance
   while moving have not been exercised in a game run yet.
 

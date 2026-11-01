@@ -54,13 +54,17 @@ local function build(game)
   local Navigation = require("src.access.nav.Navigation")
   local CommandRouter = require("src.access.nav.CommandRouter")
   local Runtime = package.loaded["src.mods.Runtime"]
+  -- decision 22: the camera ("sonar") is off unless the player opts in
+  local cameraEnabled = game.save.options and game.save.options.accessibilityCamera == true
   coordinator = Navigation.new(game, {
     speech = speechAdapter,
+    cameraEnabled = cameraEnabled,
     events = Runtime and Runtime.events,
     enabled = true,
   })
   router = CommandRouter.new({
     modifierState = modifierState,
+    cameraEnabled = cameraEnabled,
     rawKeyOwner = function(state)
       return state ~= nil and (type(state.onKeyPressed) == "function"
         or state.accessibilityOwnsRawKeys == true)

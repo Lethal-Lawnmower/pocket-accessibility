@@ -172,3 +172,12 @@ terrain bug that let Cut target people, without the unsafe block mutation.
 It is a game-behaviour change, so it lives outside the accessibility layer
 as an opt-in mod rather than as a core change (decision 10 still holds for
 everything else).
+
+## 22. Camera off by default (2026-10-31)
+
+The owner has never found a use for the Pokémon Access camera ("sonar"),
+so it is omitted unless a player wants it. The camera code stays; its keys
+(D, G, R, V, F, C, Shift+Y, Shift+F and the through-walls variants) are not
+commands and pass through to the game, and F8 help leaves them out, unless
+the save option `accessibilityCamera` is true. No menu exposes that option
+yet.
