@@ -77,7 +77,8 @@ with spaces. A word the cartridge splits across lines ("crea-" / "tures",
 letter, hyphen, then a lower-case start) is joined without the hyphen, and
 when the split falls on one of the game's A waits the chunk before the wait
 finishes the word (2026-11-01, found in Crystal's intro; applies to every
-game). Upper-case compounds keep the hyphen ("SUPER-POTION").
+game). Upper-case compounds and a few real compound prefixes keep the
+hyphen ("SUPER-POTION", "super-effective").
 
 Returning to a screen repeats its context. Dialogue lines are spoken once
 each, so a closing Yes/No box does not repeat the question. An instant box

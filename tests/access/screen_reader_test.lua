@@ -39,6 +39,7 @@ eq(Presenters.rowText({ label = "CANCEL", cancel = true }), "CANCEL", "plain row
 eq(Presenters.joinLines({ "This is my grand-", "son." }), "This is my grandson.",
   "split word rejoined")
 eq(Presenters.joinLines({ "SUPER-", "POTION" }), "SUPER-POTION", "upper-case compound keeps its hyphen")
+eq(Presenters.joinLines({ "It's super-", "effective!" }), "It's super-effective!", "a real compound keeps its hyphen")
 eq(Presenters.joinLines({ "Hello", "there" }), "Hello there", "lines joined by a space")
 
 -- Text box: whole page on entry and on each new page, interrupting.

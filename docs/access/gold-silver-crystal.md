@@ -31,6 +31,8 @@ share the `gs` engine; Crystal is `crystal`.
   added there too and stored in Gen 2's options block (`menus-and-text.md`,
   decision 26).
 
+Battle speech is in `battle.md` (section "Gen 2").
+
 ## Screens
 
 | Screen (`src/ui/gen2/` class) | On entry or return | On change |

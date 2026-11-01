@@ -50,8 +50,14 @@ Presenters.speakable = speakable
 
 -- A line ending in letter-hyphen, followed by a line starting in lower
 -- case, is one word the cartridge split across lines ("crea-" / "tures").
+-- Real compounds the games break at their hyphen ("It's super-" /
+-- "effective!") keep it, so they read as two words, the same in both
+-- generations' battles.
+local COMPOUND_PREFIX = { super = true, self = true, non = true, half = true }
 local function splitWord(line, nextLine)
-  return tostring(line):find("%a%-$") ~= nil and tostring(nextLine or ""):find("^%l") ~= nil
+  line = tostring(line)
+  if line:find("%a%-$") == nil or tostring(nextLine or ""):find("^%l") == nil then return false end
+  return not COMPOUND_PREFIX[(line:match("(%a+)%-$") or ""):lower()]
 end
 Presenters.splitWord = splitWord
 

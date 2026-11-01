@@ -1,6 +1,7 @@
 # Battle
 
-Speech for Gen 1 battles. Presenter: `src/access/screens/Battle.lua`.
+Speech for battles. Gen 1 presenter: `src/access/screens/Battle.lua`; Gen 2
+presenter: `src/access/screens/gen2/Battle.lua` (section "Gen 2" below).
 
 ## How it works
 
@@ -22,11 +23,47 @@ Party and bag inside battle are `PartyMenu` and `ListMenu` screens pushed on
 top, so the general presenters read them. The old man's catching demo menu
 is skipped (`state.demo`).
 
+## Gen 2 (Gold, Silver, Crystal; decision 27)
+
+Matched by the metatable of `src/ui/gen2/BattleState.lua`, so link battles
+(pushed without a screen id) are covered too. The engine resolves the whole
+turn before the messages play, so HP, status and the active Pokémon come from
+the copies the HUD draws (`activeMon`, `hudHp`, `hudStatus`, `statusTag`).
+Only fields and side-effect-free methods are read: `Battle:moveDisabled`,
+`Battle:partyMoves` and `BugContest.state` create tables, so their fields
+are read directly instead.
+
+| Phase | What is spoken |
+|---|---|
+| Message box (any phase) | Each new line once, queued; the same line shown again is spoken again. Pages follow the game's own paging; the row a scroll page repeats is dropped when it is the row just spoken. With DIALOGUE SPEECH set to ALL AT ONCE, the whole box at once. |
+| `menu` | Both sides in the Gen 1 wording plus status tags, then the command; shiny and gender the first time each Pokémon is summarised in a battle. The summary queues (Gen 1 interrupts) so the enemy's last self-advancing line is not cut off; cursor moves interrupt. Bug-Catching Contest: "PARK BALL, N left". The catching tutorial's menu stays quiet. Returning from the party or pack repeats both sides. |
+| `moves` | Move, type, "PP n of m", position on opening; "disabled"; a missing PP is left out, never "0"; the "???" type is "question marks"; SELECT reorder: "marked for swap", "swapped, ...", "swap cancelled". |
+| YES/NO phases | The question (as a message), then YES/NO once drawn, queued; cursor moves interrupt. Nickname, switch offer, "Use next POKéMON?", forget a move, stop learning. |
+| `choose-forget` | "Which move should be forgotten?", the move with PP and position, then each move. |
+| `stats-box` | Name, level and the five stats, recomputed as the stats box draws them. |
+
+Example from a Crystal run: "CYNDAQUIL, male, HP 28 of 28. enemy SENTRET,
+shiny, level 5, male, HP 100 percent. FIGHT". `Gen2Battle.health()` gives
+the on-demand health text ("Player RATTATA, 46 of 46 HP | Enemy health:
+100.00 percent"); the H and Shift+H keys reach it once navigation runs in
+Gen 2 (`navigation.md`).
+
+**Fast game speed.** Speech polls once per rendered frame, and GAME SPEED
+has no battle lock. At 200X with BATTLE SCENE off a scripted run lost 2 of
+14 self-advancing lines ("Go! CYNDAQUIL!" and an enemy move line); none at
+8X or 64X; lines that wait for A are never lost. Gen 1 polls the same way.
+Catching every line at 200X would need a listed wrapper around the battle's
+page functions; not done (AUTO-WALK SPEED never applies in battle).
+
 ## Not covered yet
 
 - Shift and switch prompts and link battles: not yet checked in a game run.
 - On-demand status keys (for example "read enemy HP" from Pokémon Access) belong
   to the commands workstream.
+- Gen 2: ball shakes (the failure line says how close it was), on-demand
+  EXP, held item, weather and screens; link-battle waiting phases (not run);
+  the Battle Tower, the Bug-Catching Contest and the catching tutorial are
+  unit-tested only.
 
 ## Verification (2026-10-31)
 
@@ -36,4 +73,5 @@ is skipped (`state.demo`).
 | Scripted game run | `tests/access/drivers/battle.lua`, disposable identity, real Prism (NVDA): wild PIDGEY on Route 1. The trace shows "Wild PIDGEY appeared!", "Go! SQUIRTLE!", the menu with HP for both sides each turn, every command, the move list with type and PP, misses, the enemy's moves, "Enemy PIDGEY fainted!" and the experience line. |
 | Scripted trainer battle | `tests/access/drivers/trainer_battle.lua`: Youngster with RATTATA and EKANS. Trace: "YOUNGSTER wants to fight!", each send-out, HP for both sides each turn, a critical hit, stat drop, both faints, experience, "defeated YOUNGSTER!" and the prize money. |
 | Scripted level-up battle | `tests/access/drivers/level_up_battle.lua`: a poisoned SQUIRTLE one point short of level 6. Trace: PSN in every turn summary, "hurt by poison!", stat drops, "grew to level 6!" and the stats box. |
+| Gen 2 (2026-11-01) | `gen2_battle_test.lua` 86/86 (hand-built screens and the real `BattleState` around a stub game). `drivers/gen2_battle.lua` in Crystal, Gold and Silver (identities `pocket-access-battle-<game>`): a shiny wild battle with a party peek, a move swap and balls thrown until caught; a wild battle run from; a trainer battle with a faint, level up and stats box, forgetting TAIL WHIP for FOCUS ENERGY, the switch offer, a voluntary switch, the win and an evolution after it; "Use next POKéMON?" and "Choose a POKéMON.". The driver logged every line the box showed at each logic step: none went unspoken at 1X in any game. ALL AT ONCE run in Crystal. |
 | Heard by the owner | Not yet. |
