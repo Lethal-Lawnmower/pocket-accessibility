@@ -242,8 +242,8 @@ Verified 2026-10-31: `settings_test.lua` 22/22, `auto_walk_test.lua` 30/30.
 `drivers/settings.lua` (silent): logic speed 200 while walking and 1 after;
 "Arrived at AAAAAAA's House 1F" at 200X; Mom reached from the stairs at
 200X. Hard-places sweep at 200X (`SWEEP_SPEED=200`) on Viridian Gym and
-Silph Co. 5F: every target reached that is reached at normal speed. Not
-yet tried by the owner.
+Silph Co. 5F: every target reached that is reached at normal speed. Owner
+tried the page 2026-10-31 and approved pushing ("It looks real good").
 
 ## Cross-map journeys (decision 25)
 
