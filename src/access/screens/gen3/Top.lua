@@ -217,7 +217,10 @@ function Top.ambient(game)
   return list
 end
 
+-- For presenter modules: proxy(key, kind, fields) and edge(kind, on), the
+-- per-opening token for a screen that is only a flag on a singleton.
 Top._proxy = proxy
 Top._edge = edge
+Top.edge = edge
 
 return Top

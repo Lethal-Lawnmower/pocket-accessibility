@@ -620,6 +620,18 @@ Choice.active, Choice.done = false, nil
 Message.open, Message._pages = false, nil
 update()
 eq(last(), "5F, 1 of 3", "back on the list when they close")
+-- a clerk's script can leave its greeting open under the shop: the shop
+-- (driven by name in Hud's update_top_menu) is the screen, the greeting
+-- is reported as covered
+local Top = require("src.access.screens.gen3.Top")
+local ShopMenu = require("src.ui.game3.shop_menu")
+reset("field")
+Message.open, Message._pages, Message._page = true, { "May I help you?" }, 1
+Stack.push("shop", ShopMenu, { hideBelow = false })
+local shopTop, under = Top.resolve(game)
+eq(shopTop and shopTop.gen3, "shop", "the shop is the screen over the clerk's open message")
+eq(under and under.gen3, "message", "the message is reported as covered")
+check(Top.edge == Top._edge, "edge is public, _edge kept as an alias")
 -- a layer that takes no input leaves the message in charge
 reset("field")
 Message.open, Message._pages, Message._page = true, { "Hello." }, 1
@@ -631,7 +643,6 @@ eq(last(), "Hello.", "message stays the screen over a passive layer")
 local Popup = require("src.ui.game3.map_name_popup")
 local Preview = require("src.ui.game3.map_preview_screen")
 local Elevator = require("src.ui.game3.elevator_window")
-local MoneyBox = require("src.ui.game3.money_box")
 local CoinsBox = require("src.ui.game3.coins_box")
 reset("field")
 Popup._state, Popup._name = Popup.STATE.SLIDE_IN, "PALLET TOWN"
@@ -659,15 +670,6 @@ update(2)
 eq(last(), "Now on: 1F", "elevator window")
 check(Elevator.visible == true, "reading never hides the window")
 Elevator.visible = false
-update()
-
-MoneyBox.visible, MoneyBox._amount = true, 3000
-update()
-eq(last(), "MONEY 3000Y", "money box when shown")
-MoneyBox._amount = 2900
-update()
-eq(last(), "MONEY 2900Y", "and when it changes")
-MoneyBox.visible = false
 update()
 
 text("gText_Coins", "{STR_VAR_1} COINS")

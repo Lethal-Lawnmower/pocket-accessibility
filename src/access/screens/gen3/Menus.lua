@@ -5,8 +5,9 @@
 -- the help system, the quest log, the trainer card, the Fame Checker,
 -- Teachy TV's list and lesson pages, the move relearner, evolution and egg
 -- hatching, script list menus (the elevator floors) and the passive
--- overlays: map name and the forest title card, elevator "Now on", money
--- and coins boxes.  (Pokémon pictures are gen3/Special.lua's.)
+-- overlays: map name and the forest title card, elevator "Now on", coins
+-- box.  (Pokémon pictures are gen3/Special.lua's, the money box
+-- gen3/Items.lua's.)
 --
 -- Screens arrive as proxies from gen3/Top.lua ({ gen3 = <kind>, key,
 -- layer, mod, game, boot, ... }, one per opening).  Every value is read
@@ -108,12 +109,22 @@ local tr = Common.tr
 
 -- A file-local value of an upstream module, read from one of its
 -- functions by name.  Nil (so the screen stays quiet) if upstream renames it.
+-- Only used for locals that never change after load (functions, constant
+-- tables), so a found value is remembered per function.
+local upvalueCache = setmetatable({}, { __mode = "k" })
 local function upvalue(fn, name)
   if type(fn) ~= "function" then return nil end
+  local cached = upvalueCache[fn]
+  if cached and cached[name] ~= nil then return cached[name] end
   for i = 1, 255 do
     local n, value = debug.getupvalue(fn, i)
     if n == nil then return nil end
-    if n == name then return value end
+    if n == name then
+      cached = cached or {}
+      cached[name] = value
+      upvalueCache[fn] = cached
+      return value
+    end
   end
   return nil
 end
@@ -276,13 +287,13 @@ Menus.mainMenu = {
     if type(boot) ~= "table" or boot.saveError then return nil end
     local isFresh = fresh(memo, entering)
     -- nothing is selectable while the menu fades in or out
+    local index = boot.menuIndex or 1
+    if not isFresh and memo.index == index then return nil end
     local fade = boot.menuFade
     if (fade and call(fade.fadeActive, fade)) or boot.fadeThen then return nil end
     local Boot = loaded("src.ui.game3.boot")
     local items = Boot and call(Boot.menuItems, boot)
     if type(items) ~= "table" then return nil end
-    local index = boot.menuIndex or 1
-    if not isFresh and memo.index == index then return nil end
     memo.index, memo.fresh = index, nil
     local id = items[index]
     local label = id and nonEmpty(speakable(rom(MAIN_MENU_KEYS[id]) or ""))
@@ -564,19 +575,24 @@ Menus.startMenu = {
 
 -- -------------------------------------------------------------- options
 
--- One OPTION row as OptionMenu.draw prints it: the label and value(ctx);
--- the row after the last is CANCEL (sOptionMenuItemsNames[6]).
-local function optionRow(OptionMenu, page, index)
+-- The value an OPTION row prints (value(ctx), as OptionMenu.draw calls it
+-- every frame), raw, so an unchanged frame only compares strings.
+local function optionRaw(OptionMenu, page, index)
+  local row = (page.rows or {})[index]
+  if type(row) ~= "table" or type(row.value) ~= "function" then return nil end
+  local ok, v = pcall(row.value, OptionMenu._ctx)
+  if ok and v ~= nil then return tostring(v) end
+  return nil
+end
+
+-- One OPTION row's label; the row after the last is CANCEL
+-- (sOptionMenuItemsNames[6]).
+local function optionLabel(page, index)
   local rows = page.rows or {}
-  if index > #rows then return speakable(romAt("sOptionMenuItemsNames", 6) or "CANCEL"), nil end
+  if index > #rows then return speakable(romAt("sOptionMenuItemsNames", 6) or "CANCEL") end
   local row = rows[index]
-  if type(row) ~= "table" then return nil, nil end
-  local value
-  if type(row.value) == "function" then
-    local ok, v = pcall(row.value, OptionMenu._ctx)
-    value = ok and v ~= nil and trim(speakable(tostring(v))) or nil
-  end
-  return speakable(row.label or ""), value
+  if type(row) ~= "table" then return nil end
+  return speakable(row.label or "")
 end
 
 -- src/ui/game3/option_menu.lua (layer "option"): the pages live inside the
@@ -594,12 +610,14 @@ Menus.options = {
     local page = type(pages) == "table" and pages[#pages] or nil
     if type(page) ~= "table" then return nil end
     local index = page.index or 1
-    local label, value = optionRow(OptionMenu, page, index)
-    if not label then return nil end
+    local raw = optionRaw(OptionMenu, page, index)
     local newPage = page ~= memo.page
-    if not entering and not newPage and memo.index == index and memo.value == value then return nil end
+    if not entering and not newPage and memo.index == index and memo.raw == raw then return nil end
+    local label = optionLabel(page, index)
+    if not label then return nil end
+    local value = raw and nonEmpty(trim(speakable(raw))) or nil
     local moved = memo.index ~= index
-    memo.page, memo.index, memo.value = page, index, value
+    memo.page, memo.index, memo.raw = page, index, raw
     local text
     if entering or newPage or moved then
       text = label
@@ -642,11 +660,11 @@ Menus.controls = {
     end
     local item = bm.items and bm.items[bm.index]
     if type(item) ~= "table" then return nil end
-    local right = trim(speakable(item.right or ""))
     local back = memo.confirm ~= nil or memo.capture ~= nil
-    if not entering and not back and memo.index == bm.index and memo.right == right then return nil end
+    if not entering and not back and memo.index == bm.index and memo.right == item.right then return nil end
     local moved = memo.index ~= bm.index
-    memo.index, memo.right, memo.confirm, memo.choice, memo.capture = bm.index, right, nil, nil, nil
+    memo.index, memo.right, memo.confirm, memo.choice, memo.capture = bm.index, item.right, nil, nil, nil
+    local right = trim(speakable(item.right or ""))
     if not (entering or moved or back) then return nonEmpty(right), true end
     local text = speakable(item.label or "")
     if right ~= "" then text = text .. ", " .. right end
@@ -1281,22 +1299,8 @@ Menus.elevatorWindow = {
   end,
 }
 
--- src/ui/game3/money_box.lua (field scripts' showmoneybox; the shop has
--- its own): the amount when the box appears and whenever it changes.
-Menus.moneyBox = {
-  matches = Common.matcher("money_box"),
-  poll = function(state, memo)
-    local Box = state.mod
-    local amount = Box and Box._amount
-    if amount == nil or amount == memo.amount then return nil end
-    memo.amount = amount
-    local label = trim(speakable(rom("gText_TrainerCardMoney") or ""))
-    local value = rom("gText_PokedollarVar1", { stringVars = { tostring(amount) } }) or ("¥" .. tostring(amount))
-    return trim(label .. " " .. speakable(value)), false
-  end,
-}
-
--- src/ui/game3/coins_box.lua: the Game Corner coins, same rule.
+-- src/ui/game3/coins_box.lua: the Game Corner coins when the box appears
+-- and whenever the amount changes.  (The money box is gen3/Items.lua's.)
 Menus.coinsBox = {
   matches = Common.matcher("coins_box"),
   poll = function(state, memo)
@@ -1313,14 +1317,6 @@ local function fieldPhase(game)
   return type(game) == "table" and game.phase == "field"
 end
 
--- A top layer that hides what is under it (the drawing rule in
--- src/ui/game3/ui_pass.lua for the map name and the money box).
-local function hiddenByTop()
-  local Stack = loaded("src.ui.game3.stack")
-  local top = Stack and call(Stack.top)
-  return top ~= nil and top.hideBelow == true
-end
-
 Top.addAmbient(function(game, proxy)
   if not fieldPhase(game) then return nil end
   return proxy(gameKey(game, "map_name"), "map_name", { game = game })
@@ -1333,15 +1329,6 @@ Top.addAmbient(function(game, proxy)
   local on = Window.visible == true and Window._owner == (Space and Space.vm or nil)
   local token = Top._edge("elevator_window", on)
   return token and proxy(token, "elevator_window", { mod = Window, game = game }) or nil
-end)
-
-Top.addAmbient(function(game, proxy)
-  local Box = loaded("src.ui.game3.money_box")
-  if not (fieldPhase(game) and Box) then return nil end
-  local Shop = loaded("src.ui.game3.shop_menu")
-  local on = Box.visible == true and not (Shop and Shop.open) and not hiddenByTop()
-  local token = Top._edge("money_box", on)
-  return token and proxy(token, "money_box", { mod = Box, game = game }) or nil
 end)
 
 Top.addAmbient(function(game, proxy)
@@ -1373,7 +1360,6 @@ Menus.ordered = {
   Menus.scriptListMenu,
   Menus.mapName,
   Menus.elevatorWindow,
-  Menus.moneyBox,
   Menus.coinsBox,
 }
 
