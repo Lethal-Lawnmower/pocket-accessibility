@@ -1,0 +1,302 @@
+-- Gen 2 navigation against cartridge data (decision 27): real maps from an
+-- extracted Gold, Silver or Crystal cache, so the checks rest on the game's
+-- data rather than on a fixture written from reading code.  Solves both
+-- stone-table floors (Ice Path B1F, Blackthorn Gym 2F) by following only the
+-- puzzle help's next push under the game's own push rule, routes Route 29's
+-- ledges, names connections and the return warp, labels signs, item balls,
+-- waterfalls and whirlpools, and plans Sprout Tower's floors.
+--
+-- Gated: set GEN2_NAV_CACHE to a cache's data/generated folder, for example
+--   GEN2_NAV_CACHE="$APPDATA/LOVE/pocket-access-nav-crystal/crystal/data/generated"
+--   luajit tests/access/gen2_nav_cart_test.lua
+-- Without it the suite makes NO CHECKS (never a pass).  No cartridge data is
+-- read from or written to the repository.
+package.path = "./?.lua;./?/init.lua;" .. package.path
+if not _G.love then _G.love = require("tests.love_stub") end
+
+local dir = os.getenv("GEN2_NAV_CACHE")
+local function readable(path)
+  local f = path and io.open(path, "rb")
+  if f then f:close() return true end
+  return false
+end
+if not (dir and readable(dir .. "/maps.lua") and readable(dir .. "/tilesets.lua")) then
+  print("gen2 navigation (cartridge): NO CHECKS -- GEN2_NAV_CACHE does not name an extracted Gen 2 data/generated folder")
+  os.exit(0)
+end
+
+local T = require("tests.harness")
+local check, eq = T.check, T.eq
+
+local Speech = require("src.access.Speech")
+local fake = { name = "Fake" }
+function fake:say() return true end
+function fake:stop() return true end
+function fake:close() end
+Speech.shutdown()
+Speech.start({ backend = fake })
+
+local maps = dofile(dir .. "/maps.lua")
+local tilesets = dofile(dir .. "/tilesets.lua")
+local items = readable(dir .. "/items.lua") and dofile(dir .. "/items.lua") or {}
+local scripts = readable(dir .. "/scripts.lua") and dofile(dir .. "/scripts.lua") or {}
+local initial = readable(dir .. "/initial_events.lua") and dofile(dir .. "/initial_events.lua") or {}
+local itemById = {}
+for id, item in pairs(items) do
+  if type(item) == "table" and item.index then itemById[item.index] = id end
+end
+
+local Gen2Map = require("src.world.gen2.Map")
+local Events = require("src.world.gen2.Events")
+local CmdQueue = require("src.world.gen2.CmdQueue")
+local FieldMoves = require("src.world.gen2.FieldMoves")
+local Navigation2 = require("src.access.nav.gen2.Navigation")
+local Puzzle2 = require("src.access.nav.gen2.PuzzleAssistance")
+local RegionalPathfinder = require("src.access.nav.RegionalPathfinder")
+local Pathfinder = require("src.access.nav.Pathfinder")
+
+local BIG = { [0x15] = true, [0x20] = true, [0x21] = true }
+
+-- A headless world on a real map: the objects a new game shows (initial
+-- event flags applied), the command queue the map's callback writes, and the
+-- few World methods navigation reads.
+local function world(mapId, px, py, opts)
+  opts = opts or {}
+  local def = assert(maps[mapId], "no map " .. mapId)
+  local map = Gen2Map.new(def, tilesets[def.tileset])
+  local events = Events.new()
+  for _, flag in ipairs(initial.flags or {}) do events:set(flag, true) end
+  local w = {
+    map = map, maps = maps, tilesets = tilesets, scripts = scripts, events = events,
+    player = { cellX = px, cellY = py, facing = "down", moving = false },
+    npcs = {}, cmdQueue = CmdQueue.new(), party = opts.party or {},
+    playerState = opts.surfing and FieldMoves.PLAYER_SURF or FieldMoves.PLAYER_NORMAL,
+    strengthActive = opts.strength, backupWarp = opts.backupWarp,
+  }
+  for _, obj in ipairs(def.objects or {}) do
+    if events:objectVisible(obj.eventFlag) then
+      w.npcs[#w.npcs + 1] = { id = mapId .. "_obj_" .. obj.index, cellX = obj.x, cellY = obj.y,
+        def = obj, bigObject = BIG[obj.movement] == true, facing = "down" }
+    end
+  end
+  for _, cb in ipairs(def.callbacks or {}) do
+    if cb.callback == "MAPCALLBACK_CMDQUEUE" then
+      for _, cmd in ipairs(scripts[cb.scriptKey] or {}) do
+        local entry = cmd.op == "writecmdqueue" and CmdQueue.fromExtracted(cmd.queue, mapId)
+        if entry then CmdQueue.write(w.cmdQueue, entry) end
+      end
+    end
+  end
+  function w:scriptRunning() return false end
+  function w:acceptsMenuInput() return true end
+  function w:npcAt(x, y)
+    for _, n in ipairs(self.npcs) do
+      if n.bigObject then
+        local dx, dy = x - n.cellX, y - n.cellY
+        if dx >= 0 and dx < 2 and dy >= 0 and dy < 2 then return n end
+      elseif n.cellX == x and n.cellY == y then return n end
+    end
+  end
+  function w:partyMoveUser(move)
+    for _, m in ipairs(self.party) do if m == move then return { moves = { move } } end end
+  end
+  function w:itemIdByIndex(index) return itemById[index] end
+  function w:objectTimeVisible() return true end
+  function w:cellCollisionAcross(m, x, y) return m:cellCollision(x, y) end
+  function w:resolveWarp(warp)
+    if warp.destWarp ~= 0xff then return warp.destMap, warp.destWarp end
+    local b = self.backupWarp
+    if b and self.maps[b.map] then return b.map, b.warp end
+    return warp.destMap, warp.destWarp
+  end
+  return w
+end
+
+local function game(w, badges)
+  local stack = { states = {} }
+  function stack:top() return nil end
+  return { world = w, phase = "play", stack = stack, input = { sources = {}, pressQueue = {}, state = {} },
+    save = { player = { name = "GOLD", badges = badges or {} }, rival = { name = "SILVER" },
+             mom = { name = "MOM" }, options = {}, party = {} },
+    data = { gen2Maps = maps, gen2Tilesets = tilesets } }
+end
+
+local quiet = { isAvailable = function() return true end, output = function() return true end,
+  stop = function() return true end }
+local nullEvents = { on = function() return function() end end, emit = function() end }
+
+local function nav(g) return Navigation2.new(g, { speech = quiet, events = nullEvents, enabled = true }) end
+
+local function browse(n)
+  local snap = assert(n:captureWorld("all"))
+  local byLabel, labels = {}, {}
+  for _, item in ipairs(snap.browse) do
+    byLabel[item.label] = byLabel[item.label] or item
+    labels[#labels + 1] = item.label
+  end
+  return byLabel, table.concat(labels, " | "), snap
+end
+
+-- ------------------------------------------------------------ the puzzles
+-- Follow only the help's next push; apply it by the game's push rule
+-- (World:tryPushBoulder: Map:objectStepPermitted, nothing on the landing;
+-- a boulder on its own hole drops, CmdQueue.stoneFall).
+
+local function solve(mapId, px, py)
+  local w = world(mapId, px, py, { party = { "STRENGTH" }, strength = true })
+  local g = game(w, { PLAIN = true })
+  local n = nav(g)
+  local pushes, label = 0, nil
+  for _ = 1, 300 do
+    local result = Puzzle2.describe(g, n:worldState())
+    local action = result.nextAction
+    local left = 0
+    for _, t in ipairs(result.targetStates) do if t.state ~= "filled" then left = left + 1 end end
+    if left == 0 then return pushes, 0 end
+    if not action then return pushes, left, "no next push" end
+    local boulder
+    for _, b in ipairs(w.npcs) do if b.id == action.boulderId then boulder = b end end
+    -- the player walks to the pushing position (the route must exist)
+    local options = n:worldRouteRequest({ { x = action.standX, y = action.standY } }, 1)
+    local walked = options and Pathfinder.find(options)
+    if not walked then return pushes, left, "pushing position unreachable" end
+    w.player.cellX, w.player.cellY = action.standX, action.standY
+    local d = Gen2Map.DELTA[action.direction]
+    local tx, ty = boulder.cellX + d[1], boulder.cellY + d[2]
+    if not w.map:objectStepPermitted(boulder.cellX, boulder.cellY, action.direction) then
+      return pushes, left, "push refused by the game rule"
+    end
+    for _, e in ipairs(w.npcs) do
+      if e ~= boulder and e.cellX == tx and e.cellY == ty then return pushes, left, "landing taken" end
+    end
+    boulder.cellX, boulder.cellY = tx, ty
+    pushes = pushes + 1
+    label = label or action.instruction
+    local warpNumber = CmdQueue.warpNumberAt(w.map.def.warps, tx, ty)
+    local row = warpNumber and CmdQueue.stoneRow(w.cmdQueue[1].rows, warpNumber, boulder.def.index + 1)
+    if row then
+      for i, e in ipairs(w.npcs) do if e == boulder then table.remove(w.npcs, i) break end end
+    end
+  end
+  return pushes, -1, "too many pushes"
+end
+
+do
+  local pushes, left, why = solve("ICE_PATH_B1F", 3, 14)
+  eq(left, 0, "Ice Path B1F: every hole filled by following the help (" .. tostring(why) .. ")")
+  check(pushes > 4, "Ice Path B1F: solved in " .. pushes .. " pushes")
+  pushes, left, why = solve("BLACKTHORN_GYM_2F", 2, 7)
+  eq(left, 0, "Blackthorn Gym 2F: every hole filled, moving the blocking boulders too (" .. tostring(why) .. ")")
+  check(pushes > 3, "Blackthorn Gym 2F: solved in " .. pushes .. " pushes")
+  local w = world("BLACKTHORN_GYM_2F", 2, 7, { party = { "STRENGTH" } })
+  local g = game(w, { PLAIN = true })
+  local byLabel, _, snap0 = browse(nav(g))
+  check(byLabel["Hole 1"] and byLabel["Hole 2"] and byLabel["Hole 3"], "Blackthorn: three holes listed by row")
+  local noRow, nextPush = 0, 0
+  for _, item in ipairs(snap0.browse) do
+    if item.stateText == "goes in no hole" then noRow = noRow + 1 end
+    if tostring(item.stateText):find("next push", 1, true) then nextPush = nextPush + 1 end
+  end
+  check(noRow >= 2, "Blackthorn: boulders in no row say so (" .. noRow .. ")")
+  eq(nextPush, 1, "Blackthorn: exactly one boulder carries the next push")
+  local w2 = world("ICE_PATH_B2F_MAHOGANY_SIDE", 1, 1)
+  local snap = nav(game(w2)):captureWorld("all")
+  local boulders = 0
+  for _, item in ipairs(snap.browse) do if item.label == "Boulder" then boulders = boulders + 1 end end
+  eq(Puzzle2.describe(game(w2), w2).nextAction, nil, "Ice Path B2F has no stone table: no push guidance")
+end
+
+-- ------------------------------------------------------------ routes
+
+do
+  local w = world("ROUTE_29", 58, 9)
+  local n = nav(game(w))
+  local byLabel = browse(n)
+  local west = byLabel["West connection to Cherrygrove City"]
+  check(west ~= nil, "Route 29: west connection named from mapId")
+  local goals = n:connectionGoals(n:worldState(), west)
+  local r = Pathfinder.find(n:worldRouteRequest(goals, 1))
+  local ledges = 0
+  for _, s in ipairs(r and r.steps or {}) do if s.kind == "ledge" then ledges = ledges + 1 end end
+  check(r ~= nil, "Route 29: route to Cherrygrove")
+  check(ledges >= 1, "Route 29: the route hops a ledge (" .. ledges .. ")")
+  check(byLabel["Potion"] ~= nil, "Route 29: the item ball is named by its item")
+end
+
+do -- the 0xFF return warp
+  local w = world("POKECENTER_2F", 0, 7)
+  local byLabel, all = browse(nav(game(w)))
+  check(byLabel["Exit"] ~= nil, "Pokemon Center 2F: unresolved return warp is Exit: " .. all)
+  w = world("POKECENTER_2F", 0, 7, { backupWarp = { map = "CHERRYGROVE_POKECENTER_1F", warp = 3 } })
+  byLabel, all = browse(nav(game(w)))
+  check(all:find("Cherrygrove Pokecenter 1F", 1, true) ~= nil, "Pokemon Center 2F: resolved through the backup warp: " .. all)
+end
+
+do -- connections across water, signs, standard tiles
+  local w = world("NEW_BARK_TOWN", 13, 6)
+  local n = nav(game(w))
+  local byLabel, all = browse(n)
+  check(byLabel["East connection to Route 27"] and byLabel["West connection to Route 29"],
+    "New Bark Town: both connections named")
+  check(not all:find("Unknown location", 1, true), "New Bark Town: no unknown locations")
+  check(not all:find("%d+:%x+"), "New Bark Town: no script addresses spoken")
+  local toRoute27 = 0
+  for _, t in ipairs(n:regionalTransitions("NEW_BARK_TOWN")) do
+    if t.kind == "connection" and t.destMap == "ROUTE_27" then toRoute27 = toRoute27 + 1 end
+  end
+  check(toRoute27 > 0, "New Bark Town: the water crossing to Route 27 is a transition")
+  local house = world("PLAYERS_HOUSE_2F", 3, 3)
+  local hb, hall = browse(nav(game(house)))
+  local shelves = 0
+  for label in hall:gmatch("[^|]+") do if label:find("Bookshelf", 1, true) then shelves = shelves + 1 end end
+  eq(shelves, 1, "player's room: the bookshelf listed once: " .. hall)
+end
+
+-- The first plain water cell of a map, to stand a surfing player on.
+local Permissions = require("src.world.gen2.Permissions")
+local function waterCell(mapId)
+  local def = maps[mapId]
+  local map = Gen2Map.new(def, tilesets[def.tileset])
+  for y = 0, map.heightCells - 1 do
+    for x = 0, map.widthCells - 1 do
+      local c = map:cellCollision(x, y)
+      if c == 0x29 then return x, y end
+    end
+  end
+end
+
+do -- field obstacles from collision
+  local x, y = waterCell("ROUTE_41")
+  local w = world("ROUTE_41", x, y, { surfing = true })
+  local byLabel = browse(nav(game(w)))
+  eq(byLabel["Whirlpool"] and byLabel["Whirlpool"].requirement, "Needs Whirlpool and Glacier Badge",
+    "Route 41: whirlpools need the move and the badge")
+  x, y = waterCell("TOHJO_FALLS")
+  w = world("TOHJO_FALLS", x, y, { surfing = true })
+  byLabel = browse(nav(game(w, { RISING = true })))
+  local fall = byLabel["Waterfall"]
+  check(fall and fall.requiredFacing == "up", "Tohjo Falls: the waterfall is climbed facing up")
+  eq(fall and fall.requirement, "Needs Waterfall", "Tohjo Falls: badge owned, move missing")
+end
+
+do -- Sprout Tower: the floors' transitions plan a journey
+  local w = world("SPROUT_TOWER_1F", 9, 13)
+  local n = nav(game(w))
+  local target = maps.SPROUT_TOWER_3F.objects[5]
+  local result = RegionalPathfinder.find({
+    start = { mapId = "SPROUT_TOWER_1F", x = 9, y = 13 },
+    target = { mapId = "SPROUT_TOWER_3F", goals = { { x = target.x, y = target.y - 1 },
+      { x = target.x + 1, y = target.y }, { x = target.x - 1, y = target.y } } },
+    route = function(mapId, start, goals, initial, budget)
+      return n:regionalDryRoute(mapId, start, goals, initial, budget)
+    end,
+    transitions = function(mapId) return n:regionalTransitions(mapId) end,
+    maxStates = 96, maxTransitions = 16, maxSeconds = 2, maxRouteSeconds = 0.2,
+  })
+  check(result ~= nil and result.firstTransition ~= nil, "Sprout Tower: a journey from 1F to 3F is planned")
+  eq(result and result.firstTransition and result.firstTransition.destMap, "SPROUT_TOWER_2F",
+    "Sprout Tower: the first leg climbs to 2F")
+end
+
+Speech.shutdown()
+T.finish("gen2 navigation (cartridge)")

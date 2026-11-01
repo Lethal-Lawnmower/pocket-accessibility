@@ -514,8 +514,10 @@ local function applyObjectOverride(item, object, overrides)
   local def = type(object) == "table" and object.def or nil
   local override = overrides[item.id] or (def and overrides[def.name])
   if type(override) ~= "table" then return end
+  -- v0.3.98: "requirement" added for Gen 2's field-move objects (Rock Smash
+  -- rocks, Strength boulders); Gen 1 overrides never carry it
   for _, key in ipairs({ "label", "stateText", "interaction", "semanticKind",
-                         "requiredFacing", "routeInstruction" }) do
+                         "requiredFacing", "routeInstruction", "requirement" }) do
     if override[key] ~= nil then item[key] = override[key] end
   end
 end
@@ -726,6 +728,9 @@ function WorldSnapshot.browse(overworld, opts)
         { x = warp.x, y = warp.y, destinationWarp = warp.destWarp },
       },
       routePreamble = isHole and fallback or nil,
+      -- v0.3.98: a generation may attach state to a warp (Gen 2's
+      -- stone-table holes); nil for Gen 1
+      stateText = warp.accessibilityStateText,
     }
     -- Edge carpets (house exits, gates and similar) require one final input
     -- out of the map after reaching the warp cell. A route that merely says
@@ -885,6 +890,9 @@ function WorldSnapshot.browse(overworld, opts)
       label = explicitOr(sign, fallback),
       x = sign.x, y = sign.y,
       textId = sign.text,
+      -- v0.3.98: Gen 2 signs that read only when faced one way (bg event
+      -- kinds 1-4); nil for Gen 1
+      requiredFacing = sign.requiredFacing,
     }
     applyCustomLabel(item, opts.names)
     addPosition(item, overworld.player)

@@ -11,7 +11,15 @@
 -- changes (a door or connection was taken), any screen opens over the map,
 -- the player presses any key or button, or no progress is made for a while.
 
+-- Generation differences come through the world adapter (WorldAdapter.lua):
+-- what counts as "on the map", the game's own transitions, and how a
+-- direction chosen inside the game's step takes effect.  Gen 2 adds two
+-- coordinator hooks: field moves started with an A press facing the obstacle
+-- (Navigation:stepInteraction) and carpet warps that need their direction
+-- held (Navigation:warpPressDirection).
+
 local Speech = require("src.access.Speech")
+local WorldAdapter = require("src.access.nav.WorldAdapter")
 
 local AutoWalk = {}
 
@@ -81,9 +89,11 @@ local function findRoute(nav, goals)
 end
 
 -- Starts walking to the coordinator's selected object.  Returns true when
--- walking began; otherwise speaks why not.
-function AutoWalk.start(nav, game)
+-- walking began; otherwise speaks why not.  `adapter` defaults to the running
+-- game's (WorldAdapter.current), Gen 1 when none is known.
+function AutoWalk.start(nav, game, adapter)
   if walk then return AutoWalk.stop("Auto walk stopped") end
+  adapter = adapter or WorldAdapter.current() or WorldAdapter.gen1
   local item, goals, interaction, _, overworld = nav:selectedRouteGoals()
   if not item then
     Speech.say(goals or "Select an object from the list", { interrupt = true })
@@ -113,7 +123,12 @@ function AutoWalk.start(nav, game)
   local player = overworld.player
   walk = {
     input = game.input,
+    game = game,
+    adapter = adapter,
     overworld = overworld,
+    -- Gen 2's coordinator hands out a facade over the live World; the
+    -- adapter's top is the World itself when the player is free to walk
+    native = overworld.native,
     map = overworld.map,
     steps = result.steps,
     goal = result.goal,
@@ -154,14 +169,46 @@ local function arrivalText()
   return text
 end
 
--- True when a battle screen is anywhere on the stack.
+-- True when a battle screen is anywhere on the stack.  Both generations'
+-- battle screens carry `isBattle = true` (src/battle/BattleState.lua,
+-- src/ui/gen2/BattleState.lua); Gen 1's class is still recognised directly.
+-- Matching only Gen 1's class left a Gen 2 trainer pause waiting forever.
 local function battleOnStack(stack)
+  if not (stack and stack.states) then return false end
   local BattleState = package.loaded["src.battle.BattleState"]
-  if not (BattleState and stack and stack.states) then return false end
   for _, state in ipairs(stack.states) do
-    if getmetatable(state) == BattleState then return true end
+    if type(state) == "table" and (state.isBattle == true
+        or (BattleState and getmetatable(state) == BattleState)) then
+      return true
+    end
   end
   return false
+end
+
+-- The player is on the map with nothing over it: Gen 1's overworld is its
+-- own top state; Gen 2's adapter reports the live World there.
+local function onMap(top)
+  return top ~= nil and (top == walk.overworld or (walk.native ~= nil and top == walk.native))
+end
+
+local function transitioning()
+  local adapter = walk.adapter or WorldAdapter.gen1
+  return adapter.transitioning(walk.overworld)
+end
+
+-- The direction a carpet warp on (x, y) needs held, or nil (Gen 1, or not a
+-- carpet).
+local function pressDirection(x, y)
+  local nav = walk.nav
+  if type(nav.warpPressDirection) ~= "function" then return nil end
+  local ok, dir = pcall(nav.warpPressDirection, nav, walk.overworld, x, y)
+  return ok and dir or nil
+end
+
+-- After the held direction changed inside the game's step.
+local function steered()
+  local adapter = walk.adapter
+  if adapter and adapter.afterSteer then adapter.afterSteer(walk.game) end
 end
 
 -- Battles pause the walk and it resumes afterwards (owner request,
@@ -230,13 +277,14 @@ function AutoWalk.update(top)
   local overworld = walk.overworld
   local player = overworld.player
   if walk.awaitingMap then
-    if top ~= overworld or overworld.transitioning or overworld.map == walk.map then return end
+    if not onMap(top) or transitioning() or overworld.map == walk.map then return end
     return nextLeg()
   end
   if walk.paused then
     local stack = package.loaded["src.core.StateStack"]
     if battleOnStack(stack) then walk.battleSeen = true end
-    if top ~= overworld then return end
+    if not onMap(top) then return end
+    if transitioning() then return end
     if overworld.map ~= walk.map then return AutoWalk.stop("Auto walk stopped") end
     if walk.expectBattle and not walk.battleSeen then return end -- trainer still walking over
     -- battles, card-key door messages and other game-caused screens: carry on
@@ -259,7 +307,7 @@ function AutoWalk.update(top)
     if not finishing then return AutoWalk.stop("Left the map, auto walk stopped") end
     return AutoWalk.stop(arrivalText())
   end
-  if top ~= overworld then
+  if not onMap(top) then
     -- a door or staircase shows its transition before the map changes, so a
     -- screen opening on the destination cell is the arrival (or, mid-journey,
     -- the way onto the next map)
@@ -277,17 +325,17 @@ function AutoWalk.update(top)
     if battleOnStack(package.loaded["src.core.StateStack"]) then walk.battleSeen = true end
     return
   end
-  -- spinner slides and door or stair transitions move the player on their
-  -- own: let go of the direction and wait (OverworldState spinnerSliding,
-  -- player.spinning, transitioning)
-  if overworld.spinnerSliding or player.spinning or overworld.transitioning then
+  -- spinner slides, door or stair transitions (Gen 2 also ice slides,
+  -- currents and the step off an arrival door) move the player on their
+  -- own: let go of the direction and wait
+  if transitioning() then
     release(walk.input, walk.held)
     walk.held = nil
     walk.lastX, walk.lastY, walk.still = player.cellX, player.cellY, 0
     return
   end
   if walk.tapA then
-    -- release the one-frame A press used on a card-key door
+    -- release the one-frame A press used on a card-key door or field move
     walk.input.state.a = false
     walk.tapA = nil
   end
@@ -318,8 +366,15 @@ function AutoWalk.update(top)
   if not step then
     local last = walk.steps[#walk.steps]
     if last and last.x == x and last.y == y then
+      -- Gen 2 carpet warps (doormats, gate mats) fire only while their own
+      -- direction is held, which need not be the step that reached them
+      local press = pressDirection(x, y)
       if walk.journey and not walk.final then
-        walk.pushDir, walk.pushFrames = last.direction, 0
+        walk.pushDir, walk.pushFrames = press or last.direction, 0
+        return
+      end
+      if press and walk.targetMapId then
+        walk.pushDir, walk.pushFrames = press, 0
         return
       end
       return AutoWalk.stop(arrivalText())
@@ -332,10 +387,36 @@ function AutoWalk.update(top)
     end
     return resume(true)
   end
+  -- Gen 2 field moves on the route (Cut, Whirlpool, Surf, Waterfall) start
+  -- with an A press facing the obstacle; the game asks first, which pauses
+  -- the walk until the player answers, and the walk resumes from wherever
+  -- the move leaves them.  Asked again at the same place means the player
+  -- declined or the move could not be used: stop with the instruction.
+  local nav = walk.nav
+  local action = type(nav.stepInteraction) == "function"
+    and nav:stepInteraction(overworld, step) or nil
+  if action then
+    if player.facing ~= step.direction then
+      if walk.held ~= step.direction then release(walk.input, walk.held) walk.held = step.direction end
+      hold(walk.input, step.direction)
+      return
+    end
+    release(walk.input, walk.held)
+    walk.held = nil
+    local key = tostring(x) .. "," .. tostring(y) .. "," .. tostring(step.direction)
+    if walk.fieldMoveAt == key then
+      return AutoWalk.stop(tostring(action.failText) .. ". " .. tostring(action.hint))
+    end
+    walk.fieldMoveAt = key
+    table.insert(walk.input.pressQueue, "a")
+    walk.input.state.a = true
+    walk.tapA = true
+    walk.still = 0
+    return
+  end
   -- a closed card-key door opens when faced and A is pressed (Gen 1 Silph
   -- Co.); with the key, turn to it, press A once, and the door's message
   -- pauses the walk until it opens
-  local nav = walk.nav
   if type(nav.isClosedCardKeyDoorCell) == "function" and type(nav.hasCardKey) == "function"
       and nav:isClosedCardKeyDoorCell(overworld, step.x, step.y) and nav:hasCardKey() then
     if player.facing ~= step.direction then
@@ -366,15 +447,30 @@ end
 -- 30X or 200X one real frame covers several tiles, and the per-frame update
 -- alone ran the player past every turn.  The update still handles arrival,
 -- reroutes, card-key doors, warps and pauses.
+--
+-- Gen 2 latches the held direction before the world steps and starts the
+-- next step in the same tick as the landing, so after any change here the
+-- adapter re-reads the input (steered); without it every turn came one tile
+-- late and every walk overshot its last cell by one.
 function AutoWalk.stepped(x, y)
   if not walk or walk.paused or walk.awaitingMap or walk.pushDir or walk.tapA then return end
   if walk.overworld.map ~= walk.map then return end
   for _, s in ipairs(walk.steps) do
     if s.fromX == x and s.fromY == y then
+      -- a field move on this step starts with an A press: stop here and let
+      -- the update face the obstacle and press
+      if type(walk.nav.stepInteraction) == "function"
+         and walk.nav:stepInteraction(walk.overworld, s) then
+        release(walk.input, walk.held)
+        walk.held = nil
+        steered()
+        return
+      end
       if walk.held ~= s.direction then
         release(walk.input, walk.held)
         walk.held = s.direction
         hold(walk.input, s.direction)
+        steered()
       end
       return
     end
@@ -382,13 +478,23 @@ function AutoWalk.stepped(x, y)
   -- the route's last cell of a walk to a warp: keep pressing.  Some warps
   -- (the Rocket Hideout elevator door, house exit mats) fire only while the
   -- player keeps pressing into them after stepping on; letting go here
-  -- stranded the player on the door
+  -- stranded the player on the door.  A Gen 2 carpet wants its own direction.
   local last = walk.steps[#walk.steps]
-  if walk.targetMapId and last and last.x == x and last.y == y then return end
+  if walk.targetMapId and last and last.x == x and last.y == y then
+    local press = pressDirection(x, y)
+    if press and walk.held ~= press then
+      release(walk.input, walk.held)
+      walk.held = press
+      hold(walk.input, press)
+      steered()
+    end
+    return
+  end
   -- the last cell of any other walk, or off the route: stop pressing here
   -- and let the update announce the arrival or plan again
   release(walk.input, walk.held)
   walk.held = nil
+  steered()
 end
 
 -- For scripted debugging: the active walk's plan (read-only use).

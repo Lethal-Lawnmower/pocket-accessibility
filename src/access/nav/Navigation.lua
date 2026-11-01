@@ -98,7 +98,10 @@ local function normalize(text, speakerNames)
   -- Prism backends a reliable short vocative pause without speaking SSML or
   -- changing the visual text. Keep the bound conservative so an arbitrary
   -- prose colon is not rewritten.
+  local clockTime = text:match("^[^:]*%d:%d") ~= nil
   text = text:gsub("^([^:]+):%s*", function(prefix)
+    -- v0.3.98: a clock time ("10:00 AM", Gen 2's Q) is not a speaker label
+    if clockTime then return nil end
     -- Canonical speaker tags are uppercase. Requiring that form protects
     -- semantic labels such as "Mod House:" and "Enemy health:", whose colon
     -- conveys useful navigation structure.
@@ -179,6 +182,7 @@ function Accessibility.new(game, opts)
   -- decision 22: camera keys and help are off unless the player opts in;
   -- nil (old tests) keeps the old behaviour
   self.cameraEnabled = opts.cameraEnabled
+  self.battleEvents = opts.battleEvents == true
   self:setCueVolume(cueVolume)
   self:setEnabled(opts.enabled ~= false, { silent = true })
   self:subscribeWorldEvents()
@@ -389,38 +393,34 @@ function Accessibility:subscribeWorldEvents()
         direction = event.direction, reason = event.reason,
       }
     end, -1000, self.eventOwner),
-    events:on("battle.damage_dealt", function(event)
-      if not self.enabled or type(event) ~= "table" then return end
-      local damage = math.floor(tonumber(event.damage) or 0)
-      if damage <= 0 then return end
-      -- Gen II emits a raw mon after each hit, before the engine runs the
-      -- next hit. Snapshot its HP now: retaining the mon alone would read the
-      -- final HP of a multi-hit move when the first bar drain completes.
-      local remainingHP = tonumber(event.remainingHP)
-      local maxHP = tonumber(event.maxHP)
-      if self.generation == 2 and type(event.target) == "table" then
-        local stats = type(event.target.stats) == "table"
-          and event.target.stats or nil
-        remainingHP = remainingHP or tonumber(event.target.hp)
-        maxHP = maxHP or tonumber(event.target.maxHp
-          or (stats and stats.hp))
-      end
-      self.pendingBattleDamage = self.pendingBattleDamage or {}
-      self.pendingBattleDamage[#self.pendingBattleDamage + 1] = {
-        battle = event.battle, target = event.target, damage = damage,
-        remainingHP = remainingHP, maxHP = maxHP,
-        hitSubstitute = event.hitSubstitute == true, side = event.side,
-      }
-    end, -1000, self.eventOwner),
-    events:on("battle.ball_shakes_complete", function(event)
-      if not self.enabled or type(event) ~= "table" then return end
-      self.pendingBallShakes = self.pendingBallShakes or {}
-      self.pendingBallShakes[#self.pendingBallShakes + 1] = {
-        battle = event.battle, shakes = math.max(0,
-          math.floor(tonumber(event.shakes) or 0)),
-      }
-    end, -1000, self.eventOwner),
   }
+  -- v0.3.98 adaptation: the old coordinator also queued battle.damage_dealt
+  -- and battle.ball_shakes_complete for processBattleEvents to speak.  Battle
+  -- speech is the new presenters (src/access/screens), updateNavigation never
+  -- drives processBattleEvents, and so both queues grew for the whole session
+  -- holding battle references.  They are subscribed only when a caller asks
+  -- for the old battle narration (opts.battleEvents; nothing does today).
+  if self.battleEvents ~= true then return end
+  local subscriptions = self.worldSubscriptions
+  subscriptions[#subscriptions + 1] = events:on("battle.damage_dealt", function(event)
+    if not self.enabled or type(event) ~= "table" then return end
+    local damage = math.floor(tonumber(event.damage) or 0)
+    if damage <= 0 then return end
+    self.pendingBattleDamage = self.pendingBattleDamage or {}
+    self.pendingBattleDamage[#self.pendingBattleDamage + 1] = {
+      battle = event.battle, target = event.target, damage = damage,
+      remainingHP = tonumber(event.remainingHP), maxHP = tonumber(event.maxHP),
+      hitSubstitute = event.hitSubstitute == true, side = event.side,
+    }
+  end, -1000, self.eventOwner)
+  subscriptions[#subscriptions + 1] = events:on("battle.ball_shakes_complete", function(event)
+    if not self.enabled or type(event) ~= "table" then return end
+    self.pendingBallShakes = self.pendingBallShakes or {}
+    self.pendingBallShakes[#self.pendingBallShakes + 1] = {
+      battle = event.battle, shakes = math.max(0,
+        math.floor(tonumber(event.shakes) or 0)),
+    }
+  end, -1000, self.eventOwner)
 end
 
 function Accessibility:unsubscribeWorldEvents()
@@ -1283,8 +1283,11 @@ function Accessibility:processBattleEvents(state)
   local damageQueue = self.pendingBattleDamage
   local damage = type(damageQueue) == "table" and damageQueue[1] or nil
   if damage then
+    -- v0.3.98 adaptation: the old Gen 2 subclass's processGen2BattleDamage
+    -- is battle speech and was not carried over (decision 20 covers the
+    -- navigation half only); calling it raised an error.  Drop the fact.
     if self.generation == 2 then
-      self:processGen2BattleDamage(state, damage)
+      table.remove(damageQueue, 1)
     elseif state ~= damage.battle then
       if not (state and state.isBattle) then
         table.remove(damageQueue, 1)
@@ -2171,12 +2174,25 @@ local function requirementPhrase(requirements)
     CARD_KEY = "Card Key", CUT = "Cut", SURF = "Surf", STRENGTH = "Strength",
     WHIRLPOOL = "Whirlpool", WATERFALL = "Waterfall",
   }
+  local known = {}
   for _, move in ipairs({
     "CARD_KEY", "CUT", "SURF", "STRENGTH", "WHIRLPOOL", "WATERFALL",
   }) do
+    known[move] = true
     if requirements[move] then
       ordered[#ordered + 1] = labels[move]
     end
+  end
+  -- v0.3.98: Gen 2 also names a missing badge (HIVE_BADGE -> "Hive Badge")
+  local extra = {}
+  for key, needed in pairs(requirements) do
+    if needed and not known[key] and type(key) == "string" then extra[#extra + 1] = key end
+  end
+  table.sort(extra)
+  for _, key in ipairs(extra) do
+    ordered[#ordered + 1] = (key:lower():gsub("_", " "):gsub("(%a)(%a*)", function(a, b)
+      return a:upper() .. b
+    end))
   end
   if #ordered == 0 then return "Cannot reach yet" end
   if #ordered == 1 then return "Needs " .. ordered[1] end
@@ -2902,14 +2918,9 @@ function Accessibility:selectedRouteGoals()
   end
   if item.type == "connection" then
     goals = self:connectionGoals(overworld, item)
-    local maps = self.game and self.game.data and self.game.data.maps
-    local destination = maps and maps[item.destinationMapId]
-    local destinationName = self.worldSnapshot.locationName(
-      destination or { id = item.destinationMapId }, item.destinationMapId,
-      nil, self.game.save and self.game.save.player
-           and self.game.save.player.name, nil,
-      self.game.save and self.game.save.version,
-      self.game.save and self.game.save.player and self.game.save.player.rival)
+    -- v0.3.98: named by regionalDestinationName (the same Gen 1 call as
+    -- before), so a generation's own map registry and names apply
+    local destinationName = self:regionalDestinationName(item.destinationMapId)
     connectionInstruction = "Continue " .. tostring(item.direction)
       .. " to " .. destinationName
   elseif item.type == "warp" and type(item.navigationCells) == "table" then
