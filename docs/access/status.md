@@ -52,8 +52,12 @@ and recorded in the topic file.
   game through a runtime wrapper on `PlatformHooks.update`),
   `screens/gen3/Top.lua` (what is on screen, one proxy per opening),
   dialogue page by page and yes/no; verified in a FireRed run.
-- **In progress:** five agents on separate branches: menus and boot, bag
-  and party and PC, special screens, battle, navigation.
+- **Merged (2026-11-01):** menus and boot, bag/party/summary/Pokédex/PC/
+  shop/map, special screens, battle (every shown line spoken at 1X and
+  200X). All unit suites pass; each branch traced in FireRed. Not heard.
+- **In progress:** navigation (agent branch, worktree
+  `.claude/worktrees/agent-a2b6f7774f734aedd`); merge it, then a full
+  FireRed walkthrough, then hand to the owner.
 - **LeafGreen:** deferred by the owner (decision 30); no clean dump on this
   PC yet. FireRed's whole UI first, with Pokémon Access as a behaviour
   reference.
