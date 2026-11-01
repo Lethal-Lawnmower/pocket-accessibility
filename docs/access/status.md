@@ -60,7 +60,8 @@ and recorded in the topic file.
   Strength hints, traced in FireRed; Gen 1 and Gen 2 regressions clean.
   Gaps (journeys, item balls blocking routes, renaming) in
   `firered-leafgreen-navigation.md`.
-- **Next:** a full FireRed walkthrough, then the owner listens.
+- **Next:** the owner listens (FireRed). The end-to-end walkthrough after
+  all merges speaks the intro, title, start menu, bag and dialogue.
 - **LeafGreen:** deferred by the owner (decision 30); no clean dump on this
   PC yet. FireRed's whole UI first, with Pokémon Access as a behaviour
   reference.
