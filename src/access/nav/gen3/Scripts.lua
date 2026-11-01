@@ -127,6 +127,16 @@ function Scripts.signRole(key)
   return nil
 end
 
+-- The flag a card key door's script checks before it unlocks: the second
+-- flag it checks (the first is the door's own "already open" flag).  In
+-- FireRed that is the Card Key ball's pickup flag, not the bag, so a key
+-- in the bag from anywhere else does not open the door.
+function Scripts.cardKeyFlag(key)
+  local role, kind = Scripts.signRole(key)
+  if kind ~= "card_key_door" then return nil end
+  return Scripts.reach(key).flagsChecked[2]
+end
+
 -- The item an item ball holds (numeric FireRed item id), or nil.
 function Scripts.itemBallItem(key)
   local list = Scripts.get(key)

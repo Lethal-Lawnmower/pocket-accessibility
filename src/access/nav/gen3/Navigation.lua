@@ -256,7 +256,24 @@ local function bagHas(bag, itemId)
 end
 Navigation.bagHas = bagHas
 
+-- The door scripts on this map decide: they check a flag (the Card Key
+-- ball's pickup flag in FireRed), read here from the script store; with no
+-- door on the map, the bag answers.
 function Navigation:hasCardKey()
+  local world = self:worldState()
+  local map = world and world.map
+  local flag
+  for _, event in ipairs(map and map.def and map.def.bgEvents or {}) do
+    flag = event.type == "sign" and Scripts.cardKeyFlag(event.scriptKey) or nil
+    if flag then break end
+  end
+  if flag then
+    local Space = loaded("src.core.game3.scripting.space")
+    local Flags = loaded("src.core.game3.scripting.flags")
+    if Space and Space.store and Flags and Flags.getFlag then
+      return call(Flags.getFlag, Space.store, nil, flag) == true
+    end
+  end
   local session = self:session()
   return bagHas(session and session.bag, CARD_KEY)
 end

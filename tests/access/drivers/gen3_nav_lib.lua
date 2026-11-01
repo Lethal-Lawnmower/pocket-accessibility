@@ -64,7 +64,13 @@ function L.new(game)
     inBattle = active
     if active then
       self.heal()
-      self.tap("a", 6)
+      -- upstream's own auto-fight switch (the battle's autoFight option)
+      -- chooses the moves; A pages the text and every third press is B,
+      -- which backs out of "Will you change POKéMON?" and the party screen
+      local Battle = package.loaded["src.core.game3.battle.init"] or package.loaded["src.core.game3.battle"]
+      if Battle and Battle._active then Battle._auto = true end
+      self.battleTaps = (self.battleTaps or 0) + 1
+      self.tap(self.battleTaps % 3 == 0 and "b" or "a", 6)
       return true
     end
     return false
