@@ -7,8 +7,8 @@ local InfoScreens = {}
 
 local function matcher(path)
   return function(state)
-    local ok, mod = pcall(require, path)
-    return ok and getmetatable(state) == mod
+    local mod = package.loaded[path]
+    return mod ~= nil and getmetatable(state) == mod
   end
 end
 

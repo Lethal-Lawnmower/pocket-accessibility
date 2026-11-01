@@ -133,3 +133,11 @@ by mods should speak without changes to this layer. Implemented by reading
 upstream's shared UI classes (which mods receive through `mod.ui`) and an
 opt-in `accessibilityText` method any screen can provide. Details:
 `menus-and-text.md`.
+
+## 18. Autonomy for Gen 1 screen coverage (2026-10-31)
+
+The owner asked for every Gen 1 screen and all game UI to be covered,
+battle included, without checking back after each screen that works.
+Agents continue through the screens, verify, document and commit locally.
+Still requires the owner: publishing, contacting anyone, product decisions,
+and listening tests.

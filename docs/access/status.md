@@ -1,9 +1,9 @@
 # Status
 
-**Current focus (2026-10-31):** Gen 1 menus, text and information screens
-speak (battle excluded). Verified by unit tests and scripted game runs;
-waiting on the owner to hear speech. Next: battle, or the leftover minor
-screens.
+**Current focus (2026-10-31):** covering every Gen 1 screen (decision 18).
+Menus, text, information screens and battle speak, verified by unit tests
+and scripted game runs. Now: the remaining minor screens. Waiting on the
+owner to hear speech.
 
 Each workstream section is edited only by the session working on it. Keep each
 one short: state, next steps, blockers. Remove a section when its work is done
@@ -35,10 +35,12 @@ and recorded in the topic file.
   files. Unit tests 23/23 and 34/34; mod screens can opt in with `accessibilityText`. Two scripted game runs (disposable
   identity `pocket-access-test`) traced the expected speech. Details and
   gaps: `menus-and-text.md`.
-- **Next:** battle (own workstream). Minor screens left: Hall of Fame,
-  diploma, credits, League PC, prize counter, slot machine, surfing
-  minigame, Pokédex nests. Not yet run in game: quantity, move pickers,
-  Pokédex, town map.
+- **Battle:** done for wild battles (`battle.md`): messages, menu with both
+  sides' HP, move list, Safari, Mimic. Unit 14/14; scripted wild battle traced.
+- **Next:** minor screens: Hall of Fame, diploma, credits, League PC, prize
+  counter, slot machine, surfing minigame, evolution, trade, Pokédex nests.
+  Not yet run in game: quantity, move pickers, Pokédex, town map, PC, shop,
+  bag, trainer battles.
 - **Needs the owner:** listen to a new game from source and judge wording,
   verbosity and pronunciation.
 

@@ -11,14 +11,15 @@
 -- every cursor move.  Keep poll cheap: compare numbers and existing strings,
 -- build text only on a change.
 --
--- Upstream classes are required lazily so a presenter never forces a UI
--- module to load before the game would.
+-- Upstream classes are looked up in package.loaded, so a presenter never
+-- forces a UI module to load before the game would.
 
 local Presenters = {}
 
+-- An instance can only exist once its class module has loaded, so look in
+-- package.loaded instead of requiring: speech never loads UI code early.
 local function class(path)
-  local ok, mod = pcall(require, path)
-  return ok and mod or nil
+  return package.loaded[path]
 end
 
 local function matcher(path)
@@ -350,6 +351,7 @@ Presenters.ordered = {
 for _, presenter in ipairs(require("src.access.screens.InfoScreens").ordered) do
   Presenters.ordered[#Presenters.ordered + 1] = presenter
 end
+Presenters.ordered[#Presenters.ordered + 1] = require("src.access.screens.Battle").presenter
 
 function Presenters.find(state)
   if type(state) ~= "table" then return nil end
