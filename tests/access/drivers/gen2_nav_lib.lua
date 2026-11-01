@@ -180,6 +180,99 @@ function L.new(game)
     return self.heard()
   end
 
+  -- Solve a stone-table floor (Ice Path B1F, Blackthorn Gym 2F) only by
+  -- following the Strength hints, the way a player would: select the boulder
+  -- whose entry carries the next push, auto-walk to the pushing position it
+  -- names, switch Strength on by talking to a boulder (the game's own offer),
+  -- push once in the hinted direction, and repeat until every hole is
+  -- filled.  `floor` = { id, x, y }; `onFrame` runs during each walk (a
+  -- caller's healing).  Returns pushes, holes left (nil when unreadable).
+  function self.solveStoneFloor(floor, onFrame)
+    local function boulderAt(id)
+      for _, npc in ipairs(game.world.npcs or {}) do
+        if npc.id == id then return npc end
+      end
+      return nil
+    end
+    -- holes not yet filled; nil when the object list cannot be read (a
+    -- battle or text still up), which must never count as solved
+    local function holesLeft()
+      self.settle(3000, true)
+      local items = self.browse("all")
+      if #items == 0 then return nil end
+      local n = 0
+      for _, item in ipairs(items) do
+        if tostring(item.label):match("^Hole %d") and not tostring(item.stateText):match("^filled") then
+          n = n + 1
+        end
+      end
+      return n
+    end
+    -- one push: hold the direction until the boulder leaves its cell
+    local function push(npc, dir)
+      local fromX, fromY = npc.cellX, npc.cellY
+      for _ = 1, 90 do
+        game.input.pressQueue[#game.input.pressQueue + 1] = dir
+        game.input.state[dir] = true
+        U.wait(1)
+        if npc.cellX ~= fromX or npc.cellY ~= fromY or npc.moving then break end
+      end
+      game.input.state[dir] = false
+      for _ = 1, 60 do if not npc.moving then break end U.wait(1) end
+      U.wait(4)
+      return npc.cellX ~= fromX or npc.cellY ~= fromY
+    end
+
+    self.teleport(floor.id, floor.x, floor.y, "up")
+    self.settle(300, true)
+    U.log("RESULT", floor.id, "arrived", self.where(), "=>", self.heard())
+    self.logBrowse("all")
+    local pushes, strengthOn = 0, false
+    for round = 1, 60 do
+      if holesLeft() == 0 then break end
+      -- the first boulder with a planned push, as its object entry says
+      local target
+      for _, item in ipairs(self.browse("objects")) do
+        if tostring(item.label):match("^Boulder") and tostring(item.stateText):find("next push", 1, true) then
+          target = item
+          break
+        end
+      end
+      if not target then
+        U.log("RESULT", floor.id, "no planned push left; holes left", holesLeft())
+        self.logBrowse("objects")
+        break
+      end
+      local id = target.id
+      local walk = self.walkTo(target, { filter = "objects", answer = "a", limit = 12000, onFrame = onFrame })
+      local npc = boulderAt(id)
+      local dir = target.requiredFacing
+      U.log("RESULT", floor.id, "round " .. round, target.description, "=>", walk, "at", self.where())
+      if not npc or not dir then U.log("FAIL", "boulder or push direction missing") break end
+      if not strengthOn and not game.world.strengthActive then
+        -- the game's own offer: talk to the boulder, answer YES
+        self.tap("a", 20)
+        for _ = 1, 20 do
+          if self.free() then break end
+          self.tap("a", 15)
+        end
+        self.settle(300, true)
+        strengthOn = game.world.strengthActive == true
+        U.log("RESULT", floor.id, "Strength on =>", self.heard(), tostring(strengthOn))
+      end
+      local moved = push(npc, dir)
+      pushes = pushes + 1
+      self.settle(400, true)
+      U.log("RESULT", floor.id, "pushed " .. dir, moved and "moved" or "did not move",
+        "boulder now", npc.cellX .. "," .. npc.cellY, "visible", tostring(boulderAt(id) ~= nil),
+        "=>", self.heard())
+    end
+    local left = holesLeft()
+    U.log("RESULT", floor.id, "pushes", pushes, "holes left", left)
+    self.logBrowse("all")
+    return pushes, left
+  end
+
   return self
 end
 
