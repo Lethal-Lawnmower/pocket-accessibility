@@ -1,9 +1,9 @@
 # Status
 
-**Current focus (2026-11-01):** Gold, Silver and Crystal (decision 27) have
-the same treatment Red, Blue and Yellow got, waiting for the owner to
-listen. Gen 1 is done apart from Yellow's surfing minigame, which the owner
-is picking up.
+**Current focus (2026-11-01):** FireRed and LeafGreen (decision 29). Gen 1
+and Gen 2 are built; the owner playtests them during the week (Crystal to
+the first gym: "It works perfectly"). Yellow's surfing minigame is the
+owner's.
 
 Each workstream section is edited only by the session working on it. Keep each
 one short: state, next steps, blockers. Remove a section when its work is done
@@ -41,6 +41,22 @@ and recorded in the topic file.
 - **Next:** surfing minigame (design in `yellow.md`, deferred by the owner);
   network flows with a second player; talking to Pikachu in a game run; the
   owner's judgement on wording and verbosity from playing.
+
+## FireRed and LeafGreen
+
+- **State (2026-11-01):** started. Upstream runs Gen 3 through
+  `src/core/Game3.lua` with no StateStack: menus are layers on
+  `src/ui/game3/stack.lua` (singleton modules), dialogue is
+  `src/ui/game3/message.lua`, yes/no `choice.lua`, battle a module. Baseline
+  FireRed run: nothing spoken. Built: `src/access/CurrentGame.lua` (the live
+  game through a runtime wrapper on `PlatformHooks.update`),
+  `screens/gen3/Top.lua` (what is on screen, one proxy per opening),
+  dialogue page by page and yes/no; verified in a FireRed run.
+- **In progress:** five agents on separate branches: menus and boot, bag
+  and party and PC, special screens, battle, navigation.
+- **Blocker:** no clean LeafGreen dump on this PC (a clean FireRed 1.0 was
+  found in the owner's Downloads). LeafGreen is checked from source until
+  the owner supplies one.
 
 ## Launcher
 
