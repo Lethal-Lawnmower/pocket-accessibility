@@ -46,6 +46,13 @@ third-generation GBA games.
 > navigation works (object list, guided routes, auto-walk, keyboard and
 > controller). There is no packaged release yet; run it from source.
 
+> [!IMPORTANT]
+> **Gold, Silver and Crystal: initial groundwork.** Screens, battles,
+> navigation, auto-walk and puzzle help for the Ice Path and Blackthorn Gym
+> boulders are in place and pass automated tests and scripted runs in all
+> three games, but no player has tested them yet. Live user testing will be
+> done eventually; expect rough edges until then.
+
 **Based on the Pokemon Gen 1 Recompilation Project by BOIS CLUB GAMES, LLC
 (https://github.com/bryanthaboi/gen1recomp).** This is an unofficial fork and
 is not affiliated with or endorsed by that project. Pokémon Access features
@@ -56,8 +63,9 @@ are recreated, not copied; no code or data from those scripts is included.
 1. Install [LÖVE 11.5](https://love2d.org/).
 2. Download a [Prism](https://github.com/ethindp/prism/releases) Windows x64
    release and copy `prism.dll` into `local-deps/prism/` in this folder.
-3. Start the game with your Red, Blue or Yellow ROM imported (see the upstream
-   instructions below), choosing the game with `POKEPORT_GAME`, for example in
+3. Start the game with your ROM imported (see the upstream instructions
+   below), choosing the game with `POKEPORT_GAME` (`red`, `blue`, `yellow`,
+   `gold`, `silver` or `crystal`), for example in
    PowerShell: `$env:POKEPORT_GAME = 'red'; & 'C:\Program Files\LOVE\love.exe' .`
 
 You supply your own ROM. No game data is included.

@@ -70,7 +70,9 @@ and recorded in the topic file.
   368 each in Gold and Silver: no hard errors; misleading labels fixed),
   required story spots walked in each edition with no layer blocks, edition
   differences all game data. Details: `gold-silver-crystal-navigation.md`.
-- **Next:** the owner listens, Crystal first. Nothing is pushed.
+- **Published (2026-11-01)** to the public fork as initial groundwork
+  (decision 28); the README labels it untested by players.
+- **Next:** live user testing, Crystal first, when the owner chooses.
 - **Open product questions:** listed in `gold-silver-crystal.md`.
 
 ## Open questions for the owner

@@ -238,3 +238,12 @@ checking back after each working screen, verify, document and commit
 locally. The owner also authorized subagents to split the work ("use sub
 agents to spread out if you need to"). Still requires the owner: pushing,
 publishing, contacting anyone, product decisions and listening tests.
+
+## 28. Publish Gen 2 as initial groundwork (2026-11-01)
+
+The owner approved pushing the Gold, Silver and Crystal work to the public
+fork, labelled as initial groundwork: "push it for now with the label of
+this is just initial groundwork. Live user testing will be done
+eventually." The README says so. This approval covers that push only;
+later pushes still need the owner's go-ahead, and it is not acceptance of
+the Gen 2 speech, which nobody has heard yet.
