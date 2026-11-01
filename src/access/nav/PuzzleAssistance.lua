@@ -203,7 +203,9 @@ PuzzleAssistance.RULES = {
 
 function PuzzleAssistance.describe(game, overworld, rules)
   rules = rules or PuzzleAssistance.RULES
-  local result = { objects = {}, objectOverrides = {} }
+  -- targetStates (v0.3.98 addition): every target's state, holes included,
+  -- so a generation whose targets are warps (Gen 2 pits) can show it there
+  local result = { objects = {}, objectOverrides = {}, targetStates = {} }
   if not PuzzleAssistance.enabled(game) or type(overworld) ~= "table"
      or type(overworld.map) ~= "table" then return result end
   local mapId = overworld.map.id or (overworld.map.def and overworld.map.def.id)
@@ -235,7 +237,10 @@ function PuzzleAssistance.describe(game, overworld, rules)
         break
       end
     end
-    local solved = flags[target.flag] == true or occupied ~= nil
+    -- target.solved (v0.3.98 addition): a generation may know a target is
+    -- done without a flag in save.flags (a Gen 2 boulder that fell through)
+    local solved = target.solved == true or flags[target.flag] == true
+      or occupied ~= nil
     local best, bestPlan
     if not solved then
       for _, candidate in ipairs(boulders) do
@@ -275,6 +280,15 @@ function PuzzleAssistance.describe(game, overworld, rules)
     else
       state = "not pressed; no safe boulder route from current positions"
     end
+    if target.hole then
+      -- a hole is "filled", never "pressed"
+      state = state:gsub("^pressed by", "filled by"):gsub("^pressed$", "filled")
+        :gsub("^not pressed", "empty")
+    end
+    result.targetStates[#result.targetStates + 1] = {
+      x = target.x, y = target.y, label = target.label, state = state,
+      hole = target.hole == true,
+    }
     if not target.hole then
       result.objects[#result.objects + 1] = {
         id = "victory_road_switch:" .. mapId .. ":" .. tostring(index),

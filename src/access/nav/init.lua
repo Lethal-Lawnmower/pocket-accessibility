@@ -1,21 +1,24 @@
--- Wires the reused navigation coordinator (Navigation.lua) and the
--- Pokemon Access command keys (CommandRouter.lua) into the running game,
--- replacing what the old fork did by editing src/core/Game.lua.
+-- Wires the reused navigation coordinator (Navigation.lua, gen2/Navigation.lua)
+-- and the Pokemon Access command keys (CommandRouter.lua) into the running
+-- game, replacing what the old fork did by editing src/core/Game.lua and
+-- src/core/Game2.lua.
 --
--- Gen 1 only: the coordinator is created once a Gen 1 game is loaded
--- (src/core/Game.lua is the game object and module at once) and re-created
--- when a different save or mod event bus appears.  Keys reach the router
--- before upstream's love.keypressed; a key the router consumes never
--- reaches the game.
+-- Red, Blue and Yellow (Gen 1) and Gold, Silver and Crystal (Gen 2): the
+-- running generation's world adapter (WorldAdapter.lua) finds the game and
+-- answers "is the player on the map".  The coordinator is created once a game
+-- with a world is up and re-created when a different game, save or mod event
+-- bus appears.  Keys reach the router before upstream's love.keypressed; a
+-- key the router consumes never reaches the game.
 
 local Speech = require("src.access.Speech")
 local AutoWalk = require("src.access.nav.AutoWalk")
 local WalkSpeed = require("src.access.nav.WalkSpeed")
+local WorldAdapter = require("src.access.nav.WorldAdapter")
 
 local Nav = {}
 
 local coordinator, router = nil, nil
-local boundSave, boundEvents = nil, nil
+local boundGame, boundSave, boundEvents, boundAdapter = nil, nil, nil, nil
 
 -- The old coordinator speaks through an object with isAvailable / output /
 -- stop; this adapter hands that to the Prism speech module.
@@ -27,16 +30,13 @@ local speechAdapter = {
   stop = function() return Speech.stop() end,
 }
 
-local function gen1Game()
-  local Game = package.loaded["src.core.Game"]
-  if type(Game) ~= "table" or type(Game.save) ~= "table" or type(Game.data) ~= "table" then
-    return nil
-  end
-  local GameVersion = package.loaded["src.core.GameVersion"]
-  if GameVersion and GameVersion.generation and GameVersion.generation() ~= 1 then
-    return nil
-  end
-  return Game
+-- The running generation's adapter and game, or nil.
+local function current()
+  local adapter = WorldAdapter.current()
+  if not adapter then return nil end
+  local game = adapter.game()
+  if not game then return nil end
+  return adapter, game
 end
 
 local function modifierState()
@@ -52,13 +52,12 @@ local function modifierState()
   }
 end
 
-local function build(game)
-  local Navigation = require("src.access.nav.Navigation")
+local function build(game, adapter)
   local CommandRouter = require("src.access.nav.CommandRouter")
   local Runtime = package.loaded["src.mods.Runtime"]
   -- decision 22: the camera ("sonar") is off unless the player opts in
   local cameraEnabled = game.save.options and game.save.options.accessibilityCamera == true
-  coordinator = Navigation.new(game, {
+  coordinator = adapter.newCoordinator(game, {
     speech = speechAdapter,
     cameraEnabled = cameraEnabled,
     events = Runtime and Runtime.events,
@@ -68,10 +67,15 @@ local function build(game)
     modifierState = modifierState,
     cameraEnabled = cameraEnabled,
     rawKeyOwner = function(state)
-      return state ~= nil and (type(state.onKeyPressed) == "function"
+      return type(state) == "table" and (type(state.onKeyPressed) == "function"
         or state.accessibilityOwnsRawKeys == true)
     end,
-    navigationAllowed = function(state)
+    navigationAllowed = function(state, actionId)
+      if adapter.generation == 2 then
+        -- Gold's map is not a stack state: an empty stack with the world free
+        -- is the map; Shift+E also works on the Unown puzzle screen
+        return coordinator:commandAllowed(actionId)
+      end
       -- Gen 1's map is its own top stack state; a menu, battle or dialogue
       -- above it keeps the keys.
       return state ~= nil and state.isOverworld == true
@@ -94,45 +98,45 @@ local function build(game)
 end
 
 -- Creates or re-creates the coordinator when the game, save or mod event
--- bus changes.  Cheap when nothing changed: two comparisons.
+-- bus changes.  Cheap when nothing changed: a few comparisons.
 local function ensure()
-  local game = gen1Game()
+  local adapter, game = current()
   if not game then return nil end
   local Runtime = package.loaded["src.mods.Runtime"]
   local events = Runtime and Runtime.events
-  if coordinator and boundSave == game.save and boundEvents == events then
-    return coordinator
+  if coordinator and boundGame == game and boundSave == game.save
+     and boundEvents == events and boundAdapter == adapter then
+    return coordinator, adapter, game
   end
   if coordinator then pcall(coordinator.shutdown, coordinator) end
-  local ok, err = pcall(build, game)
+  AutoWalk.stop()
+  local ok, err = pcall(build, game, adapter)
   if not ok then
     require("src.core.Logger").error("[access] navigation unavailable: %s", tostring(err))
     coordinator, router = nil, nil
   end
-  boundSave, boundEvents = game.save, events
-  return coordinator
+  boundGame, boundSave, boundEvents, boundAdapter = game, game.save, events, adapter
+  return coordinator, adapter, game
 end
 
 function Nav.update()
-  local nav = ensure()
+  local nav, adapter, game = ensure()
   if not nav then return end
   nav:updateNavigation()
-  local game = gen1Game()
-  AutoWalk.update(game and game.stack and game.stack:top() or nil)
+  AutoWalk.update(adapter.top(game))
   WalkSpeed.update(game, AutoWalk.walking())
 end
 
 -- Returns true when the key was an accessibility command (consumed).
 function Nav.keypressed(key, _, isRepeat)
-  if not ensure() or not router then return false end
+  local nav, adapter, game = ensure()
+  if not nav or not router then return false end
   -- any key stops auto-walk while it walks (not while paused for a battle)
   if AutoWalk.walking() then
     AutoWalk.stop("Auto walk stopped")
     return true
   end
-  local game = gen1Game()
-  local top = game and game.stack and game.stack:top() or nil
-  local ok, consumed = pcall(router.keypressed, router, key, top, isRepeat)
+  local ok, consumed = pcall(router.keypressed, router, key, adapter.top(game), isRepeat)
   return ok and consumed == true
 end
 
@@ -158,32 +162,27 @@ local DPAD_ACTIONS = {
   dpleft = "previous_map_item", dpright = "next_map_item",
 }
 
-local function onMap(game)
-  return game and game.stack and game.overworld ~= nil
-    and game.stack:top() == game.overworld
-end
-
 -- Returns true when the axis event is ours (consumed).
 function Nav.gamepadaxis(_, axis, value)
   if axis ~= "triggerleft" then return false end
   if value >= TRIGGER_ON then modifierHeld = true
   elseif value <= TRIGGER_OFF then modifierHeld = false end
-  local game = gen1Game()
-  return ensure() ~= nil and onMap(game)
+  local nav, adapter, game = ensure()
+  return nav ~= nil and adapter.onMap(game)
 end
 
 -- Returns true when the button press is ours (consumed).
 function Nav.gamepadpressed(_, button)
-  if not ensure() then return false end
-  local game = gen1Game()
+  local nav, adapter, game = ensure()
+  if not nav then return false end
   if AutoWalk.walking() and button ~= "leftstick" then
     AutoWalk.stop("Auto walk stopped")
     consumedButtons[button] = true
     return true
   end
-  if not onMap(game) then return false end
+  if not adapter.onMap(game) then return false end
   if button == "leftstick" then
-    AutoWalk.start(coordinator, game)
+    AutoWalk.start(coordinator, game, adapter)
   elseif button == "rightstick" then
     coordinator:handleCommand("describe_route_to_selected_item")
   elseif modifierHeld and DPAD_ACTIONS[button] then
@@ -207,8 +206,12 @@ end
 
 function Nav.coordinator() return coordinator end
 
+-- For scripted drivers: the adapter and game the layer is bound to.
+function Nav.bound() return boundAdapter, boundGame end
+
 function Nav._resetForTests()
-  coordinator, router, boundSave, boundEvents = nil, nil, nil, nil
+  coordinator, router = nil, nil
+  boundGame, boundSave, boundEvents, boundAdapter = nil, nil, nil, nil
 end
 
 return Nav
