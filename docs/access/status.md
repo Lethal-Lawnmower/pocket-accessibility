@@ -51,32 +51,25 @@ and recorded in the topic file.
 
 ## Gold, Silver and Crystal
 
-- **State (2026-11-01):** started. Upstream v0.3.98 already runs all three
-  (`src/core/Game2.lua`, screens in `src/ui/gen2/`, world in
-  `src/world/gen2/`) on Gen 1's StateStack, so ScreenReader sees their
-  screens with no new hook. Baseline game run (Crystal and Gold, new game to
-  a wild battle): only TextBox dialogue spoke; every Gen 2 screen and the
-  battle were silent; navigation is gated off for Gen 2 (`nav/init.lua`).
-  Done so far: split words rejoined in dialogue (all games), the
-  ACCESSIBILITY page in Gen 2's OPTION screen, a presenter registry
-  (`src/access/screens/gen2/`) with shared helpers, a walkthrough driver.
-  The three games are imported into disposable identities
-  (`pocket-access-gold`, `-silver`, `-crystal`).
-- **In progress:** six agents on separate branches (decision 27 allows
-  subagents): menus, items and PCs, info screens (party, summary, Pokédex,
-  Pokégear), special screens and minigames, battle, and navigation (one
-  adapter for both generations; Strength puzzle help for Ice Path B1F and
-  Blackthorn Gym 2F). Each branch is reviewed and merged by the lead.
-- **Then:** integrate, run Crystal, Gold and Silver end to end, audit the
-  differences between the three, document, and hand to the owner to listen.
-- **Open product questions (agent defaults until the owner decides):**
-  Unown puzzle without solving hints; Card Flip describes only what a
-  sighted player sees; Unown wall words said, then spelled; headbutt trees
-  listed as objects.
+- **State (2026-11-01):** every Gen 2 screen family and the battle have
+  presenters (`src/access/screens/gen2/`: Menus, Items, Info, Special,
+  Battle), merged from five agent branches, with unit suites (86 to 135
+  checks each) and scripted runs in Crystal, Gold and Silver. Shared fixes
+  made while merging: split words rejoined (real compounds keep the hyphen),
+  `#` spoken as POKé, a re-shown yes/no question said once, a screen changed
+  and covered in the same frame says its change first. The full Crystal
+  walkthrough (boot to a won wild battle) speaks every screen. Details:
+  `gold-silver-crystal.md`, `battle.md`.
+- **In progress:** navigation for Gen 2 (agent branch; one world adapter for
+  both generations, auto-walk, Strength puzzle help).
+- **Then:** merge navigation, wire H and Shift+H to Gen 2 battle health,
+  run all three games end to end, audit the differences between Gold,
+  Silver and Crystal, and hand to the owner to listen.
+- **Open product questions:** listed in `gold-silver-crystal.md`.
 
 ## Open questions for the owner
 
-- See the Gen 2 product questions above.
+- Gen 2 product and wording questions: `gold-silver-crystal.md`.
 
 ## Navigation
 
