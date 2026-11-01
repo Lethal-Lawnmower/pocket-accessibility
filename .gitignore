@@ -132,3 +132,18 @@ src/import/gba/chrome/*.pal
 src/import/gba/chrome/*.rgba
 /os
 /re
+
+# --- Pocket Accessibility additions (keep this block at the end) ---
+# Never commit private inputs: ROM dumps, saves, the bring-your-own
+# Pokemon Access sound pack, or locally downloaded Prism binaries.
+*.gb.zip
+*.gbc.zip
+/roms/
+/local-deps/
+/pokemon-access-sounds/
+prism.dll
+libprism.so
+libprism.dylib
+# Windows launcher build output
+/launcher/**/bin/
+/launcher/**/obj/
