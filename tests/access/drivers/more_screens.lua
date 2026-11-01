@@ -56,6 +56,16 @@ return function(game)
     backOut()
   end
 
+  if open("TownMap", { nestSpecies = "PIDGEY" }) then backOut() end
+
+  if open("OptionsMenu") then
+    press("a", 30)        -- first group page
+    press("down")
+    press("right")        -- change that setting
+    press("left")         -- and back
+    backOut()
+  end
+
   U.teleport(game, "PEWTER_MART", 2, 5, "left")
   U.wait(20)
   for _ = 1, 20 do

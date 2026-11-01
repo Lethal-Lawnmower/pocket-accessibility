@@ -51,6 +51,7 @@ Rules for presenters:
 | Pokédex entry (`DexEntryMenu`) | Name, kind, number, height and weight, first page | Next page |
 | Options (`OptionsMenu`) | Row label, value, position (BACK is the last row) | Value only, or label and value on a new row |
 | Town map and fly (`TownMap`) | "Town map" or "Fly", location, "you are here" | Location |
+| Pokédex AREA (`TownMap` with a nest species) | "<name>'s NEST" and every nest location, sorted naturally (ROUTE 2 before ROUTE 12), or AREA UNKNOWN | (once) |
 | Title and intros (`TitleState`, `IntroMovie`, `YellowIntro`) | "Title screen. Press start." or "Intro. Press start to skip." | (once) |
 | League PC (`LeaguePC`) | Hall of Fame team number, member, level | Member |
 | Prize counter (`PrizeCounter`) | Coins, prize and cost (last row NO THANKS) | Prize and cost |
@@ -103,20 +104,17 @@ changes to this layer.
 ## Not covered yet
 
 - Yellow's surfing minigame (needs a design for a timing game).
-- Pokédex AREA nests on the town map.
-- Not yet run in game: title, minor screens (League PC, prizes, slots, Hall
-  of Fame, diploma, credits), `MoveSelectMenu`.
+- Not yet run in game: minor screens (League PC, prizes, slots, Hall of
+  Fame, diploma, credits), `MoveSelectMenu`, evolution and trade text.
 - Gen 2 and 3 screens.
-- Options pages are grouped upstream (for example "SPEED, 4 OPTIONS"); the
-  values inside a group were not yet checked in a game run.
 - Wording and pronunciation (for example "POKéMON") need the owner's playtest.
 
 ## Verification (2026-10-31)
 
 | Level | Result |
 |---|---|
-| Unit tests | `screen_reader_test.lua` 23/23; `game_screens_test.lua` 35/35 (self-describing screens, quantity, naming, party and sub-menu, TM able, summary pages, move learn, trainer card, Pokédex list, unseen rows and entry, options, town map); `minor_screens_test.lua` 13/13. |
-| Scripted game runs | Disposable identity `pocket-access-test`, `POKEPORT_ACCESS_TRACE=1`, real Prism (NVDA). `drivers/menus_and_text.lua`: title menu, Oak's speech, name menus, start menu. `drivers/gen1_screens.lua`: naming keyboard, party and sub-menu, summary pages, options entry, trainer card. `drivers/more_screens.lua`: bag, toss quantity, Pokédex list and a two-page entry, town map, a mart's buy list, priced quantity, price prompt with YES/NO. `drivers/pc_and_moves.lua`: Bill's PC and deposit list, player's PC and withdraw list, the whole forget-a-move flow including the abandon prompt. |
+| Unit tests | `screen_reader_test.lua` 23/23; `game_screens_test.lua` 37/37 (self-describing screens, nest areas, quantity, naming, party and sub-menu, TM able, summary pages, move learn, trainer card, Pokédex list, unseen rows and entry, options, town map); `minor_screens_test.lua` 13/13. |
+| Scripted game runs | Disposable identity `pocket-access-test`, `POKEPORT_ACCESS_TRACE=1`, real Prism (NVDA). `drivers/menus_and_text.lua`: title menu, Oak's speech, name menus, start menu. `drivers/gen1_screens.lua`: naming keyboard, party and sub-menu, summary pages, options entry, trainer card. `drivers/more_screens.lua`: bag, toss quantity, Pokédex list and a two-page entry, town map, a mart's buy list, priced quantity, price prompt with YES/NO, Pokédex nest areas, an options group page with a value change. Title and intro lines appear at every scripted start. `drivers/pc_and_moves.lua`: Bill's PC and deposit list, player's PC and withdraw list, the whole forget-a-move flow including the abandon prompt. |
 | Heard by the owner | Not yet. |
 
 ## Testing note

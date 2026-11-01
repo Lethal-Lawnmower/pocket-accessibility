@@ -23,8 +23,7 @@ is skipped (`state.demo`).
 
 ## Not covered yet
 
-- Shift and switch prompts, link battles, trainer intro text beyond what
-  appears as battle messages: not yet checked in a game run.
+- Shift and switch prompts and link battles: not yet checked in a game run.
 - On-demand status keys (for example "read enemy HP" from Pokémon Access) belong
   to the commands workstream.
 
@@ -34,4 +33,5 @@ is skipped (`state.demo`).
 |---|---|
 | Unit tests | `luajit tests/access/battle_speech_test.lua`: 14/14 (messages queue, menu with both sides, labels, move list, disabled slot, Safari, Mimic). |
 | Scripted game run | `tests/access/drivers/battle.lua`, disposable identity, real Prism (NVDA): wild PIDGEY on Route 1. The trace shows "Wild PIDGEY appeared!", "Go! SQUIRTLE!", the menu with HP for both sides each turn, every command, the move list with type and PP, misses, the enemy's moves, "Enemy PIDGEY fainted!" and the experience line. |
+| Scripted trainer battle | `tests/access/drivers/trainer_battle.lua`: Youngster with RATTATA and EKANS. Trace: "YOUNGSTER wants to fight!", each send-out, HP for both sides each turn, a critical hit, stat drop, both faints, experience, "defeated YOUNGSTER!" and the prize money. |
 | Heard by the owner | Not yet. |

@@ -258,9 +258,37 @@ InfoScreens.options = {
 
 -- Town map and fly destination list (src/ui/TownMap.lua): the selected
 -- location's banner text, which already says "To ..." when flying.
+-- Pokedex AREA (TownMap with nestSpecies): "<name>'s NEST" and every nest
+-- location, or AREA UNKNOWN, as TownMap:draw shows them.  state.nests has
+-- no fixed order (encounter-table iteration) and the map's own order is
+-- geographic, which reads as a jumble, so names are sorted naturally:
+-- ROUTE 2 before ROUTE 12.
+local function naturalLess(a, b)
+  local pa, na = a:match("^(.-)%s*(%d+)$")
+  local pb, nb = b:match("^(.-)%s*(%d+)$")
+  if pa and pb and pa == pb then return tonumber(na) < tonumber(nb) end
+  return (pa or a) < (pb or b) or ((pa or a) == (pb or b) and a < b)
+end
+InfoScreens.naturalLess = naturalLess
+
+local function nestText(state)
+  local def = speciesDef(state.game, state.nestSpecies)
+  local title = speakable(def.name or state.nestSpecies) .. "'s NEST"
+  local names = {}
+  for _, loc in ipairs(state.nests or {}) do names[#names + 1] = speakable(loc.name) end
+  if #names == 0 then return title .. ". AREA UNKNOWN" end
+  table.sort(names, naturalLess)
+  return title .. ". " .. table.concat(names, ", ")
+end
+
 InfoScreens.townMap = {
   matches = matcher("src.ui.TownMap"),
   poll = function(state, memo, entering)
+    if state.nestSpecies then
+      if memo.said then return nil end
+      memo.said = true
+      return nestText(state), true
+    end
     if not entering and memo.sel == state.sel then return nil end
     memo.sel = state.sel
     local loc = state.locs and state.locs[state.sel]

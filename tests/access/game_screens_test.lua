@@ -170,6 +170,15 @@ eq(last(), "Town map. PALLET TOWN, you are here", "town map entry")
 map.sel = 2
 SR.update(map)
 eq(last(), "ROUTE 1", "town map move")
+reset()
+SR.update(as("src.ui.TownMap", { game = game, nestSpecies = "PIKACHU",
+  nests = { { name = "ROUTE 12" }, { name = "VIRIDIAN FOREST" }, { name = "ROUTE 2" },
+    { name = "POWER PLANT" } } }))
+eq(last(), "PIKACHU's NEST. POWER PLANT, ROUTE 2, ROUTE 12, VIRIDIAN FOREST",
+  "nest areas sorted naturally")
+reset()
+SR.update(as("src.ui.TownMap", { game = game, nestSpecies = "PIKACHU", nests = {} }))
+eq(last(), "PIKACHU's NEST. AREA UNKNOWN", "no nests")
 
 -- Self-describing screens (the mod contract).
 reset()

@@ -30,14 +30,14 @@ and recorded in the topic file.
 ## Menus and text
 
 - **State:** every Gen 1 screen class has a presenter except Yellow's
-  surfing minigame and Pokédex nests, with no edits to screen files. Mod
-  screens can opt in with `accessibilityText`. Unit suites: 23, 35, 13 and
-  14 checks, all passing. Five scripted game runs (disposable identity
+  surfing minigame, with no edits to screen files. Mod
+  screens can opt in with `accessibilityText`. Unit suites: 23, 37, 13 and
+  14 checks, all passing. Seven scripted game runs (disposable identity
   `pocket-access-test`) traced menus, dialogue, naming, party, summary,
   options, trainer card, bag, quantity, Pokédex, town map, shop, both PCs,
-  move forgetting and a wild battle. Details: `menus-and-text.md`, `battle.md`.
-- **Next:** surfing minigame design; Pokédex nests; game runs for title,
-  minor screens, trainer battles and `MoveSelectMenu`.
+  move forgetting, nest areas, an options group, and wild and trainer battles. Details: `menus-and-text.md`, `battle.md`.
+- **Next:** surfing minigame design (timing game, owner input welcome);
+  game runs for minor screens, `MoveSelectMenu`, evolution and trade.
 - **Needs the owner:** listen to a new game from source and judge wording,
   verbosity and pronunciation.
 
