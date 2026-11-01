@@ -403,9 +403,11 @@ S.check(objects[1].type == "object" and objects[2].type == "object",
 local signs = assert(WorldSnapshot.browse(overworld,
   { maps = maps, filter = "signs" }))
 S.eq(#signs, 2, "singular/plural filter aliases are accepted")
-S.eq(WorldSnapshot.nextFilter("objects", 1), "all",
+-- v0.3.98 addition: Area is the last category (off-map items of the area)
+S.eq(WorldSnapshot.nextFilter("objects", 1), "area", "Area follows Objects")
+S.eq(WorldSnapshot.nextFilter("area", 1), "all",
   "filter cycling wraps forward")
-S.eq(WorldSnapshot.nextFilter("all", -1), "objects",
+S.eq(WorldSnapshot.nextFilter("all", -1), "area",
   "filter cycling wraps backward")
 local noItems, filterErr = WorldSnapshot.browse(overworld, { filter = "bogus" })
 S.check(noItems == nil and filterErr:find("unknown browse filter", 1, true),

@@ -13,7 +13,7 @@ local WorldSnapshot = {}
 local ChaosCut = require("src.access.nav.ChaosCut")
 
 WorldSnapshot.FILTER_ORDER = {
-  "all", "warps", "connections", "signposts", "objects",
+  "all", "warps", "connections", "signposts", "objects", "area",
 }
 
 WorldSnapshot.CONNECTION_ORDER = {
@@ -28,10 +28,14 @@ local FILTER_ALIASES = {
   signpost = "signposts", signposts = "signposts",
   object = "objects", objects = "objects",
   entity = "objects", entities = "objects",
+  -- v0.3.98 addition: off-map item balls of the current area
+  -- (Navigation:areaBrowse fills this category)
+  area = "area",
 }
 
 local FILTER_TYPES = {
   warps = "warp",
+  area = "area",
   connections = "connection",
   signposts = "signpost",
   objects = "object",
@@ -646,6 +650,9 @@ local function browsableWarp(map, warp, index, opts)
   end
   return false
 end
+-- v0.3.98 addition: shared with Navigation:regionalTransitions so the
+-- cross-map planner ignores the same inactive data warps the list hides.
+WorldSnapshot.browsableWarp = browsableWarp
 
 -- Build the browse list in Pok\195\169mon Access order: active warps, then
 -- north/south/east/west connections, then signposts, then live objects.

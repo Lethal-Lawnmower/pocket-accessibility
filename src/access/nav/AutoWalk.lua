@@ -18,6 +18,7 @@ local AutoWalk = {}
 local SOURCE = "access_autowalk"
 local STUCK_FRAMES = 90
 local MAX_REROUTES = 8
+local PUSH_FRAMES = 60
 
 local walk = nil -- active walk, or nil
 
@@ -92,6 +93,18 @@ function AutoWalk.start(nav, game)
     Speech.say("No route to " .. tostring(item.label), { interrupt = true })
     return false
   end
+  -- an Area target is on another map: walk the cross-map journey leg by
+  -- leg (Navigation:regionalNextLeg), re-planning on every new map
+  local journey, final = nil, true
+  if item.type == "area" then
+    journey = { targetMapId = item.mapId, targetGoals = goals }
+    local leg, legErr = nav:regionalNextLeg(journey)
+    if not leg then
+      Speech.say(tostring(legErr or "No route yet"), { interrupt = true })
+      return false
+    end
+    goals, final = leg.goals, leg.final == true
+  end
   local result, findErr = findRoute(nav, goals)
   if not result then
     Speech.say(tostring(findErr or "Cannot reach yet"), { interrupt = true })
@@ -108,6 +121,8 @@ function AutoWalk.start(nav, game)
     interaction = interaction,
     nav = nav,
     goals = goals,
+    journey = journey,
+    final = final,
     lastX = player.cellX, lastY = player.cellY,
     still = 0,
   }
@@ -160,10 +175,43 @@ local function resume(quiet)
   walk.steps, walk.goal = result.steps, result.goal or walk.goal
   walk.paused, walk.expectBattle, walk.battleSeen = nil, nil, nil
   walk.lastX, walk.lastY, walk.still = player.cellX, player.cellY, 0
-  if #walk.steps == 0 then return AutoWalk.stop(arrivalText()) end
+  if #walk.steps == 0 then
+    if walk.journey and not walk.final then
+      -- standing on the warp this leg needs (a teleport pad lands you on a
+      -- pad): pads fire on stepping onto them, so step off and back on
+      local x, y = player.cellX, player.cellY
+      local map = walk.overworld.map
+      for _, d in ipairs({ { "up", 0, -1, "down" }, { "down", 0, 1, "up" },
+                           { "left", -1, 0, "right" }, { "right", 1, 0, "left" } }) do
+        local nx, ny = x + d[2], y + d[3]
+        local ok, walkable = pcall(map.isWalkableCell, map, nx, ny)
+        if ok and walkable then
+          walk.steps = {
+            { fromX = x, fromY = y, x = nx, y = ny, direction = d[1] },
+            { fromX = nx, fromY = ny, x = x, y = y, direction = d[4] },
+          }
+          return
+        end
+      end
+    end
+    return AutoWalk.stop(arrivalText())
+  end
   if not quiet then
     Speech.say("Resuming walk to " .. tostring(walk.label), { interrupt = false })
   end
+end
+
+-- Journey: the map changed on a leg that was not the last one.  Once the new
+-- map is settled, plan its leg and keep walking.
+local function nextLeg()
+  local leg, err = walk.nav:regionalNextLeg(walk.journey)
+  if not leg then
+    return AutoWalk.stop("No route from here to " .. tostring(walk.label) .. ", auto walk stopped")
+  end
+  walk.map, walk.goals, walk.final = walk.overworld.map, leg.goals, leg.final == true
+  walk.awaitingMap, walk.reroutes, walk.doorTries = nil, nil, nil
+  walk.pushDir, walk.pushFrames = nil, nil
+  return resume(true)
 end
 
 -- Per frame, after upstream's update.  `top` is the top screen.
@@ -171,6 +219,10 @@ function AutoWalk.update(top)
   if not walk then return end
   local overworld = walk.overworld
   local player = overworld.player
+  if walk.awaitingMap then
+    if top ~= overworld or overworld.transitioning or overworld.map == walk.map then return end
+    return nextLeg()
+  end
   if walk.paused then
     local stack = package.loaded["src.core.StateStack"]
     if battleOnStack(stack) then walk.battleSeen = true end
@@ -180,12 +232,32 @@ function AutoWalk.update(top)
     -- battles, card-key door messages and other game-caused screens: carry on
     return resume()
   end
-  if overworld.map ~= walk.map then return AutoWalk.stop(arrivalText()) end
+  if overworld.map ~= walk.map then
+    -- it is an arrival only when the player was finishing the route; a warp
+    -- crossed earlier (a teleport pad) is not
+    local last = walk.steps[#walk.steps]
+    local finishing = last and ((walk.lastX == last.x and walk.lastY == last.y)
+      or (walk.lastX == last.fromX and walk.lastY == last.fromY))
+    if walk.journey and (not walk.final or not finishing) then
+      release(walk.input, walk.held)
+      walk.held, walk.awaitingMap = nil, true
+      walk.pushDir = nil
+      return
+    end
+    if not finishing then return AutoWalk.stop("Left the map, auto walk stopped") end
+    return AutoWalk.stop(arrivalText())
+  end
   if top ~= overworld then
     -- a door or staircase shows its transition before the map changes, so a
-    -- screen opening on the destination cell is the arrival
+    -- screen opening on the destination cell is the arrival (or, mid-journey,
+    -- the way onto the next map)
     local last = walk.steps[#walk.steps]
     if last and player.cellX == last.x and player.cellY == last.y then
+      if walk.journey and not walk.final then
+        release(walk.input, walk.held)
+        walk.held, walk.awaitingMap = nil, true
+        return
+      end
       return AutoWalk.stop(arrivalText())
     end
     -- anything else pauses; the walk resumes when the map returns
@@ -215,13 +287,31 @@ function AutoWalk.update(top)
     if walk.still > STUCK_FRAMES then return AutoWalk.stop("Blocked, auto walk stopped") end
   end
   if player.moving then return end -- keep the held direction mid-step
+  if walk.pushDir then
+    -- mid-journey on the way onto the next map: some warps (doors, some
+    -- stairs) fire only while the player keeps pressing into them
+    walk.pushFrames = walk.pushFrames + 1
+    if walk.pushFrames > PUSH_FRAMES then
+      return AutoWalk.stop("Could not go through, auto walk stopped")
+    end
+    if walk.held ~= walk.pushDir then release(walk.input, walk.held) walk.held = walk.pushDir end
+    hold(walk.input, walk.pushDir)
+    walk.still = 0
+    return
+  end
   local step = nil
   for _, s in ipairs(walk.steps) do
     if s.fromX == x and s.fromY == y then step = s break end
   end
   if not step then
     local last = walk.steps[#walk.steps]
-    if last and last.x == x and last.y == y then return AutoWalk.stop(arrivalText()) end
+    if last and last.x == x and last.y == y then
+      if walk.journey and not walk.final then
+        walk.pushDir, walk.pushFrames = last.direction, 0
+        return
+      end
+      return AutoWalk.stop(arrivalText())
+    end
     -- pushed off the route (a spinner, a current, a scripted step): plan again
     -- from here, quietly, a few times per walk
     walk.reroutes = (walk.reroutes or 0) + 1
@@ -257,6 +347,9 @@ function AutoWalk.update(top)
   end
   hold(walk.input, step.direction)
 end
+
+-- For scripted debugging: the active walk's plan (read-only use).
+function AutoWalk._state() return walk end
 
 function AutoWalk._resetForTests() walk = nil end
 

@@ -885,7 +885,7 @@ function Accessibility:captureWorld(filter)
   local mapId = currentMapId(overworld)
   local traversal = mapId and TraversalSemantics.forMap(mapId, overworld.map)
   local puzzle = puzzleModule(self).describe(self.game, overworld)
-  return self.worldSnapshot.capture(overworld, {
+  local snapshot, snapshotError = self.worldSnapshot.capture(overworld, {
     maps = data and data.maps,
     field = data and data.field,
     lastMapRewrites = FieldDefaults.field(data, "lastMapRewrites"),
@@ -902,7 +902,14 @@ function Accessibility:captureWorld(filter)
     chaosCut = self.game.save and self.game.save.options
                and self.game.save.options.chaosCut == true,
   })
+  -- v0.3.98 addition: the Area category lists item balls on the other maps
+  -- of the building or zone the player is in (see areaBrowse)
+  if snapshot and (filter or self.browseFilter) == "area" then
+    snapshot.browse = self:areaBrowse(overworld)
+  end
+  return snapshot, snapshotError
 end
+
 
 -- Project native non-actor interactables into the same semantic object list
 -- used for NPCs and item balls.  Nothing is cached: every browse capture is
@@ -1835,6 +1842,50 @@ local function regionalObjectVisible(save, mapId, object)
   return visible
 end
 
+-- Maps that form one building or zone share the first two words of their id
+-- (SAFARI_ZONE_WEST, SAFARI_ZONE_GATE; SILPH_CO_5F, SILPH_CO_ELEVATOR).  Only
+-- groups of two or more maps count, so a single town is not an area.
+local function areaKey(mapId)
+  return type(mapId) == "string" and mapId:match("^([A-Z0-9]+_[A-Z0-9]+)") or nil
+end
+
+-- The Area category: every item ball still in place on the other maps of the
+-- current area, named with its map, nearest first by map name.  Built from
+-- map data and the save (regionalObjectVisible skips collected items), so
+-- nothing is hand-listed.  Selecting one starts a cross-map journey.
+function Accessibility:areaBrowse(overworld)
+  local data = self.game and self.game.data
+  local maps = data and data.maps or {}
+  local here = currentMapId(overworld)
+  local key = areaKey(here)
+  local items = {}
+  if not key then return items end
+  local members = {}
+  for mapId in pairs(maps) do
+    if areaKey(mapId) == key then members[#members + 1] = mapId end
+  end
+  if #members < 2 then return items end
+  table.sort(members)
+  local save = self.game.save or {}
+  for _, mapId in ipairs(members) do
+    if mapId ~= here then
+      local mapName = self:regionalDestinationName(mapId)
+      for _, object in ipairs(maps[mapId].objects or {}) do
+        if object.item and regionalObjectVisible(save, mapId, object) then
+          local label = tostring(self.worldSnapshot.humanize(object.item) or object.item)
+            .. ", " .. tostring(mapName)
+          items[#items + 1] = {
+            id = "area:" .. mapId .. ":" .. tostring(object.index),
+            type = "area", category = "area", label = label, description = label,
+            mapId = mapId, x = object.x, y = object.y,
+          }
+        end
+      end
+    end
+  end
+  return items
+end
+
 function Accessibility:regionalStaticWorld(mapId, start)
   local data = self.game and self.game.data
   local def = data and data.maps and data.maps[mapId]
@@ -1911,12 +1962,33 @@ local OPPOSITE_DIRECTION = {
   north = "south", south = "north", east = "west", west = "east",
 }
 
+-- v0.3.98 adaptation: a warp listed in map data that the game never fires
+-- (Silph Co. 1F has one to 3F off any warp tile) would send journeys to a
+-- dead end, so only warps the object list would show are transitions.
+local function activeWarp(self, def, mapId, warp, index)
+  local data = self.game.data
+  local tileset = data.tilesets and data.tilesets[def.tileset]
+  local check = self.worldSnapshot.browsableWarp
+  if not (tileset and check) then return true end
+  self.regionalMaps = self.regionalMaps or setmetatable({}, { __mode = "k" })
+  local map = self.regionalMaps[def]
+  if map == nil then
+    local ok, built = pcall(Map.new, def, tileset)
+    map = ok and built or false
+    self.regionalMaps[def] = map
+  end
+  if not map then return true end
+  local ok, active = pcall(check, map, warp, index, { generation = 1, field = data.field })
+  return not ok or active
+end
+
 function Accessibility:regionalTransitions(mapId)
   local data = self.game and self.game.data
   local def = data and data.maps and data.maps[mapId]
   if not def then return {} end
   local result = {}
   for index, warp in ipairs(def.warps or {}) do
+    if not activeWarp(self, def, mapId, warp, index) then goto nextWarp end
     local destinationId = self.worldSnapshot.destinationId(
       self.game and self.game.overworld or {}, mapId, warp,
       FieldDefaults.field(data, "lastMapRewrites"))
@@ -1930,6 +2002,7 @@ function Accessibility:regionalTransitions(mapId)
         destMap = destinationId, destX = arrival.x, destY = arrival.y,
       }
     end
+    ::nextWarp::
   end
 
   local sourceTileset = data.tilesets and data.tilesets[def.tileset]
@@ -2799,6 +2872,14 @@ function Accessibility:selectedRouteGoals()
   if not item then return nil, reason end
   local overworld = self:worldForCommand()
   local goals, interactionInstructions, connectionInstruction
+  if item.type == "area" then
+    -- the cells around the item on its own map; the journey search checks them
+    goals = {
+      { x = item.x, y = item.y - 1 }, { x = item.x, y = item.y + 1 },
+      { x = item.x - 1, y = item.y }, { x = item.x + 1, y = item.y },
+    }
+    return item, goals, nil, nil, overworld
+  end
   if item.type == "connection" then
     goals = self:connectionGoals(overworld, item)
     local maps = self.game and self.game.data and self.game.data.maps
@@ -2828,10 +2909,46 @@ function Accessibility:selectedRouteGoals()
   return item, goals, interactionInstructions, connectionInstruction, overworld
 end
 
+-- v0.3.98 addition: guided navigation to an Area target on another map.
+-- Starts the old cross-map journey (regionalNextLeg / startRegionalLeg)
+-- directly; map.entered then carries it from leg to leg as before.
+function Accessibility:startAreaJourney(item, goals)
+  if self.activeNavigation then return self:stopNavigation(true) end
+  if self.pendingRoute then return self:cancelPendingRoute(true) end
+  local overworld, reason = self:worldForCommand()
+  if not overworld then return self:announceManual({ reason }) end
+  local navigation = {
+    mapId = currentMapId(overworld), goals = {}, announcedRequirements = {},
+    targetMapId = item.mapId, targetGoals = goals, targetType = "area",
+    targetId = item.id, targetLabel = item.label, targetCategory = "area",
+  }
+  local leg, legReason = self:regionalNextLeg(navigation)
+  if not leg then return self:announceManual({ legReason or "No route yet" }) end
+  self.activeNavigation = navigation
+  self:emitSemantic("navigation.started", {
+    targetId = item.id, targetLabel = item.label, targetCategory = "area",
+    targetType = "area",
+  })
+  if leg.final then
+    self.activeNavigation = nil
+    return self:startWorldRoute(goals, nil, "selected", {
+      mapId = item.mapId, goals = goals, type = "area", id = item.id,
+      label = item.label, category = "area",
+    })
+  end
+  local ok, startReason = self:startRegionalLeg(navigation, leg)
+  if ok == false then
+    self.activeNavigation = nil
+    return self:announceManual({ startReason or "No route yet" })
+  end
+  return ok
+end
+
 function Accessibility:describeRouteToSelected()
   local item, goals, interactionInstructions, connectionInstruction, overworld =
     self:selectedRouteGoals()
   if not item then return self:announceManual({ goals }) end
+  if item.type == "area" then return self:startAreaJourney(item, goals) end
   local appendInstructions = function(parts, result)
     if item.requirement then table.insert(parts, 1, item.requirement) end
     if interactionInstructions and result and result.goal then

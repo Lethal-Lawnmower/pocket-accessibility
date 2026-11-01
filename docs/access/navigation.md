@@ -184,3 +184,35 @@ move, healing, a battle time limit).
 Not covered: multi-map journeys (auto-walk works within one map; guided
 navigation handles cross-map routes), Seafoam boulder puzzles, Victory
 Road strength puzzles, Surf and Cut in auto-walk (it stops when blocked).
+
+## Cross-map journeys (decision 25)
+
+- **Area category** (`Navigation:areaBrowse`): the last object category.
+  Lists item balls still in place (the old `regionalObjectVisible` skips
+  collected items) on the other maps of the current area, named with their
+  map, for example "Gold Teeth, Safari Zone West". An area is every map
+  sharing the first two words of its id (SAFARI_ZONE_*, SILPH_CO_*,
+  ROCKET_HIDEOUT_*); a group needs at least two maps. Built from map data
+  only.
+- **Guided navigation** to an Area target (`startAreaJourney`) starts the
+  old cross-map planner (`regionalNextLeg` / `startRegionalLeg`) directly;
+  its map-entry handling continues leg to leg.
+- **Auto-walk** to an Area target asks the planner for each leg, walks it,
+  and on each new map plans the next leg. On a leg's transition cell it
+  keeps pressing into warps that fire only while pressed. When a teleport
+  pad lands it on the pad the next leg needs, it steps off and back on. A
+  map change counts as arrival only when the player was finishing the
+  route; otherwise a journey re-plans and a single-map walk reports
+  "Left the map".
+- **Inactive data warps:** map data lists some warps the game never fires
+  (Silph Co. 1F has one to 3F off any warp tile). The planner now skips
+  them with the same rule the object list uses
+  (`WorldSnapshot.browsableWarp`, shared).
+
+Verified 2026-10-31: `auto_walk_test.lua` 30/30 (two-map journey);
+regional 82/82, journey 27/27, puzzles 50/50 still pass;
+`drivers/journeys.lua` (silent): Gold Teeth from Safari Zone Center
+(Center, East, North, West, arrived), Card Key from Silph Co. 1F (1F, 2F,
+3F, 5F, pad to 9F, pad back to 5F, arrived), guided navigation to an Area
+target started ("2 up"). Not yet heard by the owner. Area lists only item
+balls; other targets (NPCs, specific doors) on other maps are not offered.

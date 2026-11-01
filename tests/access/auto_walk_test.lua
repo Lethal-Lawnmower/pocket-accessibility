@@ -115,5 +115,33 @@ AutoWalk.start(nav, game)
 check(AutoWalk.stop("Auto walk stopped"), "manual stop")
 check(not AutoWalk.active(), "inactive after stop")
 
+-- Journey to an Area target on another map: walk a leg, take the door,
+-- plan the next map's leg, arrive.
+game, overworld, nav = setup()
+local legs = 0
+nav.selectedRouteGoals = function()
+  return { label = "Gold Teeth, Safari Zone West", type = "area", mapId = "WEST" },
+    { { x = 1, y = 1 } }, nil, nil, overworld
+end
+nav.regionalNextLeg = function(_, journey)
+  legs = legs + 1
+  eq(journey.targetMapId, "WEST", "journey targets the item's map")
+  return { goals = { { x = 1, y = 1 } }, final = legs >= 2 }
+end
+check(AutoWalk.start(nav, game), "journey starts")
+eq(spoken[#spoken], "Walking to Gold Teeth, Safari Zone West", "journey start announced")
+AutoWalk.update(overworld)
+overworld.map = { west = true }
+overworld.player.cellX, overworld.player.cellY = 0, 0
+AutoWalk.update(overworld)
+check(AutoWalk.active(), "a new map mid-journey does not end the walk")
+AutoWalk.update(overworld)
+eq(legs, 2, "the next leg is planned on the new map")
+overworld.player.cellX = 1
+AutoWalk.update(overworld)
+overworld.player.cellY = 1
+AutoWalk.update(overworld)
+eq(spoken[#spoken], "Arrived at Gold Teeth, Safari Zone West", "journey arrives on the final map")
+
 Speech.shutdown()
 T.finish()

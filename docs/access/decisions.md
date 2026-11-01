@@ -201,3 +201,11 @@ spoken bump descriptions ("Wall ahead.", "Water ahead.", "Map edge.") are
 not restored; they depended on a `world.bumped` event the old fork added to
 upstream. The reused bump code stays dormant and can be revived later if
 wanted.
+
+## 25. Cross-map navigation to Area targets (2026-10-31)
+
+Approved plan: reach targets on other maps without a new system. A new
+"Area" category lists item balls still in place on the other maps of the
+building or zone the player is in (maps sharing the first two words of
+their id). Guided navigation uses the old cross-map planner for them, and
+auto-walk follows that planner leg by leg across maps.
