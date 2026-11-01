@@ -53,10 +53,49 @@ eq(spoken[#spoken], "Arrived at PC. Face up and interact", "arrival with the int
 check(not AutoWalk.active(), "walk ends on arrival")
 eq(game.input.state.down, false, "direction released on arrival")
 
+-- A non-battle screen pauses the walk; returning to the map stops it.
+local fakeStack = { states = {} }
+package.loaded["src.core.StateStack"] = fakeStack
+local BattleState = {}
+package.loaded["src.battle.BattleState"] = BattleState
 game, overworld, nav = setup()
 AutoWalk.start(nav, game)
-AutoWalk.update({ someMenu = true })
-eq(spoken[#spoken], "Auto walk stopped", "a screen opening stops the walk")
+AutoWalk.update(overworld)
+local sign = { sign = true }
+AutoWalk.update(sign)
+check(AutoWalk.active() and not AutoWalk.walking(), "a screen opening pauses the walk")
+eq(game.input.state.right, false, "pausing releases the direction")
+AutoWalk.update(overworld)
+eq(spoken[#spoken], "Auto walk stopped", "back on the map without a battle: stopped")
+
+-- A battle pauses the walk and it resumes afterwards.
+game, overworld, nav = setup()
+AutoWalk.start(nav, game)
+AutoWalk.update(overworld)
+local battle = setmetatable({}, BattleState)
+fakeStack.states = { overworld, battle }
+AutoWalk.update(battle)
+check(not AutoWalk.walking(), "battle pauses the walk")
+fakeStack.states = { overworld }
+AutoWalk.update(overworld)
+eq(spoken[#spoken], "Resuming walk to PC", "walk resumes after the battle")
+check(AutoWalk.walking(), "walking again")
+AutoWalk.update(overworld)
+eq(game.input.state.right, true, "resumed walk holds the next direction")
+
+-- A trainer engagement pauses before any screen opens and waits for the battle.
+game, overworld, nav = setup()
+AutoWalk.start(nav, game)
+AutoWalk.pause(true)
+fakeStack.states = { overworld }
+for _ = 1, 120 do AutoWalk.update(overworld) end
+check(AutoWalk.active() and not AutoWalk.walking(), "still paused while the trainer walks over")
+fakeStack.states = { overworld, battle }
+AutoWalk.update(battle)
+fakeStack.states = { overworld }
+AutoWalk.update(overworld)
+eq(spoken[#spoken], "Resuming walk to PC", "resumes after the trainer battle")
+fakeStack.states = {}
 
 game, overworld, nav = setup()
 AutoWalk.start(nav, game)

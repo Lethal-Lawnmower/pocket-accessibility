@@ -121,14 +121,27 @@ old `describeRouteToSelected`, so both aim at the same cells),
 upstream's `Input` as its own source (`access_autowalk`) and released at the
 next cell. Speaks "Walking to ...", then "Arrived at ..." with the
 interaction hint (for example "Face up and interact"), or why it stopped:
-a screen opened, blocked for 90 frames, off the route, or any key or button
-pressed. A door or staircase counts as arrival when its transition opens on
+blocked for 90 frames, off the route, or any key or button pressed while
+walking.
+
+Battles pause it and it resumes afterwards (owner request, 2026-10-31):
+any screen opening pauses the walk and releases the direction; if a battle
+was on the stack during the pause, returning to the map recomputes the
+route from where the player stands and says "Resuming walk to ...". A
+trainer walks over on the open map first, so upstream's
+`world.trainer_engaged` event pauses the walk immediately and it waits for
+the battle. Without a battle (a sign, a scripted scene) the walk stops when
+the map returns. A changed map after a battle (blacked out) stops it.
+Presses during the battle do not cancel the paused walk. A door or staircase counts as arrival when its transition opens on
 the destination cell.
 
-Verified: `tests/access/auto_walk_test.lua` 15/15;
+Verified: `tests/access/auto_walk_test.lua` 23/23 (including pause and resume);
 `tests/access/drivers/nav_controller.lua` game run: trigger plus D-pad
 cycled categories ("Warps", "All") and objects, left stick click walked to
 the PC ("Arrived at PC. Face up and interact") and in a second run took the
 stairs ("Arrived at AAAAAAA's House 1F"), right stick click started and
 stopped guided navigation. Not yet tried with a physical controller or
-heard by the owner.
+heard by the owner. `drivers/autowalk_battle.lua`: walking north on
+Route 1, a wild PIDGEY interrupted, the battle played normally, and after
+"Got away safely!" the trace says "Resuming walk to North connection to
+Viridian City". The trainer path is unit-tested only.

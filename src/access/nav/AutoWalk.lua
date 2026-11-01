@@ -47,6 +47,9 @@ end
 
 function AutoWalk.active() return walk ~= nil end
 
+-- Walking right now (not paused for a battle); real input cancels only then.
+function AutoWalk.walking() return walk ~= nil and not walk.paused end
+
 function AutoWalk.stop(reason)
   if not walk then return false end
   release(walk.input, walk.held)
@@ -88,6 +91,8 @@ function AutoWalk.start(nav, game)
     goal = result.goal,
     label = item.label,
     interaction = interaction,
+    nav = nav,
+    goals = goals,
     lastX = player.cellX, lastY = player.cellY,
     still = 0,
   }
@@ -109,12 +114,58 @@ local function arrivalText()
   return text
 end
 
+-- True when a battle screen is anywhere on the stack.
+local function battleOnStack(stack)
+  local BattleState = package.loaded["src.battle.BattleState"]
+  if not (BattleState and stack and stack.states) then return false end
+  for _, state in ipairs(stack.states) do
+    if getmetatable(state) == BattleState then return true end
+  end
+  return false
+end
+
+-- Battles pause the walk and it resumes afterwards (owner request,
+-- 2026-10-31).  Called from the world.trainer_engaged event, because a
+-- trainer walks over on the open map before any screen opens.
+function AutoWalk.pause(expectBattle)
+  if not walk then return end
+  release(walk.input, walk.held)
+  walk.held = nil
+  walk.paused = true
+  walk.expectBattle = walk.expectBattle or expectBattle == true
+end
+
+-- Recomputes the route from where the player now stands to the same goals.
+local function resume()
+  local options = walk.nav:worldRouteRequest(walk.goals, 1)
+  local Pathfinder = require("src.access.nav.Pathfinder")
+  local result = options and Pathfinder.find(options)
+  if not result or type(result.steps) ~= "table" then
+    return AutoWalk.stop("Cannot reach " .. tostring(walk.label) .. ", auto walk stopped")
+  end
+  local player = walk.overworld.player
+  walk.steps, walk.goal = result.steps, result.goal or walk.goal
+  walk.paused, walk.expectBattle, walk.battleSeen = nil, nil, nil
+  walk.lastX, walk.lastY, walk.still = player.cellX, player.cellY, 0
+  if #walk.steps == 0 then return AutoWalk.stop(arrivalText()) end
+  Speech.say("Resuming walk to " .. tostring(walk.label), { interrupt = false })
+end
+
 -- Per frame, after upstream's update.  `top` is the top screen.
 function AutoWalk.update(top)
   if not walk then return end
   local overworld = walk.overworld
-  if overworld.map ~= walk.map then return AutoWalk.stop(arrivalText()) end
   local player = overworld.player
+  if walk.paused then
+    local stack = package.loaded["src.core.StateStack"]
+    if battleOnStack(stack) then walk.battleSeen = true end
+    if top ~= overworld then return end
+    if overworld.map ~= walk.map then return AutoWalk.stop("Auto walk stopped") end
+    if walk.battleSeen then return resume() end
+    if walk.expectBattle then return end -- trainer still walking over
+    return AutoWalk.stop("Auto walk stopped")
+  end
+  if overworld.map ~= walk.map then return AutoWalk.stop(arrivalText()) end
   if top ~= overworld then
     -- a door or staircase shows its transition before the map changes, so a
     -- screen opening on the destination cell is the arrival
@@ -122,7 +173,10 @@ function AutoWalk.update(top)
     if last and player.cellX == last.x and player.cellY == last.y then
       return AutoWalk.stop(arrivalText())
     end
-    return AutoWalk.stop("Auto walk stopped")
+    -- anything else pauses; only a battle lets the walk resume afterwards
+    AutoWalk.pause(false)
+    if battleOnStack(package.loaded["src.core.StateStack"]) then walk.battleSeen = true end
+    return
   end
   local x, y = player.cellX, player.cellY
   if x ~= walk.lastX or y ~= walk.lastY then

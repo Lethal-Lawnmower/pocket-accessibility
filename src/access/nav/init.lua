@@ -79,6 +79,13 @@ local function build(game)
     onAction = function(actionId) return coordinator:handleCommand(actionId) end,
     onStatus = function(actionId) return coordinator:handleCommandStatus(actionId) end,
   })
+  -- a trainer walks over on the open map before any screen opens, so the
+  -- engagement pauses auto-walk until the battle is over
+  if Runtime and Runtime.events and type(Runtime.events.on) == "function" then
+    pcall(Runtime.events.on, Runtime.events, "world.trainer_engaged", function()
+      AutoWalk.pause(true)
+    end)
+  end
 end
 
 -- Creates or re-creates the coordinator when the game, save or mod event
@@ -112,8 +119,8 @@ end
 -- Returns true when the key was an accessibility command (consumed).
 function Nav.keypressed(key, _, isRepeat)
   if not ensure() or not router then return false end
-  -- any key stops auto-walk, and does nothing else
-  if AutoWalk.active() then
+  -- any key stops auto-walk while it walks (not while paused for a battle)
+  if AutoWalk.walking() then
     AutoWalk.stop("Auto walk stopped")
     return true
   end
@@ -163,7 +170,7 @@ end
 function Nav.gamepadpressed(_, button)
   if not ensure() then return false end
   local game = gen1Game()
-  if AutoWalk.active() and button ~= "leftstick" then
+  if AutoWalk.walking() and button ~= "leftstick" then
     AutoWalk.stop("Auto walk stopped")
     consumedButtons[button] = true
     return true
