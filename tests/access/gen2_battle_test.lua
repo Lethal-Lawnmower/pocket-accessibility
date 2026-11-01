@@ -167,7 +167,7 @@ do
   eq(count(), n + 2, "a line after a gap is spoken even if it repeats")
 
   show(screen, "It's super-\neffective!")
-  eq(last().text, "It's supereffective!", "a line-end hyphen is a split word, rejoined (project rule)")
+  eq(last().text, "It's super-effective!", "a real compound keeps its hyphen across lines (project rule)")
   show(screen, "PIDGEY's data was newly added to the #DEX.")
   eq(last().text, "PIDGEY's data was newly added to the POKéDEX.", "# is POKé")
 end

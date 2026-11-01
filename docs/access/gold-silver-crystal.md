@@ -107,6 +107,104 @@ game state: the radio is read from the screen's record (never through
 `ensureTuned` or `tuneRadio`), the Unown list from the save field (not
 `Unown.dex`, which creates it).
 
+## Navigation
+
+Gen 1 behaviour is in `navigation.md`. The same commands, object list, guided navigation, auto-walk, journeys,
+controller scheme and AUTO-WALK SPEED run on the Gen 2 world. Reused from the
+old project's Gen 2 navigation (`purple-gen1-gen2-preview`,
+`src/accessibility/gen2/`, commit `71cdd419`, upstream v0.3.32) under decision 20, navigation half only; each file names
+its origin.
+
+| Module | Role |
+|---|---|
+| `nav/WorldAdapter.lua` | Per-generation access for `init`, `AutoWalk`, `WalkSpeed`: the game, "on the map", transitions, battle marker, steering re-latch |
+| `nav/gen2/Navigation.lua` | Coordinator subclass: every world question from COLL bytes, the live World, warps, bg events, connections, badges and party moves |
+| `nav/gen2/WorldSnapshot.lua` | Projects a Gen 2 map into the object list (signs, holes, return warp, item names) |
+| `nav/gen2/TerrainSemantics.lua` | COLL classifier (ice, currents, waterfall, whirlpool, ledges, ladders, stairs up/down, holes) |
+| `nav/gen2/PuzzleAssistance.lua` | Stone-table rules and the floor-wide Strength search |
+
+Design: a coordinator subclass (the base already isolates the world in
+`worldState` and overridable methods, and the old Gen 2 code was written that
+way), plus a small adapter for the code outside the coordinator. Gen 1 code
+paths are unchanged.
+
+- **Reaching the game:** Game2 is a `main.lua` local. The mod loader binds the
+  Gen 1 Game facade (`Gen2Compat`) to it; its `.overworld` is the World and
+  `world.game` is the Game2 instance. No upstream edit.
+- **On the map:** Gen 2's overworld is not a stack state. An empty stack with
+  no script, text, menu, field-move animation or battle holding the world is
+  the map (`WorldAdapter.gen2.scriptHeld`, World:busy's fields without
+  `moveState` and `mapSetup`). Door fades (`mapSetup`), ice slides, currents
+  and the step off an arrival door are transitions: auto-walk lets go and waits.
+- **Object list:** signs are "Signpost N" by bg event ordinal (a sign's script
+  key is a ROM address and never spoken); a sign on a bookshelf, PC, TV or
+  other standard tile takes that name and the tile is not listed twice;
+  facing-only signs keep their facing; if-set and if-not-set signs appear
+  only while the game would read them; hidden items are not listed (Gen 1
+  lists none). The 0xFF "back" warp resolves through the world's backup warp,
+  else "Exit". Connections are named from `mapId`. Item balls are named by
+  item (looked up by index). Cut trees, headbutt trees, whirlpools,
+  waterfalls (climbed from below), smashable rocks and boulders are objects
+  with what they still need ("Needs Cut and Hive Badge", "Needs Headbutt").
+  Pits are "Drop to ..." under Objects.
+- **Map names:** the humanised map id, as in Gen 1 ("GOLD's House 2F",
+  "Route 29"). Crystal's entry sign is also spoken when it differs from the
+  map name ("Blackthorn City" on entering Blackthorn Gym 2F); Gold and Silver
+  show no sign. Agent recommendation, not an owner decision.
+- **Routing:** side walls on the standing and neighbouring cells (across map
+  seams on the live map), two-cell ledge hops off the ledge cell, ice slides
+  and currents as one move, Surf at the shore, Cut and Whirlpool "use, then
+  move", Waterfall climbed in one move, big objects as 2x2, warps blocked
+  unless the goal. Cross-map plans use the same graph; connections skip
+  cells where the strip ends or a side wall refuses the landing.
+- **Auto-walk on Gen 2:** Game2 latches the held direction before the world
+  steps and starts the next step in the same tick as the landing, so after
+  steering inside `world.stepped` auto-walk re-reads the input into the world
+  (`World:pollInput`). Verified in Crystal: without it every turn came one
+  tile late, walks overshot by a cell and a 200X walk failed "Off the route".
+  A carpet warp gets its own direction held. Cut, Surf, Whirlpool and
+  Waterfall on the route are started with one A press facing the obstacle;
+  the game asks, the walk pauses until the player answers, then resumes; asked
+  again at the same place, it stops with the instruction.
+- **Q** reads weekday, 12-hour time with AM/PM (as the Pokégear prints it) and
+  morning, day or night. **Shift+E** on the Unown puzzle reads the held piece.
+  Renaming uses Gen 2's naming screen.
+- **Strength puzzles (Ice Path B1F, Blackthorn Gym 2F):** targets come only
+  from the stone table the world is polling. Holes are listed "Hole N" with
+  their state ("empty; Boulder 3 can reach it; next push right", "filled").
+  The search covers the whole floor, so boulders in no row are pushed aside
+  when they block ("push right to clear the way for Boulder 3"); stone-table
+  boulders are never pushed into dead cells. The instruction also says what
+  is missing (a Strength user, the Plain Badge, Strength switched on).
+
+H and Shift+H read the Gen 2 battle's shown health (`battle.md`).
+
+| Navigation check (2026-11-01) | Crystal | Gold | Silver |
+|---|---|---|---|
+| Bedroom, downstairs (Mom's scene interrupts, then "Resuming walk"), outside, a sign, the west connection, Route 29 at 200X with a ledge hop | yes | yes | yes |
+| Journey Sprout Tower 1F to the 3F Potion: four floor changes, three trainer battles interrupting and resuming | yes | yes | yes |
+| Cut (Route 30) and Surf (New Bark Town to Route 27) through the game's prompt | yes | yes | yes |
+| Guided navigation (P) | yes | yes | yes |
+| Ice Path B1F solved from the hints | 43 pushes | 47 | 46 |
+| Blackthorn Gym 2F solved from the hints | 22 pushes | 22 | 22 |
+| Ice Path 1F slides at game speed and 200X | yes | not run | not run |
+| Keys, controller and renaming | yes | yes | not run |
+
+Unit and cartridge tests: `gen2_nav_test.lua` 119/119;
+`gen2_nav_cart_test.lua` 24/24 on each game's extracted cache (both puzzle
+floors solved under the game's own push rule; with `GEN2_NAV_CACHE` unset it
+reports NO CHECKS). Gen 1 unchanged: every access suite passes, the old
+navigation suites keep their results (interactive objects 12/13 and world
+snapshot 71/92 known gaps), and Red sweeps, elevators, a battle walk and the
+Yellow follower run matched. Re-run by the lead after merging (Crystal):
+journey, trainer pauses, Surf prompt said once, guided navigation.
+
+Gen 2 navigation gaps: whirlpool and waterfall routing are tested without a
+game run; auto-walk to a connection stops on the edge cell (as in Gen 1;
+stepping across in both generations is an owner call); Area lists item balls
+only; custom names live in Gen 2's shared options block, so they apply to
+every Gen 2 save, and renaming keeps 10 characters.
+
 ## Verification
 
 | Area | Level reached |
@@ -130,6 +228,10 @@ game state: the radio is read from the screen's record (never through
 - Boot and menu wording (agent choices): boot lines repeat on every attract
   loop; "Press B to stop the evolution."; "Egg hatching."; "A to continue,
   B to go back" on the CONTINUE panel.
+- Navigation defaults (agent recommendations): map name is the humanised
+  id plus Crystal's entry sign when it differs; hidden items are not listed
+  (as in Gen 1); field obstacles are listed with what they still need; item
+  balls are named by item (as in Gen 1).
 - Minigame defaults (agent recommendations): the Unown puzzle names
   pieces by number and never says where a piece belongs; Card Flip says
   only what a sighted player sees (squares, payouts, cards played), no

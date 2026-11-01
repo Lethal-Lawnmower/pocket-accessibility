@@ -4,7 +4,9 @@ Getting around the overworld: object list, pathfinding, camera ("sonar"),
 terrain and footstep cues, puzzle help. Reused from the old project under
 decision 20, adapted to v0.3.98. Status: wired into the game and working
 for the core Pokémon Access commands; walking cues and wall bumps not yet
-checked in a game run.
+checked in a game run. Gold, Silver and Crystal run the same layer through
+a coordinator subclass (`nav/gen2/`) and `nav/WorldAdapter.lua`; their
+differences are in `gold-silver-crystal.md`.
 
 ## Reused modules (`src/access/nav/`)
 

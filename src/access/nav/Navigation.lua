@@ -3171,6 +3171,10 @@ local STATUS_WORDS = {
 function Accessibility:readBattleHealth(side)
   local battle = self:battleForCommand()
   if not battle then return self:announceManual({ "Not in battle" }) end
+  -- Gen 2's battle screen answers from the values its HUD shows
+  -- (src/access/screens/gen2/Battle.lua); nil for any other battle screen.
+  local gen2Text = require("src.access.screens.gen2.Battle").health(battle, side)
+  if gen2Text then return self:announceManual({ gen2Text }) end
   local battler = side == "enemy" and battle.enemy or battle.player
   local mon = type(battler) == "table" and battler.mon or nil
   local hp = mon and tonumber(mon.hp)
