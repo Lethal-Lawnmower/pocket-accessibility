@@ -123,6 +123,29 @@ end
 check(AutoWalk.active(), "interruptions at different cells never stop the walk")
 AutoWalk.stop()
 
+-- A field move on the route (Gen 2): turn to face it, flagged as turning so
+-- the game runs that frame at 1X (a fast frame's worth of a held direction
+-- stepped onto a waterfall's bottom cell instead of turning), then press A.
+game, overworld, nav = setup()
+nav.stepInteraction = function(_, _, step)
+  if step.direction == "down" then
+    return { move = "Waterfall", failText = "Could not use Waterfall", hint = "Use Waterfall facing down" }
+  end
+end
+overworld.player.facing = "right"
+AutoWalk.start(nav, game)
+AutoWalk.update(overworld)
+check(not AutoWalk.turning(), "an ordinary step is not a turn")
+overworld.player.cellX = 1
+AutoWalk.update(overworld)
+check(AutoWalk.turning(), "facing the wrong way at a field move: turning")
+eq(game.input.state.down, true, "holding the direction to turn")
+overworld.player.facing = "down"
+AutoWalk.update(overworld)
+check(not AutoWalk.turning(), "facing it: no longer turning")
+eq(game.input.state.a, true, "and A is pressed for the move")
+AutoWalk.stop()
+
 game, overworld, nav = setup()
 AutoWalk.start(nav, game)
 for _ = 1, 95 do AutoWalk.update(overworld) end

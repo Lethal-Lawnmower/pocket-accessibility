@@ -64,6 +64,9 @@ function AutoWalk.active() return walk ~= nil end
 -- Walking right now (not paused for a battle); real input cancels only then.
 function AutoWalk.walking() return walk ~= nil and not walk.paused end
 
+-- Turning on the spot to face a field-move obstacle (see AutoWalk.update).
+function AutoWalk.turning() return walk ~= nil and not walk.paused and walk.turning == true end
+
 function AutoWalk.stop(reason)
   if not walk then return false end
   release(walk.input, walk.held)
@@ -406,10 +409,17 @@ function AutoWalk.update(top)
   local nav = walk.nav
   local action = type(nav.stepInteraction) == "function"
     and nav:stepInteraction(overworld, step) or nil
+  walk.turning = nil
   if action then
     if player.facing ~= step.direction then
+      -- Turn to face the obstacle.  The held direction lasts a whole frame
+      -- of game ticks, so at a fast speed the turn becomes a step: into a
+      -- waterfall's bottom cell, where the current carries the player
+      -- back, every frame (Silver Cave at 200X: "Blocked").  While
+      -- turning, WalkSpeed runs the game at 1X (AutoWalk.turning).
       if walk.held ~= step.direction then release(walk.input, walk.held) walk.held = step.direction end
       hold(walk.input, step.direction)
+      walk.turning = true
       return
     end
     release(walk.input, walk.held)

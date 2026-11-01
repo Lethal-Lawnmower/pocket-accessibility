@@ -48,10 +48,22 @@ game.speedOverride = 30 -- skin fast-forward took the field mid-walk
 WalkSpeed.update(game, true)
 WalkSpeed.update(game, false)
 eq(game.speedOverride, 30, "a value someone else set is left alone")
+-- turning to face a field-move obstacle takes one tick: 1X for that frame
+game.speedOverride = nil
+WalkSpeed.update(game, true)
+WalkSpeed.update(game, true, true)
+eq(game.speedOverride, 1, "1X while auto-walk turns to face an obstacle")
+WalkSpeed.update(game, true, false)
+eq(game.speedOverride, top, "the walk speed again once facing it")
+WalkSpeed.update(game, false)
 game.save.options.accessAutoWalkSpeed = nil
 game.speedOverride = nil
 WalkSpeed.update(game, true)
 eq(game.speedOverride, nil, "GAME SPEED never touches the field")
+WalkSpeed.update(game, true, true)
+eq(game.speedOverride, 1, "with GAME SPEED too, the turn runs at 1X")
+WalkSpeed.update(game, true, false)
+eq(game.speedOverride, nil, "and the field is given back")
 
 -- dialogue row and presenter
 eq(dialogueRow.value(game), "PAGE BY PAGE", "dialogue default")
