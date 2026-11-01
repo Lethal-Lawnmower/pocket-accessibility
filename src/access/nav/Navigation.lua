@@ -2789,12 +2789,14 @@ function Accessibility:updatePendingRoute()
   return self:advancePendingRoute(pending, result, routeError)
 end
 
-function Accessibility:describeRouteToSelected()
-  if not self.browseSelectionId then
-    return self:announceManual({ "Select an object from the list" })
-  end
+-- v0.3.98 adaptation: the goal cells for the selected object, shared by
+-- guided navigation (describeRouteToSelected) and auto-walk (AutoWalk.lua).
+-- Returns item, goals, interactionInstructions, connectionInstruction,
+-- overworld; or nil and a reason.
+function Accessibility:selectedRouteGoals()
+  if not self.browseSelectionId then return nil, "Select an object from the list" end
   local item, reason = self:selectedBrowseItem(0)
-  if not item then return self:announceManual({ reason }) end
+  if not item then return nil, reason end
   local overworld = self:worldForCommand()
   local goals, interactionInstructions, connectionInstruction
   if item.type == "connection" then
@@ -2823,6 +2825,13 @@ function Accessibility:describeRouteToSelected()
   else
     goals = {}
   end
+  return item, goals, interactionInstructions, connectionInstruction, overworld
+end
+
+function Accessibility:describeRouteToSelected()
+  local item, goals, interactionInstructions, connectionInstruction, overworld =
+    self:selectedRouteGoals()
+  if not item then return self:announceManual({ goals }) end
   local appendInstructions = function(parts, result)
     if item.requirement then table.insert(parts, 1, item.requirement) end
     if interactionInstructions and result and result.goal then

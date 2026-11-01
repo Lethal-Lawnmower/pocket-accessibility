@@ -57,7 +57,8 @@ and recorded in the topic file.
 
 - **State:** old navigation reused (decision 20) and wired in: F7 command
   layer, object list, filters, map name, position, tiles, pathfinding,
-  renaming. Old tests pass except one bedroom object. Details: `navigation.md`.
+  renaming, controller scheme (decision 23) and auto-walk. Old tests pass
+  except one bedroom object. Details: `navigation.md`.
 - **Next:** walking cues, wall bumps (no upstream event),
   Chaos Cut as an optional mod (decision 21); the owner's playtest.
 

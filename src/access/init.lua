@@ -59,6 +59,17 @@ function Access.install(opts)
       return Nav.keypressed(key, scancode, isRepeat)
     end)
     after("keyreleased", function(_, key) Nav.keyreleased(key) end)
+    -- Controller navigation (decision 23): left trigger modifier, D-pad
+    -- categories and items, stick clicks for auto-walk and guidance.
+    before("gamepadaxis", function(joystick, axis, value)
+      return Nav.gamepadaxis(joystick, axis, value)
+    end)
+    before("gamepadpressed", function(joystick, button)
+      return Nav.gamepadpressed(joystick, button)
+    end)
+    before("gamepadreleased", function(joystick, button)
+      return Nav.gamepadreleased(joystick, button)
+    end)
   end
 
   -- A cancelled quit (true) keeps the game running, so speech stays open.

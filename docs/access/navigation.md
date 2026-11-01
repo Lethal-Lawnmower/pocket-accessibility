@@ -95,3 +95,40 @@ disposable identity `pocket-access-run`: F8 help, F7 on and off, map name,
 position, object list with directions ("PC, 5 up 3 left"), filter change,
 surrounding tiles, pathfinding start ("1 right"), and Pallet Town's warps
 ("Oaks Lab: 4 down 3 right"). Not yet heard by the owner.
+
+## Controller (decision 23)
+
+| Input | Action |
+|---|---|
+| Hold left trigger | Navigation modifier (on the map, the game no longer sees it, so it does not lower game speed; the left shoulder still does) |
+| Left trigger + D-pad up / down | Previous / next object category (All, Warps, ...) |
+| Left trigger + D-pad left / right | Previous / next object in the category |
+| Left stick click | Auto-walk to the selected object; again to stop |
+| Right stick click | Guided navigation to the selected object (the P command); again to stop |
+
+Wired in `src/access/nav/init.lua` through `love.gamepadaxis`,
+`gamepadpressed` and `gamepadreleased` wrappers that run before upstream.
+D-pad presses used for navigation are marked with upstream's
+`Input:padEventSeen`, so its pad polling does not also move the player.
+The old router's own gamepad defaults (shoulders and triggers) are not
+wired.
+
+## Auto-walk (`src/access/nav/AutoWalk.lua`)
+
+New, not reused. Uses `Navigation:selectedRouteGoals` (extracted from the
+old `describeRouteToSelected`, so both aim at the same cells),
+`worldRouteRequest` and `Pathfinder.find`. Each step's direction is held on
+upstream's `Input` as its own source (`access_autowalk`) and released at the
+next cell. Speaks "Walking to ...", then "Arrived at ..." with the
+interaction hint (for example "Face up and interact"), or why it stopped:
+a screen opened, blocked for 90 frames, off the route, or any key or button
+pressed. A door or staircase counts as arrival when its transition opens on
+the destination cell.
+
+Verified: `tests/access/auto_walk_test.lua` 15/15;
+`tests/access/drivers/nav_controller.lua` game run: trigger plus D-pad
+cycled categories ("Warps", "All") and objects, left stick click walked to
+the PC ("Arrived at PC. Face up and interact") and in a second run took the
+stairs ("Arrived at AAAAAAA's House 1F"), right stick click started and
+stopped guided navigation. Not yet tried with a physical controller or
+heard by the owner.

@@ -181,3 +181,14 @@ so it is omitted unless a player wants it. The camera code stays; its keys
 commands and pass through to the game, and F8 help leaves them out, unless
 the save option `accessibilityCamera` is true. No menu exposes that option
 yet.
+
+## 23. Controller navigation and auto-walk (2026-10-31)
+
+Owner's controller scheme: hold the left trigger as the navigation
+modifier; with it held, D-pad up and down cycle object categories and left
+and right cycle items within the category. Left stick click starts
+auto-walk to the selected object; right stick click starts guided
+navigation. Auto-walk is new (the old project had none): it walks the
+same route guided navigation describes by holding directions the way a
+player would. On the map the left trigger no longer lowers game speed
+(upstream's default); the left shoulder still does.
