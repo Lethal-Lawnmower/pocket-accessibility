@@ -34,7 +34,7 @@ local function poll(state, entering)
     memos[state] = memo
   end
   local text, interrupt = lastPresenter.poll(state, memo, entering)
-  if text then Speech.say(text, { interrupt = interrupt }) end
+  if text then Speech.say(text, { interrupt = interrupt, screen = true }) end
 end
 
 -- `top` is injectable for tests; the game passes nothing.

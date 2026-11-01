@@ -46,6 +46,8 @@ check exactly these places.
 | Minor screens (read only): `TitleState`, `IntroMovie`, `YellowIntro`, `LeaguePC`, `PrizeCounter`, `SlotMachine`, `HallOfFame`, `Diploma`, `Credits` | Their index, stage, message and screen fields; `game.data.text` Diploma strings | Screen speech (`menus-and-text.md`) | 2026-10-31 |
 | Extra screens (read only): `ManagerState`, `QuarantineReport`, `LinkState`, `Gen1BattlePrep`, `Gen1TradePrep`, `PicBox`, `SurfHiScore` | Mod manager `screen`, `tab`, `cursor`, `overlay`, `notice`, `optionRows`, read-only `rowsForScreen`, `isStaged`, `runsHere`; link `stage`, `index`, `side`, `trade`, `willText`, `listLabel`; union page models' `page`, `label`, `formatLines` | Screen speech (`menus-and-text.md`) | 2026-10-31 |
 | `src/world/OverworldController.lua` (read only) | The module is Gen 1's overworld (`Game.overworld = OverworldState`); field `emote.pikaPic`, traced through `field.pikachu.emotions` and `.pics` | Pikachu reactions (`yellow.md`) | 2026-10-31 |
+| `main.lua` (runtime wrappers, no edit) | `love.keypressed` (ours first, may consume), `love.keyreleased` | Navigation command keys (`navigation.md`) | 2026-10-31 |
+| `src/mods/Runtime.lua` events (subscribe only) | `map.entered`, `world.stepped` through `Runtime.events:on` | Navigation world events | 2026-10-31 |
 | `BattleState.lua` local `StatBox` (read only) | Recognised by `debug.getinfo(mt.draw).source`; fields `mon.stats`, `mon.level`, `mon.species` | Level-up stats speech (`battle.md`) | 2026-10-31 |
 | `src/battle/BattleState.lua` (read only) | `phase`, `current.text`, `menuIndex`, `moveIndex`, `mimicIndex`, `mimicMoves`, `safari.balls`, `demo`, `player.mon`, `player.curMoves`, `player.disabledSlot`, `enemy.mon`, `data` | Battle speech (`battle.md`) | 2026-10-31 |
 

@@ -8,7 +8,7 @@ local Collision = require("src.world.Collision")
 local Map = require("src.world.Map")
 local Puzzle = require("src.access.nav.PuzzleAssistance")
 local WorldSnapshot = require("src.access.nav.WorldSnapshot")
-local Accessibility = require("src.access.nav.Accessibility")
+local Accessibility = require("src.access.nav.Navigation")
 Collision.load(Data)
 
 local mapId = "VICTORY_ROAD_1F"

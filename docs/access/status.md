@@ -53,6 +53,14 @@ and recorded in the topic file.
 - Next workstream: navigation (Pokémon Access features), the launcher, or the
   surfing minigame?
 
+## Navigation
+
+- **State:** old navigation reused (decision 20) and wired in: F7 command
+  layer, object list, filters, map name, position, tiles, pathfinding,
+  renaming. Old tests pass except one bedroom object. Details: `navigation.md`.
+- **Next:** walking cues, camera sounds, wall bumps (no upstream event),
+  Chaos Cut as an optional mod (decision 21); the owner's playtest.
+
 ## Not started
 
-Navigation, launcher, save editor accessibility.
+Launcher, save editor accessibility.

@@ -1,6 +1,6 @@
 local T = require("tests.harness")
 local S = T.suite("accessibility regional navigation")
-local Accessibility = require("src.access.nav.Accessibility")
+local Accessibility = require("src.access.nav.Navigation")
 local Collision = require("src.world.Collision")
 local Map = require("src.world.Map")
 local Pathfinder = require("src.access.nav.Pathfinder")
@@ -416,7 +416,7 @@ access:shutdown()
 -- route whose leading directive points the same way, so deviating off a long
 -- corridor left the player with no new directions at all -- reported from live
 -- play as "it recalculates but only tells you whether a route exists".
-local Access = require("src.access.nav.Accessibility")
+local Access = require("src.access.nav.Navigation")
 local deviationProbe = setmetatable({}, { __index = Access })
 
 local function navAt(key, x, y)

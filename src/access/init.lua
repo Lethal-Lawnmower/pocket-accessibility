@@ -24,6 +24,16 @@ local function after(name, fn)
   end
 end
 
+-- Wraps a love callback so the layer runs first and may consume the event:
+-- when fn returns true, upstream's handler never sees it.
+local function before(name, fn)
+  local original = love[name]
+  love[name] = function(...)
+    if fn(...) then return end
+    if original then return original(...) end
+  end
+end
+
 function Access.install(opts)
   if installed then return false end
   -- POKEPORT_ACCESS=0 runs plain upstream, for telling our bugs from theirs.
@@ -38,7 +48,17 @@ function Access.install(opts)
   -- Screen speech reads the frame's settled state, after upstream's update.
   -- Only when speech works: with no output there is nothing to report.
   if Speech.available() then
-    after("update", function() ScreenReader.update() end)
+    local Nav = require("src.access.nav")
+    after("update", function()
+      ScreenReader.update()
+      Nav.update()
+    end)
+    -- Pokemon Access command keys (F7 command layer, F8 help) reach the
+    -- router before the game; recognised commands are consumed.
+    before("keypressed", function(key, scancode, isRepeat)
+      return Nav.keypressed(key, scancode, isRepeat)
+    end)
+    after("keyreleased", function(_, key) Nav.keyreleased(key) end)
   end
 
   -- A cancelled quit (true) keeps the game running, so speech stays open.
