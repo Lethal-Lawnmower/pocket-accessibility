@@ -48,8 +48,10 @@ and recorded in the topic file.
   C# Windows Forms on .NET 10, decision 4): games list with imported state,
   Play, Import ROM (dialog or a ROM dropped on the icon), Credits with the
   required upstream credit. Built, accessibility tree checked through UI
-  Automation, import and play run on a disposable profile. Not yet tried by
-  the owner. Details: `launcher.md`.
+  Automation, import and play run on a disposable profile. The owner's first
+  try found the stale-import fallback (fixed with the game's own ready
+  check), then judged it "Looks good" and approved the push (2026-11-01).
+  Details: `launcher.md`.
 - **Next:** the owner tries it; Edit save, Settings; packaging (closing the
   routes back to upstream's launcher, layout, save folder).
 

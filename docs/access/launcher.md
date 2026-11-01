@@ -3,8 +3,8 @@
 Our own launcher (decision 4): a small Windows Forms app in
 `launcher/PocketLauncher/` that picks a game, imports ROMs and starts the
 game program. Upstream's launcher is proprietary (License Term 2) and is
-never used. Status (2026-11-01): first working version; not yet tried by
-the owner.
+never used. Status (2026-11-01): first working version; the owner opened
+it, found the stale-import problem (fixed), and approved it ("Looks good").
 
 ## What it does now
 
@@ -85,7 +85,7 @@ run. Build output is ignored by git.
 | Import and Play | Disposable profile, driven through UI Automation: a Crystal ROM passed to the launcher was identified and imported ("Pokémon Crystal, imported"); the confirmation box read "Pokémon Gold imported. Press Play to start." in a second run; Play started Crystal directly (a probe driver recorded `version=crystal phase=play`, no upstream launcher) and the launcher returned to Ready when the game closed. |
 | ROM identification | All seven of the owner's dumps hash to catalog entries. |
 | Owner's first try (2026-11-01) | Crystal was listed as imported and Play opened upstream's launcher ("Update required"): the cache was from an older build. Fixed with the ready check: the list on the owner's profile now reads "needs importing again" for all six games, and a test profile still reads Crystal imported (UI Automation). |
-| Heard by the owner | Not yet. |
+| Owner | Opened on the owner's profile after the fix: "Looks good"; push approved. Not yet used to import and play a game. |
 
 ## Before a packaged release
 
