@@ -259,3 +259,13 @@ did no FireRed or LeafGreen work in the old project, so this starts fresh.
 Same treatment and the same autonomy as decisions 18 and 27, subagents
 allowed. Still requires the owner: pushing, publishing, contacting anyone,
 product decisions and listening tests.
+
+## 30. FireRed first; LeafGreen deferred; Pokémon Access as reference (2026-11-01)
+
+The owner deferred LeafGreen ("Leaf green can wait for now") and asked for
+FireRed's entire UI now, using the Pokémon Access scripts where useful
+("Use the Pokemon access scripts if needed, like you did with Gen 1 and
+Gen 2"). Boundaries unchanged: those scripts are a behaviour reference only
+(decision 7: no license, so no code or authored text is copied); decision 20
+covers only the old project's navigation code. LeafGreen needs a clean dump
+from the owner before any game run.

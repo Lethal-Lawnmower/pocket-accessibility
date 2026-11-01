@@ -39,4 +39,7 @@ check(not isFake({}), "matcher rejects other tables")
 check(not Common.matcher("NotLoaded")(setmetatable({}, Fake)), "an unloaded class never matches")
 package.loaded["src.ui.gen2.FakeScreen"] = nil
 
+eq(Common.sentences({ "Darn…", "Coins 57" }), "Darn… Coins 57", "a part ending in an ellipsis takes no extra stop")
+eq(Common.sentences({ "Hello", "there" }), "Hello. there", "plain parts are joined as sentences")
+
 T.finish("gen2 common")
