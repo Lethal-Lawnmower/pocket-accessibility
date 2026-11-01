@@ -49,8 +49,10 @@ check exactly these places.
 | `main.lua` (runtime wrappers, no edit) | `love.keypressed` (ours first, may consume), `love.keyreleased` | Navigation command keys (`navigation.md`) | 2026-10-31 |
 | `main.lua` (runtime wrappers, no edit) | `love.gamepadaxis`, `gamepadpressed`, `gamepadreleased` (ours first, may consume) | Controller navigation (`navigation.md`) | 2026-10-31 |
 | `src/core/Input.lua` (input injection) | Auto-walk holds directions in `sources`, `pressQueue`, `state` under its own source; `padEventSeen` marks D-pad presses used for navigation | Auto-walk, controller navigation | 2026-10-31 |
-| `src/mods/Runtime.lua` events (subscribe only) | `map.entered`, `world.stepped` through `Runtime.events:on` | Navigation world events | 2026-10-31 |
+| `src/mods/Runtime.lua` events (subscribe only) | `map.entered`, `world.stepped`, `world.trainer_engaged` through `Runtime.events:on` | Navigation world events; auto-walk steers on `world.stepped` and pauses on `world.trainer_engaged` | 2026-10-31 |
 | `BattleState.lua` local `StatBox` (read only) | Recognised by `debug.getinfo(mt.draw).source`; fields `mon.stats`, `mon.level`, `mon.species` | Level-up stats speech (`battle.md`) | 2026-10-31 |
+| `src/ui/OptionsMenu.lua` (runtime wrapper, no edit) | `OptionsMenu.new`: on the top level only, one group row "ACCESSIBILITY" inserted first in `view`, opening `OptionsMenu.new(game, { rows = ... })` | Accessibility settings page (decision 26) | 2026-10-31 |
+| `src/core/Game.lua` (runtime field) | `game.speedOverride` set while auto-walk walks, previous value restored unless something else changed it; `Game:logicSpeed` locks still win | AUTO-WALK SPEED (decision 26) | 2026-10-31 |
 | `src/battle/BattleState.lua` (read only) | `phase`, `current.text`, `menuIndex`, `moveIndex`, `mimicIndex`, `mimicMoves`, `safari.balls`, `demo`, `player.mon`, `player.curMoves`, `player.disabledSlot`, `enemy.mon`, `data` | Battle speech (`battle.md`) | 2026-10-31 |
 
 ## Launcher to game interface

@@ -10,6 +10,7 @@
 
 local Speech = require("src.access.Speech")
 local AutoWalk = require("src.access.nav.AutoWalk")
+local WalkSpeed = require("src.access.nav.WalkSpeed")
 
 local Nav = {}
 
@@ -85,6 +86,10 @@ local function build(game)
     pcall(Runtime.events.on, Runtime.events, "world.trainer_engaged", function()
       AutoWalk.pause(true)
     end)
+    -- steer tile by tile inside the game's step (fast AUTO-WALK SPEED)
+    pcall(Runtime.events.on, Runtime.events, "world.stepped", function(payload)
+      if type(payload) == "table" then AutoWalk.stepped(payload.x, payload.y) end
+    end)
   end
 end
 
@@ -114,6 +119,7 @@ function Nav.update()
   nav:updateNavigation()
   local game = gen1Game()
   AutoWalk.update(game and game.stack and game.stack:top() or nil)
+  WalkSpeed.update(game, AutoWalk.walking())
 end
 
 -- Returns true when the key was an accessibility command (consumed).

@@ -14,6 +14,8 @@
 -- Upstream classes are looked up in package.loaded, so a presenter never
 -- forces a UI module to load before the game would.
 
+local Settings = require("src.access.Settings")
+
 local Presenters = {}
 
 -- An instance can only exist once its class module has loaded, so look in
@@ -99,6 +101,18 @@ Presenters.textBox = {
     local pageIndex = state.pageIndex
     if memo.page ~= pageIndex then
       memo.page, memo.through = pageIndex, 0
+    end
+    -- DIALOGUE SPEECH set to ALL AT ONCE (decision 26): the whole box, every
+    -- page, as soon as it opens; nothing more for this box afterwards.
+    if Settings.dialogueWhole(state.game) and type(state.pages) == "table" then
+      if memo.whole then return nil end
+      memo.whole = true
+      local parts = {}
+      for _, page in ipairs(state.pages) do
+        if type(page) == "table" and #page > 0 then parts[#parts + 1] = joinLines(page, 1, #page) end
+      end
+      if #parts == 0 then return nil end
+      return speakable(table.concat(parts, " ")), true
     end
     local lines = state.pages and state.pages[pageIndex]
     if type(lines) ~= "table" or #lines == 0 then return nil end

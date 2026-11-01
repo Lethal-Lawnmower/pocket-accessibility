@@ -37,7 +37,7 @@ Rules for presenters:
 
 | Screen (upstream class) | On entry or return | On change |
 |---|---|---|
-| Dialogue (`TextBox`) | The first chunk: the lines shown before the game waits for A | Each chunk the next A press reveals (owner request, 2026-10-31) |
+| Dialogue (`TextBox`) | The first chunk: the lines shown before the game waits for A | Each chunk the next A press reveals (owner request, 2026-10-31). With OPTIONS, ACCESSIBILITY, DIALOGUE SPEECH set to ALL AT ONCE (decision 26): the whole box, every page, on entry, and nothing after |
 | Menu (`Menu`: title, start, name choice, PC, shop root) | Title, item, position | Item |
 | List (`ListMenu` and subclasses: bag, boxes, shop, controls, fly) | Title, item and detail, position | Item and detail, position |
 | Yes/No (`ChoiceBox`) | Selection, queued after the question | Selection |
@@ -127,6 +127,7 @@ changes to this layer.
 | Owner listening | 2026-10-31, Red: speech heard and judged "really good". Reported that a whole page is read at once, ahead of the lines revealed by each A press; pacing change offered. |
 | Chunk pacing | Owner chose chunk-by-chunk speech. `screen_reader_test.lua` 28/28 (5 pacing checks); a scripted run (fresh identity `pocket-access-run`) traced Oak's speech and the move-learning prompt one A press at a time. Not yet heard by the owner. |
 | More game runs (2026-10-31) | `drivers/remaining_screens.lua`: mod manager (both tabs), cable club menu, slot machine, prize counter, League PC, Hall of Fame, diploma, credits, the item move picker, evolution. `drivers/gen1_screens.lua` with `POKEPORT_VERSION=blue` in a fresh identity: Blue behaves like Red. Pikachu reactions: all 32 map from their picture in the real Yellow data (28 exact, 4 share a picture with a reaction worded the same). `extra_screens_test.lua` 24/24 (mod manager, load report, cable club, Union Room prep, Pikachu reactions); `minor_screens_test.lua` 15/15. |
+| Accessibility page (decision 26) | `settings_test.lua` 22/22. `drivers/settings.lua` (silent): "Options. ACCESSIBILITY, 2 OPTIONS, 1 of 14", the page, DIALOGUE SPEECH switched with the game's keys; Mom's whole line then came as one utterance ("MOM: Right. All boys leave home some day. It said so on TV. PROF.OAK, next door, is looking for you.") and nothing after the A presses. The setting persists in the options file across runs. Not yet heard by the owner. |
 | Yellow | Yellow imported into a fresh identity (`pocket-access-yellow`); `drivers/menus_and_text.lua` with `POKEPORT_VERSION=yellow` traced the Yellow intro, title, Oak's speech, naming and the start menu. |
 | Heard by the owner | Not yet. |
 

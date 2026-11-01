@@ -209,3 +209,18 @@ Approved plan: reach targets on other maps without a new system. A new
 building or zone the player is in (maps sharing the first two words of
 their id). Guided navigation uses the old cross-map planner for them, and
 auto-walk follows that planner leg by leg across maps.
+
+## 26. Accessibility page in OPTIONS (2026-10-31)
+
+The owner asked for accessibility settings inside the game's own OPTIONS
+menu. First two rows, as requested:
+
+- **AUTO-WALK SPEED:** GAME SPEED (default: the game's own speed setting),
+  or any level of the game's speed ladder (NORMAL up to 200X). The chosen
+  speed applies only while auto-walk is walking; battles and other screens
+  use the player's normal speeds.
+- **DIALOGUE SPEECH:** PAGE BY PAGE (default, the chunk-by-chunk pacing the
+  owner asked for earlier) or ALL AT ONCE (the whole dialogue box when it
+  opens).
+
+More rows can be added to the same page later.

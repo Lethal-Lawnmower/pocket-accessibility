@@ -217,6 +217,34 @@ Not covered: Seafoam boulder puzzles, the Victory Road 2F and 3F switches in
 a run, opening Cinnabar's quiz doors, and Surf or Cut in auto-walk (it stops
 when blocked).
 
+## Auto-walk speed (decision 26)
+
+OPTIONS, ACCESSIBILITY, AUTO-WALK SPEED: GAME SPEED (default) or a level of
+the game's own speed ladder (NORMAL to 200X).
+
+- `nav/WalkSpeed.lua` sets `game.speedOverride` only while
+  `AutoWalk.walking()`; a battle, dialogue or any screen pauses the walk and
+  hands the speed back, so battle and menu speeds stay the player's. The
+  previous value is restored unless something else (skin fast-forward)
+  changed it meanwhile. Link play and fixed-speed minigames still lock 1X.
+- **Steering per tile.** At 20X and above one real frame covers several
+  tiles, and the per-frame update ran the player past every turn (trace:
+  held "down" from (7,1) to the wall at (7,7), then rerouted back up onto
+  the stairs). Auto-walk now also steers from upstream's `world.stepped`
+  event (`AutoWalk.stepped`), which fires inside the game's step when a
+  tile is finished, before the next step reads input. The per-frame update
+  still handles arrival, reroutes, doors, warps and pauses.
+- **Arrival at warps:** a walk to a warp also counts as arrived when the
+  map it leads to is reached (`targetMapId`); at speed the last step can
+  pass between two updates, which had reported "Left the map".
+
+Verified 2026-10-31: `settings_test.lua` 22/22, `auto_walk_test.lua` 30/30.
+`drivers/settings.lua` (silent): logic speed 200 while walking and 1 after;
+"Arrived at AAAAAAA's House 1F" at 200X; Mom reached from the stairs at
+200X. Hard-places sweep at 200X (`SWEEP_SPEED=200`) on Viridian Gym and
+Silph Co. 5F: every target reached that is reached at normal speed. Not
+yet tried by the owner.
+
 ## Cross-map journeys (decision 25)
 
 - **Area category** (`Navigation:areaBrowse`): the last object category.

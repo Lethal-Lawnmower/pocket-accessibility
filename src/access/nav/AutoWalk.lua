@@ -118,6 +118,10 @@ function AutoWalk.start(nav, game)
     steps = result.steps,
     goal = result.goal,
     label = item.label,
+    -- the map a warp target leads to: reaching it is the arrival even when
+    -- a fast game speed moved the player past the last step between two
+    -- updates (several tiles per real frame at 200X)
+    targetMapId = item.type == "warp" and item.destinationMapId or nil,
     interaction = interaction,
     nav = nav,
     goals = goals,
@@ -238,6 +242,8 @@ function AutoWalk.update(top)
     local last = walk.steps[#walk.steps]
     local finishing = last and ((walk.lastX == last.x and walk.lastY == last.y)
       or (walk.lastX == last.fromX and walk.lastY == last.fromY))
+    local newMapId = overworld.map.def and overworld.map.def.id or overworld.map.id
+    if walk.targetMapId and walk.targetMapId == newMapId then finishing = true end
     if walk.journey and (not walk.final or not finishing) then
       release(walk.input, walk.held)
       walk.held, walk.awaitingMap = nil, true
@@ -346,6 +352,31 @@ function AutoWalk.update(top)
     walk.held = step.direction
   end
   hold(walk.input, step.direction)
+end
+
+-- Called from upstream's world.stepped event, which fires inside the game's
+-- own step each time the player finishes a tile, before the next step reads
+-- input.  Steering here keeps the walk on its route at any game speed: at
+-- 30X or 200X one real frame covers several tiles, and the per-frame update
+-- alone ran the player past every turn.  The update still handles arrival,
+-- reroutes, card-key doors, warps and pauses.
+function AutoWalk.stepped(x, y)
+  if not walk or walk.paused or walk.awaitingMap or walk.pushDir or walk.tapA then return end
+  if walk.overworld.map ~= walk.map then return end
+  for _, s in ipairs(walk.steps) do
+    if s.fromX == x and s.fromY == y then
+      if walk.held ~= s.direction then
+        release(walk.input, walk.held)
+        walk.held = s.direction
+        hold(walk.input, s.direction)
+      end
+      return
+    end
+  end
+  -- the route's last cell, or off the route: stop pressing here and let the
+  -- update announce the arrival or plan again
+  release(walk.input, walk.held)
+  walk.held = nil
 end
 
 -- For scripted debugging: the active walk's plan (read-only use).

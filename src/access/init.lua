@@ -49,6 +49,8 @@ function Access.install(opts)
   -- Only when speech works: with no output there is nothing to report.
   if Speech.available() then
     local Nav = require("src.access.nav")
+    -- the ACCESSIBILITY page in OPTIONS (decision 26)
+    require("src.access.Settings").install()
     after("update", function()
       ScreenReader.update()
       Nav.update()

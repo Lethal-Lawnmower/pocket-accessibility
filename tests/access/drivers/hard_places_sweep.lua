@@ -18,6 +18,8 @@ return function(game)
   if not game.data.moves.PSYCHIC_M then mewtwo.moves[1] = { id = "PSYCHIC", pp = 10 } end
   game.save.party = { mewtwo }
   game.speedOverride = 4
+  -- SWEEP_SPEED=200 walks with that AUTO-WALK SPEED (decision 26)
+  game.save.options.accessAutoWalkSpeed = tonumber(os.getenv("SWEEP_SPEED"))
   -- full HP and PP before every walk, so battles never stall
   local function heal()
     mewtwo.hp, mewtwo.status = mewtwo.stats.hp, nil
