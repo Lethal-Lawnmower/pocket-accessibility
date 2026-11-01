@@ -119,17 +119,31 @@ MinorScreens.hallOfFame = {
   end,
 }
 
--- Diploma (src/ui/Diploma.lua): its text lines and the player's name.
+-- Diploma (src/ui/Diploma.lua).  Yellow draws game text (DiplomaText,
+-- DiplomaPlayer, DiplomaCongrats, DiplomaGameFreak); Red and Blue draw
+-- fixed lines through Strings (Diploma.lua drawLines), so a translation
+-- catalog applies to either.
+local RED_CONGRATS = { "Congrats! This", "diploma certifies", "that you have",
+  "completed your", "POKéDEX." }
+
 MinorScreens.diploma = {
   matches = matcher("src.ui.Diploma"),
   poll = once(function(state)
     local game = state.game
     local t = game.data and game.data.text or {}
     local save = game.save or {}
-    local name = save.player and save.player.name or ""
-    return table.concat({ speakable(t.DiplomaText or "Diploma"),
-      speakable(t.DiplomaPlayer or "Player") .. " " .. speakable(name),
-      speakable(t.DiplomaCongrats or ""), speakable(t.DiplomaGameFreak or "GAME FREAK") }, ". ")
+    local name = speakable(save.player and save.player.name or "RED")
+    local okS, Strings = pcall(require, "src.core.Strings")
+    local function tr(s) return okS and Strings(s) or s end
+    if t.DiplomaCongrats then
+      return table.concat({ speakable(t.DiplomaText or "Diploma"),
+        speakable(t.DiplomaPlayer or "Player") .. " " .. name,
+        speakable(t.DiplomaCongrats), speakable(t.DiplomaGameFreak or "GAME FREAK") }, ". ")
+    end
+    local lines = {}
+    for i, line in ipairs(RED_CONGRATS) do lines[i] = speakable(tr(line)) end
+    return "Diploma. " .. speakable(tr("Player")) .. " " .. name .. ". "
+      .. table.concat(lines, " ") .. " " .. speakable(tr("GAME FREAK"))
   end),
 }
 
@@ -150,7 +164,33 @@ MinorScreens.credits = {
   end,
 }
 
+-- Picture pop-up (src/ui/PicBox.lua, for example a fossil or a Pokemon in
+-- a box): names the Pokemon when the screen knows it; text that follows is
+-- a normal dialogue box.
+MinorScreens.picBox = {
+  matches = matcher("src.ui.PicBox"),
+  poll = once(function(state)
+    local data = state.game and state.game.data
+    local def = state.species and data and data.pokemon and data.pokemon[state.species]
+    local name = def and def.name or state.species
+    return (name and ("Picture of " .. speakable(name)) or "Picture") .. ". Press A to continue."
+  end),
+}
+
+-- Yellow's printed surfing high score (src/ui/SurfHiScore.lua:render).
+MinorScreens.surfHiScore = {
+  matches = matcher("src.ui.SurfHiScore"),
+  poll = once(function(state)
+    local save = state.game and state.game.save or {}
+    local score = math.max(0, math.floor(tonumber(save.surfingHighScore) or 0))
+    return string.format("Pikachu's Beach high score: %s, %d points",
+      speakable(save.player and save.player.name or ""), score)
+  end),
+}
+
 MinorScreens.ordered = {
+  MinorScreens.picBox,
+  MinorScreens.surfHiScore,
   MinorScreens.title,
   MinorScreens.introMovie,
   MinorScreens.yellowIntro,

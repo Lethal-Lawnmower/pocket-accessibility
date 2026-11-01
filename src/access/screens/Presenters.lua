@@ -37,7 +37,8 @@ end
 local function speakable(text)
   text = tostring(text or "")
   text = text:gsub("<PK>", "PK"):gsub("<MN>", "MN")
-  return (text:gsub("%s*\n%s*", " "))
+  -- a line ending in a space plus the joining space would read as a pause
+  return (text:gsub("%s*\n%s*", " "):gsub("  +", " "))
 end
 Presenters.speakable = speakable
 
@@ -376,6 +377,13 @@ end
 for _, presenter in ipairs(require("src.access.screens.MinorScreens").ordered) do
   Presenters.ordered[#Presenters.ordered + 1] = presenter
 end
+for _, presenter in ipairs(require("src.access.screens.ExtraScreens").ordered) do
+  Presenters.ordered[#Presenters.ordered + 1] = presenter
+end
+for _, presenter in ipairs(require("src.access.screens.LinkScreens").ordered) do
+  Presenters.ordered[#Presenters.ordered + 1] = presenter
+end
+Presenters.ordered[#Presenters.ordered + 1] = require("src.access.screens.Overworld").presenter
 
 function Presenters.find(state)
   if type(state) ~= "table" then return nil end

@@ -58,6 +58,13 @@ Rules for presenters:
 | Slot machine (`SlotMachine`) | Its messages (queued), bet amount, "Spinning", One more go YES/NO | Bet, YES/NO |
 | Hall of Fame (`HallOfFame`) | Each member as shown | Next member |
 | Diploma (`Diploma`), credits (`Credits`) | Diploma text with the player's name; each credits screen's lines | Next credits screen |
+| Picture pop-up (`PicBox`) | "Picture of" the Pokémon, "Press A to continue" | (once) |
+| Yellow high-score print (`SurfHiScore`) | Player and high score | (once) |
+| Mod manager (`ManagerState`) | "Mod manager", tab, mod and its state (enabled, disabled, error, missing dependency, not for this game, change pending restart), position | Row; tab; detail page (name, version, state, description); options with values; confirmations with YES/NO; notices |
+| Save load report (`QuarantineReport`) | Every report line | (once) |
+| Cable club (`LinkState`) | Each stage: HOST/JOIN menu with port, hosting address, typed host address, connected, TRADE/BATTLE, battle level option, version notices, link battle | Stage text; in the trade centre: your or their Pokémon with position, STATS/TRADE, the trade message, TRADE/CANCEL, waiting |
+| Union Room battle and trade prep (`Gen1BattlePrep`, `Gen1TradePrep`) | Page title, every body line (not just the visible window), focused option with position, "unavailable" when disabled | Option; notices |
+| Yellow: talking to Pikachu (overworld `emote`) | "Pikachu is happy", "Pikachu is asleep" and so on | Each new reaction picture |
 
 Evolution and trade speak through the text boxes they push. Yellow's
 surfing minigame is a timing game and needs its own design.
@@ -104,17 +111,10 @@ changes to this layer.
 
 ## Not covered yet
 
-- Yellow: Pikachu's reactions when you talk to it (a picture and cry, no
-  text), and the printer screens (`PrinterMonStats`, `SurfHiScore`).
-- Picture pop-ups (`PicBox`, for example fossils): the text around them
-  reads, the picture itself is not described.
-- Link features: trading and link battles over the cable club.
-- Upstream additions outside the original games: mod manager, palette
-  screen, skin studio, touch controls editor, load report.
-- Blue has not had its own scripted run (same screens as Red).
+- Yellow's Pokédex print preview (`PrinterMonStats` is a render helper, not a screen of its own; not reached).
+- Upstream visual tools: palette screen, skin studio, touch controls editor (visual or touch-only editors).
+- Network flows were checked only up to the cable club menu; hosting, joining and Union Room sessions need a second player.
 - Yellow's surfing minigame (needs a design for a timing game).
-- Not yet run in game: minor screens (League PC, prizes, slots, Hall of
-  Fame, diploma, credits), `MoveSelectMenu`, evolution and trade text.
 - Gen 2 and 3 screens.
 - Wording and pronunciation (for example "POKéMON") need the owner's playtest.
 
@@ -126,6 +126,7 @@ changes to this layer.
 | Scripted game runs | Disposable identity `pocket-access-test`, `POKEPORT_ACCESS_TRACE=1`, real Prism (NVDA). `drivers/menus_and_text.lua`: title menu, Oak's speech, name menus, start menu. `drivers/gen1_screens.lua`: naming keyboard, party and sub-menu, summary pages, options entry, trainer card. `drivers/more_screens.lua`: bag, toss quantity, Pokédex list and a two-page entry, town map, a mart's buy list, priced quantity, price prompt with YES/NO, Pokédex nest areas, an options group page with a value change. Title and intro lines appear at every scripted start. `drivers/pc_and_moves.lua`: Bill's PC and deposit list, player's PC and withdraw list, the whole forget-a-move flow including the abandon prompt. |
 | Owner listening | 2026-10-31, Red: speech heard and judged "really good". Reported that a whole page is read at once, ahead of the lines revealed by each A press; pacing change offered. |
 | Chunk pacing | Owner chose chunk-by-chunk speech. `screen_reader_test.lua` 28/28 (5 pacing checks); a scripted run (fresh identity `pocket-access-run`) traced Oak's speech and the move-learning prompt one A press at a time. Not yet heard by the owner. |
+| More game runs (2026-10-31) | `drivers/remaining_screens.lua`: mod manager (both tabs), cable club menu, slot machine, prize counter, League PC, Hall of Fame, diploma, credits, the item move picker, evolution. `drivers/gen1_screens.lua` with `POKEPORT_VERSION=blue` in a fresh identity: Blue behaves like Red. Pikachu reactions: all 32 map from their picture in the real Yellow data (28 exact, 4 share a picture with a reaction worded the same). `extra_screens_test.lua` 24/24 (mod manager, load report, cable club, Union Room prep, Pikachu reactions); `minor_screens_test.lua` 15/15. |
 | Yellow | Yellow imported into a fresh identity (`pocket-access-yellow`); `drivers/menus_and_text.lua` with `POKEPORT_VERSION=yellow` traced the Yellow intro, title, Oak's speech, naming and the start menu. |
 | Heard by the owner | Not yet. |
 

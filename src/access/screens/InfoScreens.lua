@@ -123,7 +123,6 @@ local function movePicker(path, ready)
       local moves = state.mon and state.mon.moves or {}
       local text = moveText(state.game, moves[state.index])
       if first then text = text .. ", " .. position(state.index, #moves) end
-      if first and state.prompt then text = speakable(state.prompt) .. " " .. text end
       return text, true
     end,
   }

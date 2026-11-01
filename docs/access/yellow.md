@@ -4,6 +4,17 @@ What differs from Red for accessibility. Everything not listed here works
 as described in `menus-and-text.md` and `battle.md` (Yellow intro, title,
 Oak's speech, naming and start menu verified in a scripted run, 2026-10-31).
 
+## Talking to Pikachu (done)
+
+The game answers with a picture of Pikachu and a cry, no text. The
+overworld presenter (`src/access/screens/Overworld.lua`) speaks the
+reaction, for example "Pikachu is happy" or "Pikachu is asleep". The
+reaction is traced from the shown picture back to its emotion number in the
+game's own data, and worded from pokeyellow's `PikachuEmotionTable` names
+(read in `pret/pokeyellow`, `engine/pikachu/pikachu_emotions.asm`, for
+meaning only). All 32 reactions checked against the real Yellow data.
+Not yet triggered by talking to Pikachu in a game run.
+
 ## Surfing Pikachu minigame (proposed design, not built)
 
 Status: proposal awaiting the owner's decision. Source studied:

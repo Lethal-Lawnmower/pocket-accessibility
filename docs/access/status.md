@@ -28,13 +28,15 @@ and recorded in the topic file.
 ## Menus and text
 
 - **State:** every Gen 1 screen class has a presenter except Yellow's
-  surfing minigame, with no edits to screen files. Mod screens can opt in
+  surfing minigame and upstream's visual editors (palette, skin studio,
+  touch controls), with no edits to screen files. Includes the mod manager,
+  cable club, Union Room prep, save load report and Pikachu reactions. Mod screens can opt in
   with `accessibilityText`. Dialogue follows the game's A presses. Unit
   suites 28, 37, 13, 14 and 32 checks, all passing. Scripted game runs in
   disposable identities cover Red and Yellow. Details: `menus-and-text.md`,
   `battle.md`, `yellow.md`.
-- **Next:** surfing minigame (design in `yellow.md`, awaiting the owner);
-  game runs for minor screens, `MoveSelectMenu`, evolution and trade; the
+- **Next:** surfing minigame (design in `yellow.md`, deferred by the owner);
+  network flows with a second player; talking to Pikachu in a game run; the
   owner's judgement on wording and verbosity from playing.
 
 ## Before any packaged release

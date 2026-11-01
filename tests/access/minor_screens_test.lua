@@ -84,5 +84,14 @@ credits.screen = { lines = { { text = "DIRECTOR" }, { text = "SATOSHI TAJIRI" } 
 SR.update(credits)
 eq(last(), "DIRECTOR, SATOSHI TAJIRI", "credits screen")
 
+reset()
+game.data.pokemon.KABUTO = { name = "KABUTO" }
+SR.update(as("src.ui.PicBox", { game = game, species = "KABUTO" }))
+eq(last(), "Picture of KABUTO. Press A to continue.", "picture pop-up")
+reset()
+game.save.surfingHighScore = 1234
+SR.update(as("src.ui.SurfHiScore", { game = game }))
+eq(last(), "Pikachu's Beach high score: RED, 1234 points", "surfing high score")
+
 Speech.shutdown()
 T.finish()
