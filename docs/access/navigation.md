@@ -6,7 +6,7 @@ decision 20, adapted to v0.3.98. Status: wired into the game and working
 for the core Pokémon Access commands; walking cues and wall bumps not yet
 checked in a game run. Gold, Silver and Crystal run the same layer through
 a coordinator subclass (`nav/gen2/`) and `nav/WorldAdapter.lua`; their
-differences are in `gold-silver-crystal.md`.
+differences are in `gold-silver-crystal-navigation.md`.
 
 ## Reused modules (`src/access/nav/`)
 

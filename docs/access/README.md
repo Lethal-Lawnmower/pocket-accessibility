@@ -26,8 +26,9 @@ Then read only the topic file for the area you are working on.
 Topic files are created when work on that area starts, not before:
 `speech.md`, `navigation.md`, `menus-and-text.md`, `battle.md`, `launcher.md`,
 `save-editor.md`, and one file per game holding differences only (for example
-`yellow.md`; Gold, Silver and Crystal share an engine and one file,
-`gold-silver-crystal.md`). About 300 lines each.
+`yellow.md`; Gold, Silver and Crystal share an engine: screens in
+`gold-silver-crystal.md`, navigation and the edition audit in
+`gold-silver-crystal-navigation.md`). About 300 lines each.
 
 ## Rules
 

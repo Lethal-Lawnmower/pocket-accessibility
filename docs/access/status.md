@@ -1,7 +1,7 @@
 # Status
 
-**Current focus (2026-11-01):** Gold, Silver and Crystal (decision 27): the
-same treatment Red, Blue and Yellow got. Gen 1 is done apart from Yellow's
+**Current focus (2026-11-01):** Gold, Silver and Crystal (decision 27) have
+the same treatment Red, Blue and Yellow got, waiting for the owner to listen. Gen 1 is done apart from Yellow's
 surfing minigame, which the owner is picking up.
 
 Each workstream section is edited only by the session working on it. Keep each
@@ -65,9 +65,11 @@ and recorded in the topic file.
   H and Shift+H battle health, and Strength puzzle help for Ice Path B1F and
   Blackthorn Gym 2F, run in all three games; Gen 1 regression unchanged.
   Full walkthroughs re-run after every merge in Crystal, Gold and Silver.
-- **In progress:** the cross-edition audit (agent branch): whole-game label
-  sweep and required story spots in each edition, edition differences.
-- **Then:** merge the audit, hand to the owner to listen (Crystal first).
+- **Audit (2026-11-01):** merged. Whole-game label sweep (388 Crystal maps,
+  368 each in Gold and Silver: no hard errors; misleading labels fixed),
+  required story spots walked in each edition with no layer blocks, edition
+  differences all game data. Details: `gold-silver-crystal-navigation.md`.
+- **Next:** the owner listens, Crystal first. Nothing is pushed.
 - **Open product questions:** listed in `gold-silver-crystal.md`.
 
 ## Open questions for the owner

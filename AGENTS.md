@@ -34,7 +34,10 @@ on our own fork. Everything outside our folders is upstream code.
 - **Game test runs use a disposable save identity** (`POKEPORT_IDENTITY=...`),
   never the default `pokemon-love2d`, which holds the owner's real saves.
 - **Scripted runs are silent** (`POKEPORT_ACCESS_SILENT=1`) so they never talk
-  over the owner's screen reader.
+  over the owner's screen reader, and **isolated**: run a driver through
+  `tests/access/drivers/isolated.lua` (`ISOLATED_DRIVER=<driver>`), which
+  minimises the window and ignores real input, so the game never takes the
+  owner's keystrokes and a real key never stops a scripted walk.
 
 ## Owner
 
