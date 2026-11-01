@@ -124,7 +124,7 @@ function Nav.update()
   if not nav then return end
   nav:updateNavigation()
   AutoWalk.update(adapter.top(game))
-  WalkSpeed.update(game, AutoWalk.walking())
+  WalkSpeed.update(game, AutoWalk.walking(), AutoWalk.turning())
 end
 
 -- Returns true when the key was an accessibility command (consumed).

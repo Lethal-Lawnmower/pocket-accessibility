@@ -98,6 +98,104 @@ AutoWalk.update(overworld)
 eq(spoken[#spoken], "Resuming walk to PC", "resumes after the trainer battle")
 fakeStack.states = {}
 
+-- A scene that turns the player back to the same cell every time (Ecruteak's
+-- Tin Tower sages): resume twice, then stop instead of walking into it for ever.
+game, overworld, nav = setup()
+AutoWalk.start(nav, game)
+local scene = { scene = true }
+for round = 1, 3 do
+  AutoWalk.update(overworld)
+  AutoWalk.update(scene)
+  overworld.player.cellX, overworld.player.cellY = 0, 0 -- stepped back by the scene
+  AutoWalk.update(overworld)
+  if round < 3 then eq(spoken[#spoken], "Resuming walk to PC", "turned back " .. round .. ": resumes") end
+end
+eq(spoken[#spoken], "Turned back again, auto walk stopped", "turned back a third time at the same cell: stops")
+check(not AutoWalk.active(), "and the walk is over")
+game, overworld, nav = setup()
+AutoWalk.start(nav, game)
+for round = 1, 3 do
+  AutoWalk.update(overworld)
+  AutoWalk.update(scene)
+  overworld.player.cellX = round -- each interruption somewhere new (trainers along the way)
+  AutoWalk.update(overworld)
+end
+check(AutoWalk.active(), "interruptions at different cells never stop the walk")
+AutoWalk.stop()
+
+-- A person who moves during a pause (a scene walks them over) is looked up
+-- again: the walk heads for where they stand now; one who left ends the walk.
+do
+  game, overworld, nav = setup()
+  local where, present = { x = 5, y = 5 }, true
+  local person = { id = "npc_1", label = "Gentleman", type = "object" }
+  nav.browseFilter = "all"
+  nav.selectedRouteGoals = function()
+    return person, { { x = where.x, y = where.y - 1 } }, nil, nil, overworld
+  end
+  nav.captureWorld = function()
+    return { browse = present and { person } or {} }
+  end
+  AutoWalk.start(nav, game)
+  AutoWalk.update(overworld)
+  AutoWalk.update({ scene = true })
+  where.x, where.y = 0, 2 -- walked over to the player
+  AutoWalk.update(overworld)
+  local state = AutoWalk._state()
+  eq(state and state.goals[1].x .. "," .. state.goals[1].y, "0,1", "goals follow the person's new cell")
+  AutoWalk.update({ scene = true })
+  present = false
+  overworld.player.cellX = 1
+  AutoWalk.update(overworld)
+  eq(spoken[#spoken], "Gentleman is gone, auto walk stopped", "a person who left ends the walk, said so")
+  check(not AutoWalk.active(), "and the walk is over")
+end
+
+-- The planners' reasons are said in words, never as code ("no path",
+-- "regional search timed out" were spoken as they were).
+do
+  local Pathfinder = package.loaded["src.access.nav.Pathfinder"]
+  local find = Pathfinder.find
+  Pathfinder.find = function() return nil, "no path" end
+  game, overworld, nav = setup()
+  check(not AutoWalk.start(nav, game), "no route: the walk does not start")
+  eq(spoken[#spoken], "No route to PC from here", "no path is said in words")
+  Pathfinder.find = find
+  game, overworld, nav = setup()
+  nav.selectedRouteGoals = function()
+    return { label = "Ether, Olivine Lighthouse 3F", type = "area", mapId = "OLIVINE_LIGHTHOUSE_3F" },
+      { { x = 1, y = 1 } }, nil, nil, overworld
+  end
+  nav.regionalNextLeg = function() return nil, "regional search timed out" end
+  AutoWalk.start(nav, game)
+  eq(spoken[#spoken], "Could not plan a route to Ether, Olivine Lighthouse 3F in time",
+    "a planner time-out is said in words")
+  eq(AutoWalk.spokenReason("Not on a map", "PC"), "Not on a map", "a reason that is a sentence stays")
+end
+
+-- A field move on the route (Gen 2): turn to face it, flagged as turning so
+-- the game runs that frame at 1X (a fast frame's worth of a held direction
+-- stepped onto a waterfall's bottom cell instead of turning), then press A.
+game, overworld, nav = setup()
+nav.stepInteraction = function(_, _, step)
+  if step.direction == "down" then
+    return { move = "Waterfall", failText = "Could not use Waterfall", hint = "Use Waterfall facing down" }
+  end
+end
+overworld.player.facing = "right"
+AutoWalk.start(nav, game)
+AutoWalk.update(overworld)
+check(not AutoWalk.turning(), "an ordinary step is not a turn")
+overworld.player.cellX = 1
+AutoWalk.update(overworld)
+check(AutoWalk.turning(), "facing the wrong way at a field move: turning")
+eq(game.input.state.down, true, "holding the direction to turn")
+overworld.player.facing = "down"
+AutoWalk.update(overworld)
+check(not AutoWalk.turning(), "facing it: no longer turning")
+eq(game.input.state.a, true, "and A is pressed for the move")
+AutoWalk.stop()
+
 game, overworld, nav = setup()
 AutoWalk.start(nav, game)
 for _ = 1, 95 do AutoWalk.update(overworld) end

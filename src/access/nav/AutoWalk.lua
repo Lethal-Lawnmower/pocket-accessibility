@@ -27,6 +27,10 @@ local SOURCE = "access_autowalk"
 local STUCK_FRAMES = 90
 local MAX_REROUTES = 8
 local PUSH_FRAMES = 60
+-- Resuming from the same cell this many times means the game keeps turning
+-- the player back there (Ecruteak's Tin Tower sages stop every walk north
+-- and step the player back; auto-walk resumed into them for ever).
+local MAX_RESUMES_AT_CELL = 3
 
 local walk = nil -- active walk, or nil
 
@@ -60,6 +64,9 @@ function AutoWalk.active() return walk ~= nil end
 -- Walking right now (not paused for a battle); real input cancels only then.
 function AutoWalk.walking() return walk ~= nil and not walk.paused end
 
+-- Turning on the spot to face a field-move obstacle (see AutoWalk.update).
+function AutoWalk.turning() return walk ~= nil and not walk.paused and walk.turning == true end
+
 function AutoWalk.stop(reason)
   if not walk then return false end
   release(walk.input, walk.held)
@@ -88,6 +95,22 @@ local function findRoute(nav, goals)
   return nil, lastErr
 end
 
+-- The planners give their reasons for code ("no path", "regional search
+-- timed out"); those were spoken as they were.  The player hears what they
+-- mean; any other reason ("Not on a map") is already a sentence.
+local PLANNER_REASONS = {
+  ["no path"] = "none", ["no regional path"] = "none", ["no regional transition"] = "none",
+  ["regional search timed out"] = "slow", ["time limit exceeded"] = "slow",
+  ["node limit exceeded"] = "slow",
+}
+local function spokenReason(reason, label)
+  local kind = PLANNER_REASONS[reason]
+  if kind == "none" then return "No route to " .. tostring(label) .. " from here" end
+  if kind == "slow" then return "Could not plan a route to " .. tostring(label) .. " in time" end
+  return tostring(reason)
+end
+AutoWalk.spokenReason = spokenReason
+
 -- Starts walking to the coordinator's selected object.  Returns true when
 -- walking began; otherwise speaks why not.  `adapter` defaults to the running
 -- game's (WorldAdapter.current), Gen 1 when none is known.
@@ -110,14 +133,14 @@ function AutoWalk.start(nav, game, adapter)
     journey = { targetMapId = item.mapId, targetGoals = goals }
     local leg, legErr = nav:regionalNextLeg(journey)
     if not leg then
-      Speech.say(tostring(legErr or "No route yet"), { interrupt = true })
+      Speech.say(spokenReason(legErr or "no regional path", item.label), { interrupt = true })
       return false
     end
     goals, final = leg.goals, leg.final == true
   end
   local result, findErr = findRoute(nav, goals)
   if not result then
-    Speech.say(tostring(findErr or "Cannot reach yet"), { interrupt = true })
+    Speech.say(spokenReason(findErr or "no path", item.label), { interrupt = true })
     return false
   end
   local player = overworld.player
@@ -133,6 +156,8 @@ function AutoWalk.start(nav, game, adapter)
     steps = result.steps,
     goal = result.goal,
     label = item.label,
+    -- an object target is looked up again after a pause (refreshTarget)
+    targetId = item.id, targetType = item.type,
     -- the map a warp target leads to: reaching it is the arrival even when
     -- a fast game speed moved the player past the last step between two
     -- updates (several tiles per real frame at 200X)
@@ -222,8 +247,35 @@ function AutoWalk.pause(expectBattle)
   walk.expectBattle = walk.expectBattle or expectBattle == true
 end
 
--- Recomputes the route from where the player now stands to the same goals.
+-- A person or other object can move while the walk is paused (a scene walks
+-- them over: Radio Tower 5F's imposter director comes to the player, battles
+-- and stays beside them, and the old goals beyond him were unreachable,
+-- "Cannot reach Gentleman").  Takes the target's cells again from where it
+-- is now.  False when it is no longer on the map.
+local function refreshTarget()
+  if walk.journey or walk.targetType ~= "object" or not walk.targetId then return true end
+  local nav = walk.nav
+  if type(nav.captureWorld) ~= "function" then return true end
+  local ok, snapshot = pcall(nav.captureWorld, nav, nav.browseFilter)
+  if not (ok and type(snapshot) == "table") then return true end -- cannot tell: keep the goals
+  local present = false
+  for _, item in ipairs(snapshot.browse or {}) do
+    if item.id == walk.targetId then present = true break end
+  end
+  if not present then return false end
+  local okGoals, item, goals, interaction = pcall(nav.selectedRouteGoals, nav)
+  if okGoals and type(item) == "table" and item.id == walk.targetId
+     and type(goals) == "table" and #goals > 0 then
+    walk.goals, walk.interaction = goals, interaction
+  end
+  return true
+end
+
+-- Recomputes the route from where the player now stands to the target.
 local function resume(quiet)
+  if not refreshTarget() then
+    return AutoWalk.stop(tostring(walk.label) .. " is gone, auto walk stopped")
+  end
   local result = findRoute(walk.nav, walk.goals)
   if not result then
     return AutoWalk.stop("Cannot reach " .. tostring(walk.label) .. ", auto walk stopped")
@@ -287,7 +339,14 @@ function AutoWalk.update(top)
     if transitioning() then return end
     if overworld.map ~= walk.map then return AutoWalk.stop("Auto walk stopped") end
     if walk.expectBattle and not walk.battleSeen then return end -- trainer still walking over
-    -- battles, card-key door messages and other game-caused screens: carry on
+    -- battles, card-key door messages and other game-caused screens: carry
+    -- on, unless the game keeps sending the player back to the same cell
+    local key = tostring(player.cellX) .. "," .. tostring(player.cellY)
+    walk.resumesAt = walk.resumesAt or {}
+    walk.resumesAt[key] = (walk.resumesAt[key] or 0) + 1
+    if walk.resumesAt[key] >= MAX_RESUMES_AT_CELL then
+      return AutoWalk.stop("Turned back again, auto walk stopped")
+    end
     return resume()
   end
   if overworld.map ~= walk.map then
@@ -395,10 +454,17 @@ function AutoWalk.update(top)
   local nav = walk.nav
   local action = type(nav.stepInteraction) == "function"
     and nav:stepInteraction(overworld, step) or nil
+  walk.turning = nil
   if action then
     if player.facing ~= step.direction then
+      -- Turn to face the obstacle.  The held direction lasts a whole frame
+      -- of game ticks, so at a fast speed the turn becomes a step: into a
+      -- waterfall's bottom cell, where the current carries the player
+      -- back, every frame (Silver Cave at 200X: "Blocked").  While
+      -- turning, WalkSpeed runs the game at 1X (AutoWalk.turning).
       if walk.held ~= step.direction then release(walk.input, walk.held) walk.held = step.direction end
       hold(walk.input, step.direction)
+      walk.turning = true
       return
     end
     release(walk.input, walk.held)

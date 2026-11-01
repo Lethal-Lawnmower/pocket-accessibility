@@ -148,10 +148,15 @@ function Navigation:speakerNames()
   return found and names or nil
 end
 
+-- The names objects are labelled with.  A new game's rival is "???" until the
+-- player names him to the officer (Save.lua seeds wRivalName that way, as the
+-- cartridge does); a screen reader may say nothing at all for "???", so the
+-- object is "Rival" until then.
 local function saveNames(game)
   local save = game and game.save or {}
-  return save.player and save.player.name, save.rival and save.rival.name,
-    save.mom and save.mom.name
+  local rival = save.rival and save.rival.name
+  if type(rival) == "string" and not rival:find("%w") then rival = "Rival" end
+  return save.player and save.player.name, rival, save.mom and save.mom.name
 end
 
 -- ------------------------------------------------------------ field moves
@@ -275,7 +280,7 @@ function Navigation:interactiveBrowseObjects(world, puzzle)
   local signCells = {}
   for _, sign in ipairs(Snapshot.projectSigns(type(map.def) == "table" and map.def or {},
                                               world.native or world, map)) do
-    signCells[sign.y * width + sign.x] = true
+    for _, cell in ipairs(sign.cells or { sign }) do signCells[cell.y * width + cell.x] = true end
   end
   local player = world.player
   local result, ids = {}, {}
@@ -406,6 +411,8 @@ function Navigation:captureWorld(filter)
     customNames = self:customNames(),
     playerName = playerName, rivalName = rivalName, momName = momName,
     edition = save and save.version,
+    -- species display names, for Pokemon objects named by their cry
+    pokemon = data and data.pokemon,
     interactiveObjects = self:interactiveBrowseObjects(world, puzzle),
     objectOverrides = overrides,
     holeTargets = holeTargets(puzzle),
@@ -670,6 +677,17 @@ function Navigation:routeOptionsFor(world, goals, policy)
       if not permitted(x, y, nextDirection) then break end
       local nd = DELTA[nextDirection]
       local nx, ny = x + nd[1], y + nd[2]
+      -- A warp does not stop a slide or a current: the game carries the
+      -- player onto it and the warp fires (Ice Path B2F's slide up from the
+      -- bottom row ran onto the B1F ladder).  The move ends there, which is
+      -- only a move when that warp is the goal.
+      if map:inBounds(nx, ny) and map:warpAt(nx, ny)
+         and Permissions.isWarpCollision(map:cellCollision(nx, ny))
+         and not npcBlocks(native, nx, ny) then
+        if not goalSet[cellKey(nx, ny)] then return nil end
+        x, y, direction, travelled = nx, ny, nextDirection, travelled + 1
+        break
+      end
       if not passable(nx, ny, goalSet[cellKey(nx, ny)] == true) then break end
       x, y, direction, travelled = nx, ny, nextDirection, travelled + 1
       if travelled > map.widthCells * map.heightCells then return nil end

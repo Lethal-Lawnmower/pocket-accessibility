@@ -53,6 +53,11 @@ local DISPLAY_WORDS = {
   pokemon = "Pok\195\169mon", pkmn = "Pok\195\169mon",
   pc = "PC", hm = "HM", tm = "TM", tv = "TV",
   silph = "Silph", co = "Co.",
+  -- v0.3.98 additions (Gen 2 audit): abbreviations a screen reader would
+  -- otherwise read as words ("Pp Up", "Whirl Island Ne", "Lav Radio Tower")
+  pp = "PP", hp = "HP", lav = "Lavender",
+  ne = "NE", nw = "NW", se = "SE", sw = "SW",
+  nne = "NNE", nnw = "NNW", sse = "SSE", ssw = "SSW",
 }
 
 -- Canonical exterior doors whose raw destination floor is technically
@@ -893,6 +898,9 @@ function WorldSnapshot.browse(overworld, opts)
       -- v0.3.98: Gen 2 signs that read only when faced one way (bg event
       -- kinds 1-4); nil for Gen 1
       requiredFacing = sign.requiredFacing,
+      -- v0.3.98: a Gen 2 sign spanning several cells (one script on
+      -- neighbouring bg events) can be faced from any of them; nil for Gen 1
+      interactionCells = sign.interactionCells,
     }
     applyCustomLabel(item, opts.names)
     addPosition(item, overworld.player)

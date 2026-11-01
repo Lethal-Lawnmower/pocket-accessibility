@@ -23,9 +23,13 @@ local function restore()
   applied = nil
 end
 
--- Called every frame after auto-walk updates.
-function WalkSpeed.update(game, walking)
+-- Called every frame after auto-walk updates.  `turning`: auto-walk is
+-- turning to face a field-move obstacle, which must take one game tick, not
+-- a fast frame's worth (a waterfall's bottom cell can be stepped onto), so
+-- the game runs at 1X for it whatever the speed settings say.
+function WalkSpeed.update(game, walking, turning)
   local want = walking and game and Settings.autoWalkSpeed(game) or nil
+  if walking and turning and game then want = 1 end
   if not want then return restore() end
   if applied and applied.game ~= game then restore() end
   if not applied then
