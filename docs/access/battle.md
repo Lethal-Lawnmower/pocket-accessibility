@@ -55,6 +55,35 @@ has no battle lock. At 200X with BATTLE SCENE off a scripted run lost 2 of
 Catching every line at 200X would need a listed wrapper around the battle's
 page functions; not done (AUTO-WALK SPEED never applies in battle).
 
+## Gen 3 (FireRed, LeafGreen; decision 29)
+
+Presenter `src/access/screens/gen3/Battle.lua`. The battle is a module
+(`src/core/game3/battle`), reported by `gen3/Top.lua` as a proxy keyed on
+`Battle._st` while no menu layer is open; party, bag, summary (forgetting
+a move), naming, Pokédex and evolution are layers with their own
+presenters. Shown values only: `Anim._present[id]` (`displayHp`,
+`displayMaxHp`, `displayLevel`, `displayStatus`, `shown`) and
+`Anim._stage.healthbox[id].visible`, read with rawget.
+
+| Part | What is spoken |
+|---|---|
+| Message box | Every page shown (frames battle and voiceover), once, queued; a re-shown line again; ALL AT ONCE whole; "LV. 13" said "level 13" |
+| Action menu | First menu of a turn, and after the party or bag: every side (yours exact HP, the enemy's level and HP percent, status tags; shiny, gender, "owned" the first time), "What will X do?", the command; queued. Reopened in the same turn (partner, B back, refused choice): prompt and command, interrupting. Safari: "BALL, N left", ROCK, BAIT. Old man and POKé DUDE: prompt only |
+| Moves | Name, type, "PP n of m", position; missing PP left out; "???" is "question marks"; no disabled marker (the game shows none). SELECT: "Switch which?", the second cursor's move, "swapped" or "swap cancelled" |
+| Targets (doubles) | "enemy X, HP n percent" or "X, HP n of m" |
+| YES/NO | After the question: the option queued, moves interrupt |
+| Level-up window | Page 1 increases (queued), page 2 totals (interrupts), six stats with max HP |
+
+Example (FireRed): "CHARMANDER, male, HP 33 of 33. enemy PIDGEY, level 3,
+male, HP 100 percent. What will CHARMANDER do? FIGHT".
+`Gen3Battle.health(state, side)` answers H and Shift+H in the Gen 2 words;
+doubles name both battlers; Safari Shift+H gives the balls left.
+
+**Fast game speed.** A record-only runtime wrapper on `Message.show` and
+`Message.close` (original called unchanged, results passed through) keeps
+each battle page shown between two polls, so it is still said. 200X
+FireRed trainer battle: 8 of 32 lines lost without it, 0 of 38 with it.
+
 ## Not covered yet
 
 - Shift and switch prompts and link battles: not yet checked in a game run.
@@ -74,4 +103,5 @@ page functions; not done (AUTO-WALK SPEED never applies in battle).
 | Scripted trainer battle | `tests/access/drivers/trainer_battle.lua`: Youngster with RATTATA and EKANS. Trace: "YOUNGSTER wants to fight!", each send-out, HP for both sides each turn, a critical hit, stat drop, both faints, experience, "defeated YOUNGSTER!" and the prize money. |
 | Scripted level-up battle | `tests/access/drivers/level_up_battle.lua`: a poisoned SQUIRTLE one point short of level 6. Trace: PSN in every turn summary, "hurt by poison!", stat drops, "grew to level 6!" and the stats box. |
 | Gen 2 (2026-11-01) | `gen2_battle_test.lua` 86/86 (hand-built screens and the real `BattleState` around a stub game). `drivers/gen2_battle.lua` in Crystal, Gold and Silver (identities `pocket-access-battle-<game>`): a shiny wild battle with a party peek, a move swap and balls thrown until caught; a wild battle run from; a trainer battle with a faint, level up and stats box, forgetting TAIL WHIP for FOCUS ENERGY, the switch offer, a voluntary switch, the win and an evolution after it; "Use next POKéMON?" and "Choose a POKéMON.". The driver logged every line the box showed at each logic step: none went unspoken at 1X in any game. ALL AT ONCE run in Crystal. |
+| Gen 3 (2026-11-01) | `gen3_battle_test.lua` 92/92 (the real battle, Ui, Anim, Message, Choice and StatGrowth modules, a 200X run of the real queue). `drivers/gen3_battle.lua` in FireRed (identity `pocket-access-battle-firered`): wild catch, level up with learn-move questions, SHIFT trainer battle, run, Safari, the old man, doubles, 200X: every shown page spoken. Unit tests only: Oak's first battle, Pokémon Tower ghost, the caught marker. Not run: link battles, Trainer Tower, the POKé DUDE. |
 | Heard by the owner | Gen 1: not yet in a listening session. Gen 2: Crystal battles up to the first gym, 2026-11-01, "It works perfectly in Crystal." |

@@ -54,9 +54,9 @@ and recorded in the topic file.
   dialogue page by page and yes/no; verified in a FireRed run.
 - **In progress:** five agents on separate branches: menus and boot, bag
   and party and PC, special screens, battle, navigation.
-- **Blocker:** no clean LeafGreen dump on this PC (a clean FireRed 1.0 was
-  found in the owner's Downloads). LeafGreen is checked from source until
-  the owner supplies one.
+- **LeafGreen:** deferred by the owner (decision 30); no clean dump on this
+  PC yet. FireRed's whole UI first, with Pokémon Access as a behaviour
+  reference.
 
 ## Launcher
 
