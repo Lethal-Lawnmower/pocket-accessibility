@@ -55,6 +55,7 @@ return function(game)
     { from = "ROCKET_HIDEOUT_B2F", car = "ROCKET_HIDEOUT_ELEVATOR" },
   }
   for _, ride in ipairs(rides) do
+    if os.getenv("ELEV_ONLY") and not ride.car:find(os.getenv("ELEV_ONLY"), 1, true) then goto nextRide end
     waitTransition()
     local w = game.data.maps[ride.from].warps[1]
     U.teleport(game, ride.from, w.x, w.y, "down")
@@ -65,6 +66,10 @@ return function(game)
     U.log("DOOR", ride.from, door or ("no elevator warp; warps: " .. tostring(all)))
     if door then
       U.log("WALK", "to door =>", walk(), "now on", mapId())
+      do
+        local p = game.overworld.player
+        U.log("AT", p.cellX .. "," .. p.cellY, tostring(p.facing), "inputLocked", tostring(p.inputLocked), "top is map", tostring(game.stack:top() == game.overworld))
+      end
       local panel, signs = select("signposts", "")
       if not panel then panel = select("signposts", nil) end
       local _, signList = select("signposts", nil)
@@ -108,6 +113,7 @@ return function(game)
         end
       end
     end
+    ::nextRide::
   end
   Speech.say = say
   U.log("DONE")

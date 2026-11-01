@@ -64,8 +64,9 @@ and recorded in the topic file.
   Road, Pokémon Tower, elevators) found no blocker; the Rocket Hideout
   panel approach was fixed. ACCESSIBILITY page in OPTIONS (decision 26):
   AUTO-WALK SPEED up to 200X (auto-walk now steers tile by tile) and
-  DIALOGUE SPEECH page by page or all at once. Old tests pass except the
-  two known gaps.
+  DIALOGUE SPEECH page by page or all at once. Red, Blue and Yellow audit
+  done (Yellow: Pikachu follower, covered elevator prompt; a door
+  regression fixed; `yellow.md`). Old tests pass except the two known gaps.
   Details: `navigation.md`.
 - **Next:** walking cues (no upstream event),
   Chaos Cut as an optional mod (decision 21); the owner's playtest.

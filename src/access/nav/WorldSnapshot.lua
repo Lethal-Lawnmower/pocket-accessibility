@@ -337,6 +337,9 @@ local function entityLabel(entity, mapId, mapLabel, ordinal, isPlayer, opts)
     return WorldSnapshot.humanize(entity.name) or "Player"
   end
   if nonempty(def.item) then return WorldSnapshot.humanize(def.item) end
+  -- v0.3.98 addition: Yellow's following Pikachu (PikachuFollower marks the
+  -- actor; its def name is PIKACHU_FOLLOWER) is simply Pikachu.
+  if entity.pikachuFollower == true then return "Pikachu" end
   -- Access's Red/Blue and Yellow sprite tables call their native Blue actor
   -- [rival], then substitute the current saved rival name during object browse.
   -- Match the symbolic extracted sprite, never its edition-specific ROM byte;

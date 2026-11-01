@@ -119,6 +119,24 @@ reset()
 ScreenReader.update({ someOtherScreen = true })
 ScreenReader.update({ someOtherScreen = true })
 eq(#spoken, 0, "unknown screens are silent")
+-- A dialogue box covered in the frame it opens (Yellow's instant elevator
+-- prompt under the floor list) is spoken first, and the list queues behind.
+reset()
+local savedStack = package.loaded["src.core.StateStack"]
+local map = { isOverworld = true }
+local prompt = setmetatable({ pageIndex = 1, lineIndex = 2,
+  pages = { { "Which floor do", "you want?" } } }, TextBox)
+local floors = setmetatable({ index = 1, items = { { label = "1F" }, { label = "2F" } } }, ListMenu)
+package.loaded["src.core.StateStack"] = { states = { map } }
+ScreenReader.update(map)
+package.loaded["src.core.StateStack"] = { states = { map, prompt, floors } }
+ScreenReader.update(floors)
+eq(spoken[1] and spoken[1].text, "Which floor do you want?", "covered prompt spoken")
+eq(spoken[2] and spoken[2].text, "1F, 1 of 2", "list after it")
+eq(spoken[2] and spoken[2].interrupt, false, "list queued behind the prompt")
+package.loaded["src.core.StateStack"] = savedStack
+
+reset()
 ScreenReader.update(nil)
 eq(#spoken, 0, "empty stack is silent")
 

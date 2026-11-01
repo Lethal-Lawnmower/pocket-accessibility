@@ -131,7 +131,13 @@ function AutoWalk.start(nav, game)
     still = 0,
   }
   if #result.steps == 0 then
-    AutoWalk.stop(tostring(item.label) .. " is here")
+    -- already in place: still say which way to face (Yellow's Pikachu is
+    -- usually right behind the player), as an arrival would
+    local text = tostring(item.label) .. " is here"
+    local hint = interaction and result.goal
+      and interaction[tostring(result.goal.x) .. "," .. tostring(result.goal.y)]
+    if hint then text = text .. ". " .. tostring(hint) end
+    AutoWalk.stop(text)
     return true
   end
   Speech.say("Walking to " .. tostring(item.label), { interrupt = true })
@@ -373,8 +379,14 @@ function AutoWalk.stepped(x, y)
       return
     end
   end
-  -- the route's last cell, or off the route: stop pressing here and let the
-  -- update announce the arrival or plan again
+  -- the route's last cell of a walk to a warp: keep pressing.  Some warps
+  -- (the Rocket Hideout elevator door, house exit mats) fire only while the
+  -- player keeps pressing into them after stepping on; letting go here
+  -- stranded the player on the door
+  local last = walk.steps[#walk.steps]
+  if walk.targetMapId and last and last.x == x and last.y == y then return end
+  -- the last cell of any other walk, or off the route: stop pressing here
+  -- and let the update announce the arrival or plan again
   release(walk.input, walk.held)
   walk.held = nil
 end

@@ -27,23 +27,48 @@ local function topState()
   return stackModule.states[#stackModule.states]
 end
 
-local function poll(state, entering)
+local function poll(state, entering, presenter, queue)
+  presenter = presenter or lastPresenter
   local memo = memos[state]
   if not memo then
     memo = {}
     memos[state] = memo
   end
-  local text, interrupt = lastPresenter.poll(state, memo, entering)
+  local text, interrupt = presenter.poll(state, memo, entering)
+  if queue then interrupt = false end
   if text then Speech.say(text, { interrupt = interrupt, screen = true }) end
+  return text ~= nil
+end
+
+-- A dialogue box can be covered in the same frame it opens: Yellow prints
+-- the elevator's "Which floor do you want?" instantly and pushes the floor
+-- list over it at once, so the box is never the top state.  When a new top
+-- appears, speak any dialogue box under it that was pushed and never
+-- polled, then queue the top behind it.  Only dialogue boxes, so other
+-- covered screens (fades, transitions) stay quiet.
+local function speakCovered(top)
+  local stack = stackModule or package.loaded["src.core.StateStack"]
+  local states = stack and stack.states
+  if type(states) ~= "table" or states[#states] ~= top then return false end
+  local spoke = false
+  for i = 1, #states - 1 do
+    local state = states[i]
+    if not memos[state] and state ~= lastState and Presenters.textBox.matches(state) then
+      spoke = poll(state, true, Presenters.textBox) or spoke
+    end
+  end
+  return spoke
 end
 
 -- `top` is injectable for tests; the game passes nothing.
 function ScreenReader.update(top)
   local state = top or topState()
   if state ~= lastState then
-    lastState = state
+    local previous = lastState
     lastPresenter = Presenters.find(state)
-    if lastPresenter then poll(state, true) end
+    local queued = lastPresenter and previous ~= nil and speakCovered(state)
+    if lastPresenter then poll(state, true, nil, queued) end
+    lastState = state
     return
   end
   if lastPresenter then poll(state, false) end

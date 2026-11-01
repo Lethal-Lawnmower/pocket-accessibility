@@ -13,7 +13,34 @@ reaction is traced from the shown picture back to its emotion number in the
 game's own data, and worded from pokeyellow's `PikachuEmotionTable` names
 (read in `pret/pokeyellow`, `engine/pikachu/pikachu_emotions.asm`, for
 meaning only). All 32 reactions checked against the real Yellow data.
-Not yet triggered by talking to Pikachu in a game run.
+Game run 2026-10-31 (`drivers/yellow_follower.lua`): with Pikachu behind
+the player, auto-walk to it said "Pikachu is here. Face up and interact";
+facing up and pressing A gave "Pikachu is sad".
+
+## Navigation with Pikachu following (audit, 2026-10-31)
+
+- Pikachu is listed in the objects as "Pikachu" (was "Pikachu Follower",
+  from the actor's internal name).
+- Routes treat Pikachu as passable, like the game does (`npc.passable`).
+  Before, its cell (right behind the player) counted as a wall. Open-map
+  runs in Pallet Town and Viridian City walked out and back the same with
+  and without the fix (a detour was always available); a corridor where it
+  matters was not reproduced in a run.
+- Auto-walk to a target the player already stands at now says which way to
+  face ("Pikachu is here. Face up and interact"); before, only "is here".
+- Yellow's elevator prompt "Which floor do you want?" prints instantly and
+  the floor list covers it in the same frame, so it was never spoken. The
+  screen reader now speaks a dialogue box covered in the frame it opened,
+  then queues the list (`ScreenReader.speakCovered`).
+
+Audit results (silent runs, identities `pocket-access-yellow` and
+`pocket-access-plain`): the full hard-places sweep matches Red target for
+target (141 of 185; the rest are the same game gates as Red); Victory Road
+1F solved from the hints; Pokémon Tower with the Silph Scope reached; all
+three elevators ridden. Map data: Blue is identical to Red; Yellow differs
+on 64 maps (moved objects, paired door warps sharing one landing, Route 19's
+Summer Beach House, Route 2's extra door); our code names no map Yellow
+lacks.
 
 ## Surfing Pikachu minigame (proposed design, not built)
 

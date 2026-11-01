@@ -245,6 +245,15 @@ Verified 2026-10-31: `settings_test.lua` 22/22, `auto_walk_test.lua` 30/30.
 Silph Co. 5F: every target reached that is reached at normal speed. Owner
 tried the page 2026-10-31 and approved pushing ("It looks real good").
 
+Regression found in the Red, Blue and Yellow audit (2026-10-31): steering
+on `world.stepped` let go of the direction on the last cell, and warps that
+fire only while pressed (the Rocket Hideout elevator door, entered moving
+down) stranded the player on the door, in Red and Yellow alike. A walk to a
+warp now keeps pressing on its last cell; other walks still let go there so
+a fast speed cannot overshoot. `drivers/elevators.lua` rides all three cars
+again in both games. Blue: a short sweep (Safari Zone West, Viridian Gym,
+Silph Co. 5F) matches Red; Yellow results are in `yellow.md`.
+
 ## Cross-map journeys (decision 25)
 
 - **Area category** (`Navigation:areaBrowse`): the last object category.

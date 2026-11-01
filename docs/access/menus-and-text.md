@@ -37,7 +37,7 @@ Rules for presenters:
 
 | Screen (upstream class) | On entry or return | On change |
 |---|---|---|
-| Dialogue (`TextBox`) | The first chunk: the lines shown before the game waits for A | Each chunk the next A press reveals (owner request, 2026-10-31). With OPTIONS, ACCESSIBILITY, DIALOGUE SPEECH set to ALL AT ONCE (decision 26): the whole box, every page, on entry, and nothing after |
+| Dialogue (`TextBox`) | The first chunk: the lines shown before the game waits for A | Each chunk the next A press reveals (owner request, 2026-10-31). With OPTIONS, ACCESSIBILITY, DIALOGUE SPEECH set to ALL AT ONCE (decision 26): the whole box, every page, on entry, and nothing after. A box covered by a menu in the same frame it opens (Yellow's instant elevator prompt) is spoken before the menu, which queues behind it |
 | Menu (`Menu`: title, start, name choice, PC, shop root) | Title, item, position | Item |
 | List (`ListMenu` and subclasses: bag, boxes, shop, controls, fly) | Title, item and detail, position | Item and detail, position |
 | Yes/No (`ChoiceBox`) | Selection, queued after the question | Selection |

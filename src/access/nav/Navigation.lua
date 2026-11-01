@@ -1760,8 +1760,13 @@ function Accessibility:worldRouteRequest(goals, policyOverride)
   local blocked, routeEntities = {}, {}
   for _, entity in ipairs(overworld.entities or overworld.npcs or {}) do
     if entity ~= player then
-      local ignorable = type(entity.def) == "table"
-                        and entity.def.ignorable == true
+      -- v0.3.98 addition: an entity the game itself lets the player walk
+      -- through (`passable`, Yellow's following Pikachu) is no wall either.
+      -- It stands right behind the player, so blocking it made every route
+      -- that starts by turning back detour or fail in a corridor.
+      local ignorable = entity.passable == true
+                        or (type(entity.def) == "table"
+                            and entity.def.ignorable == true)
       blocked[#blocked + 1] = {
         cellX = entity.cellX, cellY = entity.cellY,
         targetX = entity.targetX, targetY = entity.targetY,
