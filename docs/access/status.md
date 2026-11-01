@@ -1,8 +1,9 @@
 # Status
 
-**Current focus (2026-10-31):** menus and text, first slice done (dialogue,
-menus, lists, Yes/No) and verified in a scripted game run. Waiting on the
-owner to hear speech. Next: the remaining Gen 1 screens (see below).
+**Current focus (2026-10-31):** Gen 1 menus, text and information screens
+speak (battle excluded). Verified by unit tests and scripted game runs;
+waiting on the owner to hear speech. Next: battle, or the leftover minor
+screens.
 
 Each workstream section is edited only by the session working on it. Keep each
 one short: state, next steps, blockers. Remove a section when its work is done
@@ -28,12 +29,16 @@ and recorded in the topic file.
 
 ## Menus and text
 
-- **State:** `src/access/screens/` speaks dialogue pages, `Menu`, `ListMenu`
-  and `ChoiceBox` with no edits to screen files. Unit tests 23/23. A scripted
-  new game (disposable identity `pocket-access-test`) traced the expected
-  speech. Details: `menus-and-text.md`.
-- **Next:** naming-screen keyboard, quantity box, party, summary, trainer
-  card, Pokédex entry. Then battle (its own workstream).
+- **State:** `src/access/screens/` speaks dialogue, menus, lists, Yes/No,
+  quantity, naming keyboard, party, summary, move pickers, trainer card,
+  Pokédex list and entry, options and town map, with no edits to screen
+  files. Unit tests 23/23 and 29/29. Two scripted game runs (disposable
+  identity `pocket-access-test`) traced the expected speech. Details and
+  gaps: `menus-and-text.md`.
+- **Next:** battle (own workstream). Minor screens left: Hall of Fame,
+  diploma, credits, League PC, prize counter, slot machine, surfing
+  minigame, Pokédex nests. Not yet run in game: quantity, move pickers,
+  Pokédex, town map.
 - **Needs the owner:** listen to a new game from source and judge wording,
   verbosity and pronunciation.
 

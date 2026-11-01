@@ -1,11 +1,12 @@
 -- Watches the top of the game's state stack and speaks UI changes.
 --
 -- Called once per frame after upstream's love.update, so it sees the settled
--- result of that frame's input (docs/access/architecture.md).  The per-frame
--- cost is a table lookup and one or two number comparisons; speech text is
--- built only when the top screen or its marker (cursor index, page) changes.
--- Gen 1 keeps one shared stack in the StateStack module itself
--- (src/core/Game.lua: `self.stack = StateStack`), so reading it needs no hook.
+-- result of that frame's input (docs/access/architecture.md).  Each presenter
+-- compares a few fields against what it last said and builds speech only
+-- when something changed, so an unchanged frame costs a table lookup and a
+-- handful of comparisons.  Gen 1 keeps one shared stack in the StateStack
+-- module itself (src/core/Game.lua: `self.stack = StateStack`), so reading
+-- it needs no hook.
 
 local Presenters = require("src.access.screens.Presenters")
 local Speech = require("src.access.Speech")
@@ -14,24 +15,10 @@ local ScreenReader = {}
 
 local lastState = nil      -- the state that was on top last frame
 local lastPresenter = nil  -- its presenter, cached so matching runs once per screen
-local lastKey = nil
--- What was last said for each state, for presenters that must not repeat
--- themselves when a screen above them closes (a dialogue page under a
--- Yes/No box).  Weak keys, so closed screens are collected normally.
-local spokenKey = setmetatable({}, { __mode = "k" })
-
-local function announce(presenter, state, entering)
-  local key = presenter.key(state)
-  if entering and presenter.repeatOnReturn == false and spokenKey[state] == key then
-    return key
-  end
-  local text, interrupt = presenter.speak(state, entering)
-  if text then
-    Speech.say(text, { interrupt = interrupt })
-    spokenKey[state] = key
-  end
-  return key
-end
+-- Per-screen memory of what was last said.  Weak keys, so closed screens are
+-- collected normally; kept across returns so a presenter can stay quiet
+-- (or repeat context) when a screen above it closes.
+local memos = setmetatable({}, { __mode = "k" })
 
 local stackModule = nil
 local function topState()
@@ -40,23 +27,31 @@ local function topState()
   return stackModule.states[#stackModule.states]
 end
 
+local function poll(state, entering)
+  local memo = memos[state]
+  if not memo then
+    memo = {}
+    memos[state] = memo
+  end
+  local text, interrupt = lastPresenter.poll(state, memo, entering)
+  if text then Speech.say(text, { interrupt = interrupt }) end
+end
+
 -- `top` is injectable for tests; the game passes nothing.
 function ScreenReader.update(top)
   local state = top or topState()
   if state ~= lastState then
     lastState = state
     lastPresenter = Presenters.find(state)
-    lastKey = lastPresenter and announce(lastPresenter, state, true) or nil
+    if lastPresenter then poll(state, true) end
     return
   end
-  if lastPresenter and lastPresenter.key(state) ~= lastKey then
-    lastKey = announce(lastPresenter, state, false)
-  end
+  if lastPresenter then poll(state, false) end
 end
 
 function ScreenReader._resetForTests()
-  lastState, lastPresenter, lastKey, stackModule = nil, nil, nil, nil
-  spokenKey = setmetatable({}, { __mode = "k" })
+  lastState, lastPresenter, stackModule = nil, nil, nil
+  memos = setmetatable({}, { __mode = "k" })
 end
 
 return ScreenReader

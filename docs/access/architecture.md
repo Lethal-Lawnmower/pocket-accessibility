@@ -42,6 +42,7 @@ check exactly these places.
 | `main.lua` (runtime wrapper, no edit) | `love.update`, `love.quit` | `Access.install` wraps both; ours runs after upstream's and passes its return value through | 2026-10-31 |
 | `src/core/StateStack.lua` (read only) | `StateStack.states` | Top screen each frame; relies on Gen 1 `Game` using the module as its stack | 2026-10-31 |
 | `TextBox`, `Menu`, `ListMenu`, `ChoiceBox` (read only) | Fields `pages`, `pageIndex`, `items`, `index`, `title`, `labels`; row fields `label`, `level`, `sub`, `price`, `count`, `right` | Speech for dialogue and menus (`menus-and-text.md`) | 2026-10-31 |
+| Gen 1 screens (read only): `QuantityBox`, `NamingScreen`, `PartyMenu`, `SummaryMenu`, `MoveLearnMenu`, `MoveSelectMenu`, `TrainerCard`, `PokedexMenu`, `DexEntryMenu`, `OptionsMenu`, `TownMap` | Their cursor and page fields; read-only methods `NamingScreen:grid`, `PartyMenu:bottomMessage`, `TownMap:bannerText`, options row `value`; `PartyMenu:draw`'s TM and stone checks and `DexEntryMenu`'s page split are mirrored | Screen speech (`menus-and-text.md`) | 2026-10-31 |
 
 ## Launcher to game interface
 
