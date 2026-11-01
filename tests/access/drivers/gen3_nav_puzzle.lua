@@ -43,7 +43,7 @@ return function(game)
       L.settle(600, true)
       local target
       for _, item in ipairs(L.browse("objects")) do
-        if tostring(item.label):match("^Boulder") and tostring(item.stateText):find("next push", 1, true) then
+        if tostring(item.label):match("^Boulder") and tostring(item.stateText):match("^next push") then
           target = item
           break
         end
@@ -58,7 +58,8 @@ return function(game)
       local eo, dir = boulderEntity(target.id), target.requiredFacing
       if not (eo and dir) then L.check(false, name .. ": boulder or push direction missing") break end
       if not L.nav():strengthActive() then
-        -- the game's own offer at the boulder: A, then YES
+        -- face the boulder, then the game's own offer at it: A, then YES
+        L.tap(dir, 12)
         L.tap("a", 20)
         for _ = 1, 20 do
           if L.nav():strengthActive() and not L.messageOpen() then break end

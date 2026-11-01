@@ -166,8 +166,9 @@ function L.new(game)
     s.party = {}
     Party.giveMon(s, species or 6, level or 60)
     local mon = s.party[1]
-    -- Flamethrower first: the battle helper presses A, which picks move 1
-    local ids, pp = { 53 }, { 30 }
+    -- Hydro Pump first: auto-fight uses move 1 (Flamethrower met a Flash
+    -- Fire Ponyta in Victory Road and the battle never ended)
+    local ids, pp = { 56 }, { 30 }
     for _, name in ipairs(moves or {}) do
       ids[#ids + 1] = FieldMoves.MOVES[name] or name
       pp[#pp + 1] = 30
