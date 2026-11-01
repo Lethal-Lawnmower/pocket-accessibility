@@ -1,8 +1,8 @@
 # Status
 
-**Current focus (2026-10-31):** speech foundation built and verified up to a
-real game start; waiting on the owner to hear it. Next: pick the following
-workstream (menus and text, launcher, or navigation).
+**Current focus (2026-10-31):** menus and text, first slice done (dialogue,
+menus, lists, Yes/No) and verified in a scripted game run. Waiting on the
+owner to hear speech. Next: the remaining Gen 1 screens (see below).
 
 Each workstream section is edited only by the session working on it. Keep each
 one short: state, next steps, blockers. Remove a section when its work is done
@@ -26,6 +26,17 @@ and recorded in the topic file.
   ready." is heard.
 - **Later:** move to Prism 0.18.3 and re-check the declarations before packaging.
 
+## Menus and text
+
+- **State:** `src/access/screens/` speaks dialogue pages, `Menu`, `ListMenu`
+  and `ChoiceBox` with no edits to screen files. Unit tests 23/23. A scripted
+  new game (disposable identity `pocket-access-test`) traced the expected
+  speech. Details: `menus-and-text.md`.
+- **Next:** naming-screen keyboard, quantity box, party, summary, trainer
+  card, Pokédex entry. Then battle (its own workstream).
+- **Needs the owner:** listen to a new game from source and judge wording,
+  verbosity and pronunciation.
+
 ## Before the first push (not authorized yet)
 
 1. Owner go-ahead on the GitHub setup (decision 15).
@@ -43,8 +54,8 @@ and recorded in the topic file.
 ## Open questions for the owner
 
 - Should saves from the old Purple build load in the new one?
-- Next workstream: menus and text, launcher, or navigation?
+- GitHub timing: publish before or after the owner's first live listen?
 
 ## Not started
 
-Menus and text, navigation, battle, launcher, save editor accessibility.
+Navigation, battle, launcher, save editor accessibility.

@@ -16,6 +16,8 @@ How the accessibility layer speaks. Prism is the only speech path
 - **Focus changes interrupt** (`interrupt = true`), so moving through a menu
   never builds a backlog of stale names. Follow-up information queues.
 - Blank text is refused and logged; it means a caller bug.
+- `POKEPORT_ACCESS_TRACE=1` logs every utterance as `[access] say: ...`
+  (`say!:` when it interrupts), for scripted runs and bug reports.
 - If Prism cannot load, `Speech.say` returns false and the game runs silent.
   The reason is logged and kept in `Speech.status()`. There is no fallback to
   another speech library.

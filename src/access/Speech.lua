@@ -13,6 +13,9 @@ local Speech = {}
 
 local backend = nil
 local status = "not started"
+-- POKEPORT_ACCESS_TRACE=1 logs every utterance, so scripted runs can check
+-- what would be spoken without anyone listening.
+local trace = os.getenv("POKEPORT_ACCESS_TRACE") == "1"
 
 -- Opens the backend once.  Returns true when speech is available; otherwise
 -- false, and Speech.status() keeps the reason for diagnostics.
@@ -53,7 +56,9 @@ function Speech.say(text, opts)
     Logger.warn("[access] ignored empty speech")
     return false
   end
-  local ok, err = backend:say(text, opts and opts.interrupt or false)
+  local interrupt = opts and opts.interrupt or false
+  if trace then Logger.info("[access] say%s: %s", interrupt and "!" or "", text) end
+  local ok, err = backend:say(text, interrupt)
   if not ok then Logger.warn("[access] speech failed: %s", tostring(err)) end
   return ok
 end

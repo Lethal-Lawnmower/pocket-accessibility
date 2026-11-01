@@ -31,6 +31,8 @@ on our own fork. Everything outside our folders is upstream code.
 - **Report honestly.** Name the level reached: source read, test passed, run in
   game, speech heard, owner accepted. A test pass is not proof of usable speech.
 - **Parallel work** happens on separate git branches.
+- **Game test runs use a disposable save identity** (`POKEPORT_IDENTITY=...`),
+  never the default `pokemon-love2d`, which holds the owner's real saves.
 
 ## Owner
 

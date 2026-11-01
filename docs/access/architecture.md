@@ -32,12 +32,16 @@ before relying on it:
 
 ## Hook list
 
-Every change to an upstream file must be listed here. When updating upstream,
+Every change to an upstream file must be listed here, and so must every
+runtime wrapper or read of upstream internals. When updating upstream,
 check exactly these places.
 
 | File | Function or place | What it reports | Added |
 |---|---|---|---|
 | `main.lua` | `love.load`, right after `Boot.run(args)` | Calls `require("src.access").install()`, starting the layer before any game, editor or importer path | 2026-10-31 |
+| `main.lua` (runtime wrapper, no edit) | `love.update`, `love.quit` | `Access.install` wraps both; ours runs after upstream's and passes its return value through | 2026-10-31 |
+| `src/core/StateStack.lua` (read only) | `StateStack.states` | Top screen each frame; relies on Gen 1 `Game` using the module as its stack | 2026-10-31 |
+| `TextBox`, `Menu`, `ListMenu`, `ChoiceBox` (read only) | Fields `pages`, `pageIndex`, `items`, `index`, `title`, `labels`; row fields `label`, `level`, `sub`, `price`, `count`, `right` | Speech for dialogue and menus (`menus-and-text.md`) | 2026-10-31 |
 
 ## Launcher to game interface
 

@@ -5,6 +5,7 @@
 -- from here, so upstream files stay untouched apart from listed hooks.
 
 local Speech = require("src.access.Speech")
+local ScreenReader = require("src.access.screens.ScreenReader")
 
 local Access = {}
 
@@ -30,6 +31,12 @@ function Access.install(opts)
 
   if Speech.start(opts.speech) then
     Speech.say("Pocket Accessibility ready.", { interrupt = true })
+  end
+
+  -- Screen speech reads the frame's settled state, after upstream's update.
+  -- Only when speech works: with no output there is nothing to report.
+  if Speech.available() then
+    after("update", function() ScreenReader.update() end)
   end
 
   -- A cancelled quit (true) keeps the game running, so speech stays open.
