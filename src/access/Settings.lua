@@ -6,8 +6,14 @@
 -- that opens a submenu of ordinary option rows; OptionsMenu drives them and
 -- saves them like its own, and the options presenter speaks them.
 --
--- Values live in save.options, which keeps unknown keys
--- (SaveData.mergeOptions), so they persist in the normal options file:
+-- Gen 2 has its own OPTION screen (src/ui/gen2/OptionsMenu.lua) with the
+-- same row vocabulary (`value`, `step`, group rows with `activate`), so the
+-- same page is added there too (decision 27).
+--
+-- Values live in the options table the game persists, which keeps unknown
+-- keys: Gen 1's save.options (SaveData.mergeOptions) and Gen 2's
+-- game.options (stored under options.lua's `gold` block by
+-- src/core/gen2/Save.lua), so each generation keeps its own choice:
 --   accessAutoWalkSpeed  nil = the game's own speed, else a GameSpeed level
 --   accessDialogue       nil = page by page (chunk as shown), "whole" = all
 --                        of a dialogue box at once
@@ -16,8 +22,13 @@ local GameSpeed = require("src.core.GameSpeed")
 
 local Settings = {}
 
+local GameVersion = require("src.core.GameVersion")
+
 local function options(game)
-  return game and game.save and game.save.options or {}
+  if not game then return {} end
+  -- Gen 2's OPTION screen edits game.options in place (Game2:showOptions)
+  if GameVersion.generation() == 2 and type(game.options) == "table" then return game.options end
+  return game.save and game.save.options or {}
 end
 
 -- The auto-walk multiplier the player chose, or nil for "use the game's own
@@ -66,30 +77,55 @@ function Settings.rows()
   }
 end
 
-local installed = false
+local installed = {}
 
-function Settings.install()
-  if installed then return end
-  local ok, OptionsMenu = pcall(require, "src.ui.OptionsMenu")
+-- The ACCESSIBILITY group row, first on a top-level OPTION screen.
+local function groupRow(openPage)
+  local rows = Settings.rows()
+  return {
+    id = "group.accessibility", label = "ACCESSIBILITY", group = true,
+    value = function() return #rows .. " OPTIONS" end,
+    activate = function(g) openPage(g, rows) end,
+  }
+end
+
+-- Wraps one OPTION screen class's constructor.  `isPage` says whether a
+-- constructed menu is a group page (left alone); `openPage` pushes our page.
+local function wrap(path, isPage, openPage)
+  if installed[path] then return end
+  local ok, OptionsMenu = pcall(require, path)
   if not ok or type(OptionsMenu) ~= "table" or type(OptionsMenu.new) ~= "function" then return end
-  installed = true
+  installed[path] = true
   local originalNew = OptionsMenu.new
   OptionsMenu.new = function(game, opts)
     local menu = originalNew(game, opts)
-    -- only the top level; group pages (opts.rows) are left as they are
-    if (opts and opts.rows) or type(menu) ~= "table" or type(menu.view) ~= "table" then
+    if type(menu) ~= "table" or type(menu.view) ~= "table" or isPage(menu, opts) then
       return menu
     end
-    local rows = Settings.rows()
-    table.insert(menu.view, 1, {
-      id = "group.accessibility", label = "ACCESSIBILITY", group = true,
-      value = function() return #rows .. " OPTIONS" end,
-      activate = function(g)
-        g.stack:push(OptionsMenu.new(g, { rows = rows }))
-      end,
-    })
+    table.insert(menu.view, 1, groupRow(function(g, rows) openPage(OptionsMenu, originalNew, menu, g, rows) end))
     return menu
   end
+end
+
+function Settings.install()
+  -- Gen 1: a group page is OptionsMenu.new(game, { rows = ... })
+  wrap("src.ui.OptionsMenu",
+    function(_, opts) return opts and opts.rows ~= nil end,
+    function(OptionsMenu, _, _, g, rows) g.stack:push(OptionsMenu.new(g, { rows = rows })) end)
+  -- Gen 2: group pages are built in place by the screen's local pushGroup
+  -- (sub = true, the rows plus a BACK row, the parent's options table),
+  -- never through new(), so our page is built the same way.
+  wrap("src.ui.gen2.OptionsMenu",
+    function(menu) return menu.sub == true end,
+    function(OptionsMenu, _, parent, g, rows)
+      local page = setmetatable({}, OptionsMenu)
+      page.game, page.rows, page.options = g, rows, parent.options
+      page.index, page.scroll, page.sub = 1, 0, true
+      page.view = {}
+      for i, row in ipairs(rows) do page.view[i] = row end
+      page.view[#page.view + 1] = { label = "BACK", cancel = true, id = "cancel" }
+      g.stack:push(page)
+    end)
 end
 
 return Settings

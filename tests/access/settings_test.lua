@@ -79,4 +79,36 @@ memo = {}
 box.pageIndex, box.lineIndex = 1, 1
 eq(Presenters.textBox.poll(box, memo, true), "Hello there!", "page by page speaks the first chunk")
 
+-- Gen 2: values live in game.options (the table Gen 2's OPTION screen
+-- edits), and the page is added to src/ui/gen2/OptionsMenu.lua as well.
+local GameVersion = require("src.core.GameVersion")
+GameVersion.set("crystal")
+local game2 = { options = {}, save = {} }
+dialogueRow.step(game2, 1)
+eq(game2.options.accessDialogue, "whole", "Gen 2 stores in game.options")
+speedRow.step(game2, 1)
+eq(game2.options.accessAutoWalkSpeed, 1, "Gen 2 speed stored in game.options")
+
+local Gen2Options = {}
+Gen2Options.__index = Gen2Options
+function Gen2Options.new(g, opts)
+  return setmetatable({ game = g, options = (opts and opts.options) or {}, index = 1,
+    view = { { id = "group.speed", label = "SPEED", group = true } } }, Gen2Options)
+end
+package.loaded["src.ui.gen2.OptionsMenu"] = Gen2Options
+Settings.install()
+local pushed = {}
+game2.stack = { push = function(_, s) pushed[#pushed + 1] = s end }
+local menu2 = Gen2Options.new(game2, { options = game2.options })
+eq(menu2.view[1].label, "ACCESSIBILITY", "Gen 2 top level gets the page first")
+eq(menu2.view[1].value(), "2 OPTIONS", "Gen 2 group row value")
+menu2.view[1].activate(game2)
+local page2 = pushed[1]
+check(page2 and getmetatable(page2) == Gen2Options, "Gen 2 page is the game's own OPTION screen")
+eq(page2 and page2.sub, true, "Gen 2 page is a sub page")
+eq(page2 and page2.view[1].label, "AUTO-WALK SPEED", "Gen 2 page rows")
+eq(page2 and page2.view[#page2.view].cancel, true, "Gen 2 page ends with BACK")
+check(page2 and page2.options == menu2.options, "Gen 2 page edits the parent's options table")
+GameVersion.set("red")
+
 T.finish("accessibility settings")

@@ -36,8 +36,9 @@ eq(Presenters.rowText({ label = "POKé BALL", price = "¥200" }), "POKé BALL, �
 eq(Presenters.rowText({ label = "CANCEL", cancel = true }), "CANCEL", "plain row")
 
 -- Lines join with spaces, except a word split by a line-end hyphen.
-eq(Presenters.joinLines({ "This is my grand-", "son." }), "This is my grand-son.",
+eq(Presenters.joinLines({ "This is my grand-", "son." }), "This is my grandson.",
   "split word rejoined")
+eq(Presenters.joinLines({ "SUPER-", "POTION" }), "SUPER-POTION", "upper-case compound keeps its hyphen")
 eq(Presenters.joinLines({ "Hello", "there" }), "Hello there", "lines joined by a space")
 
 -- Text box: whole page on entry and on each new page, interrupting.
@@ -87,6 +88,21 @@ local instant = setmetatable({ pageIndex = 1, lineIndex = 4, pages = paced.pages
 ScreenReader.update(instant)
 eq(last().text, "PIDGEY is trying to learn GUST! But PIDGEY can't learn more!",
   "an instant box speaks its whole page")
+
+-- A word split across an A wait ("crea-" / wait / "tures") is finished in
+-- the chunk before the wait; the next chunk starts after it.
+reset()
+local split = setmetatable({ pageIndex = 1, lineIndex = 1,
+  pages = { { "This world is in-", "habited by crea-", "tures that we call", "POKéMON." },
+    contBefore = { { false, false, true, true } } } }, TextBox)
+ScreenReader.update(split)
+eq(last().text, "This world is inhabited by creatures that we call", "split words finished across the wait")
+split.lineIndex = 3
+ScreenReader.update(split)
+eq(#spoken, 1, "the line already spoken is not repeated after the A press")
+split.lineIndex = 4
+ScreenReader.update(split)
+eq(last().text, "POKéMON.", "speech resumes with the next unspoken line")
 
 -- Menu: position on entry and on return, label only while moving.
 reset()

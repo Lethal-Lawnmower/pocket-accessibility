@@ -44,9 +44,15 @@ local function speakable(text)
 end
 Presenters.speakable = speakable
 
--- Joins a page's lines into one sentence.  A line ending in a hyphen is a
--- word the original split across lines ("grand-" / "son"), so it is joined
--- without a space and reads as one word.
+-- A line ending in letter-hyphen, followed by a line starting in lower
+-- case, is one word the cartridge split across lines ("crea-" / "tures").
+local function splitWord(line, nextLine)
+  return tostring(line):find("%a%-$") ~= nil and tostring(nextLine or ""):find("^%l") ~= nil
+end
+
+-- Joins a page's lines into one sentence.  A split word is joined back
+-- without the hyphen, so it reads as one word ("grandson", "creatures");
+-- screen readers say a kept hyphen as a break inside the word.
 -- `first` and `last` select a range (default: every line).
 local function joinLines(lines, first, last)
   first, last = first or 1, last or #lines
@@ -55,6 +61,8 @@ local function joinLines(lines, first, last)
     local line = tostring(lines[i])
     if i == first then
       out = line
+    elseif splitWord(out, line) then
+      out = out:sub(1, -2) .. line
     elseif out:sub(-1) == "-" then
       out = out .. line
     else
@@ -121,6 +129,12 @@ Presenters.textBox = {
     local waits = state.pages.contBefore and state.pages.contBefore[pageIndex] or {}
     local last = current
     while last < #lines and not waits[last + 1] do last = last + 1 end
+    -- a word split across the game's own pause ("crea-" / wait / "tures")
+    -- is finished in this chunk instead of being cut in half
+    while last < #lines and splitWord(lines[last], lines[last + 1]) do
+      last = last + 1
+      while last < #lines and not waits[last + 1] do last = last + 1 end
+    end
     local first = memo.through + 1
     memo.through = last
     return speakable(joinLines(lines, first, last)), true

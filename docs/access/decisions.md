@@ -224,3 +224,17 @@ menu. First two rows, as requested:
   opens).
 
 More rows can be added to the same page later.
+
+## 27. Gold, Silver and Crystal next, same treatment as Gen 1 (2026-11-01)
+
+The owner moved the project on to Gen 2 ("Let's move on to gold, silver,
+crystal. Could you do the same thing with red, blue, and yellow and do a
+complete overhaul?"), with the surfing minigame still theirs to pick up.
+Scope, as for Gen 1 (decisions 18, 20, 23, 26): every Gen 2 screen and
+battle spoken, the navigation, object list and auto-walk working on the
+Gen 2 world, the ACCESSIBILITY page available, then an audit of the
+differences between Gold, Silver and Crystal. Agents continue without
+checking back after each working screen, verify, document and commit
+locally. The owner also authorized subagents to split the work ("use sub
+agents to spread out if you need to"). Still requires the owner: pushing,
+publishing, contacting anyone, product decisions and listening tests.
