@@ -54,11 +54,13 @@ exercised by our launcher.
 
 | Purpose | How | Status |
 |---|---|---|
-| Start a specific game, skipping upstream's launcher | `--game red`, `blue` or `yellow` (also `POKEPORT_GAME`); optional `--slot <id>` | exists upstream |
+| Start a specific game, skipping upstream's launcher | `POKEPORT_GAME=red`, `blue` or `yellow`; optional `--slot <id>` | exists upstream; verified 2026-10-31 |
 | Import a ROM without any launcher | `POKEPORT_IMPORT_ROM=<path>` with `POKEPORT_IMPORT_ONLY=1`; quits when done | exists upstream |
 | Open the save editor | `--editor`, optional `--save <path>`, game from `POKEPORT_VERSION` | exists upstream |
 
-Without `--game`, upstream's own proprietary launcher opens. Our packaged
+**Do not pass `--game` on the command line from source** (`love . --game red`): on 2026-10-31 that failed before `main.lua` ran (no output at all, with the layer on or off), and the owner saw LÖVE's blue error screen. `POKEPORT_GAME=red` works. Re-check this for packaged builds.
+
+Without a game choice, upstream's own proprietary launcher opens. Our packaged
 build must never reach that path (see packaging notes below).
 
 ## Packaging notes (for the launcher workstream)
@@ -70,6 +72,9 @@ build must never reach that path (see packaging notes below).
   checkouts never self-update; packaged builds would.
 - Upstream's proprietary launcher files (License Term 2) must not be in our
   distributed build.
+- Upstream connects to Discord rich presence at start-up when Discord is
+  running (log: "discord: rich presence connected"). Decide whether our build
+  keeps that; it shares what the player is doing with Discord.
 
 ## Licensing boundaries
 
