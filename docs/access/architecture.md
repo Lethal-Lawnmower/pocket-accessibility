@@ -1,7 +1,8 @@
 # Architecture
 
-Status: planned. Nothing here is implemented yet. Update this file as each
-part is built, and mark what is planned and what exists.
+Status: speech foundation exists (see `speech.md`); everything else is
+planned. Update this file as each part is built, and mark what is planned
+and what exists.
 
 ## Layers
 
@@ -36,19 +37,32 @@ check exactly these places.
 
 | File | Function or place | What it reports | Added |
 |---|---|---|---|
-| (none yet) | | | |
+| `main.lua` | `love.load`, right after `Boot.run(args)` | Calls `require("src.access").install()`, starting the layer before any game, editor or importer path | 2026-10-31 |
 
 ## Launcher to game interface
 
-Planned command-line arguments; names to be confirmed against upstream's
-`main.lua` and `src/core/Prelaunch.lua`. Upstream already accepts `--editor`,
-`--save` and `--update`.
+Upstream's `main.lua` (v0.3.98, `love.load`) already supports everything the
+launcher needs, so no game-side change is planned. Read from source; not yet
+exercised by our launcher.
 
-| Purpose | Argument | Status |
+| Purpose | How | Status |
 |---|---|---|
-| Start a specific game | to be decided | planned |
-| Import a ROM file | to be decided | planned |
-| Open the save editor | `--editor` (upstream) | exists upstream |
+| Start a specific game, skipping upstream's launcher | `--game red`, `blue` or `yellow` (also `POKEPORT_GAME`); optional `--slot <id>` | exists upstream |
+| Import a ROM without any launcher | `POKEPORT_IMPORT_ROM=<path>` with `POKEPORT_IMPORT_ONLY=1`; quits when done | exists upstream |
+| Open the save editor | `--editor`, optional `--save <path>`, game from `POKEPORT_VERSION` | exists upstream |
+
+Without `--game`, upstream's own proprietary launcher opens. Our packaged
+build must never reach that path (see packaging notes below).
+
+## Packaging notes (for the launcher workstream)
+
+- **Upstream's self-updater must be off in our builds.** `src/update/Boot.lua`
+  and `Check.lua` download upstream's `gen1recomp-X.Y.Z.love` from upstream's
+  GitHub releases and mount it above the bundled code. In our build that would
+  silently replace our accessibility layer with plain upstream. Source
+  checkouts never self-update; packaged builds would.
+- Upstream's proprietary launcher files (License Term 2) must not be in our
+  distributed build.
 
 ## Licensing boundaries
 

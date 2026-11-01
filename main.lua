@@ -903,6 +903,10 @@ function love.load(args)
   local Boot = require("src.update.Boot")
   if Boot.run(args) then return end
 
+  -- Pocket Accessibility hook (docs/access/architecture.md): speech and the
+  -- accessibility layer start before any game, editor or importer path.
+  require("src.access").install()
+
   local savePath
   for i, a in ipairs(args or {}) do
     if a == "--editor" then
