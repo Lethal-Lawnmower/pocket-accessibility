@@ -1,3 +1,47 @@
+# Pocket Accessibility
+
+Screen-reader accessibility for the Pokémon Gen 1 Recompilation Project, a
+native PC port of Pokémon Red, Blue and Yellow. Menus, dialogue, the Pokémon
+screens and battles are spoken through [Prism](https://github.com/ethindp/prism),
+which talks to your screen reader (NVDA, JAWS and others) or system voices.
+
+> [!NOTE]
+> **Early development.** Gen 1 menus, text, information screens and battles
+> speak. Getting around the overworld (object list, pathfinding, sound cues)
+> is not built yet. There is no packaged release; run it from source.
+
+**Based on the Pokemon Gen 1 Recompilation Project by BOIS CLUB GAMES, LLC
+(https://github.com/bryanthaboi/gen1recomp).** This is an unofficial fork and
+is not affiliated with or endorsed by that project. Feature ideas are inspired
+by the [Pokémon Access](https://github.com/nuive/pokemon-access) scripts; no
+code or data from them is included.
+
+## Running from source (Windows)
+
+1. Install [LÖVE 11.5](https://love2d.org/).
+2. Download a [Prism](https://github.com/ethindp/prism/releases) Windows x64
+   release and copy `prism.dll` into `local-deps/prism/` in this folder.
+3. Start the game with your Red, Blue or Yellow ROM imported (see the upstream
+   instructions below), choosing the game with `POKEPORT_GAME`, for example in
+   PowerShell: `$env:POKEPORT_GAME = 'red'; & 'C:\Program Files\LOVE\love.exe' .`
+
+You supply your own ROM. No game data is included.
+
+## Documentation
+
+Start at [docs/access/README.md](docs/access/README.md). Contributors and AI
+agents begin with [AGENTS.md](AGENTS.md).
+
+## License
+
+GPLv3 with the upstream project's additional terms; see [LICENSE.MD](LICENSE.MD).
+Upstream's launcher files are proprietary and not part of that license; this
+project does not use or redistribute them as part of its builds.
+
+---
+
+*The upstream project's README follows.*
+
 # G1R Deluxe aka Gen1Recomp
 
 A native LÖVE2D recreation of Poke Red, Blue, Yellow, Gold, Silver, Crystal, FireRed, LeafGreen, Ruby, Sapphire, and Emerald.

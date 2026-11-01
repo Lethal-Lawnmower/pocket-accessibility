@@ -141,3 +141,15 @@ battle included, without checking back after each screen that works.
 Agents continue through the screens, verify, document and commit locally.
 Still requires the owner: publishing, contacting anyone, product decisions,
 and listening tests.
+
+## 19. Publish as a public GitHub fork (2026-10-31)
+
+The owner authorized uploading the project to GitHub as a fork ("I think
+this is a good foundation to upload to GitHub under a fork"), after the
+first listening session. Done with GitHub's Fork button route (supersedes
+the open choice in decision 15), named `pocket-accessibility`, pushing our
+`main`. Before pushing: commits re-authored to the owner's GitHub username
+and noreply address (decision 13), docs scanned for personal details and
+private file names, README given the project section and the credit
+required by upstream License Term 1. Still requires the owner: packaged
+releases, contacting upstream or anyone else, and any visibility change.

@@ -36,6 +36,6 @@ on our own fork. Everything outside our folders is upstream code.
 
 ## Owner
 
-The owner is blind and uses a screen reader. Describe visual state in text. Do not
-rely on them reading screenshots or finding visual controls. They playtest and
+The owner tests with a screen reader. Describe visual state in text; do not rely
+on them reading screenshots or finding visual controls. They playtest and
 accept; agents audit, implement, test and document.

@@ -123,11 +123,10 @@ How this is applied:
 
 ## Never goes into the new repository
 
-- ROMs: `red/` (all six cartridges) and `local-input/`.
+- ROM files kept in the old workspace.
 - Saves: `save-backups/` and any player saves.
 - The Pokémon Access sound pack (bring-your-own only).
-- Private handoffs: `CLAUDE_HANDOFF_PRIVATE.md`, `CLAUDE_UNDERSTANDING.md` and the
-  handoff zip.
+- Private handoff notes and archives from the old workspace.
 - `research/pokered` (the disassembly) and `research/pokecrystal-access`:
   local reference only.
 
