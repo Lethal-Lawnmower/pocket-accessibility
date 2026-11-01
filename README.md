@@ -70,6 +70,11 @@ are recreated, not copied; no code or data from those scripts is included.
 
 You supply your own ROM. No game data is included.
 
+A screen-reader friendly launcher is in early development in `launcher/`
+(build with the .NET 10 SDK: `dotnet build launcher/PocketLauncher -c Release`).
+It lists the games, imports ROMs and starts a game; see
+`docs/access/launcher.md`.
+
 ## Documentation
 
 Start at [docs/access/README.md](docs/access/README.md). Contributors and AI

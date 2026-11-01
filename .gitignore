@@ -147,3 +147,7 @@ libprism.dylib
 # Windows launcher build output
 /launcher/**/bin/
 /launcher/**/obj/
+
+# Pocket Accessibility launcher build output (docs/access/launcher.md)
+launcher/**/bin/
+launcher/**/obj/

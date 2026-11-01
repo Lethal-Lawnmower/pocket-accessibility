@@ -42,6 +42,17 @@ and recorded in the topic file.
   network flows with a second player; talking to Pikachu in a game run; the
   owner's judgement on wording and verbosity from playing.
 
+## Launcher
+
+- **State (2026-11-01):** first working version (`launcher/PocketLauncher/`,
+  C# Windows Forms on .NET 10, decision 4): games list with imported state,
+  Play, Import ROM (dialog or a ROM dropped on the icon), Credits with the
+  required upstream credit. Built, accessibility tree checked through UI
+  Automation, import and play run on a disposable profile. Not yet tried by
+  the owner. Details: `launcher.md`.
+- **Next:** the owner tries it; Edit save, Settings; packaging (closing the
+  routes back to upstream's launcher, layout, save folder).
+
 ## Before any packaged release
 
 - Our own launcher (decision 4). Upstream's self-updater off, upstream's
@@ -98,4 +109,4 @@ and recorded in the topic file.
 
 ## Not started
 
-Launcher, save editor accessibility.
+Save editor accessibility.

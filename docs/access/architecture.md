@@ -76,14 +76,15 @@ check exactly these places.
 ## Launcher to game interface
 
 Upstream's `main.lua` (v0.3.98, `love.load`) already supports everything the
-launcher needs, so no game-side change is planned. Read from source; not yet
-exercised by our launcher.
+launcher needs, so no game-side change is planned. Our launcher
+(`launcher.md`) uses the first two rows and the updater switch.
 
 | Purpose | How | Status |
 |---|---|---|
-| Start a specific game, skipping upstream's launcher | `POKEPORT_GAME=red`, `blue` or `yellow`; optional `--slot <id>` | exists upstream; verified 2026-10-31 |
+| Start a specific game, skipping upstream's launcher | `POKEPORT_GAME=red`, `blue`, `yellow`, `gold`, `silver` or `crystal`; optional `--slot <id>` | exists upstream; verified 2026-10-31, through our launcher 2026-11-01 |
 | Import a ROM without any launcher | `POKEPORT_IMPORT_ROM=<path>` with `POKEPORT_IMPORT_ONLY=1`; quits when done | exists upstream |
 | Open the save editor | `--editor`, optional `--save <path>`, game from `POKEPORT_VERSION` | exists upstream |
+| Keep upstream's self-updater off | `POKEPORT_PORTMASTER_MANAGED=1` (checked only by the updater and `Prelaunch`) | exists upstream; our launcher sets it (`launcher.md`) |
 
 **Do not pass `--game` on the command line from source** (`love . --game red`): on 2026-10-31 that failed before `main.lua` ran (no output at all, with the layer on or off), and the owner saw LÖVE's blue error screen. `POKEPORT_GAME=red` works. Re-check this for packaged builds.
 

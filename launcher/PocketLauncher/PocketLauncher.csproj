@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Pocket Accessibility's own launcher (decision 4): a plain Windows Forms
+       app with standard controls, so screen readers read it without help.
+       See docs/access/launcher.md. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>PocketLauncher</AssemblyName>
+    <RootNamespace>PocketLauncher</RootNamespace>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <Product>Pocket Accessibility</Product>
+    <Copyright>GPL-3.0 with the upstream project's Section 7 terms</Copyright>
+  </PropertyGroup>
+
+</Project>
