@@ -203,23 +203,12 @@ do
   SR.update(p)
   eq(last(), "CANCEL", "row without an amount")
 
+  -- the coins box beside the clerk belongs to the Menus presenters
   reset()
   local Coins = require("src.ui.game3.coins_box")
-  Coins.countText = function(n) return string.format("%4d COINS", n) end
   Coins.show(1, 1, 50)
   overlays()
-  eq(last(), "50 COINS", "coins box shown")
-  eq(lastInterrupts(), false, "overlay queues")
-  overlays()
-  eq(#spoken, 1, "unchanged coins stay quiet")
-  Coins.update(0)
-  overlays()
-  eq(last(), "0 COINS", "coins change")
-  Coins.hide()
-  overlays()
-  Coins.show(1, 1, 0)
-  overlays()
-  eq(last(), "0 COINS", "a new showing speaks again")
+  eq(#spoken, 0, "the coins box is not read here")
   Coins.hide()
 
   reset()
@@ -734,41 +723,19 @@ do
   MuseumPic.isActive = origActive
   Space.vm = nil
 
-  -- forest title card
+  -- the forest card, the release sequence and the level-up window are
+  -- read by the Menus, Items and Battle presenters, not here
   reset()
   local Preview = require("src.ui.game3.map_preview_screen")
-  Preview._active, Preview._entry, Preview._name = true, {}, "VIRIDIAN FOREST"
-  overlays()
-  eq(last(), "VIRIDIAN FOREST", "forest title card")
-  Preview._active, Preview._entry = false, nil
-
-  -- release sequence
-  reset()
   local Release = require("src.ui.game3.release_seq")
-  Release.active, Release.state, Release.yesNoCursor, Release.mon = true, "confirm", 2, { nickname = "SPARKY", species = 25 }
-  overlays()
-  eq(last(), "Release this POKéMON? NO", "release question defaults to NO")
-  Release.yesNoCursor = 1
-  overlays()
-  eq(last(), "YES", "release yes")
-  Release.state = "released"
-  overlays()
-  eq(last(), "SPARKY was released.", "released")
-  Release.state = "bye"
-  overlays()
-  eq(last(), "Bye-bye, SPARKY!", "bye")
-  Release.active, Release.state = false, "idle"
-
-  -- level-up window
-  reset()
   local Growth = require("src.ui.game3.stat_growth")
-  Growth.open({}, { maxHp = 20, atk = 10, def = 10, spa = 9, spd = 9, spe = 12 },
-    { maxHp = 23, atk = 12, def = 11, spa = 10, spd = 9, spe = 14 })
+  Preview._active, Preview._entry, Preview._name = true, {}, "VIRIDIAN FOREST"
+  Release.active, Release.state, Release.yesNoCursor, Release.mon = true, "confirm", 2, { nickname = "SPARKY", species = 25 }
+  Growth.open({}, { maxHp = 20 }, { maxHp = 23 })
   overlays()
-  eq(last(), "MAX. HP plus 3, ATTACK plus 2, DEFENSE plus 1, SP. ATK plus 1, SP. DEF plus 0, SPEED plus 2", "level-up page 1")
-  Growth._page = 2
-  overlays()
-  eq(last(), "MAX. HP 23, ATTACK 12, DEFENSE 11, SP. ATK 10, SP. DEF 9, SPEED 14", "level-up page 2")
+  eq(#spoken, 0, "overlays owned by other presenters stay quiet here")
+  Preview._active, Preview._entry = false, nil
+  Release.active, Release.state = false, "idle"
   Growth.close({ silent = true })
 
   -- Itemfinder arrow

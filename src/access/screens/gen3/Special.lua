@@ -1,5 +1,5 @@
 -- Gen 3 presenters for the special screens and minigames (FireRed;
--- decision 29): the Game Corner (slot machine, prize corner, coins box),
+-- decision 29): the Game Corner (slot machine, prize corner),
 -- Trainer Tower and link battle records, minigame records, the wireless
 -- status screen, Direct Corner, Union Room windows and chat, the link trade
 -- menu, the trade animation, the PIN pad, Mystery Gift, Easy Chat, the
@@ -7,10 +7,11 @@
 -- credits, the whiteout screen, the mod manager, the wireless minigames'
 -- shell (lobby, standby, countdown, messages and results), and these
 -- overlays, which are not stack layers and come through Top.addAmbient:
--- coins and Berry Powder boxes, braille, the Seagallop crossing, Pokémon and
--- fossil pictures, the forest and cave title cards, the release sequence,
--- the level-up stat window, the Itemfinder arrow, the VS Seeker result and
--- the online arena's message.  Same matches/poll contract as
+-- the Berry Powder box, braille, the Seagallop crossing, Pokémon and fossil
+-- pictures, the Itemfinder arrow, the VS Seeker result and the online
+-- arena's message.  (The coins box, the forest title card, the release
+-- sequence and the level-up window are read by the Menus, Items and Battle
+-- presenters.)  Same matches/poll contract as
 -- Presenters.lua; proxies come from gen3/Top.lua.
 --
 -- Every presenter reads the screen's own module fields and pure functions
@@ -404,28 +405,8 @@ Special.prizeCorner = add({
   end,
 })
 
--- The COINS window (src/ui/game3/coins_box.lua), in the field beside the
--- clerk's dialogue: its own count text, when shown and on each change.
-Special.coinsBox = add({
-  matches = kindOnly("coins_box"),
-  poll = function(state, memo)
-    local Box = state.mod
-    local amount = Box._amount
-    if memo.amount == amount then return nil end
-    memo.amount = amount
-    local text = Box.countText and try(Box.countText, amount) or nil
-    text = say(text or ("COINS " .. tostring(amount)))
-    if text == "" then return nil end
-    return text, false
-  end,
-})
-
-ambient(function(_, proxy)
-  local Box = loaded("src.ui.game3.coins_box")
-  local key = edge("coins_box", Box ~= nil and Box.visible == true)
-  if not key then return nil end
-  return proxy(key, "coins_box", { mod = Box })
-end)
+-- The COINS window (src/ui/game3/coins_box.lua) is read by the Menus
+-- presenters with the money box (same overlay pattern), so it is not here.
 
 -- The Berry Powder window: read `visible` and the owner check that
 -- isVisible would make, without its hide().
@@ -1779,101 +1760,10 @@ ambient(function(_, proxy)
   return proxy(pic, "picture", { species = pic.species, fossil = true })
 end)
 
--- Forest and cave title cards: the area name in the picture, once.
-Special.mapPreview = add({
-  matches = kindOnly("map_preview"),
-  poll = function(state, memo)
-    if memo.said then return nil end
-    memo.said = true
-    local name = state.name
-    if not nonEmpty(name) then return nil end
-    return say(tr(name)), false
-  end,
-})
-
-ambient(function(_, proxy)
-  local Preview = loaded("src.ui.game3.map_preview_screen")
-  if not Preview then return nil end
-  if Preview._active and type(Preview._entry) == "table" then
-    return proxy(Preview._entry, "map_preview", { name = Preview._name })
-  end
-  local cave = Preview._cave
-  if type(cave) == "table" then
-    return proxy(cave, "map_preview", { name = cave.name })
-  end
-  return nil
-end)
-
--- Release sequence inside box storage: the question with YES/NO, then the
--- released and goodbye lines.
-Special.releaseSeq = add({
-  matches = kindOnly("release_seq"),
-  poll = function(state, memo)
-    local R = state.mod
-    local s = R.state
-    local parts = {}
-    local name = monName(R.mon) or ""
-    if s ~= memo.state then
-      memo.state = s
-      if s == "confirm" then
-        memo.cursor = R.yesNoCursor
-        parts[#parts + 1] = say(rom("gText_ReleaseThisPokemon"))
-        parts[#parts + 1] = yesNo(R.yesNoCursor == 1)
-      elseif s == "released" then
-        parts[#parts + 1] = say(rom("gText_PkmnWasReleased", { dynamic = { [0] = name } }))
-      elseif s == "bye" then
-        parts[#parts + 1] = say(rom("gText_ByeByePkmn", { dynamic = { [0] = name } }))
-      end
-    elseif s == "confirm" and R.yesNoCursor ~= memo.cursor then
-      memo.cursor = R.yesNoCursor
-      parts[#parts + 1] = yesNo(R.yesNoCursor == 1)
-    end
-    local text = sentences(parts)
-    if text == "" then return nil end
-    return text, false
-  end,
-})
-
-ambient(function(_, proxy)
-  local R = loaded("src.ui.game3.release_seq")
-  local key = edge("release_seq", R ~= nil and R.active == true)
-  if not key then return nil end
-  return proxy(key, "release_seq", { mod = R })
-end)
-
--- Level-up window: page 1 the increases, page 2 the new totals, labels from
--- the window's own stat name list.
-local STAT_FIELDS = { "maxHp", "atk", "def", "spa", "spd", "spe" }
-
-Special.statGrowth = add({
-  matches = kindOnly("stat_growth"),
-  poll = function(state, memo)
-    local G = state.mod
-    if not G._open or G._newStats ~= state.key then return nil end
-    local page = G._page or 1
-    if page == memo.page then return nil end
-    memo.page = page
-    local old, new = G._oldStats or {}, G._newStats or {}
-    local parts = {}
-    for i, field in ipairs(STAT_FIELDS) do
-      local label = say(romAt("sLevelUpWindowStatNames", i - 1) or field)
-      local value = tonumber(new[field]) or 0
-      if page == 1 then
-        local diff = value - (tonumber(old[field]) or 0)
-        parts[#parts + 1] = label .. (diff >= 0 and " plus " or " minus ") .. tostring(math.abs(diff))
-      else
-        parts[#parts + 1] = label .. " " .. tostring(value)
-      end
-    end
-    return table.concat(parts, ", "), false
-  end,
-})
-
-ambient(function(_, proxy)
-  local G = loaded("src.ui.game3.stat_growth")
-  if not (G and G._open and type(G._newStats) == "table") then return nil end
-  return proxy(G._newStats, "stat_growth", { mod = G })
-end)
+-- Covered by the other Gen 3 presenters, so not repeated here: the forest
+-- title card (Menus, with the map name popup, said once per new name),
+-- the release sequence (Items, inside box storage) and the level-up
+-- window (Battle in battle, Items in the party menu).
 
 -- Itemfinder: the arrow points along the larger offset to the nearest
 -- hidden item (the screen shows nothing more exact).
