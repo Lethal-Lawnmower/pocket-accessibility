@@ -77,7 +77,8 @@ internal sealed class MainForm : Form
         ActiveControl = gamesList;
         Shown += async (_, _) =>
         {
-            if (OnFirstShown() && romToImport != null) await ImportFileAsync(romToImport);
+            if (!await OnFirstShownAsync()) return;
+            if (romToImport != null) await ImportFileAsync(romToImport);
         };
     }
 
@@ -90,35 +91,59 @@ internal sealed class MainForm : Form
 
     private Game? SelectedGame => gamesList.SelectedItem is GameRow row ? row.Game : null;
 
-    /// <summary>A list row: the game's name and whether it is imported.</summary>
-    private sealed record GameRow(Game Game, bool Imported)
+    /// <summary>A list row: the game's name and whether it can be played.</summary>
+    private sealed record GameRow(Game Game, ImportState State)
     {
-        public override string ToString() => $"{Game.Name}, {(Imported ? "imported" : "not imported")}";
+        public override string ToString() => State switch
+        {
+            ImportState.Ready => $"{Game.Name}, imported",
+            ImportState.NeedsReimport => $"{Game.Name}, needs importing again",
+            _ => $"{Game.Name}, not imported",
+        };
     }
 
-    private void RefreshGames(Game? select = null)
+    private ImportState StateOf(Game game) =>
+        gamesList.Items.Cast<GameRow>().FirstOrDefault(row => row.Game == game)?.State ?? ImportState.NotImported;
+
+    /// <summary>Asks the game which games are ready and rebuilds the list.</summary>
+    private async Task RefreshGamesAsync(Game? select = null)
     {
         select ??= SelectedGame;
+        var checkedStates = await ReadyCheck.RunAsync(paths);
+        if (checkedStates == null)
+        {
+            status.Text = "Could not ask the game which games are imported; showing what the save folder suggests.";
+        }
         gamesList.BeginUpdate();
         gamesList.Items.Clear();
         foreach (var game in GameCatalog.All)
         {
-            gamesList.Items.Add(new GameRow(game, paths.IsImported(game)));
+            bool marker = paths.HasImportMarker(game);
+            ImportState state;
+            if (checkedStates != null && checkedStates.TryGetValue(game.Id, out var verdict))
+            {
+                state = verdict == ImportState.Ready ? ImportState.Ready
+                    : marker ? ImportState.NeedsReimport : ImportState.NotImported;
+            }
+            else
+            {
+                state = marker ? ImportState.Ready : ImportState.NotImported;
+            }
+            gamesList.Items.Add(new GameRow(game, state));
         }
         int index = select == null ? -1 : GameCatalog.All.ToList().IndexOf(select);
         if (index < 0)
         {
-            // Start on the first imported game, or the first game.
-            index = Math.Max(0, gamesList.Items.Cast<GameRow>().ToList().FindIndex(row => row.Imported));
+            // Start on the first playable game, or the first game.
+            index = Math.Max(0, gamesList.Items.Cast<GameRow>().ToList().FindIndex(row => row.State == ImportState.Ready));
         }
         gamesList.SelectedIndex = index;
         gamesList.EndUpdate();
     }
 
-    /// <summary>Checks the setup; false when the game cannot be started at all.</summary>
-    private bool OnFirstShown()
+    /// <summary>Checks the setup and the games; false when no game can be started at all.</summary>
+    private async Task<bool> OnFirstShownAsync()
     {
-        RefreshGames();
         if (paths.GameDir == null || paths.LoveExe == null)
         {
             string missing = paths.GameDir == null
@@ -130,6 +155,7 @@ internal sealed class MainForm : Form
             return false;
         }
         status.Text = "Ready.";
+        await RefreshGamesAsync();
         if (!paths.HasPrism)
         {
             ShowMessage("The speech library was not found (local-deps\\prism\\prism.dll in the game folder). " +
@@ -142,10 +168,13 @@ internal sealed class MainForm : Form
     private async Task PlaySelectedAsync()
     {
         if (busy || SelectedGame is not Game game) return;
-        if (!paths.IsImported(game))
+        ImportState state = StateOf(game);
+        if (state != ImportState.Ready)
         {
-            ShowMessage($"{game.Name} is not imported yet. Choose Import ROM and pick your {game.Name} cartridge dump first.",
-                        MessageBoxIcon.Information);
+            ShowMessage(state == ImportState.NeedsReimport
+                ? $"{game.Name} was imported by an older version and needs importing again. Choose Import ROM and pick your {game.Name} cartridge dump."
+                : $"{game.Name} is not imported yet. Choose Import ROM and pick your {game.Name} cartridge dump first.",
+                MessageBoxIcon.Information);
             importButton.Focus();
             return;
         }
@@ -163,8 +192,8 @@ internal sealed class MainForm : Form
                 Activate();
             }
         });
-        RefreshGames(game);
         status.Text = "Ready.";
+        await RefreshGamesAsync(game);
         gamesList.Focus();
     }
 
@@ -202,8 +231,8 @@ internal sealed class MainForm : Form
         }
         await RunBusyAsync($"Importing {game.Name}. This can take a minute.",
                            () => runner.ImportAsync(game, romPath));
-        RefreshGames(game);
-        if (paths.IsImported(game))
+        await RefreshGamesAsync(game);
+        if (StateOf(game) == ImportState.Ready)
         {
             status.Text = $"{game.Name} imported.";
             ShowMessage($"{game.Name} imported. Press Play to start.", MessageBoxIcon.Information);

@@ -10,6 +10,8 @@ namespace PocketLauncher;
 ///   POKEPORT_GAME          start this game directly, skipping upstream's launcher
 ///   POKEPORT_IMPORT_ROM    import this ROM ...
 ///   POKEPORT_IMPORT_ONLY   ... and quit when done
+///   POKEPORT_FORCE_IMPORT  import even over a cache the game accepts (without
+///                          it, an import-only run of a ready game boots it)
 ///   POKEPORT_PORTMASTER_MANAGED=1  keeps upstream's self-updater off; in a
 ///                          packaged build it would replace ours with plain
 ///                          upstream
@@ -51,6 +53,7 @@ internal sealed class GameRunner(GamePaths paths)
         info.Environment["POKEPORT_VERSION"] = game.Id;
         info.Environment["POKEPORT_IMPORT_ROM"] = romPath;
         info.Environment["POKEPORT_IMPORT_ONLY"] = "1";
+        info.Environment["POKEPORT_FORCE_IMPORT"] = "1";
         using var process = Process.Start(info)
             ?? throw new InvalidOperationException("The importer did not start.");
         await process.WaitForExitAsync();

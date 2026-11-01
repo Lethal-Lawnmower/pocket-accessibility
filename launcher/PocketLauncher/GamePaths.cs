@@ -11,6 +11,21 @@ namespace PocketLauncher;
 /// </summary>
 internal sealed record GamePaths(string? LoveExe, string? GameDir, string SaveDir)
 {
+    /// <summary>The windowless ready check (launcher/ReadyCheck), copied beside
+    /// the launcher by the build; the source folder's copy as a fallback.</summary>
+    public string? ReadyCheckDir
+    {
+        get
+        {
+            string[] candidates =
+            [
+                Path.Combine(AppContext.BaseDirectory, "ReadyCheck"),
+                GameDir == null ? "" : Path.Combine(GameDir, "launcher", "ReadyCheck"),
+            ];
+            return candidates.FirstOrDefault(dir => dir != "" && File.Exists(Path.Combine(dir, "main.lua")));
+        }
+    }
+
     public const string DefaultIdentity = "pokemon-love2d";
 
     public static GamePaths Discover()
@@ -55,12 +70,11 @@ internal sealed record GamePaths(string? LoveExe, string? GameDir, string SaveDi
         && File.Exists(Path.Combine(GameDir, "local-deps", "prism", "prism.dll"));
 
     /// <summary>
-    /// Whether a game's ROM cache is imported: the cache's completion marker
-    /// exists and names one of the game's accepted ROMs.  The game itself also
-    /// checks the cache format and every required file
-    /// (src/import/CacheContract.lua); this is the cheap part of that check.
+    /// Whether a game was ever imported: the cache's completion marker exists
+    /// and names one of the game's accepted ROMs.  Only the cheap part of the
+    /// game's own check; ReadyCheck asks the game whether it is still current.
     /// </summary>
-    public bool IsImported(Game game)
+    public bool HasImportMarker(Game game)
     {
         string marker = Path.Combine(SaveDir, game.CacheFolder, "rom-cache.complete");
         if (!File.Exists(marker)) return false;

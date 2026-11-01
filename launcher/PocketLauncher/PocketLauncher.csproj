@@ -16,4 +16,9 @@
     <Copyright>GPL-3.0 with the upstream project's Section 7 terms</Copyright>
   </PropertyGroup>
 
+  <!-- The windowless ready check the launcher runs with LÖVE (ReadyCheck.cs). -->
+  <ItemGroup>
+    <None Include="..\ReadyCheck\*.lua" CopyToOutputDirectory="PreserveNewest" LinkBase="ReadyCheck" />
+  </ItemGroup>
+
 </Project>
