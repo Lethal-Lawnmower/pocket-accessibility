@@ -120,7 +120,7 @@ function Common.sentences(...)
       part = tostring(part)
       if out == "" then
         out = part
-      elseif out:find("[%.!%?:]$") or out:find("â¦$") then
+      elseif out:find("[%.!%?:]$") or out:find("…$") then
         out = out .. " " .. part
       else
         out = out .. ". " .. part
