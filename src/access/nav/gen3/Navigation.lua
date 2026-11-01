@@ -644,13 +644,19 @@ local STATUS_WORDS = { SLP = "asleep", FRZ = "frozen", PSN = "poisoned", BRN = "
 -- healthbox shows when it provides `health`; otherwise the battler's
 -- current values are read, as Gen 1 does.
 function Navigation:readBattleHealth(side)
-  local battle = self:battleForCommand()
-  if not battle then return self:announceManual({ "Not in battle" }) end
+  -- the Gen 3 battle presenter reads the live battle (nil) as its healthbox
+  -- shows it, doubles and the Safari Zone included; nil means no battle
   local okModule, Presenter = pcall(require, "src.access.screens.gen3.Battle")
   if okModule and type(Presenter) == "table" and type(Presenter.health) == "function" then
-    local ok, text = pcall(Presenter.health, battle, side)
-    if ok and type(text) == "string" and text ~= "" then return self:announceManual({ text }) end
+    local ok, text = pcall(Presenter.health, nil, side)
+    if ok then
+      if type(text) == "string" and text ~= "" then return self:announceManual({ text }) end
+      return self:announceManual({ "Not in battle" })
+    end
   end
+  -- without the presenter: the battler's current values, as Gen 1 reads them
+  local battle = self:battleForCommand()
+  if not battle then return self:announceManual({ "Not in battle" }) end
   local battler = type(battle) == "table" and (side == "enemy" and battle.enemy or battle.player) or nil
   local mon = type(battler) == "table" and battler.mon or nil
   local hp = mon and tonumber(mon.hp)

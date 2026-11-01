@@ -100,14 +100,14 @@ end
 
 -- Specials that name the object, in order of precedence.
 local SPECIAL_ROLES = {
-  { "SetVermilionTrashCans", "Trash can" },
-  { "GetElevatorFloor", "Floor panel" },
+  { "SetVermilionTrashCans", "Trash Can" },
+  { "GetElevatorFloor", "Floor Panel" },
   { "BrailleCursorToggle", "Braille" },
-  { "OpenMuseumFossilPic", "Fossil display" },
+  { "OpenMuseumFossilPic", "Fossil Display" },
   { "BedroomPC", "PC" }, { "AnimatePcTurnOn", "PC" },
   { "ShowBattleRecords", "Battle Records" }, { "ShowPokemonJumpRecords", "Records" },
   { "ShowBerryCrushRankings", "Records" }, { "ShowDodrioBerryPickingRecords", "Records" },
-  { "GetHeracrossSizeRecordInfo", "Size record" }, { "GetMagikarpSizeRecordInfo", "Size record" },
+  { "GetHeracrossSizeRecordInfo", "Size Record" }, { "GetMagikarpSizeRecordInfo", "Size Record" },
   { "AnimateTeleporterHousing", "Teleporter" },
 }
 
@@ -120,9 +120,9 @@ function Scripts.signRole(key)
   end
   if s.ops.setmetatile then
     local yesNo = s.stds[5] == true
-    if yesNo and s.ops.trainerbattle then return "Quiz machine", "quiz_machine" end
-    if yesNo and (s.ops.setflag or s.ops.clearflag) then return "Secret switch", "secret_switch" end
-    if s.ops.playfanfare and not yesNo then return "Card key door", "card_key_door" end
+    if yesNo and s.ops.trainerbattle then return "Quiz Machine", "quiz_machine" end
+    if yesNo and (s.ops.setflag or s.ops.clearflag) then return "Secret Switch", "secret_switch" end
+    if s.ops.playfanfare and not yesNo then return "Card Key Door", "card_key_door" end
   end
   return nil
 end
@@ -145,14 +145,39 @@ function Scripts.itemBallItem(key)
   return nil
 end
 
+-- Words kept in capitals: abbreviations a screen reader would otherwise
+-- read as words.
+local KEEP_CAPS = { PP = true, HP = true, TM = true, HM = true, PC = true }
+
+-- "KING'S ROCK" as "King's Rock", "POKé BALL" as "Poké Ball", "TM05" as
+-- "TM 05": the game's own name in
+-- title case, word by word.
+function Scripts.titleCase(name)
+  if type(name) ~= "string" then return nil end
+  name = name:gsub("^(%u%u)(%d+)$", "%1 %2")
+  local words = {}
+  for word in name:gmatch("%S+") do
+    local letters = word:gsub("[^%a]", "")
+    if KEEP_CAPS[letters] then
+      words[#words + 1] = word
+    else
+      local first, rest = word:match("^([^%a]*%a)(.*)$")
+      if first then
+        words[#words + 1] = first:upper() .. rest:lower():gsub("\195\137", "\195\169")
+      else
+        words[#words + 1] = word
+      end
+    end
+  end
+  return table.concat(words, " ")
+end
+
 -- "Card Key", "TM 28", "Potion": the item's own name in title case.
 function Scripts.itemLabel(itemId)
   local ok, ItemsData = pcall(require, "src.core.game3.items_data")
   local name = ok and ItemsData and ItemsData.displayName and ItemsData.displayName(itemId) or nil
   if type(name) ~= "string" or name == "" or name == tostring(itemId) then return nil end
-  name = name:gsub("^(%u%u)(%d+)$", "%1 %2")
-  local Snapshot = require("src.access.nav.WorldSnapshot")
-  return Snapshot.humanize(name:gsub("%s+", "_"))
+  return Scripts.titleCase(name)
 end
 
 return Scripts

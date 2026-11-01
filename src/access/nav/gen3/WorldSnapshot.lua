@@ -99,8 +99,18 @@ local GFX_LABELS = {
   PUSHABLE_BOULDER = "Boulder", ITEM_BALL = "Pok\195\169 Ball",
   NIDORAN_F = "Nidoran female", NIDORAN_M = "Nidoran male", HO_OH = "Ho-Oh",
   DEOXYS_D = "Deoxys", DEOXYS_A = "Deoxys", DEOXYS_N = "Deoxys", SS_ANNE = "S.S. Anne",
-  OLD_AMBER = "Old Amber",
+  OLD_AMBER = "Old Amber", POKEDEX = "Pok\195\169dex",
 }
+
+-- The graphics an object is drawn with.  A live object's variable sprite
+-- (OBJ_EVENT_GFX_VAR_*, 240 and up) was resolved by the game when it
+-- spawned; on a map that is not loaded the variable may not be set yet, so
+-- such an object is only "Person" (nil here), never a guessed sheet.
+local function resolvedGraphics(actor, def)
+  local gfx = tonumber(actor.graphicsId or def.graphicsId or def.graphics)
+  if gfx and gfx >= 240 then return nil end
+  return gfx
+end
 -- The player's own sheets on someone else (link partners, the Trainer
 -- Tower): not who stands there.
 local PLAYER_SHEETS = { RED = true, GREEN = true, RS_BRENDAN = true, RS_MAY = true }
@@ -116,7 +126,8 @@ end
 -- The label for a FireRed object from its graphics, or nil.
 function Snapshot.objectLabel(actor, opts)
   local def = type(actor.def) == "table" and actor.def or {}
-  local gfx = tonumber(actor.graphicsId or def.graphicsId or def.graphics)
+  local gfx = resolvedGraphics(actor, def)
+  if gfx == nil then return "Person" end
   if gfx == Terrain.GFX.ITEM_BALL then
     local item = Scripts.itemBallItem(def.scriptKey or actor.scriptKey)
     local label = item and Scripts.itemLabel(item)

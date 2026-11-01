@@ -16,10 +16,15 @@
 --              elevation) or a hole, and free of objects; the player stays
 --              where they stood (the push walks in place)
 --
--- The search is the Gen 2 floor search (gen2/PuzzleAssistance.planFloor:
+-- The search follows the Gen 2 floor search (gen2/PuzzleAssistance.planFloor:
 -- A* over pushes, dead squares pruned, any boulder may move) with Gen 3's
--- rules injected; the answer is the first push of the shortest plan that
--- puts any boulder on a free switch or into a hole.  Gen 1's Victory Road
+-- rules.  On a floor with switches the plan covers every open switch at
+-- once (boulders stay on switches; the Tanoby Key room needs all seven, and
+-- pressing the nearest switch first can block the rest); otherwise, or when
+-- that search runs out of budget, the plan drops one boulder into a hole or
+-- onto one switch.  The answer is the plan's first push.  Elevation is read
+-- per cell for the boulder as for the player (objects take the elevation of
+-- the cell they stand on; 0 and 15 match anything).  Gen 1's Victory Road
 -- tables do not apply: FireRed's maps are redrawn on 16-pixel cells.
 --
 -- What the player still lacks is said first: a Pokemon with Strength, the
@@ -243,39 +248,68 @@ local function heapPop(heap)
   return top
 end
 
--- The first push of the shortest plan that puts a boulder on a free switch
--- or into a hole: { boulder, standX, standY, direction, target, pushes },
--- or nil.  `player` is { cellX, cellY }.
-function Puzzle.planFloor(world, targets, boulders, budget)
-  budget = budget or {}
-  local model = floorModel(world, targets, boulders)
-  local width = model.width
-  local player = world.player
-  if not (player and #model.boulders > 0) then return nil end
-  local open = {}
+-- One search over pushes (A*, dead squares pruned, any boulder may move).
+--   mode "switches": the goal is every open switch with a boulder on it; a
+--     boulder that reaches a switch stays there, and none is dropped into a
+--     hole (Victory Road, the Tanoby Key room)
+--   mode "one": the goal is one boulder on a free switch or in a hole
+--     (Seafoam's holes, and the fallback when the whole-floor search runs
+--     out of budget)
+-- Returns the first push: { boulder, standX, standY, direction, target,
+-- pushes } (target: where that boulder ends in the plan), or nil, reason.
+local function search(world, targets, boulders, budget, mode)
+  local goals = {}
   for _, target in ipairs(targets) do
-    if not target.solved then open[#open + 1] = target end
+    if not target.solved and (mode == "one" or target.kind == "switch") then
+      goals[#goals + 1] = target
+    end
   end
-  if #open == 0 then return nil end
-  local targetAt = {}
-  for _, target in ipairs(open) do targetAt[target.y * width + target.x] = target end
-  local function heuristic(positions)
-    local best = math.huge
-    for i in ipairs(model.boulders) do
-      local pos = positions[i]
-      if pos then
-        for _, target in ipairs(open) do
-          local distance = math.abs(pos % width - target.x)
-            + math.abs(math.floor(pos / width) - target.y)
-          if distance < best then best = distance end
+  if #goals == 0 then return nil, "no target" end
+  local model = floorModel(world, goals, boulders)
+  local width, height = model.width, model.height
+  local player = world.player
+  if not (player and #model.boulders > 0) then return nil, "no boulder" end
+  local goalAt = {}
+  for index, target in ipairs(goals) do goalAt[target.y * width + target.x] = index end
+
+  local function distance(pos, target)
+    return math.abs(pos % width - target.x) + math.abs(math.floor(pos / width) - target.y)
+  end
+  -- "one": the nearest boulder to any goal; "switches": for every open
+  -- switch, the nearest free boulder (not admissible, but it keeps the
+  -- whole-floor search short)
+  local function heuristic(positions, covered)
+    if mode == "one" then
+      local best = math.huge
+      for _, pos in ipairs(positions) do
+        if pos then
+          for _, target in ipairs(goals) do
+            local dist = distance(pos, target)
+            if dist < best then best = dist end
+          end
         end
       end
+      return best
     end
-    return best
+    local total = 0
+    for index, target in ipairs(goals) do
+      if not covered[index] then
+        local best = math.huge
+        for _, pos in ipairs(positions) do
+          if pos then
+            local dist = distance(pos, target)
+            if dist < best then best = dist end
+          end
+        end
+        if best == math.huge then return math.huge end
+        total = total + best
+      end
+    end
+    return total
   end
-  local startPositions, occupied = {}, {}
+
+  local startPositions, occupied, assign = {}, {}, {}
   for i, b in ipairs(model.boulders) do
-    -- a boulder already on a switch stays there
     local onSwitch = false
     for _, target in ipairs(targets) do
       if target.solved and target.pressedBy == b.number then onSwitch = true end
@@ -283,27 +317,39 @@ function Puzzle.planFloor(world, targets, boulders, budget)
     startPositions[i] = not onSwitch and b.start or false
     occupied[b.start] = true
   end
+  local startCovered = {}
+  if heuristic(startPositions, startCovered) == math.huge then return nil, "unreachable" end
   local region, rep = playerRegion(model, player.cellX, player.cellY, occupied)
-  if heuristic(startPositions) == math.huge then return nil end
-  local heap = {}
-  local function key(positions, r)
+  local function key(positions, covered, r)
     local parts = {}
     for i, pos in ipairs(positions) do parts[i] = pos or "x" end
-    return table.concat(parts, ",") .. "|" .. r
+    local c = {}
+    for index in pairs(covered) do c[#c + 1] = index end
+    table.sort(c)
+    return table.concat(parts, ",") .. "|" .. table.concat(c, ",") .. "|" .. r
   end
-  heapPush(heap, { positions = startPositions, region = region, g = 0,
-    f = heuristic(startPositions) })
-  local visited = { [key(startPositions, rep)] = true }
+  local function coveredCount(covered)
+    local n = 0
+    for _ in pairs(covered) do n = n + 1 end
+    return n
+  end
+  local heap = {}
+  heapPush(heap, { positions = startPositions, covered = startCovered, assign = assign,
+    region = region, g = 0, f = heuristic(startPositions, startCovered) })
+  local visited = { [key(startPositions, startCovered, rep)] = true }
   local expanded, maxExpanded = 0, budget.maxExpanded or 20000
   local deadline = os.clock() + (budget.maxSeconds or 0.4)
   while #heap > 0 do
     local node = heapPop(heap)
     expanded = expanded + 1
+    if budget.stats then budget.stats.expanded = (budget.stats.expanded or 0) + 1 end
     if expanded > maxExpanded or os.clock() > deadline then return nil, "budget" end
     local positions = node.positions
+    -- every boulder's cell: free ones where they are, locked ones on their
+    -- switch (or where they started, already on one)
     local taken = {}
     for i, pos in ipairs(positions) do
-      if pos then taken[pos] = true else taken[model.boulders[i].start] = true end
+      taken[pos or (node.assign.cells and node.assign.cells[i]) or model.boulders[i].start] = true
     end
     for bi, b in ipairs(model.boulders) do
       local pos = positions[bi]
@@ -313,34 +359,56 @@ function Puzzle.planFloor(world, targets, boulders, budget)
           local sx, sy = bx - d[2], by - d[3]
           local lx, ly = bx + d[2], by + d[3]
           local si, li = sy * width + sx, ly * width + lx
-          if node.region[si] and lx >= 0 and ly >= 0 and lx < width and ly < model.height
+          if node.region[si] and lx >= 0 and ly >= 0 and lx < width and ly < height
              and model.land[li] and not model.fixed[li] and not taken[li]
              and model.canStep(sx, sy, d[1], bx, by)
-             and not model.map:dirBlocked(bx, by, lx, ly, d[1])
-             and not elevationsMismatch(b.elevation ~= 0 and b.elevation or model.elevation[pos],
-                                        model.elevation[li]) then
+             and model.canStep(bx, by, d[1], lx, ly) then
             local push = node.first or { boulder = b, standX = sx, standY = sy, direction = d[1] }
-            local target = targetAt[li]
-            if target then
-              push.target = target
-              push.pushes = node.g + 1
+            local goal = goalAt[li]
+            local g = node.g + 1
+            if goal and mode == "one" then
+              push.target = goals[goal]
+              push.pushes = g
               return push
             end
-            if not model.hole[li] and model.live[li] then
+            local allowed = (goal ~= nil and not node.covered[goal])
+              or (not model.hole[li] and model.live[li])
+            if allowed then
               local nextPositions = {}
               for i, p in ipairs(positions) do nextPositions[i] = p end
-              nextPositions[bi] = li
+              local nextCovered, nextAssign = node.covered, node.assign
+              if goal then
+                -- the boulder stays on the switch
+                nextPositions[bi] = false
+                nextCovered = {}
+                for index in pairs(node.covered) do nextCovered[index] = true end
+                nextCovered[goal] = true
+                nextAssign = { target = {}, cells = {} }
+                for k, v in pairs(node.assign.target or {}) do nextAssign.target[k] = v end
+                for k, v in pairs(node.assign.cells or {}) do nextAssign.cells[k] = v end
+                nextAssign.target[bi] = goals[goal]
+                nextAssign.cells[bi] = li
+                if coveredCount(nextCovered) == #goals then
+                  push.target = nextAssign.target[push.boulder.number] or goals[goal]
+                  push.pushes = g
+                  return push
+                end
+              else
+                nextPositions[bi] = li
+              end
               local nextTaken = {}
               for i, p in ipairs(nextPositions) do
-                if p then nextTaken[p] = true else nextTaken[model.boulders[i].start] = true end
+                nextTaken[p or (nextAssign.cells and nextAssign.cells[i]) or model.boulders[i].start] = true
               end
               local nextRegion, nextRep = playerRegion(model, sx, sy, nextTaken)
-              local k = key(nextPositions, nextRep)
+              local k = key(nextPositions, nextCovered, nextRep)
               if not visited[k] then
                 visited[k] = true
-                local g = node.g + 1
-                heapPush(heap, { positions = nextPositions, region = nextRegion, g = g,
-                  f = g + heuristic(nextPositions), first = push })
+                local h = heuristic(nextPositions, nextCovered)
+                if h < math.huge then
+                  heapPush(heap, { positions = nextPositions, covered = nextCovered, assign = nextAssign,
+                    region = nextRegion, g = g, f = g + h, first = push })
+                end
               end
             end
           end
@@ -348,7 +416,24 @@ function Puzzle.planFloor(world, targets, boulders, budget)
       end
     end
   end
-  return nil
+  return nil, "no plan"
+end
+
+-- The first push of the plan for this floor: every open switch covered when
+-- the floor has switches (falling back to the nearest single switch when
+-- that search runs out of budget), else one boulder into a hole.
+function Puzzle.planFloor(world, targets, boulders, budget)
+  budget = budget or {}
+  local hasSwitch = false
+  for _, target in ipairs(targets) do
+    if target.kind == "switch" and not target.solved then hasSwitch = true end
+  end
+  if hasSwitch then
+    local plan, why = search(world, targets, boulders, budget, "switches")
+    if plan then return plan end
+    if why ~= "budget" and why ~= "no plan" then return nil, why end
+  end
+  return search(world, targets, boulders, budget, "one")
 end
 
 local CACHE = setmetatable({}, { __mode = "k" })
