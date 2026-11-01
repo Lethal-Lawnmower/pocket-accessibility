@@ -227,7 +227,8 @@ do
   eq(count(), n, "the continued line is not said twice")
 
   -- ALL AT ONCE says the whole box when it opens
-  game.options.accessDialogue = "whole"
+  -- Gen 3 keeps the setting in the game's own options block (Settings.lua)
+  game.options.firered = { accessDialogue = "whole" }
   show("Page one.\\pPage two.\\p")
   SR.update()
   eq(last().text, "Page one. Page two.", "ALL AT ONCE: every page at once")
@@ -236,7 +237,7 @@ do
   Message.advance()
   SR.update()
   eq(count(), n, "ALL AT ONCE: page 2 not repeated")
-  game.options.accessDialogue = nil
+  game.options.firered = nil
 
   -- the voiceover frame (Oak's advice) is battle text too
   Message.show("Inflicting damage on the foe\nis the key to any battle.\\p", { frame = "voiceover", hold = true })

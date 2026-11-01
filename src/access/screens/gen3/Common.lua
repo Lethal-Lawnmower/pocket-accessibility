@@ -59,10 +59,13 @@ end
 local TAG_WORDS = {
   PKMN = "POKéMON", PK = "PK", MN = "MN", LV = "level ", LV_2 = "level ", PP = "PP ",
   ID = "ID ", NO = "number ", PLUS = "plus", TIMES = "times",
-  A_BUTTON = "A button", B_BUTTON = "B button", START_BUTTON = "START",
-  SELECT_BUTTON = "SELECT", L_BUTTON = "L button", R_BUTTON = "R button",
-  DPAD_UPDOWN = "up and down", DPAD_LEFTRIGHT = "left and right", DPAD_NONE = "the control pad",
-  UP_ARROW = "up", DOWN_ARROW = "down", LEFT_ARROW = "left", RIGHT_ARROW = "right",
+  -- button, pad and arrow glyphs stand right before a word on screen
+  -- ("{A_BUTTON}NEXT"), so their words end in a space; doubled spaces are
+  -- collapsed later
+  A_BUTTON = "A button ", B_BUTTON = "B button ", START_BUTTON = "START ",
+  SELECT_BUTTON = "SELECT ", L_BUTTON = "L button ", R_BUTTON = "R button ",
+  DPAD_UPDOWN = "up and down ", DPAD_LEFTRIGHT = "left and right ", DPAD_NONE = "the control pad ",
+  UP_ARROW = "up ", DOWN_ARROW = "down ", LEFT_ARROW = "left ", RIGHT_ARROW = "right ",
 }
 
 function Common.speakable(text)

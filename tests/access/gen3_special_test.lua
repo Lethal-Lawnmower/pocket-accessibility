@@ -733,7 +733,13 @@ do
   Release.active, Release.state, Release.yesNoCursor, Release.mon = true, "confirm", 2, { nickname = "SPARKY", species = 25 }
   Growth.open({}, { maxHp = 20 }, { maxHp = 23 })
   overlays()
-  eq(#spoken, 0, "overlays owned by other presenters stay quiet here")
+  -- the forest title card belongs to the menus presenter (gen3/Menus.lua),
+  -- which says it; the release sequence and level-up window stay quiet here
+  local others = {}
+  for _, entry in ipairs(spoken) do
+    if entry.text ~= "VIRIDIAN FOREST" then others[#others + 1] = entry.text end
+  end
+  eq(#others, 0, "overlays owned by other presenters stay quiet here: " .. table.concat(others, " | "))
   Preview._active, Preview._entry = false, nil
   Release.active, Release.state = false, "idle"
   Growth.close({ silent = true })
