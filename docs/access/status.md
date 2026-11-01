@@ -15,6 +15,8 @@ and recorded in the topic file.
   public fork `pocket-accessibility` under the owner's GitHub account).
 - Commits use the owner's GitHub username and noreply address (decision 13).
 - `core.autocrlf false` keeps upstream's line endings.
+- Issues enabled on the fork at the owner's request (2026-10-31); the README
+  points bug reports there and to the owner's Discord username.
 - The fork, like every fork, contains upstream's proprietary launcher files
   in its tree and history; the GitHub Fork route was chosen for that reason
   (decision 19). Our builds must not include them.
