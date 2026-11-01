@@ -104,6 +104,14 @@ changes to this layer.
 
 ## Not covered yet
 
+- Yellow: Pikachu's reactions when you talk to it (a picture and cry, no
+  text), and the printer screens (`PrinterMonStats`, `SurfHiScore`).
+- Picture pop-ups (`PicBox`, for example fossils): the text around them
+  reads, the picture itself is not described.
+- Link features: trading and link battles over the cable club.
+- Upstream additions outside the original games: mod manager, palette
+  screen, skin studio, touch controls editor, load report.
+- Blue has not had its own scripted run (same screens as Red).
 - Yellow's surfing minigame (needs a design for a timing game).
 - Not yet run in game: minor screens (League PC, prizes, slots, Hall of
   Fame, diploma, credits), `MoveSelectMenu`, evolution and trade text.
