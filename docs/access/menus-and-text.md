@@ -15,6 +15,9 @@ the top screen is a known upstream class, a presenter turns it into speech:
   list, Yes/No, quantity), naming keyboard, party.
 - `src/access/screens/InfoScreens.lua`: summary, move pickers, trainer card,
   Pokédex list and entry, options, town map.
+- `src/access/screens/MinorScreens.lua`: title and intros, League PC, prize
+  counter, slot machine, Hall of Fame, diploma, credits.
+- `src/access/screens/Battle.lua`: battles (`battle.md`).
 
 Rules for presenters:
 
@@ -48,6 +51,15 @@ Rules for presenters:
 | Pokédex entry (`DexEntryMenu`) | Name, kind, number, height and weight, first page | Next page |
 | Options (`OptionsMenu`) | Row label, value, position (BACK is the last row) | Value only, or label and value on a new row |
 | Town map and fly (`TownMap`) | "Town map" or "Fly", location, "you are here" | Location |
+| Title and intros (`TitleState`, `IntroMovie`, `YellowIntro`) | "Title screen. Press start." or "Intro. Press start to skip." | (once) |
+| League PC (`LeaguePC`) | Hall of Fame team number, member, level | Member |
+| Prize counter (`PrizeCounter`) | Coins, prize and cost (last row NO THANKS) | Prize and cost |
+| Slot machine (`SlotMachine`) | Its messages (queued), bet amount, "Spinning", One more go YES/NO | Bet, YES/NO |
+| Hall of Fame (`HallOfFame`) | Each member as shown | Next member |
+| Diploma (`Diploma`), credits (`Credits`) | Diploma text with the player's name; each credits screen's lines | Next credits screen |
+
+Evolution and trade speak through the text boxes they push. Yellow's
+surfing minigame is a timing game and needs its own design.
 
 Party rows say name, level, HP and status, or "able" or "not able" when
 teaching a TM or using an evolution stone. That check mirrors
@@ -90,10 +102,10 @@ changes to this layer.
 
 ## Not covered yet
 
-- **Battle** text, menus and sub-screens (battle workstream).
-- Hall of Fame, diploma, credits, League PC, prize counter, slot machine,
-  Yellow's surfing minigame, intro movies, evolution animation.
+- Yellow's surfing minigame (needs a design for a timing game).
 - Pokédex AREA nests on the town map.
+- Not yet run in game: title, minor screens (League PC, prizes, slots, Hall
+  of Fame, diploma, credits), `MoveSelectMenu`.
 - Gen 2 and 3 screens.
 - Options pages are grouped upstream (for example "SPEED, 4 OPTIONS"); the
   values inside a group were not yet checked in a game run.
@@ -103,8 +115,8 @@ changes to this layer.
 
 | Level | Result |
 |---|---|
-| Unit tests | `screen_reader_test.lua` 23/23; `game_screens_test.lua` 34/34 (self-describing screens, quantity, naming, party and sub-menu, TM able, summary pages, move learn, trainer card, Pokédex list and entry, options, town map). |
-| Scripted game runs | Disposable identity `pocket-access-test`, `POKEPORT_ACCESS_TRACE=1`, real Prism (NVDA). `drivers/menus_and_text.lua`: title menu, Oak's speech, name menus, start menu. `drivers/gen1_screens.lua`: naming keyboard typing and confirm, party rows and sub-menu, both summary pages, options entry, trainer card. Not yet run in game: quantity, move pickers, Pokédex, town map. |
+| Unit tests | `screen_reader_test.lua` 23/23; `game_screens_test.lua` 35/35 (self-describing screens, quantity, naming, party and sub-menu, TM able, summary pages, move learn, trainer card, Pokédex list, unseen rows and entry, options, town map); `minor_screens_test.lua` 13/13. |
+| Scripted game runs | Disposable identity `pocket-access-test`, `POKEPORT_ACCESS_TRACE=1`, real Prism (NVDA). `drivers/menus_and_text.lua`: title menu, Oak's speech, name menus, start menu. `drivers/gen1_screens.lua`: naming keyboard, party and sub-menu, summary pages, options entry, trainer card. `drivers/more_screens.lua`: bag, toss quantity, Pokédex list and a two-page entry, town map, a mart's buy list, priced quantity, price prompt with YES/NO. `drivers/pc_and_moves.lua`: Bill's PC and deposit list, player's PC and withdraw list, the whole forget-a-move flow including the abandon prompt. |
 | Heard by the owner | Not yet. |
 
 ## Testing note

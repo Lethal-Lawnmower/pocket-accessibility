@@ -31,7 +31,8 @@ local game = {
         dexEntry = { kind = "MOUSE", heightFt = 1, heightIn = 4, weight = 132, text = "DEX_PIKA" } },
     },
     moves = { THUNDERSHOCK = { name = "THUNDERSHOCK", pp = 30 }, GROWL = { name = "GROWL", pp = 40 } },
-    text = { DEX_PIKA = "When several of\nthese gather,\fits electricity\ncan build.{DONE}" },
+    -- no trailing {DONE}, so the entry gets DexEntryMenu's closing period
+    text = { DEX_PIKA = "When several of\nthese gather,\fits electricity\ncan build" },
     statuses = {},
   },
   save = { player = { name = "RED", id = 12345 }, money = 3000, playTime = 3725,
@@ -132,6 +133,10 @@ local dex = as("src.ui.PokedexMenu", { game = game, index = 1, seenCount = 1, ow
   items = { { num = "025", name = "PIKACHU", value = "PIKACHU", ball = true } } })
 SR.update(dex)
 eq(last(), "Pokédex, seen 1, owned 1, 025, PIKACHU, owned, 1 of 1", "pokedex entry")
+reset()
+SR.update(as("src.ui.PokedexMenu", { game = game, index = 1, seenCount = 0, ownedCount = 0,
+  items = { { num = "001", name = "----------" }, { num = "002", name = "----------" } } }))
+eq(last(), "Pokédex, seen 0, owned 0, 001, unknown, 1 of 2", "unseen row keeps its position")
 reset()
 local entry = as("src.ui.DexEntryMenu", { game = game, def = game.data.pokemon.PIKACHU, page = 1 })
 SR.update(entry)

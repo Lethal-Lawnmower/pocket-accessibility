@@ -43,6 +43,7 @@ check exactly these places.
 | `src/core/StateStack.lua` (read only) | `StateStack.states` | Top screen each frame; relies on Gen 1 `Game` using the module as its stack | 2026-10-31 |
 | `TextBox`, `Menu`, `ListMenu`, `ChoiceBox` (read only) | Fields `pages`, `pageIndex`, `items`, `index`, `title`, `labels`; row fields `label`, `level`, `sub`, `price`, `count`, `right` | Speech for dialogue and menus (`menus-and-text.md`) | 2026-10-31 |
 | Gen 1 screens (read only): `QuantityBox`, `NamingScreen`, `PartyMenu`, `SummaryMenu`, `MoveLearnMenu`, `MoveSelectMenu`, `TrainerCard`, `PokedexMenu`, `DexEntryMenu`, `OptionsMenu`, `TownMap` | Their cursor and page fields; read-only methods `NamingScreen:grid`, `PartyMenu:bottomMessage`, `TownMap:bannerText`, options row `value`; `PartyMenu:draw`'s TM and stone checks and `DexEntryMenu`'s page split are mirrored | Screen speech (`menus-and-text.md`) | 2026-10-31 |
+| Minor screens (read only): `TitleState`, `IntroMovie`, `YellowIntro`, `LeaguePC`, `PrizeCounter`, `SlotMachine`, `HallOfFame`, `Diploma`, `Credits` | Their index, stage, message and screen fields; `game.data.text` Diploma strings | Screen speech (`menus-and-text.md`) | 2026-10-31 |
 | `src/battle/BattleState.lua` (read only) | `phase`, `current.text`, `menuIndex`, `moveIndex`, `mimicIndex`, `mimicMoves`, `safari.balls`, `demo`, `player.mon`, `player.curMoves`, `player.disabledSlot`, `enemy.mon`, `data` | Battle speech (`battle.md`) | 2026-10-31 |
 
 ## Launcher to game interface

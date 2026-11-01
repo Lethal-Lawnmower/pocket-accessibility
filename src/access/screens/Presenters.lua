@@ -352,6 +352,9 @@ for _, presenter in ipairs(require("src.access.screens.InfoScreens").ordered) do
   Presenters.ordered[#Presenters.ordered + 1] = presenter
 end
 Presenters.ordered[#Presenters.ordered + 1] = require("src.access.screens.Battle").presenter
+for _, presenter in ipairs(require("src.access.screens.MinorScreens").ordered) do
+  Presenters.ordered[#Presenters.ordered + 1] = presenter
+end
 
 function Presenters.find(state)
   if type(state) ~= "table" then return nil end

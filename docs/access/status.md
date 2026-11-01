@@ -29,18 +29,15 @@ and recorded in the topic file.
 
 ## Menus and text
 
-- **State:** `src/access/screens/` speaks dialogue, menus, lists, Yes/No,
-  quantity, naming keyboard, party, summary, move pickers, trainer card,
-  Pokédex list and entry, options and town map, with no edits to screen
-  files. Unit tests 23/23 and 34/34; mod screens can opt in with `accessibilityText`. Two scripted game runs (disposable
-  identity `pocket-access-test`) traced the expected speech. Details and
-  gaps: `menus-and-text.md`.
-- **Battle:** done for wild battles (`battle.md`): messages, menu with both
-  sides' HP, move list, Safari, Mimic. Unit 14/14; scripted wild battle traced.
-- **Next:** minor screens: Hall of Fame, diploma, credits, League PC, prize
-  counter, slot machine, surfing minigame, evolution, trade, Pokédex nests.
-  Not yet run in game: quantity, move pickers, Pokédex, town map, PC, shop,
-  bag, trainer battles.
+- **State:** every Gen 1 screen class has a presenter except Yellow's
+  surfing minigame and Pokédex nests, with no edits to screen files. Mod
+  screens can opt in with `accessibilityText`. Unit suites: 23, 35, 13 and
+  14 checks, all passing. Five scripted game runs (disposable identity
+  `pocket-access-test`) traced menus, dialogue, naming, party, summary,
+  options, trainer card, bag, quantity, Pokédex, town map, shop, both PCs,
+  move forgetting and a wild battle. Details: `menus-and-text.md`, `battle.md`.
+- **Next:** surfing minigame design; Pokédex nests; game runs for title,
+  minor screens, trainer battles and `MoveSelectMenu`.
 - **Needs the owner:** listen to a new game from source and judge wording,
   verbosity and pronunciation.
 

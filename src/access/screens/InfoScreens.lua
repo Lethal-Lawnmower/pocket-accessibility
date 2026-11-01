@@ -26,9 +26,12 @@ local function count(n, singular, plural)
   return string.format("%d %s", n, n == 1 and singular or plural)
 end
 
+-- Joins the non-empty parts with commas.  Parts may be nil (an optional
+-- detail), so walk to table.maxn instead of stopping at the first hole.
 local function join(parts)
   local out = {}
-  for _, p in ipairs(parts) do
+  for i = 1, table.maxn(parts) do
+    local p = parts[i]
     if p ~= nil and p ~= "" then out[#out + 1] = tostring(p) end
   end
   return table.concat(out, ", ")
@@ -184,11 +187,14 @@ local function dexPages(state)
     or (game.save and game.save.pokedex and game.save.pokedex.owned[def.id])
   local text = owned and entry.text and game.data.text and game.data.text[entry.text]
   if not text then return {}, owned end
+  -- DexEntryMenu adds the closing period unless the text ends in {DONE}
+  local dexEnd = text:sub(-6) ~= "{DONE}"
   local pages = {}
   for chunk in (text:gsub("{DONE}$", "") .. "\f"):gmatch("(.-)\f") do
     local page = speakable(chunk)
     if page:match("%S") then pages[#pages + 1] = page end
   end
+  if dexEnd and #pages > 0 then pages[#pages] = pages[#pages] .. "." end
   return pages, owned
 end
 
