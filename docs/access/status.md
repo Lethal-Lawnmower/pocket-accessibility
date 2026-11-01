@@ -55,9 +55,12 @@ and recorded in the topic file.
 - **Merged (2026-11-01):** menus and boot, bag/party/summary/Pokédex/PC/
   shop/map, special screens, battle (every shown line spoken at 1X and
   200X). All unit suites pass; each branch traced in FireRed. Not heard.
-- **In progress:** navigation (agent branch, worktree
-  `.claude/worktrees/agent-a2b6f7774f734aedd`); merge it, then a full
-  FireRed walkthrough, then hand to the owner.
+- **Navigation (2026-11-01):** merged: object list, guided navigation,
+  auto-walk with battle pauses, 200X, Surf, spinners, card key doors and
+  Strength hints, traced in FireRed; Gen 1 and Gen 2 regressions clean.
+  Gaps (journeys, item balls blocking routes, renaming) in
+  `firered-leafgreen-navigation.md`.
+- **Next:** a full FireRed walkthrough, then the owner listens.
 - **LeafGreen:** deferred by the owner (decision 30); no clean dump on this
   PC yet. FireRed's whole UI first, with Pokémon Access as a behaviour
   reference.

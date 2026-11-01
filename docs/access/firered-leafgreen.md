@@ -44,7 +44,8 @@ How the layer reads it:
   text: font and colour tags and `0xFC` control bytes are dropped, glyph and
   button tags are said in words.
 
-Battle speech is in `battle.md` (section "Gen 3").
+Battle speech is in `battle.md` (section "Gen 3"); navigation in
+`firered-leafgreen-navigation.md`.
 
 ## Screens
 
