@@ -247,3 +247,15 @@ this is just initial groundwork. Live user testing will be done
 eventually." The README says so. This approval covers that push only;
 later pushes still need the owner's go-ahead, and it is not acceptance of
 the Gen 2 speech, which nobody has heard yet.
+
+## 29. Third generation next, starting with FireRed and LeafGreen (2026-11-01)
+
+The owner considers Gen 1 and Gen 2 built ("I think first and second gen
+are done. I got it."): the remaining work there is the owner's own
+playtesting during the week, which will feed fixes back. Next is the
+third generation, starting with FireRed and LeafGreen ("Let's start with
+fire red / leaf green"); Ruby, Sapphire and Emerald come later. The owner
+did no FireRed or LeafGreen work in the old project, so this starts fresh.
+Same treatment and the same autonomy as decisions 18 and 27, subagents
+allowed. Still requires the owner: pushing, publishing, contacting anyone,
+product decisions and listening tests.
