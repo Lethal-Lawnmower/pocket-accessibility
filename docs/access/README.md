@@ -45,4 +45,6 @@ Topic files are created when work on that area starts, not before:
 - **No** evidence catalogs, receipts, intake folders, archive copies or empty
   placeholder files.
 - **No individual people's names.** Name projects, not their developers.
-  Upstream's required credit is the exception.
+  Upstream's required credit is the exception. The README's Goal section also credits the
+  Pokémon Access authors (nuive; Tyler Spivey for Pokécrystal Access) at the
+  owner's request (2026-10-31).

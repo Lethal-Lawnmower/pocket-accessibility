@@ -1,20 +1,42 @@
 # Pocket Accessibility
 
-Screen-reader accessibility for the Pokémon Gen 1 Recompilation Project, a
-native PC port of Pokémon Red, Blue and Yellow. Menus, dialogue, the Pokémon
-screens and battles are spoken through [Prism](https://github.com/ethindp/prism),
-which talks to your screen reader (NVDA, JAWS and others) or system voices.
+Accessibility mods for the PC ports of Pokémon Red, Blue and Yellow made by
+BOIS CLUB GAMES, LLC ([Pokemon Gen 1 Recompilation Project](https://github.com/bryanthaboi/gen1recomp)).
+
+## Goal
+
+My goal is to bring the [Pokémon Access](https://github.com/nuive/pokemon-access)
+scripts made by nuive, which build on Tyler Spivey's Pokécrystal Access
+Project, to these PC ports. Those scripts rely on VBA, which is built on old,
+outdated emulator technology. The audio and video quality are poor, and I feel
+the community deserves better.
+
+Text-to-speech is routed through [Prism](https://github.com/ethindp/prism), and
+navigation includes my own additions and improvements.
+
+## A Note on AI
+
+For full transparency: these accessibility mods are built with AI. I'm blind,
+and I don't have the same access to play these games that most sighted people
+do. AI has empowered people with disabilities to turn ideas into reality, and
+it's what made this project possible.
+
+If you have a problem with that, I'm sorry you feel that way, but it's not
+going to change how this project is made. It exists to make these games
+playable for people who couldn't play them independently before.
+
+## Status
 
 > [!NOTE]
-> **Early development.** Gen 1 menus, text, information screens and battles
-> speak. Getting around the overworld (object list, pathfinding, sound cues)
-> is not built yet. There is no packaged release; run it from source.
+> **Early development.** In Red, Blue and Yellow, menus, dialogue, the
+> Pokémon screens, battles and the mod manager speak, and overworld
+> navigation works (object list, guided routes, auto-walk, keyboard and
+> controller). There is no packaged release yet; run it from source.
 
 **Based on the Pokemon Gen 1 Recompilation Project by BOIS CLUB GAMES, LLC
 (https://github.com/bryanthaboi/gen1recomp).** This is an unofficial fork and
-is not affiliated with or endorsed by that project. Feature ideas are inspired
-by the [Pokémon Access](https://github.com/nuive/pokemon-access) scripts; no
-code or data from them is included.
+is not affiliated with or endorsed by that project. Pokémon Access features
+are recreated, not copied; no code or data from those scripts is included.
 
 ## Running from source (Windows)
 
