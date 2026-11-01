@@ -153,3 +153,22 @@ and noreply address (decision 13), docs scanned for personal details and
 private file names, README given the project section and the credit
 required by upstream License Term 1. Still requires the owner: packaged
 releases, contacting upstream or anyone else, and any visibility change.
+
+## 20. Reuse the old navigation code (2026-10-31)
+
+Exception to decision 11, granted by the owner: the old project's
+navigation code (pathfinding, map and object awareness, terrain and
+traversal, puzzle help, earcons, command keys) may be reused rather than
+rewritten, "unless I encounter a game breaking bug". Boundaries: decision 10
+still applies (no old game fixes come along; anything that patched game
+behaviour is dropped), each reused file is reviewed and adapted to v0.3.98,
+and its origin is recorded. Menu and battle speech stay the new code.
+
+## 21. Keep Chaos Cut as an optional mod (2026-10-31)
+
+The owner wants the old project's Chaos Cut easter egg kept, as an
+optional mod (off unless the player turns it on). It recreates the old
+terrain bug that let Cut target people, without the unsafe block mutation.
+It is a game-behaviour change, so it lives outside the accessibility layer
+as an opt-in mod rather than as a core change (decision 10 still holds for
+everything else).
