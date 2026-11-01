@@ -46,6 +46,21 @@ publishing, or contacting anyone.
   already ignores `*.gb`, `*.gbc`, `*.gba`, `*.sav` and `save/`. Verified with
   `git check-ignore` on sample paths.
 
+### Private versus public, and the GitHub fork list (discussed 2026-10-31)
+
+- Private development is allowed. GPLv3 obligations attach to *distribution*:
+  anyone who receives a build must also be able to get its source, under the GPL.
+  Upstream's added terms (checked in `LICENSE.MD` at v0.3.98) require attribution
+  and restrict the launcher and names. None of them requires a public repository.
+- Once builds are shared, the matching source must be available to recipients.
+  A public repository is the simplest way to do that.
+- A repository created separately and pushed (not made with GitHub's Fork button)
+  never appears in upstream's fork list, even when public, and shows no
+  "forked from" label. The README and in-app credit still give attribution.
+  GitHub's Fork button would list it, but a fork of a public repository cannot
+  be private. Pull requests to upstream would go through a fork in either case.
+- No decision yet. The owner has not chosen a GitHub setup.
+
 **Old project inventory:** [old-project-inventory.md](old-project-inventory.md)
 (approved by the owner 2026-10-31, with the rule that no old map, code or game
 fixes carry over, only accessibility; nothing copied yet).
