@@ -864,6 +864,11 @@ function WorldSnapshot.browse(overworld, opts)
     -- Access uses each sign's one-based event ordinal. An authored `name`,
     -- accessibility label, or user rename still wins in explicitOr below.
     local fallback = "Signpost " .. i
+    -- v0.3.98 addition: the elevator cars' only sign is the floor panel
+    -- (TEXT_CELADONMARTELEVATOR and friends), which is worth naming.
+    if mapId:find("ELEVATOR", 1, true) and tostring(sign.text):find("ELEVATOR", 1, true) then
+      fallback = "Floor panel"
+    end
     if opts.generation == 2 then
       local raw = nonempty(sign.name) and sign.name or sign.text
       if nonempty(raw) then raw = raw:gsub("^TEXT_", "") end

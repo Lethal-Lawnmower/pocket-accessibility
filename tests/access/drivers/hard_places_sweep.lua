@@ -1,8 +1,9 @@
 -- Navigation sweep over the places most likely to trip navigation up when
 -- finishing Red: Safari Zone (including the Gold Teeth), the Rocket Hideout
--- spinner floors, and Silph Co. card-key floors (without and with the Card
--- Key).  For every warp and item ball on each map it teleports to the map's
--- first entrance, auto-walks to the target, wins any battle on the way, and
+-- spinner floors, Silph Co. card-key floors (without and with the Card
+-- Key), and the required story spots (gyms, Victory Road, Pokemon Tower).
+-- For every warp and item ball (and, in gyms, every person) it teleports to
+-- the map's first entrance, auto-walks to the target, wins any battle on the way, and
 -- logs one RESULT line: arrived, stopped (with the spoken reason), or no
 -- route.  Run with a fresh Red identity; see docs/access/navigation.md.
 return function(game)
@@ -66,7 +67,7 @@ return function(game)
     return warp.x, warp.y
   end
 
-  local function targetsOn(mapId)
+  local function targetsOn(mapId, withPeople)
     local x, y = entrance(mapId)
     if not x then return {} end
     teleport(mapId, x, y)
@@ -76,7 +77,8 @@ return function(game)
     local list = {}
     for _, item in ipairs(snap and snap.browse or {}) do
       local isItemBall = item.type == "object" and item.item ~= nil
-      if item.type == "warp" or isItemBall or tostring(item.label):find("Teeth", 1, true) then
+      local isPerson = withPeople and item.type == "object" and item.item == nil
+      if item.type == "warp" or isItemBall or isPerson or tostring(item.label):find("Teeth", 1, true) then
         list[#list + 1] = { id = item.id, label = item.label }
       end
     end
@@ -131,12 +133,17 @@ return function(game)
     { map = "ROCKET_HIDEOUT_B2F" }, { map = "ROCKET_HIDEOUT_B3F" },
     { map = "SILPH_CO_5F" }, { map = "SILPH_CO_7F" },
     { map = "SILPH_CO_5F", cardKey = true }, { map = "SILPH_CO_7F", cardKey = true },
+    -- required story spots (gyms target their trainers, leader included)
+    { map = "VIRIDIAN_GYM", people = true }, { map = "VERMILION_GYM", people = true },
+    { map = "SAFFRON_GYM", people = true }, { map = "CINNABAR_GYM", people = true },
+    { map = "VICTORY_ROAD_1F" }, { map = "VICTORY_ROAD_2F" }, { map = "VICTORY_ROAD_3F" },
+    { map = "POKEMON_TOWER_5F" }, { map = "POKEMON_TOWER_7F", people = true },
   }
   local arrived, total = 0, 0
   for _, step in ipairs(plan) do
     if only and not only:find(step.map, 1, true) then goto continue end
     game.save.inventory.CARD_KEY = step.cardKey and 1 or nil
-    local targets = targetsOn(step.map)
+    local targets = targetsOn(step.map, step.people)
     U.log("MAP", step.map, step.cardKey and "(with Card Key)" or "", #targets .. " targets")
     for _, target in ipairs(targets) do
       local outcome = walkTo(step.map, target)
@@ -154,6 +161,19 @@ return function(game)
       total = total + 1
       if outcome:find("^Arrived") or outcome:find(" is here$") then arrived = arrived + 1 end
       U.log("RESULT", step.map, target.label, "=>", outcome)
+      if outcome:find("no path", 1, true) or outcome:find("Blocked", 1, true) then
+        -- what guided navigation (P) would say from the first entrance
+        local x, y = entrance(step.map)
+        teleport(step.map, x, y)
+        settle(200)
+        local coordinator = nav()
+        coordinator.browseFilter, coordinator.browseSelectionId = "all", target.id
+        lastSaid = ""
+        coordinator:handleCommand("describe_route_to_selected_item")
+        for _ = 1, 120 do U.wait(1) end
+        U.log("GUIDED", step.map, target.label, "=>", lastSaid)
+        if coordinator.activeNavigation then coordinator:handleCommand("describe_route_to_selected_item") end
+      end
     end
     ::continue::
   end

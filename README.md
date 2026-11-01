@@ -25,6 +25,19 @@ If you have a problem with that, I'm sorry you feel that way, but it's not
 going to change how this project is made. It exists to make these games
 playable for people who couldn't play them independently before.
 
+## Where the Navigation Comes From
+
+I played through Red in early August 2026, and about 95% of the navigation
+data, workarounds and code here came out of that playthrough. Playing
+through every game over and over again isn't realistic, and it isn't
+something I want to do. My aim is to get a working baseline for nearly
+everything that way, so the places I tested should work without issue when
+you reach them. If something doesn't, please open an issue on this
+repository or reach out to me on Discord.
+
+My main interest is Crystal from the second generation and most of the
+third-generation GBA games.
+
 ## Status
 
 > [!NOTE]

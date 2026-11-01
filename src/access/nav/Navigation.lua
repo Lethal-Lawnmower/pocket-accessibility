@@ -1449,8 +1449,20 @@ function Accessibility:interactionGoals(overworld, item)
     local waterOK, water = pcall(map.isWaterCell, map, x, y)
     return waterOK and water and self:hmAllowed(overworld, "SURF")
   end
-  local function add(x, y, facing)
+  -- Standing on one of the map's own warps to interact would leave the map
+  -- (the Rocket Hideout elevator panel is next to the car's exit tile), so a
+  -- warp cell is only an approach cell when no other cell will do.
+  local warpCells = {}
+  for _, warp in ipairs(map.def and map.def.warps or {}) do
+    warpCells[routeCellKey(warp.x, warp.y)] = true
+  end
+  local onWarps = {}
+  local function add(x, y, facing, allowWarp)
     local key = routeCellKey(x, y)
+    if not allowWarp and warpCells[key] then
+      onWarps[#onWarps + 1] = { x, y, facing }
+      return
+    end
     if not seen[key] and usable(x, y) then
       seen[key] = true
       goals[#goals + 1] = { x = x, y = y }
@@ -1483,6 +1495,9 @@ function Accessibility:interactionGoals(overworld, item)
         add(frontX, frontY, facing)
       end
     end
+  end
+  if #goals == 0 then
+    for _, cell in ipairs(onWarps) do add(cell[1], cell[2], cell[3], true) end
   end
   return goals, instructions
 end

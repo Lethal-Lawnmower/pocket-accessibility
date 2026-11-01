@@ -59,8 +59,10 @@ and recorded in the topic file.
   layer, object list, filters, map name, position, tiles, pathfinding,
   renaming, controller scheme (decision 23), auto-walk (resumes after
   battles, spinners, card-key doors) and cross-map journeys to Area targets
-  (decision 25). Old tests pass except one bedroom object. Details:
-  `navigation.md`.
+  (decision 25). Silent sweep of the required story spots (gyms, Victory
+  Road, Pokémon Tower, elevators) found no blocker; the Rocket Hideout
+  panel approach was fixed. Old tests pass except the two known gaps.
+  Details: `navigation.md`.
 - **Next:** walking cues (no upstream event),
   Chaos Cut as an optional mod (decision 21); the owner's playtest.
 

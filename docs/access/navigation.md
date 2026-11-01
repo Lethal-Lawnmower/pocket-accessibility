@@ -181,9 +181,41 @@ An early run also sent its speech to the owner's screen reader and looped
 on a no-damage move; both were fixed in the sweep (silent mode, a damaging
 move, healing, a battle time limit).
 
-Not covered: multi-map journeys (auto-walk works within one map; guided
-navigation handles cross-map routes), Seafoam boulder puzzles, Victory
-Road strength puzzles, Surf and Cut in auto-walk (it stops when blocked).
+### Required story spots, 2026-10-31
+
+Same sweep with gyms targeting their trainers (`people = true`), plus two
+follow-up drivers: `victory_road_tower.lua` (solve the Victory Road 1F
+switch by following the boulder hints; Pokémon Tower with the Silph Scope)
+and `elevators.lua` (ride each car: door, panel, floor menu, exit).
+All runs silent.
+
+| Spot | Result |
+|---|---|
+| Viridian Gym (spinners) | Every trainer, Giovanni, the Revive and both statues reached |
+| Saffron Gym (pad maze) | Sabrina and every trainer reached; every pad reached from some pad |
+| Vermilion Gym | All 15 trash cans reached; Lt. Surge "Cannot reach yet" behind the gate, as in the game. Finding the two switches is left to the player; no puzzle hint |
+| Cinnabar Gym | Quiz machine 1 and the first trainer reached; everything behind the quiz doors "Cannot reach yet" (doors closed in a fresh save; opening them was not run) |
+| Victory Road 1F | The switch is listed with "Boulder 1 can reach it; next push down". Selecting Boulder 1, auto-walking to it ("Arrived at Boulder 1. push down toward Pressure Switch 1") and pushing the hinted way put it on the switch; auto-walk then reached the 2F ladder |
+| Victory Road 2F, 3F | Every target reached except the 3F boulder drop hole (needs a boulder). Their switches were not solved in a run |
+| Pokémon Tower | With the Silph Scope: 5F Nugget, all 7F Rockets and Mr. Fuji reached. Without it the ghost battle never ends, as in the game |
+| Elevators (Celadon, Silph, Rocket Hideout) | Door, then "Floor panel", then "Which floor do you want? 1F, 1 of 6", then the chosen floor named as the car's exit. The exit mat needs one press down after "Arrived", as in the game |
+
+Fixed in this pass:
+- Interaction cells skip the map's own warp tiles unless no other cell
+  works (`Navigation:interactionGoals`). Auto-walk to the Rocket Hideout
+  panel had stepped onto the car's exit and left the elevator.
+- Elevator panels are named "Floor panel" instead of "Signpost 1"
+  (`WorldSnapshot`, sign list).
+
+Harness notes: "is here" means the player already stands in position (the
+boulder loop counts it as arrived). A single-frame push tap sometimes only
+turns the player, so the boulder took 28 taps; a held press is what a
+player does. "Pallet Town is here" on gym exits is the teleport's stale
+last map, not a game state.
+
+Not covered: Seafoam boulder puzzles, the Victory Road 2F and 3F switches in
+a run, opening Cinnabar's quiz doors, and Surf or Cut in auto-walk (it stops
+when blocked).
 
 ## Cross-map journeys (decision 25)
 
