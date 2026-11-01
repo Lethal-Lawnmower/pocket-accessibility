@@ -461,6 +461,13 @@ function Bag.read(B, memo, entering)
   if not B.open or B._exit then return nil end
   local mode = (B.mode == "sell" and B._sell) and "sell" or (B.mode or "list")
   local fresh, from = modeChange(memo, mode, entering)
+  if mode == "sell" then return readSell(B._sell, memo, fresh) end
+  -- an unchanged frame costs these comparisons only
+  if not fresh and memo.pocketIdx == B.pocketIdx and memo.cursor == B.cursor
+      and memo.actionCursor == B.actionCursor and memo.qty == B.tossQty and memo.yesNo == B.yesNoCursor
+      and memo.message == B.messageText and memo.msgPage == B._msgPage then
+    return nil
+  end
   local pocket = Bag.pocket(B)
   local rows = pocketRows(B._bag, pocket)
   local sel = rows[B.cursor]
@@ -523,8 +530,6 @@ function Bag.read(B, memo, entering)
     if fresh or B.messageText ~= memo.message or B._msgPage ~= memo.msgPage then
       text = say(B.messageText)
     end
-  elseif mode == "sell" then
-    text = readSell(B._sell, memo, fresh)
   end
   memo.pocketIdx, memo.cursor, memo.actionCursor = B.pocketIdx, B.cursor, B.actionCursor
   memo.qty, memo.yesNo = B.tossQty, B.yesNoCursor
@@ -593,6 +598,11 @@ function Tm.read(T, memo, entering)
   if not T.open then return nil end
   local mode = (T.mode == "sell" and T._sell) and "sell" or (T.mode or "list")
   local fresh, from = modeChange(memo, mode, entering)
+  if mode == "sell" then return readSell(T._sell, memo, fresh) end
+  if not fresh and memo.cursor == T.cursor and memo.actionCursor == T.actionCursor
+      and memo.message == T.messageText then
+    return nil
+  end
   local rows = pocketRows(T._bag, "TM_CASE")
   local sel = rows[T.cursor]
   local text
@@ -616,8 +626,6 @@ function Tm.read(T, memo, entering)
     end
   elseif mode == "message" then
     if fresh or T.messageText ~= memo.message then text = say(T.messageText) end
-  elseif mode == "sell" then
-    text = readSell(T._sell, memo, fresh)
   end
   memo.cursor, memo.actionCursor, memo.message = T.cursor, T.actionCursor, T.messageText
   return text
@@ -663,6 +671,11 @@ function Berry.read(P, memo, entering)
   if not P.open then return nil end
   local mode = (P.mode == "sell" and P._sell) and "sell" or (P.mode or "list")
   local fresh, from = modeChange(memo, mode, entering)
+  if mode == "sell" then return readSell(P._sell, memo, fresh) end
+  if not fresh and memo.cursor == P.cursor and memo.actionCursor == P.actionCursor and memo.qty == P.tossQty
+      and memo.yesNo == P.yesNoCursor and memo.message == P.messageText then
+    return nil
+  end
   local rows = pocketRows(P._bag, "BERRY_POUCH")
   local total = #rows + (P._fromBerryCrush and 0 or 1)
   local sel = rows[P.cursor]
@@ -703,8 +716,6 @@ function Berry.read(P, memo, entering)
     end
   elseif mode == "message" then
     if fresh or P.messageText ~= memo.message then text = say(P.messageText) end
-  elseif mode == "sell" then
-    text = readSell(P._sell, memo, fresh)
   end
   memo.cursor, memo.actionCursor, memo.qty = P.cursor, P.actionCursor, P.tossQty
   memo.yesNo, memo.message = P.yesNoCursor, P.messageText
@@ -754,6 +765,10 @@ function Party.slot(P, i)
     parts[#parts + 1] = desc
     return join(parts)
   end
+  -- the species after a nickname, as the Gen 2 party says it (the slot
+  -- itself prints the nickname only)
+  local species = speciesName(mon)
+  if species and species ~= parts[1] then parts[#parts + 1] = species end
   local code = ailment(mon)
   if code == 0 or code == 6 then
     local session = partySession(P)
@@ -761,8 +776,8 @@ function Party.slot(P, i)
     local game = (session and session.game) or (Runtime and Runtime._game)
     if levelVisible(mon, "party", game) then parts[#parts + 1] = levelText(mon) end
   end
-  local species = tonumber(mon.species)
-  if species ~= 29 and species ~= 32 then
+  local speciesId = tonumber(mon.species)
+  if speciesId ~= 29 and speciesId ~= 32 then
     local P3 = pokemon()
     local g = mon.gender or (P3 and try(P3.gender, mon.species, mon.personality))
     parts[#parts + 1] = genderWord(g)
@@ -866,16 +881,22 @@ function Party.read(P, memo, entering)
   local mode = P.mode or "list"
   if P._hpAnim then return nil end -- the message follows once the bar stops
   local fresh, from = modeChange(memo, mode, entering)
+  local orderCount = type(P._chooseOrder) == "table" and #P._chooseOrder or 0
+  local oakPage = P._oakFx and P._oakFx.phase == "text" and P._oakWrapped or nil
+  if not fresh and memo.cursor == P.cursor and memo.actionCursor == P.actionCursor
+      and memo.itemCursor == P.itemActionCursor and memo.message == P._messageText
+      and memo.dismiss == P._onMessageDismiss and memo.prompt == P._yesNoPrompt and memo.yesNo == P._yesNoCursor
+      and memo.forget == P._forgetMoves and memo.forgetCursor == P._forgetCursor
+      and memo.growthPage == P._statGrowthPage and memo.order == orderCount and memo.oak == oakPage then
+    return nil
+  end
   local text
   if mode == "message" then
     if fresh or P._messageText ~= memo.message or P._onMessageDismiss ~= memo.dismiss then
       text = say(P._messageText)
     end
   elseif mode == "oak" then
-    local fx = P._oakFx
-    local page = fx and fx.phase == "text" and P._oakWrapped or nil
-    if page and (fresh or page ~= memo.oak) then text = say(page) end
-    memo.oak = page
+    if oakPage and (fresh or oakPage ~= memo.oak) then text = say(oakPage) end
   elseif mode == "yesno" then
     if fresh or P._yesNoPrompt ~= memo.prompt then
       text = sentences(say(P._yesNoPrompt), yesNo(P._yesNoCursor))
@@ -915,14 +936,14 @@ function Party.read(P, memo, entering)
       end
     elseif P.cursor ~= memo.cursor then
       text = row
-    elseif mode == "choose_multi" and memo.order ~= nil and #(P._chooseOrder or {}) ~= memo.order then
+    elseif mode == "choose_multi" and memo.order ~= nil and orderCount ~= memo.order then
       text = row
     end
   end
   memo.message, memo.dismiss, memo.prompt = P._messageText, P._onMessageDismiss, P._yesNoPrompt
   memo.yesNo, memo.forget, memo.forgetCursor = P._yesNoCursor, P._forgetMoves, P._forgetCursor
   memo.actionCursor, memo.itemCursor, memo.growthPage = P.actionCursor, P.itemActionCursor, P._statGrowthPage
-  memo.cursor, memo.order = P.cursor, #(P._chooseOrder or {})
+  memo.cursor, memo.order, memo.oak = P.cursor, orderCount, oakPage
   return text
 end
 
@@ -1283,7 +1304,7 @@ function Dex.areaNames(sp)
   for _, key in ipairs(areas) do
     if try(Data.getAreaMapKey, key) == "kanto" and try(Data.getAreaMarker, key) then kanto[#kanto + 1] = key end
   end
-  if #kanto == 0 then return say(rom("gText_AreaUnknown")) end
+  if #kanto == 0 then return say(rom("gText_AreaUnknown")), true end
   local Region = loaded("src.import.gba.region_map_extract")
   local byArea = {}
   local secs = Data._areaData and Data._areaData.mapsecToArea or {}
@@ -1308,14 +1329,23 @@ end
 function Dex.entryPage2(D, sp)
   local P = pokemon()
   local types = caught(D, sp) and P and try(P.types, sp) or nil
+  -- AREA UNKNOWN replaces the map, so it is said alone; marked places
+  -- follow the AREA title
+  local areas, unknown = Dex.areaNames(sp)
   return sentences(join({ Dex.number(D, sp), say(try(P and P.name, sp)), types and typesText(types[1], types[2]) or nil }),
-    join({ say(rom("gText_Area")), Dex.areaNames(sp) }, ": "))
+    unknown and areas or join({ say(rom("gText_Area")), areas }, ": "))
 end
 
 function Dex.read(D, memo, entering)
   if not D.open then return nil end
   local screen = D.screen
   local fresh, from = modeChange(memo, screen, entering)
+  local species = D._regSpecies or D.selectedSpecies
+  if not fresh and memo.modeCursor == D.modeCursor and memo.order == D.currentOrder
+      and memo.listCursor == D.listCursor and memo.categoryPage == D.categoryPage
+      and memo.categorySlot == D.categorySlot and memo.dataPage == D.dataPage and memo.species == species then
+    return nil
+  end
   local Data = dexData()
   local text
   if screen == "mode_select" then
@@ -1346,12 +1376,11 @@ function Dex.read(D, memo, entering)
       text = row
     end
   elseif screen == "data" or screen == "registration" then
-    local sp = D._regSpecies or D.selectedSpecies
-    if fresh or sp ~= memo.species or D.dataPage ~= memo.dataPage then
-      text = (D.dataPage == 2) and Dex.entryPage2(D, sp) or Dex.entryPage1(D, sp)
+    if fresh or species ~= memo.species or D.dataPage ~= memo.dataPage then
+      text = (D.dataPage == 2) and Dex.entryPage2(D, species) or Dex.entryPage1(D, species)
     end
-    memo.species = sp
   end
+  memo.species = species
   memo.modeCursor, memo.order, memo.listCursor = D.modeCursor, D.currentOrder, D.listCursor
   memo.categoryPage, memo.categorySlot, memo.dataPage = D.categoryPage, D.categorySlot, D.dataPage
   return text
@@ -1402,6 +1431,9 @@ function Pc.read(P, memo, entering)
   local mode = P.mode
   if mode == "item_pc" then
     memo.mode = mode
+    return nil
+  end
+  if not (entering or memo.pending) and mode == memo.mode and P.cursor == memo.cursor and P._status == memo.status then
     return nil
   end
   local rows = Pc.rows(P)
@@ -1484,6 +1516,10 @@ function ItemPc.read(I, memo, entering)
   local mode = I.mode or "list"
   local fresh, from = modeChange(memo, mode, entering)
   local cursor = (I.scroll or 0) + (I.row or 0) + 1
+  if not fresh and memo.cursor == cursor and memo.sub == I.subCursor and memo.qty == I.qty
+      and memo.result == I.resultText and memo.msg == I.msgText then
+    return nil
+  end
   local entry = list[cursor]
   local text
   if mode == "list" then
@@ -1666,6 +1702,13 @@ function Box.read(B, memo, entering)
   local mode = releasing and ("release:" .. tostring(Release.state)) or (B.mode or "browse")
   local fresh, from = modeChange(memo, mode, entering)
   local current = storage.currentBox or 1
+  if not fresh and memo.box == current and memo.cursorSlot == B.cursorSlot and memo.partyCursor == B.partyCursor
+      and memo.holding == B.holdingMon and memo.actionCursor == B.actionCursor
+      and memo.boxMenuCursor == B.boxMenuCursor and memo.wallpaper == B.wallpaperCursor
+      and memo.pickBox == B._pickBox and memo.status == B._status
+      and (not releasing or memo.release == Release.yesNoCursor) then
+    return nil
+  end
   local text
   if releasing then
     if Release.state == "confirm" and not fresh and Release.yesNoCursor ~= memo.release then
@@ -1800,8 +1843,12 @@ function Shop.read(S, memo, entering)
   local mode = S.mode or "root"
   if S._fading then return nil end
   local fresh, from = modeChange(memo, mode, entering)
-  local items = type(S._items) == "table" and S._items or {}
   local money = shopMoney(S)
+  if not fresh and memo.cursor == S.cursor and memo.status == S._status and memo.qty == S.qty
+      and memo.yesNo == S.yesNoCursor and memo.money == money then
+    return nil
+  end
+  local items = type(S._items) == "table" and S._items or {}
   local text
   if mode == "root" then
     local label = say(romAt("sShopMenuActions_BuySellQuit", (S.cursor or 1) - 1))
@@ -1909,13 +1956,13 @@ function Region.read(R, memo, entering)
   if preview then
     if preview ~= memo.preview then text = sentences(say(preview.name), say(preview.desc)) end
   elseif ready then
-    local key = tostring(R.cursorX) .. ":" .. tostring(R.cursorY) .. ":" .. tostring(S.selectedRegion)
+    local name = S.text and S.text.map
     if entering or not memo.ready then
       text = sentences(R.mode == "fly" and "Fly" or "Town map", Region.place(R, S))
-    elseif key ~= memo.key or (S.text and S.text.map) ~= memo.name then
+    elseif R.cursorX ~= memo.x or R.cursorY ~= memo.y or S.selectedRegion ~= memo.region or name ~= memo.name then
       text = Region.place(R, S)
     end
-    memo.key, memo.name = key, S.text and S.text.map
+    memo.x, memo.y, memo.region, memo.name = R.cursorX, R.cursorY, S.selectedRegion, name
   end
   memo.ready = ready
   memo.preview = preview

@@ -384,7 +384,7 @@ end
 reset()
 local partyScreen = openParty({ bulba, pidgey, egg, nido })
 poll(partyScreen)
-eq(last(), "Choose a POKéMON. BULBA, level 7, male, HP 20 of 22, holding an item, 1 of 5", "party entry: prompt, row, position")
+eq(last(), "Choose a POKéMON. BULBA, BULBASAUR, level 7, male, HP 20 of 22, holding an item, 1 of 5", "party entry: prompt, row, position")
 PartyMenu.cursor = 2
 poll(partyScreen)
 eq(last(), "PIDGEY, female, HP 10 of 16, poisoned", "status icon replaces the level")
@@ -406,14 +406,14 @@ poll(partyScreen)
 eq(last(), "SWITCH", "action label")
 PartyMenu.mode, PartyMenu.switchFrom = "switch", 1
 poll(partyScreen)
-eq(last(), "Move to where? BULBA, level 7, male, HP 20 of 22, holding an item, 1 of 5", "switch: prompt and row")
+eq(last(), "Move to where? BULBA, BULBASAUR, level 7, male, HP 20 of 22, holding an item, 1 of 5", "switch: prompt and row")
 PartyMenu.cursor = 2
 poll(partyScreen)
 eq(last(), "PIDGEY, female, HP 10 of 16, poisoned", "switch: destination row")
 PartyMenu._party[1], PartyMenu._party[2] = pidgey, bulba
 PartyMenu.mode, PartyMenu.switchFrom = "list", nil
 poll(partyScreen)
-eq(last(), "BULBA, level 7, male, HP 20 of 22, holding an item, 2 of 5", "after the switch: the Pokémon now under the cursor, position")
+eq(last(), "BULBA, BULBASAUR, level 7, male, HP 20 of 22, holding an item, 2 of 5", "after the switch: the Pokémon now under the cursor, position")
 PartyMenu.mode, PartyMenu.itemActionCursor = "item_action", 1
 PartyMenu.ITEM_ACTIONS = { "GIVE", "TAKE", "CANCEL" }
 poll(partyScreen)
@@ -452,7 +452,7 @@ eq(last(), "MAX. HP 24, ATTACK 12, DEFENSE 12, SP. ATK 14, SP. DEF 14, SPEED 11"
 reset()
 partyScreen = openParty({ bulba, pidgey }, "use", { _item = 289 })
 poll(partyScreen)
-eq(last(), "Teach which POKéMON? BULBA, level 7, male, ABLE!, holding an item, 1 of 3", "TM: teach prompt and the screen's own ABLE")
+eq(last(), "Teach which POKéMON? BULBA, BULBASAUR, level 7, male, ABLE!, holding an item, 1 of 3", "TM: teach prompt and the screen's own ABLE")
 PartyMenu.cursor = 2
 poll(partyScreen)
 eq(last(), "PIDGEY, female, NOT ABLE!, poisoned", "TM: NOT ABLE")
@@ -577,7 +577,7 @@ poll(dexScreen)
 eq(last(), "number 016, PIDGEY. AREA: ROUTE 1, ROUTE 2", "entry page 2: the marked places by name")
 Pokedex.selectedSpecies = 4
 poll(dexScreen)
-eq(last(), "number 004, CHARMANDER. AREA: AREA UNKNOWN", "area unknown as drawn")
+eq(last(), "number 004, CHARMANDER. AREA UNKNOWN", "area unknown as drawn, alone")
 Pokedex.screen, Pokedex.currentCategory, Pokedex.categoryPage, Pokedex.categorySlot = "category_grid", "grassland", 1, 1
 poll(dexScreen)
 eq(last(), "GRASSLAND. page 1 of 2. number 001, BULBASAUR, caught, 1 of 2", "habitat page through its own category_title")
@@ -808,5 +808,26 @@ eq(last(), "VIRIDIAN FOREST. A deep and sprawling forest.", "dungeon preview tex
 RegionMap.state, RegionMap.inputReady, RegionMap.canFlyToCursor = saved[1], saved[2], saved[3]
 
 eq(trapped, 0, "Bag.listPocket, Bag.get and Storage.ensure were never called")
+
+-- Cost of an unchanged frame (informational; LuaJIT, fake backend): the
+-- bag, party and box storage presenters compare fields and return.
+do
+  local function cost(presenter, p, label)
+    local m = {}
+    presenter.poll(p, m, true)
+    local frames = 100000
+    local start = os.clock()
+    for _ = 1, frames do presenter.poll(p, m, false) end
+    local us = (os.clock() - start) / frames * 1e6
+    print(string.format("[cost] %s unchanged frame: %.3f microseconds", label, us))
+    check(us < 50, label .. " unchanged frame stays cheap")
+  end
+  local bp = openBag()
+  cost(Items.bag, bp, "bag")
+  local pp = openParty({ bulba, pidgey })
+  cost(Items.party, pp, "party")
+  cost(Items.boxStorage, openBox(), "box storage")
+  cost(Items.pokedex, dexScreen, "Pokédex")
+end
 
 T.finish("gen3 items")
