@@ -271,6 +271,22 @@ do -- ice slides as one edge, ending on the first cell off the ice or at a bump
   eq(stepText(r), "0,0>right/ice", "ice: a bump ends the slide on the last ice cell")
 end
 
+do -- a slide runs onto a warp and the warp fires (Ice Path B2F, audit): never a rest before it
+  local extra = { warps = { { x = 0, y = 0, destMap = "ICE_PATH_B1F", destWarp = 1 } } }
+  local rows = { "S...", "I...", "I...", "...." }
+  local nav = routeWorld(rows, 0, 3, { extra = extra })
+  local r = route(nav, { { x = 2, y = 0 } })
+  check(r ~= nil and not stepText(r):find("0,3>up/ice", 1, true),
+    "slide toward a warp: not planned as stopping short of it: " .. stepText(r))
+  r = route(nav, { { x = 0, y = 0 } })
+  eq(stepText(r), "0,3>up/ice", "slide onto the warp that is the goal: one move")
+  local currentRows = { "S..", "P..", "..." }
+  nav = routeWorld(currentRows, 0, 2, { extra = extra, surfing = true })
+  r = route(nav, { { x = 2, y = 0 } })
+  check(r == nil or not stepText(r):find("0,2>up", 1, true),
+    "a current that carries onto a warp is not a way past it")
+end
+
 do -- Surf: entering water from land is a Surf use; the badge and a user are both needed
   local nav = routeWorld({ "..WW" }, 0, 0)
   check(route(nav, { { x = 3, y = 0 } }, 2) == nil, "surf: no route without Surf")

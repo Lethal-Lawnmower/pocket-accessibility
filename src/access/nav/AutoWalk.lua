@@ -27,6 +27,10 @@ local SOURCE = "access_autowalk"
 local STUCK_FRAMES = 90
 local MAX_REROUTES = 8
 local PUSH_FRAMES = 60
+-- Resuming from the same cell this many times means the game keeps turning
+-- the player back there (Ecruteak's Tin Tower sages stop every walk north
+-- and step the player back; auto-walk resumed into them for ever).
+local MAX_RESUMES_AT_CELL = 3
 
 local walk = nil -- active walk, or nil
 
@@ -287,7 +291,14 @@ function AutoWalk.update(top)
     if transitioning() then return end
     if overworld.map ~= walk.map then return AutoWalk.stop("Auto walk stopped") end
     if walk.expectBattle and not walk.battleSeen then return end -- trainer still walking over
-    -- battles, card-key door messages and other game-caused screens: carry on
+    -- battles, card-key door messages and other game-caused screens: carry
+    -- on, unless the game keeps sending the player back to the same cell
+    local key = tostring(player.cellX) .. "," .. tostring(player.cellY)
+    walk.resumesAt = walk.resumesAt or {}
+    walk.resumesAt[key] = (walk.resumesAt[key] or 0) + 1
+    if walk.resumesAt[key] >= MAX_RESUMES_AT_CELL then
+      return AutoWalk.stop("Turned back again, auto walk stopped")
+    end
     return resume()
   end
   if overworld.map ~= walk.map then

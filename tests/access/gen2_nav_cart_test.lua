@@ -246,6 +246,76 @@ do
   check(byLabel["Potion"] ~= nil, "Route 29: the item ball is named by its item")
 end
 
+do -- every planned ice slide ends where the game's slide ends, on every map with ice
+  -- (the audit found Ice Path B2F's slide up the bottom column planned as
+  -- stopping below the B1F ladder; the game slides onto it and the player
+  -- climbs to B1F).  Routes from each warp to every other warp and item
+  -- ball; each slide replayed by the game's rule, written out here: keep
+  -- going while on ice; a warp ahead is entered; a wall, side wall or
+  -- object stops it.
+  local P = require("src.world.gen2.Permissions")
+  local ids = {}
+  for id in pairs(maps) do ids[#ids + 1] = id end
+  table.sort(ids)
+  local slides, wrong, icy, icyNames = 0, {}, 0, {}
+  for _, mapId in ipairs(ids) do
+    local def = maps[mapId]
+    local map = tilesets[def.tileset] and Gen2Map.new(def, tilesets[def.tileset])
+    local hasIce = false
+    for y = 0, map and map.heightCells - 1 or -1 do
+      for x = 0, map.widthCells - 1 do
+        if P.isIce(map:cellCollision(x, y)) then hasIce = true end
+      end
+    end
+    if hasIce then
+      icy = icy + 1
+      icyNames[#icyNames + 1] = mapId
+      local targets = {}
+      for _, warp in ipairs(def.warps or {}) do targets[#targets + 1] = { { x = warp.x, y = warp.y } } end
+      for _, obj in ipairs(def.objects or {}) do
+        if obj.itemball then
+          targets[#targets + 1] = { { x = obj.x, y = obj.y - 1 }, { x = obj.x, y = obj.y + 1 },
+            { x = obj.x - 1, y = obj.y }, { x = obj.x + 1, y = obj.y } }
+        end
+      end
+      for _, start in ipairs(def.warps or {}) do
+        local w = world(mapId, start.x, start.y)
+        local n = nav(game(w))
+        local function gameSlide(x, y, dir)
+          local d = Gen2Map.DELTA[dir]
+          x, y = x + d[1], y + d[2]
+          while P.isIce(w.map:cellCollision(x, y)) and not w.map:warpAt(x, y) do
+            if not w.map:stepPermitted(x, y, dir) then break end
+            local nx, ny = x + d[1], y + d[2]
+            local c = w.map:cellCollision(nx, ny)
+            if w:npcAt(nx, ny) then break end
+            if w.map:warpAt(nx, ny) and P.isWarpCollision(c) then return nx, ny end
+            if not P.isWalkable(c) then break end
+            x, y = nx, ny
+          end
+          return x, y
+        end
+        for _, goals in ipairs(targets) do
+          local options = n:worldRouteRequest(goals, 1)
+          local r = options and Pathfinder.find(options)
+          for _, s in ipairs(r and r.steps or {}) do
+            if s.kind == "ice" then
+              slides = slides + 1
+              local gx, gy = gameSlide(s.fromX, s.fromY, s.direction)
+              if gx ~= s.x or gy ~= s.y then
+                wrong[#wrong + 1] = mapId .. " " .. s.fromX .. "," .. s.fromY .. " " .. s.direction
+                  .. " planned " .. s.x .. "," .. s.y .. ", game " .. gx .. "," .. gy
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+  check(icy >= 5 and slides > 20, "ice maps checked: " .. table.concat(icyNames, ", ") .. "; planned slides: " .. slides)
+  eq(#wrong, 0, "every planned slide ends where the game's slide ends: " .. table.concat(wrong, "; "))
+end
+
 do -- the 0xFF return warp
   local w = world("POKECENTER_2F", 0, 7)
   local byLabel, all = browse(nav(game(w)))

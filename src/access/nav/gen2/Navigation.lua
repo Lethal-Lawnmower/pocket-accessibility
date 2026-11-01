@@ -677,6 +677,17 @@ function Navigation:routeOptionsFor(world, goals, policy)
       if not permitted(x, y, nextDirection) then break end
       local nd = DELTA[nextDirection]
       local nx, ny = x + nd[1], y + nd[2]
+      -- A warp does not stop a slide or a current: the game carries the
+      -- player onto it and the warp fires (Ice Path B2F's slide up from the
+      -- bottom row ran onto the B1F ladder).  The move ends there, which is
+      -- only a move when that warp is the goal.
+      if map:inBounds(nx, ny) and map:warpAt(nx, ny)
+         and Permissions.isWarpCollision(map:cellCollision(nx, ny))
+         and not npcBlocks(native, nx, ny) then
+        if not goalSet[cellKey(nx, ny)] then return nil end
+        x, y, direction, travelled = nx, ny, nextDirection, travelled + 1
+        break
+      end
       if not passable(nx, ny, goalSet[cellKey(nx, ny)] == true) then break end
       x, y, direction, travelled = nx, ny, nextDirection, travelled + 1
       if travelled > map.widthCells * map.heightCells then return nil end

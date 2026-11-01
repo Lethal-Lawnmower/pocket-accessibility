@@ -98,6 +98,31 @@ AutoWalk.update(overworld)
 eq(spoken[#spoken], "Resuming walk to PC", "resumes after the trainer battle")
 fakeStack.states = {}
 
+-- A scene that turns the player back to the same cell every time (Ecruteak's
+-- Tin Tower sages): resume twice, then stop instead of walking into it for ever.
+game, overworld, nav = setup()
+AutoWalk.start(nav, game)
+local scene = { scene = true }
+for round = 1, 3 do
+  AutoWalk.update(overworld)
+  AutoWalk.update(scene)
+  overworld.player.cellX, overworld.player.cellY = 0, 0 -- stepped back by the scene
+  AutoWalk.update(overworld)
+  if round < 3 then eq(spoken[#spoken], "Resuming walk to PC", "turned back " .. round .. ": resumes") end
+end
+eq(spoken[#spoken], "Turned back again, auto walk stopped", "turned back a third time at the same cell: stops")
+check(not AutoWalk.active(), "and the walk is over")
+game, overworld, nav = setup()
+AutoWalk.start(nav, game)
+for round = 1, 3 do
+  AutoWalk.update(overworld)
+  AutoWalk.update(scene)
+  overworld.player.cellX = round -- each interruption somewhere new (trainers along the way)
+  AutoWalk.update(overworld)
+end
+check(AutoWalk.active(), "interruptions at different cells never stop the walk")
+AutoWalk.stop()
+
 game, overworld, nav = setup()
 AutoWalk.start(nav, game)
 for _ = 1, 95 do AutoWalk.update(overworld) end
