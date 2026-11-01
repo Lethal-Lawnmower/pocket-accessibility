@@ -115,6 +115,7 @@ changes to this layer.
 |---|---|
 | Unit tests | `screen_reader_test.lua` 23/23; `game_screens_test.lua` 37/37 (self-describing screens, nest areas, quantity, naming, party and sub-menu, TM able, summary pages, move learn, trainer card, Pokédex list, unseen rows and entry, options, town map); `minor_screens_test.lua` 13/13. |
 | Scripted game runs | Disposable identity `pocket-access-test`, `POKEPORT_ACCESS_TRACE=1`, real Prism (NVDA). `drivers/menus_and_text.lua`: title menu, Oak's speech, name menus, start menu. `drivers/gen1_screens.lua`: naming keyboard, party and sub-menu, summary pages, options entry, trainer card. `drivers/more_screens.lua`: bag, toss quantity, Pokédex list and a two-page entry, town map, a mart's buy list, priced quantity, price prompt with YES/NO, Pokédex nest areas, an options group page with a value change. Title and intro lines appear at every scripted start. `drivers/pc_and_moves.lua`: Bill's PC and deposit list, player's PC and withdraw list, the whole forget-a-move flow including the abandon prompt. |
+| Yellow | Yellow imported into a fresh identity (`pocket-access-yellow`); `drivers/menus_and_text.lua` with `POKEPORT_VERSION=yellow` traced the Yellow intro, title, Oak's speech, naming and the start menu. |
 | Heard by the owner | Not yet. |
 
 ## Testing note
@@ -124,3 +125,10 @@ Game runs must use a disposable identity (`POKEPORT_IDENTITY=...`). On
 upstream's launcher rewrote `options.lua` (contents unchanged, backup kept),
 `launcher-window.cfg` and `mod_index_cache.lua` in the owner's real
 `pokemon-love2d` save folder. No saves were touched.
+
+Importing Yellow headless (`POKEPORT_IMPORT_ONLY=1`) into the
+`pocket-access-test` identity, which already held Red and had one killed
+import attempt, hung twice with no error (10 and 15 minutes). The same
+import into fresh identities finished in about 2 seconds, both with the
+layer on and with `POKEPORT_ACCESS=0`, so the layer is not the cause. Not
+investigated further; use a fresh identity per game for scripted runs.

@@ -26,6 +26,8 @@ end
 
 function Access.install(opts)
   if installed then return false end
+  -- POKEPORT_ACCESS=0 runs plain upstream, for telling our bugs from theirs.
+  if os.getenv("POKEPORT_ACCESS") == "0" then return false end
   installed = true
   opts = opts or {}
 
