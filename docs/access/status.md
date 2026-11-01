@@ -1,8 +1,9 @@
 # Status
 
 **Current focus (2026-11-01):** Gold, Silver and Crystal (decision 27) have
-the same treatment Red, Blue and Yellow got, waiting for the owner to listen. Gen 1 is done apart from Yellow's
-surfing minigame, which the owner is picking up.
+the same treatment Red, Blue and Yellow got, waiting for the owner to
+listen. Gen 1 is done apart from Yellow's surfing minigame, which the owner
+is picking up.
 
 Each workstream section is edited only by the session working on it. Keep each
 one short: state, next steps, blockers. Remove a section when its work is done
