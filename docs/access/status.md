@@ -36,7 +36,7 @@ and recorded in the topic file.
   `pocket-access-test`) traced menus, dialogue, naming, party, summary,
   options, trainer card, bag, quantity, Pokédex, town map, shop, both PCs,
   move forgetting, nest areas, an options group, and wild and trainer battles. Details: `menus-and-text.md`, `battle.md`.
-- **Next:** surfing minigame design (timing game, owner input welcome);
+- **Next:** surfing minigame: design proposed in `yellow.md`, awaiting owner;
   game runs for minor screens, `MoveSelectMenu`, evolution and trade.
 - **Needs the owner:** listen to a new game from source and judge wording,
   verbosity and pronunciation.
