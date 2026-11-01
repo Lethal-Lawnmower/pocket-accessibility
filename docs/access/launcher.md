@@ -10,7 +10,7 @@ the owner.
 
 | Control | Behaviour |
 |---|---|
-| Games list (Alt+G) | The six games, each "<name>, imported" or "not imported". Starts on the first imported game. Enter plays the selected game. |
+| Games list (Alt+G) | The six games, each "<name>, imported", "not imported" or "needs importing again" (imported by an older build). Starts on the first playable game. Enter plays the selected game. |
 | Play (Alt+P) | Starts the selected game directly. The launcher minimises while the game runs and comes back with focus on the list when the game closes. A game that is not imported gets a message pointing to Import ROM. |
 | Import ROM (Alt+I) | A standard Open dialog for `.gb` and `.gbc`. The file's SHA-1 says which game it is; anything else is refused with a message. The game program imports it and quits; a message box says whether it worked. |
 | Credits (Alt+C) | A read-only text box, readable line by line: project, the upstream credit, Prism, Pokémon Access as inspiration, license, source, the Nintendo disclaimer. |
@@ -37,12 +37,21 @@ Never `--game` on the command line (fails before `main.lua` from source).
 A game started with `POKEPORT_GAME` exits when its window closes (upstream
 #887), so the launcher sees the game end.
 
-**Imported or not.** The launcher reads the game's cache marker,
-`<save folder>\<game>\rom-cache.complete`, and accepts it when it ends with
-one of that game's ROM SHA-1s. The game's own check
-(`src/import/CacheContract.lua`) also checks the cache format and every
-file; if that fails after an upstream update, the game falls back to
-upstream's launcher (see below).
+**Imported or not.** The launcher asks the game: `launcher/ReadyCheck` is
+a windowless LÖVE program (no window, so it never takes focus) that loads
+the game's own `src/import/CacheContract.lua` against the same save folder
+and writes "ready" or "missing" per game (about 0.1 seconds). A missing
+game whose cache marker (`<save folder>\<game>\rom-cache.complete`) names
+one of its ROMs was imported by an older build: "needs importing again".
+Only if the check cannot run does the launcher fall back to the marker
+alone. Imports always pass `POKEPORT_FORCE_IMPORT=1`; without it an
+import-only run of a game the check accepts boots the game instead.
+
+Why: on 2026-11-01 the first version read only the marker. The owner's real
+profile held caches from an older build (format v10; this build needs v12
+to v17), the launcher called Crystal imported, and Play opened upstream's
+own launcher with "Update required". The ready check now lists all six
+games there as needing importing again.
 
 **Paths.** For now the launcher runs from a source checkout: the game folder
 is the first folder above the launcher holding `main.lua` and
@@ -75,6 +84,7 @@ run. Build output is ignored by git.
 | Accessibility tree | Read through Windows UI Automation (the interface NVDA uses): window "Pocket Accessibility"; text "Games:" (Alt+G); list "Games" with six items ("Pokémon Crystal, imported", "Pokémon Gold, not imported" ...); buttons Play, Import ROM..., Credits, Exit with Alt keys; the credit text; status bar "Status" with "Ready.". |
 | Import and Play | Disposable profile, driven through UI Automation: a Crystal ROM passed to the launcher was identified and imported ("Pokémon Crystal, imported"); the confirmation box read "Pokémon Gold imported. Press Play to start." in a second run; Play started Crystal directly (a probe driver recorded `version=crystal phase=play`, no upstream launcher) and the launcher returned to Ready when the game closed. |
 | ROM identification | All seven of the owner's dumps hash to catalog entries. |
+| Owner's first try (2026-11-01) | Crystal was listed as imported and Play opened upstream's launcher ("Update required"): the cache was from an older build. Fixed with the ready check: the list on the owner's profile now reads "needs importing again" for all six games, and a test profile still reads Crystal imported (UI Automation). |
 | Heard by the owner | Not yet. |
 
 ## Before a packaged release
@@ -86,7 +96,8 @@ run. Build output is ignored by git.
 - **Upstream's launcher files** (Term 2 list in `LICENSE.MD`) left out of the
   build. Three routes would still try to open upstream's launcher, and must
   be closed by a small listed hook before release: a game whose cache fails
-  the full check, the online, arena and Discord-invite screens that return
+  the full check (the ready check now stops this from our launcher, but not
+  a cache that breaks between the check and Play), the online, arena and Discord-invite screens that return
   to the launcher (`returnToLauncher`, which restarts the process), and any
   start without a game choice.
 - **Save folder.** A fused build keeps saves in `%APPDATA%\<identity>`, not
