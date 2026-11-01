@@ -126,7 +126,7 @@ end
 local function floorModel(world, targets, boulders)
   local map = world.map
   local width, height = map.widthCells, map.heightCells
-  local land, standable, fixed, warpCell, hole = {}, {}, {}, {}, {}
+  local land, standable, fixed, warpCell, hole, pressDir = {}, {}, {}, {}, {}, {}
   local elevation = {}
   for y = 0, height - 1 do
     for x = 0, width - 1 do
@@ -138,7 +138,11 @@ local function floorModel(world, targets, boulders)
       hole[i] = beh == MB_FALL_WARP
       warpCell[i] = warp or hole[i]
       land[i] = (walk and beh ~= MB_CAVE_DOOR and not warp) or hole[i]
-      standable[i] = walk and not warpCell[i] and beh ~= Terrain.MB.CRACKED_ICE
+      -- a mat or stair warp can be stood on, as long as its own direction
+      -- is not pressed there (Victory Road 1F's entrance mat)
+      pressDir[i] = warp and map.standingWarp and map:standingWarp(x, y) or nil
+      standable[i] = walk and (not warpCell[i] or pressDir[i] ~= nil)
+        and beh ~= Terrain.MB.CRACKED_ICE
     end
   end
   for _, entity in ipairs(world.npcs or {}) do
@@ -159,7 +163,7 @@ local function floorModel(world, targets, boulders)
     if map:dirBlocked(x, y, toX, toY, direction) then return false end
     return not elevationsMismatch(elevation[y * width + x], elevation[toY * width + toX])
   end
-  local model = { map = map, width = width, height = height, land = land,
+  local model = { map = map, width = width, height = height, land = land, pressDir = pressDir,
     standable = standable, fixed = fixed, warpCell = warpCell, hole = hole,
     boulders = list, elevation = elevation, canStep = canStep }
   -- Dead squares: cells from which a boulder can still reach some target,
@@ -183,7 +187,7 @@ local function floorModel(world, targets, boulders)
       local c, s = cy * width + cx, sy * width + sx
       if cx >= 0 and cy >= 0 and cx < width and cy < height
          and sx >= 0 and sy >= 0 and sx < width and sy < height
-         and not live[c] and land[c] and not hole[c] and standable[s]
+         and not live[c] and land[c] and not hole[c] and standable[s] and pressDir[s] ~= d[1]
          and canStep(cx, cy, d[1], nx, ny) and canStep(sx, sy, d[1], cx, cy) then
         live[c] = true
         queue[#queue + 1] = c
@@ -208,7 +212,7 @@ local function playerRegion(model, px, py, occupied)
       local ni = ny * width + nx
       if nx >= 0 and ny >= 0 and nx < width and ny < height and not seen[ni]
          and model.standable[ni] and not model.fixed[ni] and not occupied[ni]
-         and model.canStep(x, y, d[1], nx, ny) then
+         and model.pressDir[i] ~= d[1] and model.canStep(x, y, d[1], nx, ny) then
         seen[ni] = true
         queue[#queue + 1] = ni
         if ni < rep then rep = ni end
@@ -333,9 +337,13 @@ local function search(world, targets, boulders, budget, mode)
     for _ in pairs(covered) do n = n + 1 end
     return n
   end
+  -- The whole-floor search leans on its estimate (weighted A*): a plan for
+  -- seven switches is found in time, at the cost of a few extra pushes; a
+  -- single target keeps the plain shortest search.
+  local weight = mode == "switches" and (budget.weight or 3) or 1
   local heap = {}
   heapPush(heap, { positions = startPositions, covered = startCovered, assign = assign,
-    region = region, g = 0, f = heuristic(startPositions, startCovered) })
+    region = region, g = 0, f = weight * heuristic(startPositions, startCovered) })
   local visited = { [key(startPositions, startCovered, rep)] = true }
   local expanded, maxExpanded = 0, budget.maxExpanded or 20000
   local deadline = os.clock() + (budget.maxSeconds or 0.4)
@@ -343,6 +351,7 @@ local function search(world, targets, boulders, budget, mode)
     local node = heapPop(heap)
     expanded = expanded + 1
     if budget.stats then budget.stats.expanded = (budget.stats.expanded or 0) + 1 end
+    if budget.onExpand then budget.onExpand(node.positions, node.g, mode) end
     if expanded > maxExpanded or os.clock() > deadline then return nil, "budget" end
     local positions = node.positions
     -- every boulder's cell: free ones where they are, locked ones on their
@@ -361,7 +370,7 @@ local function search(world, targets, boulders, budget, mode)
           local si, li = sy * width + sx, ly * width + lx
           if node.region[si] and lx >= 0 and ly >= 0 and lx < width and ly < height
              and model.land[li] and not model.fixed[li] and not taken[li]
-             and model.canStep(sx, sy, d[1], bx, by)
+             and model.pressDir[si] ~= d[1] and model.canStep(sx, sy, d[1], bx, by)
              and model.canStep(bx, by, d[1], lx, ly) then
             local push = node.first or { boulder = b, standX = sx, standY = sy, direction = d[1] }
             local goal = goalAt[li]
@@ -407,7 +416,7 @@ local function search(world, targets, boulders, budget, mode)
                 local h = heuristic(nextPositions, nextCovered)
                 if h < math.huge then
                   heapPush(heap, { positions = nextPositions, covered = nextCovered, assign = nextAssign,
-                    region = nextRegion, g = g, f = g + h, first = push })
+                    region = nextRegion, g = g, f = g + weight * h, first = push })
                 end
               end
             end
@@ -431,7 +440,10 @@ function Puzzle.planFloor(world, targets, boulders, budget)
   if hasSwitch then
     local plan, why = search(world, targets, boulders, budget, "switches")
     if plan then return plan end
-    if why ~= "budget" and why ~= "no plan" then return nil, why end
+    -- out of budget: no hint rather than a nearest-first push that can
+    -- block the rest (the Tanoby Key room); only a floor with no full
+    -- solution (fewer boulders than switches) falls back to one target
+    if why ~= "no plan" and why ~= "unreachable" then return nil, why end
   end
   return search(world, targets, boulders, budget, "one")
 end
@@ -477,9 +489,11 @@ function Puzzle.describe(game, world, nav)
   local cached = okSig and CACHE[map]
   if cached and cached.key == key then return cached.result end
 
-  local okPlan, plan = pcall(Puzzle.planFloor, world, targets, boulders)
-  if not okPlan then plan = nil end
+  local okPlan, plan, why = pcall(Puzzle.planFloor, world, targets, boulders)
+  if not okPlan then plan, why = nil, nil end
   local served = plan and plan.target
+  local noPlan = why == "budget" and "no boulder plan found in time from here"
+    or "no safe boulder route from current positions"
   for _, target in ipairs(targets) do
     local state
     if target.kind == "switch" and target.solved then
@@ -490,8 +504,7 @@ function Puzzle.describe(game, world, nav)
     elseif plan then
       state = target.kind == "switch" and "not pressed" or nil
     else
-      state = (target.kind == "switch" and "not pressed; " or "")
-        .. "no safe boulder route from current positions"
+      state = (target.kind == "switch" and "not pressed; " or "") .. noPlan
     end
     result.targetStates[#result.targetStates + 1] = {
       x = target.x, y = target.y, label = target.label, state = state, hole = target.hole,

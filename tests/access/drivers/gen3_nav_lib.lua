@@ -160,12 +160,12 @@ function L.new(game)
     s.party = {}
     Party.giveMon(s, species or 6, level or 60)
     local mon = s.party[1]
-    local ids, pp = {}, {}
+    -- Flamethrower first: the battle helper presses A, which picks move 1
+    local ids, pp = { 53 }, { 30 }
     for _, name in ipairs(moves or {}) do
       ids[#ids + 1] = FieldMoves.MOVES[name] or name
       pp[#pp + 1] = 30
     end
-    if #ids < 4 then ids[#ids + 1] = 53 pp[#pp + 1] = 30 end -- Flamethrower
     mon.moves, mon.pp, mon.maxPp = ids, pp, pp
     for _, key in ipairs(badges or {}) do
       Flags.setFlag(Space.store, nil, FieldMoves.BADGE_FLAGS[key], true)

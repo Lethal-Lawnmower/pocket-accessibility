@@ -297,6 +297,49 @@ function Navigation:stepInteraction(_world, step)
     hint = "Use " .. move .. " facing " .. step.direction }
 end
 
+-- The edge cells a connection can be crossed from (Collision.tryConnection):
+-- inside the neighbour's strip, no directional wall on either side, and
+-- land onto land, or water onto water or onto land of elevation 3 while
+-- surfing.  Pallet Town's south edge is land, but Route 21 below it is
+-- water: walking there on foot stops at the shore.
+local CONNECTION_STEP_OF = { north = "up", south = "down", west = "left", east = "right" }
+
+function Navigation:connectionGoals(world, item)
+  local map = world and world.map
+  local C = loaded("src.core.game3.collision")
+  local Connections = loaded("src.core.game3.connections")
+  if not (map and map.def and C and C.connectionLanding and Connections and item) then
+    return Shared.connectionGoals(self, world, item)
+  end
+  local conn
+  for _, row in ipairs(call(Connections.each, map.def) or {}) do
+    if row.dir == item.direction then conn = row break end
+  end
+  local destDef = conn and self:regionalMapDef(conn.map)
+  local destView = World.plannedView(self.game, destDef)
+  local step = CONNECTION_STEP_OF[item.direction]
+  if not (destView and step) then return Shared.connectionGoals(self, world, item) end
+  local canSurf = (world.player and world.player.surfing == true) or self:hmAllowed(world, "SURF")
+  local goals = {}
+  local width, height = map.widthCells, map.heightCells
+  local count = (step == "up" or step == "down") and width or height
+  for coordinate = 0, count - 1 do
+    local x = (step == "left") and 0 or (step == "right") and (width - 1) or coordinate
+    local y = (step == "up") and 0 or (step == "down") and (height - 1) or coordinate
+    local ok, lx, ly = pcall(C.connectionLanding, destDef, conn, step, x, y)
+    if ok and lx and not map:dirBlocked(x, y, nil, nil, step)
+       and not destView:dirBlocked(nil, nil, lx, ly, step) then
+      local hereWater, hereLand = map:isWater(x, y), map:isWalkableCell(x, y)
+      local thereWater, thereLand = destView:isWater(lx, ly), destView:isWalkableCell(lx, ly)
+      if (hereLand and thereLand)
+         or (canSurf and hereWater and (thereWater or (thereLand and destView:elevation(lx, ly) == 3))) then
+        goals[#goals + 1] = { x = x, y = y }
+      end
+    end
+  end
+  return goals
+end
+
 -- Auto-walk's last cell of a walk to a warp that fires while a direction
 -- is pressed: exit mats (down), arrow warps, stair warps (left or right).
 function Navigation:warpPressDirection(world, x, y)
@@ -777,10 +820,15 @@ function Navigation:routeOptionsFor(world, goals, policy)
     local isGoal = goalSet[cellKey(x, y)] == true
     local kind = map:warpKind(x, y)
     if kind then
-      if not isGoal then return false end
-      -- a door fires only moving up into it from the cell below
-      if kind == "door" and direction ~= "up" then return false end
-      return true
+      if isGoal then
+        -- a door fires only moving up into it from the cell below
+        if kind == "door" and direction ~= "up" then return false end
+        return true
+      end
+      -- exit mats, arrow and stair warps fire only while their own
+      -- direction is pressed: they may be walked across like floor
+      -- (Victory Road's entrance mat); any other warp is never entered
+      if not map:standingWarp(x, y) then return false end
     end
     local beh = map:behavior(x, y)
     if beh == Terrain.MB.FALL_WARP and not isGoal then return false end
@@ -835,7 +883,7 @@ function Navigation:routeOptionsFor(world, goals, policy)
           or blocker(nx, ny, elevationOf(x, y)) then
         break
       else
-        if map:warpKind(nx, ny) then
+        if map:warpKind(nx, ny) and not map:standingWarp(nx, ny) then
           -- the game carries the player onto it and it fires; the move ends
           -- there, usable only when that warp is the goal
           if not goalSet[cellKey(nx, ny)] then return nil end
@@ -866,6 +914,8 @@ function Navigation:routeOptionsFor(world, goals, policy)
     local d = DELTA[direction]
     local x, y = fromX + d[1], fromY + d[2]
     if not map:inBounds(x, y) then return nil end
+    -- pressing a standing warp's own direction on it would take it
+    if map:standingWarp(fromX, fromY) == direction then return nil end
     local onWater = map:isWater(fromX, fromY)
     local fromElevation = elevationOf(fromX, fromY)
     -- a ledge ahead facing the move: the hop lands two cells on
@@ -919,7 +969,9 @@ function Navigation:routeOptionsFor(world, goals, policy)
         entryKind, entryInstruction = "exit_water", "Exit water " .. direction
       end
     end
-    if map:warpKind(x, y) then return x, y, entryKind, entryInstruction end
+    if map:warpKind(x, y) and (goalSet[cellKey(x, y)] or not map:standingWarp(x, y)) then
+      return x, y, entryKind, entryInstruction
+    end
     -- forced movement from the cell entered; a goal on a forced tile cannot
     -- be stopped on, only where the movement ends
     local fx, fy, kind, travelled = forcedChain(x, y, direction, onWater or toWater)
@@ -1163,10 +1215,15 @@ function Navigation:regionalTransitions(mapId)
         local x = (direction == "west") and 0 or (direction == "east") and (view.widthCells - 1) or coordinate
         local y = (direction == "north") and 0 or (direction == "south") and (view.heightCells - 1) or coordinate
         local ok, destX, destY = pcall(C.connectionLanding, destDef, conn, step, x, y)
-        if ok and destX and (view:isWalkableCell(x, y) or view:isWater(x, y))
-           and (destView:isWalkableCell(destX, destY) or destView:isWater(destX, destY))
-           and not view:dirBlocked(x, y, nil, nil, step)
+        local crossable = false
+        if ok and destX and not view:dirBlocked(x, y, nil, nil, step)
            and not destView:dirBlocked(nil, nil, destX, destY, step) then
+          local thereLand = destView:isWalkableCell(destX, destY)
+          crossable = (view:isWalkableCell(x, y) and thereLand)
+            or (view:isWater(x, y) and (destView:isWater(destX, destY)
+              or (thereLand and destView:elevation(destX, destY) == 3)))
+        end
+        if crossable then
           result[#result + 1] = {
             kind = "connection", direction = direction, x = x, y = y,
             destMap = conn.map, destX = destX, destY = destY,

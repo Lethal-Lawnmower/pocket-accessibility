@@ -67,16 +67,52 @@ function View:inBounds(x, y)
     and x >= 0 and y >= 0 and x < self.widthCells and y < self.heightCells
 end
 
-function View:behavior(x, y)
-  if not self:inBounds(x, y) then return nil end
+-- Per-cell answers are kept until the layout changes: a script's
+-- setmetatile (Silph Co. doors, Victory Road barriers, Icefall ice) goes
+-- through LayoutNative:applyOverride, which bumps the layout's revision.
+-- Routes ask the same cells many times, and cross-map plans many maps.
+local NONE = {}
+local function cached(self, name, x, y, compute)
+  local layout = self.def.midLayout
+  local revision = layout and layout._revision or 0
+  if self.revision ~= revision then
+    self.revision = revision
+    self.cache = {}
+  end
+  local field = self.cache[name]
+  if not field then
+    field = {}
+    self.cache[name] = field
+  end
+  local key = y * 1024 + x
+  local value = field[key]
+  if value == nil then
+    value = compute(self, x, y)
+    if value == nil then value = NONE end
+    field[key] = value
+  end
+  if value == NONE then return nil end
+  return value
+end
+
+local function computeBehavior(self, x, y)
   local C = collisionModule()
   return C and call(C.behaviorOn, self.def, x, y) or nil
 end
 
-function View:elevation(x, y)
+function View:behavior(x, y)
   if not self:inBounds(x, y) then return nil end
+  return cached(self, "beh", x, y, computeBehavior)
+end
+
+local function computeElevation(self, x, y)
   local C = collisionModule()
   return C and call(C.elevationOn, self.def, x, y) or nil
+end
+
+function View:elevation(x, y)
+  if not self:inBounds(x, y) then return nil end
+  return cached(self, "elev", x, y, computeElevation)
 end
 
 -- The COLL byte as movement reads it.  Live: the bound grid (with the
@@ -88,6 +124,10 @@ function View:coll(x, y)
     local C = collisionModule()
     if C and C._mapDef == self.def then return C.cell(x, y) end
   end
+  return cached(self, "coll", x, y, View.layoutColl)
+end
+
+function View:layoutColl(x, y)
   local layout = self.def and self.def.midLayout
   if not layout then return 0xff end
   local coll = layout:collAt(x, y)
@@ -125,10 +165,14 @@ function View:walkableColl(x, y)
   return P.isWalkable(coll) == true
 end
 
-function View:isWater(x, y)
-  if not self:inBounds(x, y) then return false end
+local function computeWater(self, x, y)
   local C = collisionModule()
   return C ~= nil and call(C.isWaterOn, self.def, x, y, self:coll(x, y)) == true
+end
+
+function View:isWater(x, y)
+  if not self:inBounds(x, y) then return false end
+  return cached(self, "water", x, y, computeWater) == true
 end
 
 function View:isGrass(x, y)
@@ -138,9 +182,30 @@ end
 
 -- MB walls on the cell left and the cell entered
 -- (IsMetatileDirectionallyImpassable).
+-- pokefirered metatile_behavior.c: MB_IMPASSABLE_* (0x30-0x37), which side
+-- each one closes.  Read through the cached behaviour; the same rule as
+-- Collision.directionallyImpassableOn.
+local CLOSED = {
+  [0x30] = { east = true }, [0x31] = { west = true }, [0x32] = { north = true },
+  [0x33] = { south = true }, [0x34] = { north = true, east = true },
+  [0x35] = { north = true, west = true }, [0x36] = { south = true, east = true },
+  [0x37] = { south = true, west = true },
+}
+local LEAVE_SIDE = { down = "south", up = "north", left = "west", right = "east" }
+local ENTER_SIDE = { down = "north", up = "south", left = "east", right = "west" }
+
 function View:dirBlocked(fromX, fromY, x, y, direction)
-  local C = collisionModule()
-  return C ~= nil and call(C.directionallyImpassableOn, self.def, fromX, fromY, x, y, direction) == true
+  local leave, enter = LEAVE_SIDE[direction], ENTER_SIDE[direction]
+  if not leave then return false end
+  if fromX and fromY then
+    local closed = CLOSED[self:behavior(fromX, fromY)]
+    if closed and closed[leave] then return true end
+  end
+  if x and y then
+    local closed = CLOSED[self:behavior(x, y)]
+    if closed and closed[enter] then return true end
+  end
+  return false
 end
 
 -- A script made this cell impassable (Field.setMetatile's impassable flag);
@@ -212,6 +277,30 @@ end
 --   step        stepping onto it (ladders, cave doors)
 -- and, for the standing kinds, the direction to press.
 function View:warpKind(x, y)
+  if not self:inBounds(x, y) then return nil end
+  -- the answer depends only on the map's data (and the session's dynamic
+  -- warp for elevators), so it is kept per view
+  local key = y * 1024 + x
+  local cached = self.kindCache[key]
+  if cached ~= nil then
+    if cached == false then return nil end
+    return cached[1], cached[2]
+  end
+  local kind, press = self:computeWarpKind(x, y)
+  self.kindCache[key] = kind and { kind, press } or false
+  return kind, press
+end
+
+-- A warp the player may stand on and walk across: it fires only while its
+-- own direction is pressed (exit mats, arrow warps, stair warps).  Returns
+-- that direction, or nil.
+function View:standingWarp(x, y)
+  local kind, press = self:warpKind(x, y)
+  if kind == "exit_mat" or kind == "arrow" or kind == "stair" then return press end
+  return nil
+end
+
+function View:computeWarpKind(x, y)
   local warp = self:warpAt(x, y)
   if not warp then return nil end
   local C = collisionModule()
@@ -234,9 +323,7 @@ end
 -- Auto-walk's last cell of a walk to a standing warp: the direction to
 -- hold there (nil when stepping on is enough).
 function View:pressDirection(x, y)
-  local kind, press = self:warpKind(x, y)
-  if kind == "exit_mat" or kind == "arrow" or kind == "stair" then return press end
-  return nil
+  return self:standingWarp(x, y)
 end
 
 -- The Gen 1 query surface the shared snapshot and coordinator use.
@@ -265,7 +352,7 @@ local function newView(game, def, mapId, live)
   local view = setmetatable({
     game = game, def = def, id = mapId or def.id, live = live == true,
     widthCells = layout.width, heightCells = layout.height,
-    warpIndex = {}, warpCells = {},
+    warpIndex = {}, warpCells = {}, kindCache = {},
   }, View)
   for index, warp in ipairs(def.warps or {}) do
     local x, y = tonumber(warp.x), tonumber(warp.y)
