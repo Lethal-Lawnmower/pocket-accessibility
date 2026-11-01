@@ -60,7 +60,7 @@ and recorded in the topic file.
   Strength hints, traced in FireRed; Gen 1 and Gen 2 regressions clean.
   Gaps (journeys, item balls blocking routes, renaming) in
   `firered-leafgreen-navigation.md`.
-- **Owner first try (2026-11-01):** "works great".
+- **Owner first try (2026-11-01):** a brief test, "works great".
 - **Next:** the owner keeps playtesting FireRed. The end-to-end walkthrough after
   all merges speaks the intro, title, start menu, bag and dialogue.
 - **LeafGreen:** deferred by the owner (decision 30); no clean dump on this

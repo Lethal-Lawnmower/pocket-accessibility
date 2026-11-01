@@ -7,7 +7,8 @@
 -- launcher offers an import instead of starting a game that would fall back
 -- to upstream's launcher.
 
-local GAMES = { "red", "blue", "yellow", "gold", "silver", "crystal" }
+local GAMES = { "red", "blue", "yellow", "gold", "silver", "crystal",
+  "firered", "leafgreen", "ruby", "sapphire", "emerald" }
 
 function love.load()
   local out = os.getenv("POCKET_READY_OUT")

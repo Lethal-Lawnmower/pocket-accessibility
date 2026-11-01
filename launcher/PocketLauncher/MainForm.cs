@@ -96,10 +96,13 @@ internal sealed class MainForm : Form
     {
         public override string ToString() => State switch
         {
-            ImportState.Ready => $"{Game.Name}, imported",
-            ImportState.NeedsReimport => $"{Game.Name}, needs importing again",
-            _ => $"{Game.Name}, not imported",
+            ImportState.Ready => $"{Game.Name}, imported{Silent}",
+            ImportState.NeedsReimport => $"{Game.Name}, needs importing again{Silent}",
+            _ => $"{Game.Name}, not imported{Silent}",
         };
+
+        // Games the layer does not cover yet run, but their screens are silent.
+        private string Silent => Game.Speaks ? "" : ", no speech yet";
     }
 
     private ImportState StateOf(Game game) =>
@@ -203,7 +206,7 @@ internal sealed class MainForm : Form
         using var dialog = new OpenFileDialog
         {
             Title = "Choose a cartridge dump",
-            Filter = "Game Boy ROMs (*.gb, *.gbc)|*.gb;*.gbc|All files (*.*)|*.*",
+            Filter = "Game Boy ROMs (*.gb, *.gbc, *.gba)|*.gb;*.gbc;*.gba|All files (*.*)|*.*",
         };
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
         await ImportFileAsync(dialog.FileName);
@@ -225,8 +228,9 @@ internal sealed class MainForm : Form
         Game? game = GameCatalog.ForSha1(sha1);
         if (game == null)
         {
-            ShowMessage("This file is not one of the supported cartridge dumps (Red, Blue and Yellow for USA and Europe; " +
-                        "Gold, Silver, and Crystal 1.0 or 1.1).", MessageBoxIcon.Warning);
+            ShowMessage("This file is not one of the supported cartridge dumps: the USA or Europe releases of " +
+                        "Red, Blue, Yellow, Gold, Silver, Crystal, FireRed, LeafGreen, Ruby, Sapphire and Emerald.",
+                        MessageBoxIcon.Warning);
             return;
         }
         await RunBusyAsync($"Importing {game.Name}. This can take a minute.",

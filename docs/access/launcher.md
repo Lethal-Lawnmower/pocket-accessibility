@@ -10,9 +10,9 @@ it, found the stale-import problem (fixed), and approved it ("Looks good").
 
 | Control | Behaviour |
 |---|---|
-| Games list (Alt+G) | The six games, each "<name>, imported", "not imported" or "needs importing again" (imported by an older build). Starts on the first playable game. Enter plays the selected game. |
+| Games list (Alt+G) | Every game upstream supports (Red, Blue, Yellow, Gold, Silver, Crystal, FireRed, LeafGreen, Ruby, Sapphire, Emerald; owner request 2026-11-01), the ones our speech does not cover yet marked "no speech yet", each "<name>, imported", "not imported" or "needs importing again" (imported by an older build). Starts on the first playable game. Enter plays the selected game. |
 | Play (Alt+P) | Starts the selected game directly. The launcher minimises while the game runs and comes back with focus on the list when the game closes. A game that is not imported gets a message pointing to Import ROM. |
-| Import ROM (Alt+I) | A standard Open dialog for `.gb` and `.gbc`. The file's SHA-1 says which game it is; anything else is refused with a message. The game program imports it and quits; a message box says whether it worked. |
+| Import ROM (Alt+I) | A standard Open dialog for `.gb`, `.gbc` and `.gba`. The file's SHA-1 says which game it is; anything else is refused with a message. The game program imports it and quits; a message box says whether it worked. |
 | Credits (Alt+C) | A read-only text box, readable line by line: project, the upstream credit, Prism, Pokémon Access as inspiration, license, source, the Nintendo disclaimer. |
 | Exit (Alt+X) | Closes the launcher. |
 | Credit line | Upstream's required credit (License Term 1), always visible in the window. |

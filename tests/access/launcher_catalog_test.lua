@@ -16,15 +16,16 @@ file:close()
 
 -- new("crystal", "Pokémon Crystal", "crystal", ["sha", "sha"]) entries
 local catalog, order = {}, {}
-for id, name, folder, hashes in source:gmatch('new%("(%w+)",%s*"([^"]+)",%s*"([%w_]+)",%s*%[(.-)%]%)') do
+for id, name, folder, hashes in source:gmatch('new%("(%w+)",%s*"([^"]+)",%s*"([%w_]+)",%s*%[(.-)%][^)]*%)') do
   local sha1s = {}
   for sha1 in hashes:gmatch('"(%x+)"') do sha1s[#sha1s + 1] = sha1:lower() end
   catalog[id] = { name = name, folder = folder, sha1s = sha1s }
   order[#order + 1] = id
 end
 
-local expected = { "red", "blue", "yellow", "gold", "silver", "crystal" }
-eq(table.concat(order, ","), table.concat(expected, ","), "the launcher lists the six games in order")
+local expected = { "red", "blue", "yellow", "gold", "silver", "crystal",
+  "firered", "leafgreen", "ruby", "sapphire", "emerald" }
+eq(table.concat(order, ","), table.concat(expected, ","), "the launcher lists every upstream game in order")
 
 for _, id in ipairs(expected) do
   local entry = catalog[id]
