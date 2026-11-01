@@ -44,6 +44,8 @@ How the layer reads it:
   text: font and colour tags and `0xFC` control bytes are dropped, glyph and
   button tags are said in words.
 
+Battle speech is in `battle.md` (section "Gen 3").
+
 ## Screens
 
 | Screen | On entry | On change |
@@ -104,6 +106,9 @@ the Mystery Gift record is never created by reading.
 - Real-time minigames (Pokémon Jump, Dodrio Berry Picking, Berry Crush):
   play is silent; non-speech timing cues?
 - Trainer Tower: a key for the time so far? The game shows no timer.
+- Battle wording: "What will X do?" every turn or only in doubles; "owned"
+  for the caught marker; level-up "stat increases" then "stats"; HP on the
+  target cursor; Safari Shift+H giving the balls left.
 
 ## Known gaps
 
@@ -122,5 +127,10 @@ the Mystery Gift record is never created by reading.
 - The Berry Crush berry choice has no B to cancel.
 - `MuseumPic.isActive`, `BerryPowderBox.isVisible`,
   `ElevatorWindow.isVisible` change state when called.
+- Suspected: driver-started trainer battles end "Player defeated RIVAL
+  BLUE!" where the cartridge prints the player's name (`battle_text.lua`
+  special id 5 returns the link-battle string); not checked against a
+  script-started battle.
+- No "Use next POKéMON?" prompt in wild battles (source read).
 - The online arena hides the battle from the resolver (`game.phase` is
   "arena").
