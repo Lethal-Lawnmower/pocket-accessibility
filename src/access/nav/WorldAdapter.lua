@@ -187,15 +187,201 @@ function Gen2.newCoordinator(game, opts)
   return require("src.access.nav.gen2.Navigation").new(game, opts)
 end
 
+-- What the layer binds a coordinator to: a new one is built when this
+-- changes.  Gen 1 and Gen 2 keep one save table per loaded game.
+function Gen1.identity(game) return game and game.save end
+Gen2.identity = Gen1.identity
+
+-- The options table the game persists (custom names, the camera option).
+function Gen1.options(game)
+  local save = game and game.save
+  return type(save) == "table" and type(save.options) == "table" and save.options or nil
+end
+Gen2.options = Gen1.options
+
+-- ------------------------------------------------------------ FireRed
+-- Gen 3 has no world object and no StateStack (decision 29).  The field is
+-- a set of module singletons in src/core/game3/ (player, collision, map,
+-- objects, warp, field); nav/gen3/World.lua builds one stable facade over
+-- them per game, which is what `world` and `top` hand out, so auto-walk's
+-- `top == walk.overworld` holds as in Gen 1.  The "free on the map" test
+-- below is the old project's Gen 3 FieldInput classifier
+-- (purple-gen3-integration, src/accessibility/gen3/FieldInput.lua, commit
+-- 244150e22, upstream v0.3.32), re-derived for v0.3.98 under decision 20:
+-- the same gates Player.update checks before it polls the D-pad.
+-- LeafGreen is deferred (owner, 2026-11-01): only FireRed's layout is
+-- enabled, by version id.
+
+local Gen3 = { generation = 3 }
+
+-- A battle in progress: the Gen 3 battle is a module, never a screen, so
+-- auto-walk and the commands see this fixed marker as the top.
+WorldAdapter.GEN3_BATTLE = setmetatable({ isBattle = true, accessibilityRole = "battle" },
+  { __tostring = function() return "gen3 battle" end })
+
+local function loaded(path) return package.loaded[path] end
+
+local function call(fn, ...)
+  if type(fn) ~= "function" then return nil end
+  local ok, value = pcall(fn, ...)
+  if ok then return value end
+  return nil
+end
+
+local function fireRed()
+  local GameVersion = package.loaded["src.core.GameVersion"]
+  if not (GameVersion and GameVersion.get) then
+    -- tests and early boot: trust the generation check alone
+    return true
+  end
+  local ok, id = pcall(GameVersion.get)
+  return ok and id == "firered"
+end
+
+function Gen3.game()
+  local CurrentGame = loaded("src.access.CurrentGame")
+  local game = CurrentGame and call(CurrentGame.get) or nil
+  if type(game) ~= "table" then
+    local Runtime = loaded("src.core.game3.runtime")
+    game = Runtime and rawget(Runtime, "_game") or nil
+  end
+  if type(game) ~= "table" or type(game.data) ~= "table" or type(game.input) ~= "table" then
+    return nil
+  end
+  if game.generation ~= nil and game.generation ~= 3 then return nil end
+  -- no session before a new game or Continue: nothing to navigate yet
+  if type(game.session) ~= "table" then return nil end
+  if not fireRed() then return nil end
+  return game
+end
+
+local function fieldRunning(game)
+  local Runtime = loaded("src.core.game3.runtime")
+  local Field = loaded("src.core.game3.field")
+  return game ~= nil and game.phase == "field" and Runtime ~= nil and Runtime.active == true
+    and Field ~= nil and rawget(Field, "running") == true
+end
+
+function Gen3.world(game)
+  if not fieldRunning(game) then return nil end
+  return require("src.access.nav.gen3.World").facade(game)
+end
+
+-- The player is held by something other than a warp: a message, yes/no
+-- box, menu, fade, help screen, script, lock, step event, ferry or the
+-- fishing rod.  These pause auto-walk (it resumes when the map returns).
+function Gen3.held(game)
+  local Help = loaded("src.ui.game3.help_system")
+  if Help and call(Help.isOpen) then return true end
+  local Hud = loaded("src.ui.game3.hud")
+  if Hud and call(Hud.busy) then return true end
+  local Field = loaded("src.core.game3.field")
+  if Field then
+    if call(Field.isLocked) then return true end
+    if rawget(Field, "_holdInput") == true then return true end
+    if rawget(Field, "_fishing") ~= nil then return true end
+  end
+  local Fade = loaded("src.ui.game3.fade")
+  if Fade and Fade.lockInput then return true end
+  local Space = loaded("src.core.game3.scripting.space")
+  local vm = Space and Space.vm
+  if vm and type(vm.isRunning) == "function" and call(vm.isRunning, vm) then return true end
+  if Space and Space._pendingOnFrame then return true end
+  local StepEvents = loaded("src.core.game3.step_events")
+  if StepEvents and call(StepEvents.busy) then return true end
+  local Seagallop = loaded("src.ui.game3.seagallop")
+  if Seagallop and call(Seagallop.isActive) then return true end
+  local Player = loaded("src.core.game3.player")
+  if Player and (Player.fishing or Player.action) then return true end
+  return false
+end
+
+local function warpBusy()
+  local Warp = loaded("src.core.game3.warp")
+  return Warp ~= nil and call(Warp.isBusy) == true
+end
+
+local function battleActive()
+  local Battle = loaded("src.core.game3.battle") or loaded("src.core.game3.battle.init")
+  if Battle and call(Battle.isActive) then return true end
+  local Transition = loaded("src.core.game3.battle_transition")
+  return Transition ~= nil and call(Transition.isActive) == true
+end
+Gen3.battleActive = battleActive
+
+function Gen3.top(game)
+  if not game then return nil end
+  if battleActive() then return WorldAdapter.GEN3_BATTLE end
+  local world = Gen3.world(game)
+  if not world then return WorldAdapter.BUSY end
+  -- a warp (door, stairs, pad, hole, the walk off an arrival mat) moves the
+  -- player on its own: it is a transition, not a screen, so a walk that
+  -- reaches a door keeps going and sees the new map as its arrival
+  if warpBusy() then return world end
+  if Gen3.held(game) then return WorldAdapter.BUSY end
+  return world
+end
+
+function Gen3.onMap(game)
+  local world = Gen3.world(game)
+  return world ~= nil and Gen3.top(game) == world and not warpBusy()
+end
+
+-- The game moves the player without input: a warp, forced movement (ice,
+-- spinners, currents, walk and slide tiles), a waterfall ride or a
+-- waterfall's push, a scripted step, a surf hop, a boulder push or a field
+-- move's animation.
+function Gen3.transitioning(_world)
+  if warpBusy() then return true end
+  local Forced = loaded("src.core.game3.forced_movement")
+  if Forced and rawget(Forced, "forced") == true then return true end
+  local Player = loaded("src.core.game3.player")
+  if Player then
+    if Player.spinning or Player._scriptedStep or Player.surfHopping
+       or Player.boulderPush or (tonumber(Player.fieldMoveAnim) or 0) > 0 then
+      return true
+    end
+  end
+  local Field = loaded("src.core.game3.field")
+  if Field then
+    if rawget(Field, "_waterfall") then return true end
+    if call(Field.callbackPending) then return true end
+    if call(Field.forcedMovementPending) then return true end
+  end
+  return false
+end
+
+Gen3.isBattle = Gen1.isBattle
+
+-- Player.update polls the D-pad after finishing a step in the same tick
+-- (finishStep emits world.stepped first), so a direction changed inside the
+-- event is read at once, as in Gen 1.
+function Gen3.afterSteer() end
+
+-- Game3:saveGame replaces game.save on every save; the session lives for a
+-- whole play session (a new game or Continue makes a new one).
+function Gen3.identity(game) return game and game.session end
+
+-- Gen 3 persists its options in game.options (Game3:writeOptions).
+function Gen3.options(game)
+  return game and type(game.options) == "table" and game.options or nil
+end
+
+function Gen3.newCoordinator(game, opts)
+  return require("src.access.nav.gen3.Navigation").new(game, opts)
+end
+
 WorldAdapter.gen1 = Gen1
 WorldAdapter.gen2 = Gen2
+WorldAdapter.gen3 = Gen3
 
--- The adapter for the running game's generation, or nil (Gen 3 and the
--- launcher have no navigation).
+-- The adapter for the running game's generation, or nil (the launcher, and
+-- Ruby, Sapphire and Emerald, which are not scoped yet).
 function WorldAdapter.current()
   local gen = generation()
   if gen == 1 then return Gen1 end
   if gen == 2 then return Gen2 end
+  if gen == 3 and fireRed() then return Gen3 end
   return nil
 end
 
