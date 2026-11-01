@@ -20,7 +20,9 @@
 --              return from the party or bag, every side first (your HP
 --              exactly, the enemy's level and HP percentage, status tags;
 --              shiny, gender and the caught marker the first time each
---              Pokémon is summarised).  Queued; cursor moves interrupt.
+--              Pokémon is summarised).  A turn's first menu queues behind
+--              the last line; a menu reopened by a press (the partner's
+--              turn, B back) and cursor moves interrupt.
 --              Safari Zone: "BALL, N left".  The old man's catching demo and
 --              the POKé DUDE drive their own menus: only the prompt is said.
 --   moves      move, type, "PP n of m", position on opening.  The game
