@@ -119,7 +119,7 @@ changes to this layer.
 - Upstream visual tools: palette screen, skin studio, touch controls editor (visual or touch-only editors).
 - Network flows were checked only up to the cable club menu; hosting, joining and Union Room sessions need a second player.
 - Yellow's surfing minigame (needs a design for a timing game).
-- Gen 2 and 3 screens.
+- Gen 2 screens: in progress, see `gold-silver-crystal.md`. Gen 3 screens: not started.
 - Wording and pronunciation (for example "POKéMON") need the owner's playtest.
 
 ## Verification (2026-10-31)
