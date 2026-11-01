@@ -1,8 +1,16 @@
 # Old project inventory: carry over, rewrite, drop
 
-Written 2026-10-31. **This is a proposal for the owner to review. Nothing has
-been copied or moved.** Each item that carries over still gets a file-by-file
-review (provenance, quality, fit with the thin-layer design) at the time it moves.
+Written 2026-10-31. Nothing has been copied or moved.
+
+> **Owner decision, 2026-10-31: fresh code.** All accessibility code is written
+> new. Old code is *reference only*: read it for behaviour and hard-won edge cases
+> (ledges, Cut and other HMs, warps, doors, puzzle rooms), but do not copy it in.
+> The owner's reason: full control, and knowing exactly what works and what
+> breaks. Wherever this document says "carry over" for code (sections 1 to 3
+> below), read "use as reference". Non-code items still carry over: key bindings
+> (reviewed), research notes (re-checked), Prism, and active owner decisions.
+> Exception path: if an old module proves solid on review, reusing it needs a
+> specific owner decision.
 
 ## Source of truth used
 
