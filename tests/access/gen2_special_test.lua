@@ -108,6 +108,14 @@ do
   for _ = 1, 12 do flip:updateFlipping() end
   SR.update(flip)
   eq(last(), "ODDISH level 1. Darn…", "a losing card")
+  flip.played = CardFlip.HANDS_PER_DECK - 1
+  flip:continue()
+  SR.update(flip)
+  eq(last(), "The cards shuffled.", "the twelfth hand reshuffles")
+  game.save.player.coins = 1
+  flip.after()
+  SR.update(flip)
+  eq(last(), "Not enough coins.", "too few coins for a hand")
 end
 
 -- ------------------------------------------------------------ slots
@@ -126,6 +134,12 @@ do
   SR.update(slots)
   eq(last(), "1 coin, middle row", "one coin")
   check(lastInterrupts(), "bet moves interrupt")
+  slots.message = SM.TEXTS.notEnough
+  SR.update(slots)
+  eq(last(), "Not enough coins.", "a refused bet")
+  slots.message = nil
+  SR.update(slots)
+  eq(last(), "1 coin, middle row", "the bet row again once the message closes")
   slots.bet = 3
   slots:startSpin()
   SR.update(slots)

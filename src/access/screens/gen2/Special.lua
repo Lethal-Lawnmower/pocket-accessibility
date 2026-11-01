@@ -308,9 +308,12 @@ Special.cardFlip = {
   poll = function(state, memo, entering)
     local CF = getmetatable(state)
     local phase = state.phase
-    if entering or phase ~= memo.phase then
+    -- one message can follow another without a phase change ("The cards
+    -- shuffled." then "Not enough coins."), so the message table counts too
+    local newMessage = phase == "message" and state.lines ~= memo.lines
+    if entering or phase ~= memo.phase or newMessage then
       local previous = memo.phase
-      memo.phase, memo.choice = phase, state.choice
+      memo.phase, memo.choice, memo.lines = phase, state.choice, state.lines
       memo.cx, memo.cy = state.cursorX, state.cursorY
       local message = cardFlipText(state.lines)
       local text
