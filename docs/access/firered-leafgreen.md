@@ -110,7 +110,7 @@ the Mystery Gift record is never created by reading.
 | Items, party, summary, Pokédex, PC, shop, map | `gen3_items_test.lua` 133/133 (traps `Bag.listPocket`, `Bag.get`, `Storage.ensure`: zero calls). `drivers/gen3_items.lua` in FireRed (identity `pocket-access-items-firered`), six runs, every section reached. Unit tests only: habitat pages, registration after a catch, wallpaper, MOVE in storage, the party level-up window, "can fly". Not reached: TM case and berry pouch from the bag's menu, TAKE, Softboiled, Teachy TV demos, double-battle party, a clerk's script opening the shop. |
 | Special screens | `gen3_special_test.lua` 122/122. `drivers/gen3_special.lua` in FireRed (identity `pocket-access-special-firered`): slots, braille, records, PIN pad, Easy Chat, Day-Care, Hall of Fame PC, diploma, overlays, mod manager, whiteout, credits spoken. Unit tests only: link and Union Room flows, Mystery Gift, minigames, Berry Powder box, fossil picture, VS Seeker, arena. The prize corner list needs the `Top.lua` change below. |
 | End to end (lead, after all merges) | `drivers/gen3_walkthrough.lua` in FireRed: intro, title, navigation greeting, start menu, bag pockets, field dialogue all spoken. |
-| Heard by the owner | Not yet. |
+| Heard by the owner | 2026-11-01: the owner opened FireRed on their own profile and reported "works great" (first try; extent not stated). |
 
 ## Open questions for the owner (agent defaults)
 
