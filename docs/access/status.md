@@ -60,11 +60,14 @@ and recorded in the topic file.
   and covered in the same frame says its change first. The full Crystal
   walkthrough (boot to a won wild battle) speaks every screen. Details:
   `gold-silver-crystal.md`, `battle.md`.
-- **In progress:** navigation for Gen 2 (agent branch; one world adapter for
-  both generations, auto-walk, Strength puzzle help).
-- **Then:** merge navigation, wire H and Shift+H to Gen 2 battle health,
-  run all three games end to end, audit the differences between Gold,
-  Silver and Crystal, and hand to the owner to listen.
+- **Navigation (2026-11-01):** merged. Object list, guided navigation,
+  auto-walk (with the Gen 2 steering-lag fix), journeys, controller, Q time,
+  H and Shift+H battle health, and Strength puzzle help for Ice Path B1F and
+  Blackthorn Gym 2F, run in all three games; Gen 1 regression unchanged.
+  Full walkthroughs re-run after every merge in Crystal, Gold and Silver.
+- **In progress:** the cross-edition audit (agent branch): whole-game label
+  sweep and required story spots in each edition, edition differences.
+- **Then:** merge the audit, hand to the owner to listen (Crystal first).
 - **Open product questions:** listed in `gold-silver-crystal.md`.
 
 ## Open questions for the owner
