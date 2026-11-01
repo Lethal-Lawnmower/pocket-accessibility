@@ -39,25 +39,7 @@ local function join(parts, sep)
   return table.concat(out, sep or ", ")
 end
 
--- Joins sentences with ". ", without doubling the stop when a part already
--- ends in one ("...cheeks." then "PAGE").
-local function sentences(parts)
-  local out = ""
-  for i = 1, table.maxn(parts) do
-    local part = parts[i]
-    if part ~= nil and part ~= "" then
-      part = tostring(part)
-      if out == "" then
-        out = part
-      elseif out:find("[%.!?]$") then
-        out = out .. " " .. part
-      else
-        out = out .. ". " .. part
-      end
-    end
-  end
-  return out
-end
+local sentences = Common.sentences
 
 -- Text whose lines are joined with <NEXT> (dex entries, move descriptions),
 -- read as one sentence with words split across lines rejoined
@@ -74,16 +56,7 @@ local function count(n, singular, plural)
   return string.format("%d %s", n, n == 1 and singular or plural)
 end
 
--- An engine string translated the way the screen translates it
--- (src/core/Strings.lua is an identity function until a translation loads).
-local function tr(source, ...)
-  if source == nil then return nil end
-  local Strings = package.loaded["src.core.Strings"]
-  if Strings == nil then return source end
-  local ok, text = pcall(Strings, source, ...)
-  if ok and type(text) == "string" then return text end
-  return source
-end
+local tr = Common.tr
 
 -- A read-only method of the screen, through pcall.  Nil when it is missing
 -- or fails, so an unreadable value stays silent instead of being guessed.

@@ -27,28 +27,7 @@ local matcher, speakable, position = Common.matcher, Common.speakable, Common.po
 
 -- ------------------------------------------------------------- helpers
 
--- Joins spoken parts into sentences: ". " between parts, or a plain space
--- when the part before already ends in punctuation.  Missing parts (nil)
--- are skipped, so a list may have holes.
-local function sentences(parts)
-  local out, last = "", 0
-  for index in pairs(parts) do
-    if type(index) == "number" and index > last then last = index end
-  end
-  for i = 1, last do
-    local part = parts[i]
-    if part and part ~= "" then
-      if out == "" then
-        out = part
-      elseif out:find("[%.!%?:]$") then
-        out = out .. " " .. part
-      else
-        out = out .. ". " .. part
-      end
-    end
-  end
-  return out
-end
+local sentences = Common.sentences
 Menus.sentences = sentences
 
 local function trim(text)

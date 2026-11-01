@@ -35,21 +35,7 @@ local function classAt(path)
   end
 end
 
--- An engine string as the screens draw it: through src/core/Strings, so a
--- translation catalog applies.  Without the module the English source stands.
-local function tr(source, ...)
-  if source == nil then return nil end
-  local Strings = package.loaded["src.core.Strings"]
-  if Strings then
-    local ok, text = pcall(Strings, source, ...)
-    if ok and type(text) == "string" then return text end
-  end
-  if select("#", ...) > 0 then
-    local ok, text = pcall(string.format, source, ...)
-    if ok then return text end
-  end
-  return source
-end
+local tr = Common.tr
 
 -- The YES / NO box every Gen 2 screen draws as Strings("YES") / Strings("NO").
 local function yesNo(yes)

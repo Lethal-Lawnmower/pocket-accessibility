@@ -89,4 +89,45 @@ function Common.listRow(list)
   return Common.speakable(item.label)
 end
 
+-- An engine string as the screens draw it: through src/core/Strings.lua, so
+-- a translation catalog changes speech the same way it changes the screen.
+-- The English source (formatted with the arguments) when that fails.
+function Common.tr(source, ...)
+  if source == nil then return nil end
+  local Strings = package.loaded["src.core.Strings"]
+  if Strings and Strings.get then
+    local ok, text = pcall(Strings.get, source, ...)
+    if ok and type(text) == "string" then return text end
+  end
+  if select("#", ...) > 0 then
+    local ok, text = pcall(string.format, source, ...)
+    if ok then return text end
+  end
+  return source
+end
+
+-- Joins spoken parts as sentences: ". " between parts, or a plain space when
+-- the part before already ends in punctuation ("How may I help you? BUY").
+-- Takes one list (holes allowed) or the parts as arguments; empty and nil
+-- parts are skipped.
+function Common.sentences(...)
+  local parts = ...
+  if select("#", ...) ~= 1 or type(parts) ~= "table" then parts = { ... } end
+  local out = ""
+  for i = 1, table.maxn(parts) do
+    local part = parts[i]
+    if part ~= nil and part ~= "" then
+      part = tostring(part)
+      if out == "" then
+        out = part
+      elseif out:find("[%.!%?:]$") or out:find("â¦$") then
+        out = out .. " " .. part
+      else
+        out = out .. ". " .. part
+      end
+    end
+  end
+  return out
+end
+
 return Common

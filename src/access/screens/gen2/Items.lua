@@ -27,19 +27,12 @@
 -- the method that draws them (screenLocal below), never copied.
 
 local Common = require("src.access.screens.gen2.Common")
-local Strings = require("src.core.Strings")
 
 local Items = {}
 
 -- ------------------------------------------------------------------ helpers
 
--- The catalog lookup the screens draw through (src/core/Strings.lua), so a
--- translation mod changes speech the same way it changes the screen.
-local function S(source, ...)
-  if source == nil then return nil end
-  local ok, text = pcall(Strings.get, source, ...)
-  return ok and text or source
-end
+local S = Common.tr
 
 local function call(state, method, ...)
   local fn = state and state[method]
@@ -58,24 +51,8 @@ local function nonEmpty(text)
   return text
 end
 
--- Joins spoken parts into sentences: ". " between them unless the previous
--- part already ends a sentence ("How may I help you? BUY, 1 of 3").
-local function sentences(...)
-  local out = ""
-  for i = 1, select("#", ...) do
-    local part = select(i, ...)
-    if type(part) == "string" and part ~= "" then
-      if out == "" then
-        out = part
-      elseif out:find("[%.!?…:]$") then
-        out = out .. " " .. part
-      else
-        out = out .. ". " .. part
-      end
-    end
-  end
-  return nonEmpty(out)
-end
+-- Common.sentences, but nil (silence) rather than "" when nothing is left
+local function sentences(...) return nonEmpty(Common.sentences(...)) end
 Items.sentences = sentences
 
 -- A local table a screen keeps out of reach (`local SUBMENU_LABEL = ...`),
