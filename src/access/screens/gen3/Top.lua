@@ -76,6 +76,35 @@ local function choiceProxy(game)
   return proxy(Choice.done, "choice", { mod = Choice, game = game })
 end
 
+-- The message pages and yes/no already open when a hideBelow == false
+-- layer was first seen on top, per layer record (weak: a closed layer
+-- goes with its record).
+local layerSeen = setmetatable({}, { __mode = "k" })
+
+-- Screens Hud's update_top_menu drives by name rather than through a
+-- layer's handleInput (src/ui/game3/hud.lua).
+local SINGLETON_MENUS = {
+  "src.ui.game3.save_menu", "src.ui.game3.option_menu", "src.ui.game3.trainer_card",
+  "src.ui.game3.pc_menu", "src.ui.game3.shop_menu", "src.ui.game3.bag_menu",
+  "src.ui.game3.region_map", "src.ui.game3.summary_menu", "src.ui.game3.party_menu",
+  "src.ui.game3.pokedex", "src.ui.game3.start_menu",
+}
+
+-- Whether the top layer takes the frame's input (Hud.update_top_menu: a
+-- skin's or the module's handleInput, or one of the named singletons).
+local function ownsInput(layer)
+  local mod = layer.mod
+  if type(mod) ~= "table" then return false end
+  if type(mod.handleInput) == "function" then return true end
+  local Screens = loaded("src.ui.game3.screens")
+  local skin = Screens and call(Screens.skin, layer.id)
+  if type(skin) == "table" and type(skin.handleInput) == "function" then return true end
+  for _, path in ipairs(SINGLETON_MENUS) do
+    if loaded(path) == mod then return true end
+  end
+  return false
+end
+
 local function bootTop(game, layer)
   if layer and layer.id == "naming" then
     return proxy(layer, "naming", { layer = layer, mod = layer.mod, game = game })
@@ -102,8 +131,17 @@ local function bootTop(game, layer)
   return nil
 end
 
+-- The ACCESSIBILITY page in Gen 3's OPTION screen wraps OptionMenu.show
+-- once that module has loaded (src/access/Settings.lua); the game loads it
+-- with its HUD, long before the player can open OPTION.
+local optionsWrapped = false
+
 function Top.resolve(game)
   if type(game) ~= "table" or game.phase == "arena" then return nil end
+  if not optionsWrapped then
+    local Settings = loaded("src.access.Settings")
+    optionsWrapped = Settings ~= nil and Settings.installGen3 ~= nil and Settings.installGen3() == true
+  end
   local Help = loaded("src.ui.game3.help_system")
   local helpToken = edge("help", Help ~= nil and Help.open == true)
   if helpToken then return proxy(helpToken, "help", { mod = Help, game = game }) end
@@ -123,11 +161,30 @@ function Top.resolve(game)
     local top = proxy(layer, kindOf(layer.id), { layer = layer, mod = layer.mod, game = game })
     -- A layer that leaves what is under it visible (hideBelow false, such
     -- as a script's floor list) can have the field's message and yes/no
-    -- over it; never under the PC or box storage, which hide both.
+    -- drawn with it; never under the PC or box storage, which hide both.
     local covered = Stack and (call(Stack.has, "pc_menu") or call(Stack.has, "box_storage"))
     if layer.hideBelow == false and not covered then
-      if choice then return choice, message end
-      if message then return message end
+      -- These layers usually open over a message that stays on screen
+      -- (the elevator's "Which floor?", the prize corner's greeting), and
+      -- Hud.update gives the input to the top layer whenever it takes
+      -- input (update_top_menu).  So the layer is the screen and that
+      -- older message is said first if it never was; a message or yes/no
+      -- that opened after the layer (a confirmation its script shows) is
+      -- the screen until it closes.  A layer that takes no input leaves
+      -- the message and yes/no in charge.
+      local seen = layerSeen[layer]
+      if not seen then
+        seen = { pages = message and message.key or false, choice = choice and choice.key or false }
+        layerSeen[layer] = seen
+      end
+      if not ownsInput(layer) then
+        if choice then return choice, message end
+        if message then return message end
+        return top
+      end
+      if choice and choice.key ~= seen.choice then return choice, message end
+      if message and message.key ~= seen.pages then return message end
+      return top, message
     end
     return top
   end
@@ -160,7 +217,10 @@ function Top.ambient(game)
   return list
 end
 
+-- For presenter modules: proxy(key, kind, fields) and edge(kind, on), the
+-- per-opening token for a screen that is only a flag on a singleton.
 Top._proxy = proxy
 Top._edge = edge
+Top.edge = edge
 
 return Top

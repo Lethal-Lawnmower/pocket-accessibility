@@ -10,10 +10,15 @@
 -- same row vocabulary (`value`, `step`, group rows with `activate`), so the
 -- same page is added there too (decision 27).
 --
+-- Gen 3 has a third OPTION screen (src/ui/game3/option_menu.lua) that keeps
+-- its pages inside one module; the page is added to it by wrapping
+-- OptionMenu.show (Settings.installGen3).
+--
 -- Values live in the options table the game persists, which keeps unknown
--- keys: Gen 1's save.options (SaveData.mergeOptions) and Gen 2's
--- game.options (stored under options.lua's `gold` block by
--- src/core/gen2/Save.lua), so each generation keeps its own choice:
+-- keys: Gen 1's save.options (SaveData.mergeOptions), Gen 2's game.options
+-- (stored under options.lua's `gold` block by src/core/gen2/Save.lua) and
+-- Gen 3's cartridge options block (`firered`, inside game.options), so each
+-- generation keeps its own choice:
 --   accessAutoWalkSpeed  nil = the game's own speed, else a GameSpeed level
 --   accessDialogue       nil = page by page (chunk as shown), "whole" = all
 --                        of a dialogue box at once
@@ -24,12 +29,34 @@ local Settings = {}
 
 local GameVersion = require("src.core.GameVersion")
 
+-- Gen 3's game.options is the root of the shared options.lua, the same
+-- table Gen 1 reads as save.options, so its keys would be shared with Red
+-- and Blue.  FireRed keeps its cartridge options in a block of that table
+-- named by the profile (`firered`; LeafGreen shares it,
+-- src/core/game3/options.lua), and ours go there too.  Read as a plain
+-- field: Options.block would create the block and skip the game's own
+-- migration of old root keys.  The block exists once a game session has
+-- bound its options, which is before the OPTION screen can open; until
+-- then nothing is stored and the defaults apply.
+local function gen3Options(game)
+  local root = type(game.options) == "table" and game.options or nil
+  if not root then return nil end
+  local id = "firered"
+  local Profile = package.loaded["src.core.game3.profile"]
+  if Profile and type(Profile.active) == "function" then
+    local ok, row = pcall(Profile.active)
+    if ok and type(row) == "table" and type(row.optionsBlock) == "string" then id = row.optionsBlock end
+  end
+  local block = root[id]
+  return type(block) == "table" and block or nil
+end
+
 local function options(game)
   if not game then return {} end
-  -- Gen 2's OPTION screen edits game.options in place (Game2:showOptions);
-  -- Gen 3 keeps its persisted options there too (Game3.lua)
   local generation = GameVersion.generation()
-  if (generation == 2 or generation == 3) and type(game.options) == "table" then return game.options end
+  -- Gen 2's OPTION screen edits game.options in place (Game2:showOptions)
+  if generation == 2 and type(game.options) == "table" then return game.options end
+  if generation == 3 then return gen3Options(game) or {} end
   return game.save and game.save.options or {}
 end
 
@@ -109,7 +136,68 @@ local function wrap(path, isPage, openPage)
   end
 end
 
+-- Gen 3 (FireRed, LeafGreen): src/ui/game3/option_menu.lua is a singleton
+-- that keeps its pages inside itself (`_pages`, each { title, rows, index,
+-- scroll }; rows get the screen's ctx { session, game, options }).  Each
+-- OptionMenu.show builds a fresh top page; right after it, our group row
+-- goes first on that page and opens a page shaped like the screen's own
+-- pushPage.  The rows take the game from ctx (the screen persists them
+-- with game:writeOptions after a step).  Wrapped only once the module has
+-- loaded (the Gen 3 HUD loads it), so other games never load Gen 3 code;
+-- returns true once wrapped.
+local function gen3Game(ctx)
+  if type(ctx) == "table" and type(ctx.game) == "table" then return ctx.game end
+  local CurrentGame = package.loaded["src.access.CurrentGame"]
+  return CurrentGame and CurrentGame.get() or nil
+end
+
+function Settings.gen3Rows()
+  local rows = {}
+  for i, row in ipairs(Settings.rows()) do
+    rows[i] = {
+      id = row.id, label = row.label,
+      value = function(ctx) return row.value(gen3Game(ctx)) end,
+      step = function(ctx, dir) return row.step(gen3Game(ctx), dir) end,
+    }
+  end
+  return rows
+end
+
+local GEN3_OPTIONS = "src.ui.game3.option_menu"
+
+local function addGen3Page(OptionMenu)
+  local pages = OptionMenu._pages
+  if not (OptionMenu.open and type(pages) == "table" and #pages == 1) then return end
+  local rows = type(pages[1]) == "table" and pages[1].rows
+  if type(rows) ~= "table" or (rows[1] and rows[1].id == "group.accessibility") then return end
+  local pageRows = Settings.gen3Rows()
+  table.insert(rows, 1, {
+    id = "group.accessibility", label = "ACCESSIBILITY", group = true,
+    value = function() return #pageRows .. " OPTIONS" end,
+    activate = function()
+      local open = OptionMenu._pages
+      if type(open) ~= "table" then return end
+      open[#open + 1] = { title = "ACCESSIBILITY", rows = pageRows, index = 1, scroll = 0 }
+    end,
+  })
+end
+
+function Settings.installGen3()
+  if installed[GEN3_OPTIONS] then return true end
+  local OptionMenu = package.loaded[GEN3_OPTIONS]
+  if type(OptionMenu) ~= "table" or type(OptionMenu.show) ~= "function" then return false end
+  installed[GEN3_OPTIONS] = true
+  local originalShow = OptionMenu.show
+  OptionMenu.show = function(...)
+    local result = originalShow(...)
+    addGen3Page(OptionMenu)
+    return result
+  end
+  return true
+end
+
 function Settings.install()
+  Settings.installGen3()
   -- Gen 1: a group page is OptionsMenu.new(game, { rows = ... })
   wrap("src.ui.OptionsMenu",
     function(_, opts) return opts and opts.rows ~= nil end,
