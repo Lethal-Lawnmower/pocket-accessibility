@@ -22,6 +22,10 @@ eq(Common.typerText(screen, memo), nil, "same page not repeated")
 screen.typer.page = { "Shall I heal your", "POKéMON?" }
 eq(Common.typerText(screen, memo), "Shall I heal your POKéMON?", "next page spoken")
 eq(Common.typerText({}, {}), nil, "no typer, nothing")
+screen.typer.page = { "POKéMON?", "We'll need your" }
+Common.typerText(screen, memo)
+screen.typer.page = { "We'll need your", "POKéMON for a while." }
+eq(Common.typerText(screen, memo), "POKéMON for a while.", "scrolled page drops the repeated line")
 
 eq(Common.listRow({ index = 2, items = { { label = "CONTINUE" }, { label = "NEW GAME" } } }), "NEW GAME", "list row")
 eq(Common.listRow({ index = 3, items = {} }), nil, "missing row is silent")

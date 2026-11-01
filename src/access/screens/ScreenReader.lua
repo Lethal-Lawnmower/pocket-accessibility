@@ -60,13 +60,30 @@ local function speakCovered(top)
   return spoke
 end
 
+-- A screen can change and be covered in the same frame: Gen 2's box screen
+-- sets "Release PKMN?" and pushes the Yes/No box at once.  A presenter may
+-- provide covered(state, memo) -> text for that case; it is asked when the
+-- screen it handles was on top last frame and now sits right under the new
+-- top, and its text is said before the new top, which queues behind it.
+local function speakChangedUnder(previous, previousPresenter, top)
+  if not (previous and previousPresenter and previousPresenter.covered and memos[previous]) then return false end
+  local stack = stackModule or package.loaded["src.core.StateStack"]
+  local states = stack and stack.states
+  if type(states) ~= "table" or states[#states] ~= top or states[#states - 1] ~= previous then return false end
+  local text = previousPresenter.covered(previous, memos[previous])
+  if not text then return false end
+  Speech.say(text, { interrupt = true, screen = true })
+  return true
+end
+
 -- `top` is injectable for tests; the game passes nothing.
 function ScreenReader.update(top)
   local state = top or topState()
   if state ~= lastState then
-    local previous = lastState
+    local previous, previousPresenter = lastState, lastPresenter
     lastPresenter = Presenters.find(state)
     local queued = lastPresenter and previous ~= nil and speakCovered(state)
+    if lastPresenter and speakChangedUnder(previous, previousPresenter, state) then queued = true end
     if lastPresenter then poll(state, true, nil, queued) end
     lastState = state
     return

@@ -123,6 +123,36 @@ ScreenReader.update(nickname)
 eq(last().text, "Give a nickname to TOGEPI?", "a new question on the same path is spoken")
 eq(Presenters.speakable("a cute #MON"), "a cute POKéMON", "# is POKé")
 
+-- A screen that changes and is covered in the same frame (Gen 2's box
+-- screen: "Release PKMN?" plus the Yes/No box) says its change first through
+-- its presenter's covered(), and the new top queues behind it.
+reset()
+do
+  local Holder = {}
+  Holder.__index = Holder
+  local holderPresenter = {
+    matches = function(s) return getmetatable(s) == Holder end,
+    poll = function(s, memo) if memo.msg ~= s.message then memo.msg = s.message return s.message, true end end,
+    covered = function(s, memo) if s.message ~= memo.msg then memo.msg = s.message return s.message end end,
+  }
+  table.insert(Presenters.ordered, 1, holderPresenter)
+  local StateStack = package.loaded["src.core.StateStack"] or {}
+  package.loaded["src.core.StateStack"] = StateStack
+  local holder = setmetatable({ message = "BOX1" }, Holder)
+  StateStack.states = { holder }
+  ScreenReader.update()
+  eq(last().text, "BOX1", "holder spoken")
+  holder.message = "Release PKMN?"
+  local yesNo = setmetatable({ index = 2, labels = { "YES", "NO" } }, ChoiceBox)
+  StateStack.states = { holder, yesNo }
+  ScreenReader.update()
+  eq(spoken[#spoken - 1].text, "Release PKMN?", "covered screen's new message said first")
+  eq(last().text, "NO", "the Yes/No selection follows")
+  eq(last().interrupt, false, "and queues behind the question")
+  table.remove(Presenters.ordered, 1)
+  StateStack.states = nil
+end
+
 -- Menu: position on entry and on return, label only while moving.
 reset()
 local menu = setmetatable({ index = 1, items = { { label = "POKéDEX" }, { label = "POKéMON" },

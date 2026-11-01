@@ -48,6 +48,15 @@ share the `gs` engine; Crystal is `crystal`.
 | Elevator (`ElevatorMenu`) | "Elevator. Now on <floor>", floor, position | Floor; "current floor" |
 | Bank of Mom (`BankOfMom`) | Saved, held, the amount, the digit | Amount; digit and value |
 | Evolution, egg hatching (`EvolutionAnim`, `EggHatchAnim`) | Each message, queued; "Press B to stop the evolution." when it can be stopped; "Egg hatching." | Next message |
+| Pack (`PackMenu`, also held by marts and the item PC) | "<pocket> pocket", item (TM: number and move), quantity, position, description | Item and description; pocket change repeats pocket and position; sub-menu; quantity ("Throw away how many? Quantity 1, up to 3"); YES/NO; each message page |
+| Mart (`MartMenu`) | Clerk line, BUY/SELL/QUIT, position; the buy list adds money, price and description | Item and price; amount, total and maximum; confirm pages, then YES/NO; new money after a sale or purchase; SELL reads the held pack |
+| Pokémon Center PC (`CenterPcMenu`) | Turn-on message, "Access whose PC?", row, position | Row; messages; OAK's PC YES/NO |
+| Bill's PC (`PcMenu`) | "What?", row, position | Row; "Which BOX?", box name, "N of 20 POKéMON"; CHANGE BOX save pages and YES/NO; notices |
+| Boxes (`BoxMenu`) | Box or party name, prompt, Pokémon (nickname, level, gender, species if nicknamed, held item or mail), position | Pokémon; box; "What's up?" sub-menu; MOVE: "Move to where?", destination, "before <Pokémon>" or "empty"; messages; "Release PKMN?" said before its YES/NO |
+| Item PC (`ItemPcMenu`) | "What do you want to do?", row, position | List with the chosen row as context; quantity; YES/NO; messages; DEPOSIT reads the held pack; "moving <item>" for SELECT |
+| GIVE/TAKE (`HeldItemMenu`) | Pokémon, GIVE, position | Row; messages; swap question and YES/NO |
+| Move lists (`MoveDeleter`) | Move, PP (deleter and PP pick) or name only (forget list, as drawn), position | Move |
+| Move tutor (`MoveTutor`, Crystal) | "Teach which PKMN?", Pokémon, level, ABLE or NOT ABLE, position (reads its held party list) | Row |
 | Party (`PartyMenu`) | The prompt as drawn, the row (nickname, species when different, level, HP, status, "holding an item" or "holding mail"), position (CANCEL counts) | Row; sub-menu label (with position when it opens); SWITCH says "Move to where?" plus the row; after a switch the Pokémon now under the cursor; "able" or "not able" from the screen's own TM check; item messages once the HP bar stops |
 | Summary (`SummaryMenu`) | Nickname, species, number, level, gender, shiny; the page; "page N of 3" | Page; Pokémon switch; move screen: move, PP, type, power, position, description; reorder ("<move>. Where?", then the moved move); egg page |
 | Pokédex (`PokedexMenu`) | "Pokédex", mode, seen and owned, row, position (unseen rows say "unknown") | Row; entry: name, kind, number, height and weight once caught, the action under the arrow, the description; page 2; AREA ("<NAME>'S NEST", region, nest landmarks or "none"); OPTION, SEARCH (rows, values, results), UNOWN MODE (letter and word) |
@@ -72,6 +81,11 @@ share the `gs` engine; Crystal is `crystal`.
 | Hall of Fame (`HallOfFame`) | Induction: each member and the player card, queued; PC viewer: header, member, position | Member; header on a new team |
 | Credits (`Credits`) | (each screen) | Each screen's lines, queued; THE END |
 | Union Room list, Gen 2 battle and trade prep, arena (`union/List`, `Gen2BattlePrep`, `Gen2TradePrep`, `ArenaState`) | As Gen 1's link screens | (as Gen 1) |
+
+A screen that changes and is covered in the same frame (the box screen's
+release question with its YES/NO) says the change first: its presenter's
+`covered()` is asked by `ScreenReader`, and the new top queues behind it. A
+scrolled (`cont`) message page says only its new line (`Common.typerText`).
 
 Silent on purpose: `OakSpeech` (its own text repeats the dialogue page
 already spoken), `MenuFade`, `BlankScreen`. The yes/no fallback that
@@ -99,6 +113,7 @@ game state: the radio is read from the screen's record (never through
 | Info screens | `gen2_info_test.lua` 106/106. `drivers/gen2_info.lua` run in Crystal, Gold and Silver (identities `pocket-access-info-<game>`): every section reached and spoken. Not run: Softboiled target mode, the battle party list, phone DELETE, out-of-area calls, Buena's Password station, Kanto on the map and AREA screens, the dex PRNT action. |
 | Special screens and minigames | `gen2_special_test.lua` 135/135 (checks that `Mail.lines`, `Mail.mailbox` are never called and decorations are never created by reading). `drivers/gen2_special.lua` run in Crystal, Gold and Silver (identities `pocket-access-special-<game>`): every screen reached. The driver forces some state (party, coins, decorations, mail, a Hall of Fame team, the first spin's reels); the contest, Battle Tower, Buena, mail and Union list screens were opened directly, not through their scripts. Unit tests only: some slot tells, Gen 2 Union prep (needs a second player), the arena failure message. |
 | Menus and boot | `gen2_menus_test.lua` 122/122. `drivers/gen2_menus.lua` traced Crystal (three runs), Gold and Silver (identities `pocket-access-menus-<game>`); Gold's vending step not reached in that run (traced in the other two). The vending, elevator and Bank of Mom scripts were started by key; evolution and the egg were pushed directly. Re-run in Crystal after the lead's shared fixes: Mom's line says "cute POKéMON", and the re-shown yes/no question is said once, then "YES". Unit tests only: contest status, coin boxes, grid script menus. |
+| Items and PCs | `gen2_items_test.lua` 110/110. `drivers/gen2_items.lua` traced Crystal (173 utterances), Gold and Silver (identities `pocket-access-items-<game>`); the tutor is Crystal only. Re-run in Crystal after the lead's covered-screen hook: "Release PKMN?", then "NO". Not run: the pack in battle, bargain and herb shops, the bedroom PC, OAK's PC and HALL OF FAME rows, the swap question, the World-driven Blackthorn deleter (pushed directly). |
 | Heard by the owner | Not yet. |
 
 ## Open questions for the owner
@@ -107,6 +122,9 @@ game state: the radio is read from the screen's record (never through
   names on the Johto badge flags (with only BOULDER earned it shows
   BOULDER and CASCADE). Speech copies the screen. Keep matching the screen,
   or read the save's Kanto badges?
+- Item wording (agent choices): descriptions follow the row on every move;
+  ABLE and NOT ABLE in capitals as printed (Gen 1 says "able"); "moving
+  <item>"; "PKMN", "W/O MAIL" and "(S)" are the screens' own text.
 - Boot and menu wording (agent choices): boot lines repeat on every attract
   loop; "Press B to stop the evolution."; "Egg hatching."; "A to continue,
   B to go back" on the CONTINUE panel.
@@ -134,6 +152,8 @@ game state: the radio is read from the screen's record (never through
   straight after a reorder is lost.
 - The radio card's draw tunes the radio and starts its music as soon as
   RADIO is highlighted, before A.
+- The item PC's "Item Storage System opened." breaks across two pages.
+- MoveDeleter draws a missing PP as "00" (speech says the maximum instead).
 - Naming keyboard deletes bytes, not characters, so DEL leaves half of é,
   ×, ♂ or ♀, and those count double toward the length limit (source read).
 - Field-move yes/no prompts (Cut, Headbutt, Fly) need an extra A press to

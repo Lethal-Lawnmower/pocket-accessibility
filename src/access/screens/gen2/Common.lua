@@ -61,14 +61,22 @@ end
 -- the current page's lines after substitution, replaced by a new table on
 -- each page.  Returns the page as one sentence the first time a page table
 -- is seen (memo[key] holds the last one), else nil.  The page is spoken
--- whole as soon as typing starts, like a TextBox chunk.
+-- whole as soon as typing starts, like a TextBox chunk.  A scrolled
+-- (`cont`) page repeats the previous page's last line as its first; that
+-- line is not said again.
 function Common.typerText(state, memo, key)
   key = key or "typerPage"
   local typer = state and state.typer
   local page = typer and typer.page
   if type(page) ~= "table" or page == memo[key] then return nil end
   memo[key] = page
-  local text = Common.lines(page)
+  local lastKey = key .. "LastLine"
+  local first = 1
+  if #page > 1 and page[1] == memo[lastKey] then first = 2 end
+  memo[lastKey] = page[#page]
+  local lines = {}
+  for i = first, #page do lines[#lines + 1] = page[i] end
+  local text = Common.lines(lines)
   if text == "" then return nil end
   return text
 end
