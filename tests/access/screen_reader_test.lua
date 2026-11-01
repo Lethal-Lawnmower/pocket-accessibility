@@ -104,6 +104,25 @@ split.lineIndex = 4
 ScreenReader.update(split)
 eq(last().text, "POKéMON.", "speech resumes with the next unspoken line")
 
+-- Gen 2's yes/no fallback re-shows the question just spoken in a new
+-- instant box with a choice: it stays quiet.  A new question on that path
+-- (the egg's nickname prompt) is spoken.
+reset()
+local asked = setmetatable({ pageIndex = 1, lineIndex = 2,
+  pages = { { "Would you like to", "test the prompt?" } } }, TextBox)
+ScreenReader.update(asked)
+eq(last().text, "Would you like to test the prompt?", "question spoken")
+local count = #spoken
+local reshown = setmetatable({ pageIndex = 1, lineIndex = 2, instant = true, choice = function() end,
+  pages = { { "Would you like to", "test the prompt?" } } }, TextBox)
+ScreenReader.update(reshown)
+eq(#spoken, count, "re-shown question is not repeated")
+local nickname = setmetatable({ pageIndex = 1, lineIndex = 2, instant = true, choice = function() end,
+  pages = { { "Give a nickname to", "TOGEPI?" } } }, TextBox)
+ScreenReader.update(nickname)
+eq(last().text, "Give a nickname to TOGEPI?", "a new question on the same path is spoken")
+eq(Presenters.speakable("a cute #MON"), "a cute POKéMON", "# is POKé")
+
 -- Menu: position on entry and on return, label only while moving.
 reset()
 local menu = setmetatable({ index = 1, items = { { label = "POKéDEX" }, { label = "POKéMON" },

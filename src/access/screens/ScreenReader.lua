@@ -76,6 +76,7 @@ end
 
 function ScreenReader._resetForTests()
   lastState, lastPresenter, stackModule = nil, nil, nil
+  Presenters.textBox.reset()
   memos = setmetatable({}, { __mode = "k" })
 end
 

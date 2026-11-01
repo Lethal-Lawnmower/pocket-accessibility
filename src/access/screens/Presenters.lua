@@ -39,6 +39,10 @@ end
 local function speakable(text)
   text = tostring(text or "")
   text = text:gsub("<PK>", "PK"):gsub("<MN>", "MN")
+  -- '#' is the POKé text command (src/render/Font.lua MACRO_TEXT); extracted
+  -- text has it expanded, but hand-written upstream strings ("cute #MON")
+  -- still carry it
+  text = text:gsub("#", "POKé")
   -- a line ending in a space plus the joining space would read as a pause
   return (text:gsub("%s*\n%s*", " "):gsub("  +", " "))
 end
@@ -49,6 +53,7 @@ Presenters.speakable = speakable
 local function splitWord(line, nextLine)
   return tostring(line):find("%a%-$") ~= nil and tostring(nextLine or ""):find("^%l") ~= nil
 end
+Presenters.splitWord = splitWord
 
 -- Joins a page's lines into one sentence.  A split word is joined back
 -- without the hyphen, so it reads as one word ("grandson", "creatures");
@@ -103,9 +108,26 @@ Presenters.rowText = rowText
 -- memo.through is the last line already spoken on memo.page, so nothing is
 -- said twice: a Yes/No box closing over the page stays quiet, and an
 -- instant box (lineIndex already at the end) speaks its whole page at once.
+-- The last page of the last box whose final line was spoken.  Gen 2's
+-- yes/no fallback (src/world/gen2/World.lua askYesNo) pushes a new instant
+-- box re-showing the question just read, with the choice attached; that box
+-- stays quiet so the YES/NO selection is what speaks.  A new question on the
+-- same path (the egg's nickname prompt) differs and is spoken.
+local lastPageSpoken = nil
+
 Presenters.textBox = {
   matches = matcher("src.render.TextBox"),
+  reset = function() lastPageSpoken = nil end,
   poll = function(state, memo)
+    if not memo.reshowChecked then
+      memo.reshowChecked = true
+      local pages = state.pages
+      local last = state.instant and state.choice and type(pages) == "table" and pages[#pages]
+      if type(last) == "table" and #last > 0 and joinLines(last) == lastPageSpoken then
+        memo.page, memo.through, memo.whole = state.pageIndex, #last, true
+        return nil
+      end
+    end
     local pageIndex = state.pageIndex
     if memo.page ~= pageIndex then
       memo.page, memo.through = pageIndex, 0
@@ -120,6 +142,8 @@ Presenters.textBox = {
         if type(page) == "table" and #page > 0 then parts[#parts + 1] = joinLines(page, 1, #page) end
       end
       if #parts == 0 then return nil end
+      local last = state.pages[#state.pages]
+      if type(last) == "table" then lastPageSpoken = joinLines(last) end
       return speakable(table.concat(parts, " ")), true
     end
     local lines = state.pages and state.pages[pageIndex]
@@ -137,6 +161,7 @@ Presenters.textBox = {
     end
     local first = memo.through + 1
     memo.through = last
+    if last == #lines and pageIndex == #state.pages then lastPageSpoken = joinLines(lines) end
     return speakable(joinLines(lines, first, last)), true
   end,
 }

@@ -35,6 +35,19 @@ share the `gs` engine; Crystal is `crystal`.
 
 | Screen (`src/ui/gen2/` class) | On entry or return | On change |
 |---|---|---|
+| Copyright, GAME FREAK and intro cards (`CopyrightSplash`, `GameFreakPresents`, `CrystalSplash`, `GoldSilverIntro`, `CrystalIntro`) | One line per card, queued ("GAME FREAK presents.", "Intro. Press start to skip."); the cards are images, so the copyright years are not spoken | (once) |
+| Title (`TitleState`) | "POKéMON <edition> Version. Copyright GAME FREAK inc. Press start." once the entrance lands; the edition comes from the imported game | (once) |
+| Main menu (`MainMenu`) | "Main menu", row, position, weekday and time | Row; CONTINUE panel: name, badges, Pokédex, time, "A to continue, B to go back" |
+| Clock and day wheel (`InitClock`) | The question page, the value, YES/NO | Value; YES/NO; a scrolled page says only its new line |
+| Gender (`GenderSelect`, Crystal), name choice (`NamePick`) | Question, then "Boy, 1 of 2" (queued); "Name. NEW NAME, 1 of 5" | Row |
+| Naming keyboard (`NamingScreen`) | Prompt (and the Pokémon for a nickname), name so far, cell | As Gen 1; bottom targets "lower case" or "UPPER CASE", "delete", "end, confirm name" |
+| Start menu (`StartMenu`) | "Start menu", contest status, row, position, description (with MENU ACCOUNT on) | Row and description; QUIT prompt and YES/NO |
+| Options (`OptionsMenu`) and group pages | "Options" or the group row's name, label, value, position (BACK counts) | Value only on the same row |
+| Save (`SaveMenu`) | "Save", name, badges, Pokédex, time, the question, YES/NO (queued) | Overwrite question; saving and saved lines, queued |
+| Script menus (`ScriptMenu`) | Item (with price), position, columns for a grid, money or coins | Item |
+| Elevator (`ElevatorMenu`) | "Elevator. Now on <floor>", floor, position | Floor; "current floor" |
+| Bank of Mom (`BankOfMom`) | Saved, held, the amount, the digit | Amount; digit and value |
+| Evolution, egg hatching (`EvolutionAnim`, `EggHatchAnim`) | Each message, queued; "Press B to stop the evolution." when it can be stopped; "Egg hatching." | Next message |
 | Party (`PartyMenu`) | The prompt as drawn, the row (nickname, species when different, level, HP, status, "holding an item" or "holding mail"), position (CANCEL counts) | Row; sub-menu label (with position when it opens); SWITCH says "Move to where?" plus the row; after a switch the Pokémon now under the cursor; "able" or "not able" from the screen's own TM check; item messages once the HP bar stops |
 | Summary (`SummaryMenu`) | Nickname, species, number, level, gender, shiny; the page; "page N of 3" | Page; Pokémon switch; move screen: move, PP, type, power, position, description; reorder ("<move>. Where?", then the moved move); egg page |
 | Pokédex (`PokedexMenu`) | "Pokédex", mode, seen and owned, row, position (unseen rows say "unknown") | Row; entry: name, kind, number, height and weight once caught, the action under the arrow, the description; page 2; AREA ("<NAME>'S NEST", region, nest landmarks or "none"); OPTION, SEARCH (rows, values, results), UNOWN MODE (letter and word) |
@@ -60,6 +73,12 @@ share the `gs` engine; Crystal is `crystal`.
 | Credits (`Credits`) | (each screen) | Each screen's lines, queued; THE END |
 | Union Room list, Gen 2 battle and trade prep, arena (`union/List`, `Gen2BattlePrep`, `Gen2TradePrep`, `ArenaState`) | As Gen 1's link screens | (as Gen 1) |
 
+Silent on purpose: `OakSpeech` (its own text repeats the dialogue page
+already spoken), `MenuFade`, `BlankScreen`. The yes/no fallback that
+re-shows an already spoken question in a new instant box (field moves, Fly)
+stays quiet so the selection speaks next (`Presenters.textBox`; Gen 1 never
+takes that path).
+
 Rows follow what the screen draws: the party list draws no gender, and its
 held item is only an icon, so speech says "holding an item" without naming
 it. A missing PP count means full; only an explicit 0 is said as 0. Radio
@@ -79,6 +98,7 @@ game state: the radio is read from the screen's record (never through
 | Baseline (2026-11-01) | Game run, Crystal and Gold, new game to a wild battle (`drivers/gen2_walkthrough.lua`): only TextBox dialogue spoke before this work. |
 | Info screens | `gen2_info_test.lua` 106/106. `drivers/gen2_info.lua` run in Crystal, Gold and Silver (identities `pocket-access-info-<game>`): every section reached and spoken. Not run: Softboiled target mode, the battle party list, phone DELETE, out-of-area calls, Buena's Password station, Kanto on the map and AREA screens, the dex PRNT action. |
 | Special screens and minigames | `gen2_special_test.lua` 135/135 (checks that `Mail.lines`, `Mail.mailbox` are never called and decorations are never created by reading). `drivers/gen2_special.lua` run in Crystal, Gold and Silver (identities `pocket-access-special-<game>`): every screen reached. The driver forces some state (party, coins, decorations, mail, a Hall of Fame team, the first spin's reels); the contest, Battle Tower, Buena, mail and Union list screens were opened directly, not through their scripts. Unit tests only: some slot tells, Gen 2 Union prep (needs a second player), the arena failure message. |
+| Menus and boot | `gen2_menus_test.lua` 122/122. `drivers/gen2_menus.lua` traced Crystal (three runs), Gold and Silver (identities `pocket-access-menus-<game>`); Gold's vending step not reached in that run (traced in the other two). The vending, elevator and Bank of Mom scripts were started by key; evolution and the egg were pushed directly. Re-run in Crystal after the lead's shared fixes: Mom's line says "cute POKéMON", and the re-shown yes/no question is said once, then "YES". Unit tests only: contest status, coin boxes, grid script menus. |
 | Heard by the owner | Not yet. |
 
 ## Open questions for the owner
@@ -87,6 +107,9 @@ game state: the radio is read from the screen's record (never through
   names on the Johto badge flags (with only BOULDER earned it shows
   BOULDER and CASCADE). Speech copies the screen. Keep matching the screen,
   or read the save's Kanto badges?
+- Boot and menu wording (agent choices): boot lines repeat on every attract
+  loop; "Press B to stop the evolution."; "Egg hatching."; "A to continue,
+  B to go back" on the CONTINUE panel.
 - Minigame defaults (agent recommendations): the Unown puzzle names
   pieces by number and never says where a piece belongs; Card Flip says
   only what a sighted player sees (squares, payouts, cards played), no
@@ -111,6 +134,11 @@ game state: the radio is read from the screen's record (never through
   straight after a reorder is lost.
 - The radio card's draw tunes the radio and starts its music as soon as
   RADIO is highlighted, before A.
+- Naming keyboard deletes bytes, not characters, so DEL leaves half of é,
+  ×, ♂ or ♀, and those count double toward the length limit (source read).
+- Field-move yes/no prompts (Cut, Headbutt, Fly) need an extra A press to
+  close the question before the YES/NO box opens with the question
+  re-shown; on the cartridge the box opens straight over the question.
 - Mail keyboard: `<PK>`, `<MN>`, `<PO>`, `<KE>` are appended as
   multi-character strings but counted by bytes, so one token counts as 4
   letters and DEL leaves `<PK` (reproduced headless with the real class).
