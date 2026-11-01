@@ -445,6 +445,9 @@ end
 for _, presenter in ipairs(require("src.access.screens.gen2").ordered) do
   Presenters.ordered[#Presenters.ordered + 1] = presenter
 end
+for _, presenter in ipairs(require("src.access.screens.gen3").ordered) do
+  Presenters.ordered[#Presenters.ordered + 1] = presenter
+end
 Presenters.ordered[#Presenters.ordered + 1] = require("src.access.screens.Overworld").presenter
 
 function Presenters.find(state)

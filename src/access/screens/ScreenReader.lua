@@ -21,7 +21,19 @@ local lastPresenter = nil  -- its presenter, cached so matching runs once per sc
 local memos = setmetatable({}, { __mode = "k" })
 
 local stackModule = nil
+
+-- Gen 3 keeps no StateStack: its screen comes from the running game through
+-- gen3/Top.lua, as a proxy per opening, plus a dialogue page it covers.
+local function gen3Game()
+  local CurrentGame = package.loaded["src.access.CurrentGame"]
+  local game = CurrentGame and CurrentGame.get()
+  if type(game) == "table" and game.generation == 3 then return game end
+  return nil
+end
+
 local function topState()
+  local game = gen3Game()
+  if game then return require("src.access.screens.gen3.Top").resolve(game) end
   stackModule = stackModule or package.loaded["src.core.StateStack"]
   if not (stackModule and stackModule.states) then return nil end
   return stackModule.states[#stackModule.states]
@@ -76,19 +88,41 @@ local function speakChangedUnder(previous, previousPresenter, top)
   return true
 end
 
+-- Gen 3: a dialogue page under the new top (the question under a yes/no
+-- box), said first if it was never spoken; the top then queues behind it.
+local function speakGen3Covered(covered)
+  if covered == nil or memos[covered] then return false end
+  local presenter = Presenters.find(covered)
+  return presenter ~= nil and poll(covered, true, presenter) or false
+end
+
+-- Gen 3 overlays that take no input (the map name popup and similar) are
+-- polled every frame beside the top, and queue rather than interrupt.
+local function pollGen3Ambient()
+  local game = gen3Game()
+  if not game then return end
+  for _, overlay in ipairs(require("src.access.screens.gen3.Top").ambient(game)) do
+    local presenter = Presenters.find(overlay)
+    if presenter then poll(overlay, memos[overlay] == nil, presenter, true) end
+  end
+end
+
 -- `top` is injectable for tests; the game passes nothing.
 function ScreenReader.update(top)
-  local state = top or topState()
+  local state, covered
+  if top ~= nil then state = top else state, covered = topState() end
   if state ~= lastState then
     local previous, previousPresenter = lastState, lastPresenter
     lastPresenter = Presenters.find(state)
     local queued = lastPresenter and previous ~= nil and speakCovered(state)
     if lastPresenter and speakChangedUnder(previous, previousPresenter, state) then queued = true end
+    if lastPresenter and speakGen3Covered(covered) then queued = true end
     if lastPresenter then poll(state, true, nil, queued) end
     lastState = state
-    return
+  elseif lastPresenter then
+    poll(state, false)
   end
-  if lastPresenter then poll(state, false) end
+  pollGen3Ambient()
 end
 
 function ScreenReader._resetForTests()

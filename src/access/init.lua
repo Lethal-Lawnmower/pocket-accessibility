@@ -48,6 +48,8 @@ function Access.install(opts)
   -- Screen speech reads the frame's settled state, after upstream's update.
   -- Only when speech works: with no output there is nothing to report.
   if Speech.available() then
+    -- the live game for every generation (Gen 3 screens need it)
+    require("src.access.CurrentGame").install()
     local Nav = require("src.access.nav")
     -- the ACCESSIBILITY page in OPTIONS (decision 26)
     require("src.access.Settings").install()

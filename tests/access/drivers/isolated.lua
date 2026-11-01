@@ -13,6 +13,10 @@ return function(game)
       "joystickaxis", "joystickhat", "mousepressed", "mousereleased" }) do
     love[callback] = function() end
   end
+  -- driver runs skip PlatformHooks.update, where the layer normally sees
+  -- the game (src/access/CurrentGame.lua)
+  local CurrentGame = package.loaded["src.access.CurrentGame"]
+  if CurrentGame then CurrentGame.set(game) end
   local path = os.getenv("ISOLATED_DRIVER")
   if not path then print("[driver] FAIL ISOLATED_DRIVER is not set") return end
   return dofile(path)(game)

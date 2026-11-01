@@ -26,8 +26,10 @@ local GameVersion = require("src.core.GameVersion")
 
 local function options(game)
   if not game then return {} end
-  -- Gen 2's OPTION screen edits game.options in place (Game2:showOptions)
-  if GameVersion.generation() == 2 and type(game.options) == "table" then return game.options end
+  -- Gen 2's OPTION screen edits game.options in place (Game2:showOptions);
+  -- Gen 3 keeps its persisted options there too (Game3.lua)
+  local generation = GameVersion.generation()
+  if (generation == 2 or generation == 3) and type(game.options) == "table" then return game.options end
   return game.save and game.save.options or {}
 end
 
