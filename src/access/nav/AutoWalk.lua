@@ -140,6 +140,8 @@ function AutoWalk.start(nav, game, adapter)
     steps = result.steps,
     goal = result.goal,
     label = item.label,
+    -- an object target is looked up again after a pause (refreshTarget)
+    targetId = item.id, targetType = item.type,
     -- the map a warp target leads to: reaching it is the arrival even when
     -- a fast game speed moved the player past the last step between two
     -- updates (several tiles per real frame at 200X)
@@ -229,8 +231,35 @@ function AutoWalk.pause(expectBattle)
   walk.expectBattle = walk.expectBattle or expectBattle == true
 end
 
--- Recomputes the route from where the player now stands to the same goals.
+-- A person or other object can move while the walk is paused (a scene walks
+-- them over: Radio Tower 5F's imposter director comes to the player, battles
+-- and stays beside them, and the old goals beyond him were unreachable,
+-- "Cannot reach Gentleman").  Takes the target's cells again from where it
+-- is now.  False when it is no longer on the map.
+local function refreshTarget()
+  if walk.journey or walk.targetType ~= "object" or not walk.targetId then return true end
+  local nav = walk.nav
+  if type(nav.captureWorld) ~= "function" then return true end
+  local ok, snapshot = pcall(nav.captureWorld, nav, nav.browseFilter)
+  if not (ok and type(snapshot) == "table") then return true end -- cannot tell: keep the goals
+  local present = false
+  for _, item in ipairs(snapshot.browse or {}) do
+    if item.id == walk.targetId then present = true break end
+  end
+  if not present then return false end
+  local okGoals, item, goals, interaction = pcall(nav.selectedRouteGoals, nav)
+  if okGoals and type(item) == "table" and item.id == walk.targetId
+     and type(goals) == "table" and #goals > 0 then
+    walk.goals, walk.interaction = goals, interaction
+  end
+  return true
+end
+
+-- Recomputes the route from where the player now stands to the target.
 local function resume(quiet)
+  if not refreshTarget() then
+    return AutoWalk.stop(tostring(walk.label) .. " is gone, auto walk stopped")
+  end
   local result = findRoute(walk.nav, walk.goals)
   if not result then
     return AutoWalk.stop("Cannot reach " .. tostring(walk.label) .. ", auto walk stopped")

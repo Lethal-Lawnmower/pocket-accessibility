@@ -123,6 +123,34 @@ end
 check(AutoWalk.active(), "interruptions at different cells never stop the walk")
 AutoWalk.stop()
 
+-- A person who moves during a pause (a scene walks them over) is looked up
+-- again: the walk heads for where they stand now; one who left ends the walk.
+do
+  game, overworld, nav = setup()
+  local where, present = { x = 5, y = 5 }, true
+  local person = { id = "npc_1", label = "Gentleman", type = "object" }
+  nav.browseFilter = "all"
+  nav.selectedRouteGoals = function()
+    return person, { { x = where.x, y = where.y - 1 } }, nil, nil, overworld
+  end
+  nav.captureWorld = function()
+    return { browse = present and { person } or {} }
+  end
+  AutoWalk.start(nav, game)
+  AutoWalk.update(overworld)
+  AutoWalk.update({ scene = true })
+  where.x, where.y = 0, 2 -- walked over to the player
+  AutoWalk.update(overworld)
+  local state = AutoWalk._state()
+  eq(state and state.goals[1].x .. "," .. state.goals[1].y, "0,1", "goals follow the person's new cell")
+  AutoWalk.update({ scene = true })
+  present = false
+  overworld.player.cellX = 1
+  AutoWalk.update(overworld)
+  eq(spoken[#spoken], "Gentleman is gone, auto walk stopped", "a person who left ends the walk, said so")
+  check(not AutoWalk.active(), "and the walk is over")
+end
+
 -- A field move on the route (Gen 2): turn to face it, flagged as turning so
 -- the game runs that frame at 1X (a fast frame's worth of a held direction
 -- stepped onto a waterfall's bottom cell instead of turning), then press A.
