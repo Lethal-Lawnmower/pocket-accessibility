@@ -210,6 +210,15 @@ local function battleOnStack(stack)
   return false
 end
 
+-- The top itself is a battle.  FireRed's battle is a module, not a stack
+-- state: its adapter reports a battle marker as the top instead, and a
+-- trainer pause that only looked at the stack waited for ever after the
+-- battle (WorldAdapter.gen3.top).
+local function battleTop(top)
+  local adapter = walk and walk.adapter or WorldAdapter.gen1
+  return adapter.isBattle ~= nil and adapter.isBattle(top) == true
+end
+
 -- The player is on the map with nothing over it: Gen 1's overworld is its
 -- own top state; Gen 2's adapter reports the live World there.
 local function onMap(top)
@@ -334,7 +343,7 @@ function AutoWalk.update(top)
   end
   if walk.paused then
     local stack = package.loaded["src.core.StateStack"]
-    if battleOnStack(stack) then walk.battleSeen = true end
+    if battleOnStack(stack) or battleTop(top) then walk.battleSeen = true end
     if not onMap(top) then return end
     if transitioning() then return end
     if overworld.map ~= walk.map then return AutoWalk.stop("Auto walk stopped") end
@@ -381,7 +390,9 @@ function AutoWalk.update(top)
     end
     -- anything else pauses; the walk resumes when the map returns
     AutoWalk.pause(false)
-    if battleOnStack(package.loaded["src.core.StateStack"]) then walk.battleSeen = true end
+    if battleOnStack(package.loaded["src.core.StateStack"]) or battleTop(top) then
+      walk.battleSeen = true
+    end
     return
   end
   -- spinner slides, door or stair transitions (Gen 2 also ice slides,

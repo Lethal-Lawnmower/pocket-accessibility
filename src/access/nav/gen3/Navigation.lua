@@ -1,0 +1,1330 @@
+-- The navigation coordinator for FireRed (decision 29): a subclass of the
+-- Gen 1 coordinator (../Navigation.lua), as gen2/Navigation.lua is for Gold,
+-- Silver and Crystal.  Every world question is answered from Gen 3's own
+-- field (nav/gen3/World.lua): COLL bytes, metatile behaviours, elevation,
+-- the active warps and how each one fires, connections, objects (Cut trees,
+-- Rock Smash rocks and Strength boulders are objects in Gen 3), badges and
+-- the party's field moves.  The commands, object list, route narration,
+-- guided navigation, cross-map planner and auto-walk are the shared ones.
+-- Nothing here changes game state.
+--
+-- New for FireRed (there was no Gen 3 navigation in the old project, only a
+-- field inventory and an input classifier, reused in World.lua and
+-- WorldAdapter.lua under decision 20).  The routing rules follow the game's
+-- own movement code (src/core/game3/player.lua tryMove, collision.lua
+-- canEnter and ledgeLanding, forced_movement.lua); Pokemon Access's GBA
+-- script was read for behaviour only (decision 7): its elevation rule, its
+-- "enter water" and "exit water" route steps, and the warning beside a
+-- ledge.
+
+local Shared = require("src.access.nav.Navigation")
+local Snapshot = require("src.access.nav.gen3.WorldSnapshot")
+local Terrain = require("src.access.nav.gen3.TerrainSemantics")
+local Puzzle = require("src.access.nav.gen3.PuzzleAssistance")
+local Scripts = require("src.access.nav.gen3.Scripts")
+local World = require("src.access.nav.gen3.World")
+local WorldAdapter = require("src.access.nav.WorldAdapter")
+local Pathfinder = require("src.access.nav.Pathfinder")
+
+local Gen3 = WorldAdapter.gen3
+
+local Navigation = {}
+Navigation.__index = Navigation
+setmetatable(Navigation, { __index = Shared })
+
+local ORDER = { "up", "right", "down", "left" }
+local DELTA = World.DELTA
+local OPPOSITE = { up = "down", down = "up", left = "right", right = "left" }
+local function cellKey(x, y) return tostring(x) .. "," .. tostring(y) end
+
+local function loaded(path) return package.loaded[path] end
+
+local function call(fn, ...)
+  if type(fn) ~= "function" then return nil end
+  local ok, value = pcall(fn, ...)
+  if ok then return value end
+  return nil
+end
+
+function Navigation.new(game, opts)
+  opts = opts or {}
+  opts.worldSnapshot = opts.worldSnapshot or Snapshot
+  opts.terrainSemantics = opts.terrainSemantics or Terrain
+  opts.puzzleAssistance = opts.puzzleAssistance or Puzzle
+  -- the shared constructor reads Gen 1's game.save.options; FireRed's
+  -- persisted options are game.options
+  local options = Gen3.options(game) or {}
+  if opts.sonarFollowsPlayer == nil then
+    opts.sonarFollowsPlayer = options.accessibilitySonarFollow ~= false
+  end
+  if opts.cueVolumeLevel == nil then opts.cueVolumeLevel = options.accessibilityCueVol end
+  if opts.earcons == nil and options.accessSoundPack ~= nil then
+    opts.earcons = require("src.access.nav.Earcons").new({ soundPackPath = options.accessSoundPack })
+  end
+  local self = Shared.new(game, opts)
+  self.generation = 3
+  setmetatable(self, Navigation)
+  -- the shared constructor subscribed with the shared methods (this
+  -- metatable is set only now): add the popup check on top
+  self:subscribePopupEvent()
+  return self
+end
+
+function Navigation:setSonarFollow(enabled, opts)
+  opts = opts or {}
+  self.sonarFollowsPlayer = enabled ~= false
+  local options = Gen3.options(self.game)
+  if options then options.accessibilitySonarFollow = self.sonarFollowsPlayer end
+  if opts.persist and self.game and type(self.game.writeOptions) == "function" then
+    pcall(self.game.writeOptions, self.game)
+  end
+  return true
+end
+
+-- ------------------------------------------------------------ the world
+
+function Navigation:worldState()
+  return Gen3.world(self.game)
+end
+
+-- The world may be spoken of: the field runs, its map is bound, and no
+-- battle, message, menu, script, lock, fade or warp holds it.  Walking
+-- (and forced movement) does not stop narration.
+function Navigation:isDescribableWorld()
+  local world = self:worldState()
+  if not (world and world.map) then return false end
+  if Gen3.battleActive() then return false end
+  local Warp = loaded("src.core.game3.warp")
+  if Warp and call(Warp.isBusy) then return false end
+  return not Gen3.held(self.game)
+end
+
+-- The player can act and a route may be measured from where they stand.
+-- Mid-step is fine, as in Gen 1: routes start from the cell being left.
+function Navigation:isActionableWorld()
+  if not self:isDescribableWorld() then return false end
+  return not Gen3.transitioning(self:worldState())
+end
+
+function Navigation:worldForCommand()
+  if not self:isActionableWorld() then return nil, "Not on a map" end
+  local world = self:worldState()
+  if not (world and world.map and World.liveView(self.game)) then return nil, "Not on a map" end
+  return world
+end
+
+function Navigation:currentMapIdOf(world)
+  local map = type(world) == "table" and world.map or nil
+  return map and (map.id or (type(map.def) == "table" and map.def.id)) or nil
+end
+
+function Navigation:session() return World.session(self.game) end
+
+-- ------------------------------------------------------------ names
+
+local function cleanName(value)
+  if type(value) ~= "string" then return nil end
+  value = value:gsub("^%s+", ""):gsub("%s+$", "")
+  -- a screen reader may say nothing at all for an unnamed "???"
+  if value == "" or not value:find("%w") then return nil end
+  return value
+end
+
+function Navigation:names()
+  local session = self:session() or {}
+  local save = type(self.game) == "table" and type(self.game.save) == "table" and self.game.save or {}
+  return cleanName(session.name or save.name), cleanName(session.rivalName or save.rivalName)
+end
+
+function Navigation:speakerNames()
+  local player, rival = self:names()
+  local names, found = {}, false
+  for _, value in ipairs({ player, rival }) do
+    if value then names[value] = true found = true end
+  end
+  return found and names or nil
+end
+
+-- Custom names live in game.options, which Game3:writeOptions persists;
+-- game.save is replaced on every save.
+function Navigation:customNames()
+  local options = Gen3.options(self.game)
+  local names = options and options.accessibilityNames
+  return type(names) == "table" and names or { maps = {}, objects = {} }
+end
+
+function Navigation:writableCustomNames()
+  local options = Gen3.options(self.game)
+  if not options then return nil end
+  local names = options.accessibilityNames
+  if type(names) ~= "table" then
+    names = {}
+    options.accessibilityNames = names
+  end
+  if type(names.maps) ~= "table" then names.maps = {} end
+  if type(names.objects) ~= "table" then names.objects = {} end
+  return names
+end
+
+-- ------------------------------------------------------------ field moves
+
+local MOVE_LABEL = {
+  CUT = "Cut", SURF = "Surf", STRENGTH = "Strength", ROCK_SMASH = "Rock Smash",
+  WATERFALL = "Waterfall", FLASH = "Flash",
+}
+-- FireRed's field-move badges (FieldMoves.BADGE_FLAGS).
+local BADGE_LABEL = {
+  FLASH = "Boulder Badge", CUT = "Cascade Badge", STRENGTH = "Rainbow Badge",
+  SURF = "Soul Badge", ROCK_SMASH = "Marsh Badge", WATERFALL = "Volcano Badge",
+}
+Navigation.BADGE_LABEL = BADGE_LABEL
+
+-- The checks the game makes before a field move works: a party member that
+-- knows it (FieldMoves.partyMoveUser, which honours fieldmove.eligibility)
+-- and the badge (FieldMoves.hasBadge on the script flag store).  Returns
+-- usable, missing-move, missing-badge-label.
+function Navigation:fieldMoveStatus(moveId)
+  local FieldMoves = loaded("src.core.game3.field_moves")
+  local session = self:session()
+  if not FieldMoves then return false, true, nil end
+  local mon = call(FieldMoves.partyMoveUser, session and session.party, moveId,
+    { game = self.game, party = session and session.party })
+  local Space = loaded("src.core.game3.scripting.space")
+  local hasBadge = true
+  if FieldMoves.BADGE_FLAGS and FieldMoves.BADGE_FLAGS[moveId] then
+    hasBadge = Space ~= nil and Space.store ~= nil
+      and call(FieldMoves.hasBadge, { store = Space.store }, moveId) == true
+  end
+  local hasMon = mon ~= nil
+  return hasMon and hasBadge, not hasMon, (not hasBadge) and BADGE_LABEL[moveId] or nil
+end
+
+function Navigation:fieldMoveRequirement(moveId)
+  local usable, missingMon, missingBadge = self:fieldMoveStatus(moveId)
+  if usable then return nil end
+  local parts = {}
+  if missingMon then parts[#parts + 1] = MOVE_LABEL[moveId] or moveId end
+  if missingBadge then parts[#parts + 1] = missingBadge end
+  return "Needs " .. table.concat(parts, " and ")
+end
+
+function Navigation:hmAllowed(_world, moveId, policy)
+  policy = policy or 2
+  if policy == 3 then return true end
+  if policy ~= 2 then return false end
+  return (self:fieldMoveStatus(moveId)) == true
+end
+
+-- Strength is switched on for this map (FLAG_SYS_USE_STRENGTH).
+function Navigation:strengthActive()
+  local FieldMoves = loaded("src.core.game3.field_moves")
+  local Space = loaded("src.core.game3.scripting.space")
+  local Flags = loaded("src.core.game3.scripting.flags")
+  if not (FieldMoves and Space and Space.store and Flags and Flags.getFlag) then return false end
+  local flag = FieldMoves.SYS_FLAGS and FieldMoves.SYS_FLAGS.USE_STRENGTH
+  return flag ~= nil and call(Flags.getFlag, Space.store, nil, flag) == true
+end
+
+-- Cut trees are objects in FireRed, handled by the route graph.
+function Navigation:isCuttableCell() return false end
+
+local CARD_KEY = 355 -- ITEM_CARD_KEY
+
+-- Read the bag without its accessors (Bag.get tidies the bag as it reads).
+local function bagHas(bag, itemId)
+  if type(bag) ~= "table" then return false end
+  local ItemsData = loaded("src.core.game3.items_data")
+  local function numeric(id)
+    if ItemsData and ItemsData.toNumericId then
+      local ok, value = pcall(ItemsData.toNumericId, id)
+      if ok and value then return tonumber(value) end
+    end
+    return tonumber(id)
+  end
+  for _, slots in pairs(type(bag.pockets) == "table" and bag.pockets or {}) do
+    for _, slot in ipairs(type(slots) == "table" and slots or {}) do
+      if type(slot) == "table" and numeric(slot.id or slot.item) == itemId
+         and (tonumber(slot.qty or slot.count) or 1) > 0 then
+        return true
+      end
+    end
+  end
+  for key, qty in pairs(type(bag.stacks) == "table" and bag.stacks or {}) do
+    if numeric(key) == itemId and (tonumber(qty) or 0) > 0 then return true end
+  end
+  return false
+end
+Navigation.bagHas = bagHas
+
+-- The door scripts on this map decide: they check a flag (the Card Key
+-- ball's pickup flag in FireRed), read here from the script store; with no
+-- door on the map, the bag answers.
+function Navigation:hasCardKey()
+  local world = self:worldState()
+  local map = world and world.map
+  local flag
+  for _, event in ipairs(map and map.def and map.def.bgEvents or {}) do
+    flag = event.type == "sign" and Scripts.cardKeyFlag(event.scriptKey) or nil
+    if flag then break end
+  end
+  if flag then
+    local Space = loaded("src.core.game3.scripting.space")
+    local Flags = loaded("src.core.game3.scripting.flags")
+    if Space and Space.store and Flags and Flags.getFlag then
+      return call(Flags.getFlag, Space.store, nil, flag) == true
+    end
+  end
+  local session = self:session()
+  return bagHas(session and session.bag, CARD_KEY)
+end
+
+-- A closed Silph Co. door: a card-key door sign over a cell that is not
+-- floor yet.
+function Navigation:cardKeyDoorCells(world)
+  local map = world and world.map
+  if not map or not map.def then return {} end
+  local cache = self.gen3DoorCache
+  if cache and cache.def == map.def then return cache.cells end
+  local cells = {}
+  for _, sign in ipairs(Snapshot.projectSigns(map, map.def, nil)) do
+    if sign.roleKind == "card_key_door" then
+      for _, cell in ipairs(sign.cells or {}) do cells[cellKey(cell.x, cell.y)] = true end
+    end
+  end
+  self.gen3DoorCache = { def = map.def, cells = cells }
+  return cells
+end
+
+function Navigation:isClosedCardKeyDoorCell(world, x, y)
+  local map = world and world.map
+  if not map then return false end
+  if not self:cardKeyDoorCells(world)[cellKey(x, y)] then return false end
+  return not map:isWalkableCell(x, y)
+end
+
+-- Auto-walk: the steps that need an A press facing them, the way the
+-- player starts these field moves on the map (the game asks first).
+local A_PRESS_KINDS = { cut = "Cut", rock_smash = "Rock Smash", surf = "Surf",
+  waterfall = "Waterfall" }
+
+function Navigation:stepInteraction(_world, step)
+  local move = step and A_PRESS_KINDS[step.kind]
+  if not move then return nil end
+  return { move = move, failText = "Could not use " .. move .. ", auto walk stopped",
+    hint = "Use " .. move .. " facing " .. step.direction }
+end
+
+-- The edge cells a connection can be crossed from (Collision.tryConnection):
+-- inside the neighbour's strip, no directional wall on either side, and
+-- land onto land, or water onto water or onto land of elevation 3 while
+-- surfing.  Pallet Town's south edge is land, but Route 21 below it is
+-- water: walking there on foot stops at the shore.
+local CONNECTION_STEP_OF = { north = "up", south = "down", west = "left", east = "right" }
+
+function Navigation:connectionGoals(world, item)
+  local map = world and world.map
+  local C = loaded("src.core.game3.collision")
+  local Connections = loaded("src.core.game3.connections")
+  if not (map and map.def and C and C.connectionLanding and Connections and item) then
+    return Shared.connectionGoals(self, world, item)
+  end
+  local conn
+  for _, row in ipairs(call(Connections.each, map.def) or {}) do
+    if row.dir == item.direction then conn = row break end
+  end
+  local destDef = conn and self:regionalMapDef(conn.map)
+  local destView = World.plannedView(self.game, destDef)
+  local step = CONNECTION_STEP_OF[item.direction]
+  if not (destView and step) then return Shared.connectionGoals(self, world, item) end
+  local canSurf = (world.player and world.player.surfing == true) or self:hmAllowed(world, "SURF")
+  local goals = {}
+  local width, height = map.widthCells, map.heightCells
+  local count = (step == "up" or step == "down") and width or height
+  for coordinate = 0, count - 1 do
+    local x = (step == "left") and 0 or (step == "right") and (width - 1) or coordinate
+    local y = (step == "up") and 0 or (step == "down") and (height - 1) or coordinate
+    local ok, lx, ly = pcall(C.connectionLanding, destDef, conn, step, x, y)
+    if ok and lx and not map:dirBlocked(x, y, nil, nil, step)
+       and not destView:dirBlocked(nil, nil, lx, ly, step) then
+      local hereWater, hereLand = map:isWater(x, y), map:isWalkableCell(x, y)
+      local thereWater, thereLand = destView:isWater(lx, ly), destView:isWalkableCell(lx, ly)
+      if (hereLand and thereLand)
+         or (canSurf and hereWater and (thereWater or (thereLand and destView:elevation(lx, ly) == 3))) then
+        goals[#goals + 1] = { x = x, y = y }
+      end
+    end
+  end
+  return goals
+end
+
+-- Auto-walk's last cell of a walk to a warp that fires while a direction
+-- is pressed: exit mats (down), arrow warps, stair warps (left or right).
+function Navigation:warpPressDirection(world, x, y)
+  local map = world and world.map
+  if not (map and map.pressDirection) then return nil end
+  return map:pressDirection(x, y)
+end
+
+-- ------------------------------------------------------------ object list
+
+local function nearestCell(cells, player)
+  local nearest, best = cells[1], math.huge
+  for _, cell in ipairs(cells) do
+    local distance = player and (math.abs(cell.x - (player.cellX or 0))
+      + math.abs(cell.y - (player.cellY or 0))) or 0
+    if distance < best then nearest, best = cell, distance end
+  end
+  return nearest
+end
+
+-- Furniture the A button reads (MB-keyed, InteractionScripts), one object
+-- per connected group of one kind; a group with a sign event on it is that
+-- sign instead.  Then the puzzle's objects and mod-authored ones.
+function Navigation:interactiveBrowseObjects(world, puzzle)
+  local map = world and world.map
+  if type(map) ~= "table" or type(map.widthCells) ~= "number" then return {} end
+  local mapId = self:currentMapIdOf(world) or "unknown"
+  local width, height = map.widthCells, map.heightCells
+  local kinds = {}
+  for y = 0, height - 1 do
+    for x = 0, width - 1 do
+      local beh = map:behavior(x, y)
+      if beh and Terrain.FURNITURE[beh] then kinds[y * width + x] = beh end
+    end
+  end
+  local signCells = {}
+  for _, event in ipairs(type(map.def) == "table" and map.def.bgEvents or {}) do
+    if event.type == "sign" and type(event.x) == "number" then
+      signCells[event.y * width + event.x] = true
+    end
+  end
+  local result, ids, seen = {}, {}, {}
+  local function add(record)
+    if type(record) ~= "table" or type(record.x) ~= "number" or type(record.y) ~= "number" then return end
+    local id = record.id
+    if type(id) ~= "string" or id == "" or ids[id] then return end
+    ids[id] = true
+    result[#result + 1] = record
+  end
+  for y = 0, height - 1 do
+    for x = 0, width - 1 do
+      local index = y * width + x
+      local beh = kinds[index]
+      if beh and not seen[index] then
+        local cells, queue, head = {}, { { x, y } }, 1
+        seen[index] = true
+        local signed = false
+        while head <= #queue do
+          local cx, cy = queue[head][1], queue[head][2]
+          head = head + 1
+          cells[#cells + 1] = { x = cx, y = cy }
+          if signCells[cy * width + cx] then signed = true end
+          for _, d in pairs(DELTA) do
+            local nx, ny = cx + d[1], cy + d[2]
+            local ni = ny * width + nx
+            if nx >= 0 and ny >= 0 and nx < width and ny < height
+               and not seen[ni] and kinds[ni] == beh then
+              seen[ni] = true
+              queue[#queue + 1] = { nx, ny }
+            end
+          end
+        end
+        if not signed then
+          local info = Terrain.FURNITURE[beh]
+          local nearest = nearestCell(cells, world.player)
+          add({
+            id = "furniture:" .. mapId .. ":" .. cellKey(cells[1].x, cells[1].y),
+            label = info.label, x = nearest.x, y = nearest.y,
+            interaction = "interact", interactionCells = cells,
+            requiredFacing = info.faceUp and "up" or nil,
+            semanticKind = "furniture",
+          })
+        end
+      end
+    end
+  end
+  local def = type(map.def) == "table" and map.def or {}
+  local authored = def.accessibilityObjects
+  local a11y = type(def.accessibility) == "table" and def.accessibility or nil
+  if type(authored) ~= "table" and a11y then authored = a11y.interactiveObjects end
+  for i, object in ipairs(type(authored) == "table" and authored or {}) do
+    local copy = {}
+    for key, value in pairs(object) do copy[key] = value end
+    copy.id = copy.id or ("interactive:" .. tostring(mapId) .. ":" .. i)
+    add(copy)
+  end
+  puzzle = puzzle or self.puzzleAssistance.describe(self.game, world, self)
+  for _, object in ipairs(puzzle.objects or {}) do add(object) end
+  return result
+end
+
+-- Field obstacles are objects in FireRed: what each still needs.
+function Navigation:fieldObjectOverrides(world)
+  local overrides = {}
+  local mapId = self:currentMapIdOf(world)
+  for _, eo in ipairs(world.npcs or {}) do
+    local gfx = tonumber(eo.graphicsId or (eo.def and eo.def.graphicsId))
+    local id = Puzzle.objectId(mapId, eo)
+    if gfx == Terrain.GFX.CUT_TREE then
+      overrides[id] = { interaction = "field_move", requirement = self:fieldMoveRequirement("CUT"),
+        routeInstruction = "use Cut" }
+    elseif gfx == Terrain.GFX.ROCK then
+      overrides[id] = { interaction = "field_move", requirement = self:fieldMoveRequirement("ROCK_SMASH") }
+    elseif gfx == Terrain.GFX.BOULDER then
+      overrides[id] = { requirement = self:fieldMoveRequirement("STRENGTH") }
+    end
+  end
+  return overrides
+end
+
+local function holeTargets(puzzle)
+  local holes = {}
+  for _, target in ipairs(puzzle and puzzle.targetStates or {}) do
+    if target.hole then holes[cellKey(target.x, target.y)] = target end
+  end
+  return holes
+end
+
+-- Exit mats, arrow warps and stairs need one more press after the player
+-- stands on them; say which way, as Gen 1 does for edge carpets.
+local function addPressInstructions(snapshot, world)
+  local map = world.map
+  for _, item in ipairs(snapshot and snapshot.browse or {}) do
+    if item.type == "warp" and type(item.navigationCells) == "table" then
+      for _, cell in ipairs(item.navigationCells) do
+        local press = map:pressDirection(cell.x, cell.y)
+        if press then
+          cell.transitionInstruction = "Continue " .. press .. " to "
+            .. tostring(item.label):gsub(", entrance %d+ of %d+$", "")
+          item.transitionInstruction = item.transitionInstruction or cell.transitionInstruction
+        end
+      end
+    end
+  end
+end
+
+function Navigation:captureWorld(filter)
+  local world, reason = self:worldForCommand()
+  if not world then return nil, reason end
+  local puzzle = self.puzzleAssistance.describe(self.game, world, self)
+  local overrides = self:fieldObjectOverrides(world)
+  for key, override in pairs(puzzle.objectOverrides or {}) do
+    local merged = {}
+    for k, v in pairs(overrides[key] or {}) do merged[k] = v end
+    for k, v in pairs(override) do merged[k] = v end
+    overrides[key] = merged
+  end
+  local playerName, rivalName = self:names()
+  local holes = holeTargets(puzzle)
+  local snapshot, snapshotError = self.worldSnapshot.capture(world, {
+    maps = self.game and self.game.data and self.game.data.maps,
+    filter = filter or self.browseFilter,
+    customNames = self:customNames(),
+    playerName = playerName, rivalName = rivalName,
+    interactiveObjects = self:interactiveBrowseObjects(world, puzzle),
+    objectOverrides = overrides,
+    holeTargets = holes,
+  })
+  if snapshot then
+    addPressInstructions(snapshot, world)
+    -- a hole the puzzle aims at says so in its state
+    for _, item in ipairs(snapshot.browse or {}) do
+      local hole = item.type == "warp" and holes[cellKey(item.x, item.y)] or nil
+      if hole and hole.state then
+        item.stateText = hole.state
+        item.description = tostring(item.description) .. "; " .. hole.state
+      end
+    end
+    if (filter or self.browseFilter) == "area" then
+      snapshot.browse = self:areaBrowse(world)
+    end
+  end
+  return snapshot, snapshotError
+end
+
+-- E: the behaviour bytes under and around the player (their identifiers,
+-- as Gen 1 speaks tile numbers and Gen 2 collision bytes).
+function Navigation:readCollisionTiles()
+  local world, reason = self:worldForCommand()
+  if not world then return self:announceManual({ reason }) end
+  local map, player = world.map, world.player
+  local x, y = player.cellX, player.cellY
+  local function value(cx, cy)
+    if not map:inBounds(cx, cy) then return "edge" end
+    local beh = map:behavior(cx, cy)
+    return beh ~= nil and tostring(beh) or "unknown"
+  end
+  return self:announceManual({
+    ("Now on %s, Up %s, Down %s, Left %s, Right %s"):format(
+      value(x, y), value(x, y - 1), value(x, y + 1), value(x - 1, y), value(x + 1, y)),
+  })
+end
+
+-- ------------------------------------------------------------ world events
+
+-- A ledge the player could jump next to them (Pokemon Access warns there).
+function Navigation:hasAdjacentLedge(world)
+  local map, player = world and world.map, world and world.player
+  if not (map and player and map.ledgeFacings) then return false end
+  for direction, d in pairs(DELTA) do
+    local facings = map:ledgeFacings(player.cellX + d[1], player.cellY + d[2])
+    if facings and facings[direction] then return true end
+  end
+  return false
+end
+
+local FOOTSTEP = { grass = true, water = true, ice = true, thin_ice = true, cracked_ice = true,
+  current = true, waterfall = true, spinner = true, moving_floor = true }
+
+function Navigation:usesTerrainFootstep(record)
+  return type(record) == "table" and FOOTSTEP[record.kind] == true
+end
+
+-- The game shows its own name popup on entering most outdoor maps and
+-- dungeons (map.lua: showMapName set, and a new map section or a warp);
+-- screen speech reads that popup, so the entry announcement is left to it
+-- there and made here only where the game shows nothing.  M still reads the
+-- map name anywhere.
+local FLAG_DONT_SHOW_MAP_NAME_POPUP = 0x4000
+
+local function popupSuppressed()
+  local Space = loaded("src.core.game3.scripting.space")
+  local Flags = loaded("src.core.game3.scripting.flags")
+  if Space and Space.store and Flags and Flags.getFlag then
+    if call(Flags.getFlag, Space.store, nil, FLAG_DONT_SHOW_MAP_NAME_POPUP) then return true end
+  end
+  return false
+end
+
+function Navigation:subscribePopupEvent()
+  local events = self.events
+  if type(events) ~= "table" or type(events.on) ~= "function" or not self.worldSubscriptions then
+    return
+  end
+  -- Map.load decides the popup after emitting map.entered: the previous
+  -- section is still Map._lastSectionId here.  Priority below the shared
+  -- handler (-1000; higher runs first), so this runs after it set
+  -- pendingMapEvent.
+  self.worldSubscriptions[#self.worldSubscriptions + 1] = events:on("map.entered", function(event)
+    if not self.enabled or type(event) ~= "table" or not self.pendingMapEvent then return end
+    local def = type(event.map) == "table" and event.map or nil
+    local Map = loaded("src.core.game3.map")
+    local lastSection = Map and rawget(Map, "_lastSectionId")
+    local section = def and def.regionMapSectionId
+    local shows = def ~= nil and (def.showMapName == 1 or def.showMapName == true)
+      and not popupSuppressed()
+      and (event.via ~= "connection" or lastSection == nil or lastSection ~= section)
+    self.pendingMapEvent.gamePopup = shows == true
+  end, -1001, self.eventOwner)
+end
+
+function Navigation:processWorldEvents(_state)
+  if not self:isDescribableWorld() then
+    return Shared.processWorldEvents(self, nil)
+  end
+  local mapEvent = self.pendingMapEvent
+  if mapEvent then
+    -- the shared entry handling, with FireRed's names, and silent where the
+    -- game shows its own popup; a journey still hands over to its next leg
+    self.pendingMapEvent = nil
+    self.pendingStepEvent = nil
+    local world = self:worldState()
+    if self:currentMapIdOf(world) ~= mapEvent.mapId then return end
+    local navigation = self.activeNavigation
+    if not mapEvent.gamePopup then
+      local names = self:customNames()
+      local mapNames = type(names.maps) == "table" and names.maps or {}
+      local playerName, rivalName = self:names()
+      local location = Snapshot.locationName(world.map, mapEvent.mapId,
+        mapNames[mapEvent.mapId], playerName, rivalName)
+      if navigation and navigation.awaitingMap then
+        navigation.pendingLocation = location
+      else
+        self:announce(location, { interrupt = true })
+      end
+    end
+    if navigation and navigation.awaitingMap then self:resumeRegionalNavigation() end
+    return
+  end
+  return Shared.processWorldEvents(self, {
+    isOverworld = true,
+    transient = not self:isActionableWorld(),
+  })
+end
+
+function Navigation:updateNavigationInterruption(state)
+  local navigation = self.activeNavigation
+  if not navigation then
+    self.navigationInterruptedByBattle = false
+    return false
+  end
+  if type(state) == "table" and (state.isBattle == true or state.accessibilityRole == "battle") then
+    self.navigationInterruptedByBattle = true
+    return false
+  end
+  if self.navigationInterruptedByBattle and self:isActionableWorld() then
+    self.navigationInterruptedByBattle = false
+    navigation.lastDirectiveKey = nil
+    return self:refreshActiveNavigation()
+  end
+  return false
+end
+
+-- Game3 has no StateStack: the top comes from the world adapter.
+function Navigation:updateNavigation()
+  if not self.enabled then return end
+  local state = Gen3.top(self.game)
+  self:updateNavigationInterruption(state)
+  self:updatePendingRoute()
+  self:processWorldEvents(state)
+end
+
+function Navigation:update()
+  return self:updateNavigation()
+end
+
+-- Q: FireRed has no real-time clock (pret's FRLG has none; RTC is Ruby,
+-- Sapphire and Emerald).
+function Navigation:readGameTime()
+  return self:announceManual({ "FireRed has no clock" })
+end
+
+-- ------------------------------------------------------------ battle (H)
+
+function Navigation:battleForCommand()
+  if not Gen3.battleActive() then return nil end
+  local Battle = loaded("src.core.game3.battle") or loaded("src.core.game3.battle.init")
+  return Battle and call(Battle.getState) or WorldAdapter.GEN3_BATTLE
+end
+
+local STATUS_WORDS = { SLP = "asleep", FRZ = "frozen", PSN = "poisoned", BRN = "burned",
+  PAR = "paralyzed", TOX = "badly poisoned" }
+
+-- H and Shift+H.  The Gen 3 battle presenter answers from what the
+-- healthbox shows when it provides `health`; otherwise the battler's
+-- current values are read, as Gen 1 does.
+function Navigation:readBattleHealth(side)
+  -- the Gen 3 battle presenter reads the live battle (nil) as its healthbox
+  -- shows it, doubles and the Safari Zone included; nil means no battle
+  local okModule, Presenter = pcall(require, "src.access.screens.gen3.Battle")
+  if okModule and type(Presenter) == "table" and type(Presenter.health) == "function" then
+    local ok, text = pcall(Presenter.health, nil, side)
+    if ok then
+      if type(text) == "string" and text ~= "" then return self:announceManual({ text }) end
+      return self:announceManual({ "Not in battle" })
+    end
+  end
+  -- without the presenter: the battler's current values, as Gen 1 reads them
+  local battle = self:battleForCommand()
+  if not battle then return self:announceManual({ "Not in battle" }) end
+  local battler = type(battle) == "table" and (side == "enemy" and battle.enemy or battle.player) or nil
+  local mon = type(battler) == "table" and battler.mon or nil
+  local hp = mon and tonumber(mon.hp)
+  local maxHP = mon and (tonumber(mon.maxHP) or tonumber(mon.maxHp)
+    or (type(mon.stats) == "table" and tonumber(mon.stats.hp)))
+  if not (hp and maxHP and maxHP > 0) then return self:announceManual({ "No bar found" }) end
+  if side == "enemy" then
+    return self:announceManual({ ("Enemy health: %d percent"):format(math.floor(hp * 100 / maxHP + 0.5)) })
+  end
+  local name = (type(mon.nickname) == "string" and mon.nickname ~= "" and mon.nickname)
+    or battler.name or "Pok\195\169mon"
+  local text = ("Player %s, %d of %d HP"):format(tostring(name), hp, maxHP)
+  local status = mon.status
+  if type(status) == "string" and STATUS_WORDS[status] then text = text .. ", " .. STATUS_WORDS[status] end
+  return self:announceManual({ text })
+end
+
+-- ------------------------------------------------------------ routing
+
+-- The live and planned movement graph, one set of rules for both.
+
+local GFX = Terrain.GFX
+
+local function actorAt(actors, x, y)
+  for _, actor in ipairs(actors) do
+    if actor.cellX == x and actor.cellY == y then return actor end
+    if actor.moving and actor.targetX == x and actor.targetY == y then return actor end
+  end
+  return nil
+end
+
+-- Objects that block a cell (Objects.blocks: visible, not passable, a
+-- compatible elevation), keyed by cell, with the field obstacle kind.
+local function occupancy(world)
+  local cells = {}
+  local player = world.player
+  for _, actor in ipairs(world.npcs or {}) do
+    if type(actor) == "table" and actor ~= player and not actor.passable
+       and not (type(actor.def) == "table" and actor.def.ignorable == true) then
+      local gfx = tonumber(actor.graphicsId or (actor.def and actor.def.graphicsId))
+      local kind = (gfx == GFX.CUT_TREE and "cut_tree") or (gfx == GFX.ROCK and "rock")
+        or (gfx == GFX.BOULDER and "boulder") or "object"
+      local entry = { actor = actor, kind = kind,
+        elevation = tonumber(actor.currentElevation) or 0 }
+      cells[cellKey(actor.cellX, actor.cellY)] = entry
+      if actor.moving and actor.targetX and actor.targetY then
+        cells[cellKey(actor.targetX, actor.targetY)] = entry
+      end
+    end
+  end
+  return cells
+end
+
+local function elevationsCompatible(a, b)
+  a, b = tonumber(a) or 0, tonumber(b) or 0
+  return a == 0 or b == 0 or a == b
+end
+
+-- The movement graph (src/core/game3/player.lua tryMove, collision.lua
+-- canEnter and ledgeLanding, forced_movement.lua):
+--   * walking: in bounds, no MB wall on the cell left or entered, land the
+--     COLL byte allows (never a ledge cell), no object (elevation rule),
+--     elevation match (Pokemon Access's rule: 0 and 15 match anything)
+--   * ledges: the cell ahead is a ledge facing the move; land two cells on
+--   * Surf: from land onto water with an A press facing it; on water,
+--     water; back onto land of elevation 3
+--   * Cut trees and Rock Smash rocks: objects, "use, then move"
+--   * Waterfall: climbed from below while surfing, the whole column in one
+--     move; going down, the current carries the player down the column
+--   * forced movement (ice, spinners, currents, walk and slide tiles) as one
+--     move to where it stops; a warp crossed on the way ends it there
+--   * warps only as the goal, entered the way they fire (a door only moving
+--     up into it); holes and cracked ice never except as the goal
+function Navigation:routeOptionsFor(world, goals, policy)
+  if not world then return nil, "Not on a map" end
+  if type(goals) ~= "table" or #goals == 0 then return nil, "No path" end
+  policy = policy or 1
+  local map, player = world.map, world.player
+  local goalSet = {}
+  for _, goal in ipairs(goals) do goalSet[cellKey(goal.x, goal.y)] = true end
+  local surfing = player.surfing == true
+  local canSurf = surfing or self:hmAllowed(world, "SURF", policy)
+  local canCut = self:hmAllowed(world, "CUT", policy)
+  local canSmash = self:hmAllowed(world, "ROCK_SMASH", policy)
+  local canWaterfall = self:hmAllowed(world, "WATERFALL", policy)
+  local useCardKey = policy >= 2 and (self:hasCardKey() or policy >= 3)
+  local occupied = occupancy(world)
+  local doorCells = useCardKey and self:cardKeyDoorCells(world) or {}
+  local startX, startY = player.cellX, player.cellY
+  local startElevation = tonumber(player.currentElevation)
+  local width, height = map.widthCells, map.heightCells
+
+  local function elevationOf(x, y)
+    if x == startX and y == startY and startElevation then return startElevation end
+    return map:elevation(x, y)
+  end
+  local function mismatch(fromX, fromY, x, y)
+    return Puzzle.elevationsMismatch(elevationOf(fromX, fromY), map:elevation(x, y))
+  end
+
+  -- What stands on a cell: nil, or the occupancy entry.
+  local function blocker(x, y, fromElevation)
+    local entry = occupied[cellKey(x, y)]
+    if not entry then return nil end
+    if not elevationsCompatible(fromElevation, entry.elevation) then return nil end
+    return entry
+  end
+
+  local function landCell(x, y)
+    return map:walkableColl(x, y) and not map:isWater(x, y) and not map:overrideBlocked(x, y)
+  end
+
+  -- May the player end a move on (x, y), coming from (fromX, fromY)?
+  -- `onWater`: they are surfing.  Objects are checked by the caller.
+  local function enterable(fromX, fromY, x, y, direction, onWater)
+    if not map:inBounds(x, y) then return false end
+    if map:dirBlocked(fromX, fromY, x, y, direction) then return false end
+    local isGoal = goalSet[cellKey(x, y)] == true
+    local kind = map:warpKind(x, y)
+    if kind then
+      if isGoal then
+        -- a door fires only moving up into it from the cell below
+        if kind == "door" and direction ~= "up" then return false end
+        return true
+      end
+      -- exit mats, arrow and stair warps fire only while their own
+      -- direction is pressed: they may be walked across like floor
+      -- (Victory Road's entrance mat); any other warp is never entered
+      if not map:standingWarp(x, y) then return false end
+    end
+    local beh = map:behavior(x, y)
+    if beh == Terrain.MB.FALL_WARP and not isGoal then return false end
+    if beh == Terrain.MB.CRACKED_ICE and not isGoal then return false end
+    if doorCells[cellKey(x, y)] and not map:isWalkableCell(x, y) then return true end
+    local water = map:isWater(x, y)
+    local differs = mismatch(fromX, fromY, x, y)
+    if onWater then
+      if water then return not differs end
+      -- leaving the water (CanStopSurfing): a different elevation needs 3
+      if not landCell(x, y) then return false end
+      return not differs or map:elevation(x, y) == 3
+    end
+    if water or differs then return false end
+    return landCell(x, y)
+  end
+
+  -- Forced movement from (x, y), arrived at moving `direction`: where it
+  -- stops, its kind and how far it went; nil when it is not a usable move
+  -- (it crosses a warp that is not the goal).
+  local function forcedChain(x, y, direction, onWater)
+    local travelled, kind, spinning = 0, nil, nil
+    local limit = width * height
+    local moveDir = direction
+    while true do
+      local beh = map:behavior(x, y)
+      local nextDir, nextKind
+      if spinning then
+        -- a spin carries on across ordinary floor until a stop tile or a
+        -- wall (TryUpdatePlayerSpinDirection)
+        if beh == Terrain.STOP_SPINNING then break end
+        nextDir = Terrain.SPIN[beh] or spinning
+        spinning = nextDir
+        nextKind = "spinner"
+      else
+        nextDir, nextKind = Terrain.forced(beh)
+        if nextKind == "ice" then nextDir = moveDir end
+        if nextKind == "spinner" then spinning = nextDir end
+        if nextKind == "waterfall" and not onWater then nextDir = nil end
+      end
+      if not nextDir then break end
+      kind = kind or nextKind
+      local d = DELTA[nextDir]
+      local nx, ny = x + d[1], y + d[2]
+      local facings = map:ledgeFacings(nx, ny)
+      if facings and facings[nextDir] and not onWater then
+        -- a forced step hops a ledge it meets
+        local lx, ly = x + d[1] * 2, y + d[2] * 2
+        if not (map:inBounds(lx, ly) and landCell(lx, ly)) then break end
+        nx, ny = lx, ly
+      elseif not map:inBounds(nx, ny) or map:dirBlocked(x, y, nx, ny, nextDir)
+          or blocker(nx, ny, elevationOf(x, y)) then
+        break
+      else
+        if map:warpKind(nx, ny) and not map:standingWarp(nx, ny) then
+          -- the game carries the player onto it and it fires; the move ends
+          -- there, usable only when that warp is the goal
+          if not goalSet[cellKey(nx, ny)] then return nil end
+          return nx, ny, kind, travelled + 1
+        end
+        local water = map:isWater(nx, ny)
+        if onWater then
+          if not water and not landCell(nx, ny) then break end
+        elseif water or not landCell(nx, ny) or mismatch(x, y, nx, ny) then
+          break
+        end
+      end
+      x, y, moveDir = nx, ny, nextDir
+      travelled = travelled + 1
+      if travelled > limit then return nil end
+    end
+    return x, y, kind, travelled
+  end
+
+  local FORCED_TEXT = {
+    spinner = "onto the spinner", current = "into the current", waterfall = "into the current",
+    moving_floor = "onto the moving floor",
+  }
+
+  -- One move from (fromX, fromY): the cell it ends on, the edge kind and
+  -- the spoken instruction for special moves; nil when it is not possible.
+  local function landing(fromX, fromY, direction)
+    local d = DELTA[direction]
+    local x, y = fromX + d[1], fromY + d[2]
+    if not map:inBounds(x, y) then return nil end
+    -- pressing a standing warp's own direction on it would take it
+    if map:standingWarp(fromX, fromY) == direction then return nil end
+    local onWater = map:isWater(fromX, fromY)
+    local fromElevation = elevationOf(fromX, fromY)
+    -- a ledge ahead facing the move: the hop lands two cells on
+    local facings = map:ledgeFacings(x, y)
+    if facings and facings[direction] then
+      if onWater then return nil end
+      local lx, ly = fromX + d[1] * 2, fromY + d[2] * 2
+      if not map:inBounds(lx, ly) or blocker(lx, ly, fromElevation) then return nil end
+      if not landCell(lx, ly) then return nil end
+      return lx, ly, "ledge", "Jump ledge " .. direction
+    end
+    if map:dirBlocked(fromX, fromY, x, y, direction) then return nil end
+    local beh = map:behavior(x, y)
+    -- Waterfall: climbed from below while surfing, the whole column in one
+    -- move to the first cell above it (FieldMoves.tryWaterfallOW, the ride)
+    if beh == Terrain.MB.WATERFALL and direction == "up" then
+      if not (onWater and canWaterfall) then return nil end
+      local cx, cy, climbed = x, y, 0
+      while map:behavior(cx, cy) == Terrain.MB.WATERFALL do
+        cy = cy - 1
+        climbed = climbed + 1
+        if not map:inBounds(cx, cy) or climbed > height then return nil end
+      end
+      if not map:isWater(cx, cy) or blocker(cx, cy, fromElevation) then return nil end
+      return cx, cy, "waterfall", "Use Waterfall facing up, then climb " .. climbed
+        .. (climbed == 1 and " cell" or " cells")
+    end
+    local entry = blocker(x, y, fromElevation)
+    local entryKind, entryInstruction
+    local toWater = map:isWater(x, y)
+    if entry then
+      -- Cut trees and Rock Smash rocks are cleared from where the player
+      -- stands, then the step is taken
+      if entry.kind == "cut_tree" and canCut then
+        entryKind, entryInstruction = "cut", "Use Cut facing " .. direction .. ", then move " .. direction
+      elseif entry.kind == "rock" and canSmash then
+        entryKind, entryInstruction = "rock_smash",
+          "Use Rock Smash facing " .. direction .. ", then move " .. direction
+      else
+        return nil
+      end
+      if not enterable(fromX, fromY, x, y, direction, onWater) then return nil end
+    elseif toWater and not onWater then
+      -- from land onto water takes Surf (an A press facing it; the hop
+      -- ignores elevation)
+      if not canSurf or map:warpKind(x, y) then return nil end
+      entryKind, entryInstruction = "surf", "Use Surf facing " .. direction
+    else
+      if not enterable(fromX, fromY, x, y, direction, onWater) then return nil end
+      if onWater and not toWater then
+        entryKind, entryInstruction = "exit_water", "Exit water " .. direction
+      end
+    end
+    if map:warpKind(x, y) and (goalSet[cellKey(x, y)] or not map:standingWarp(x, y)) then
+      return x, y, entryKind, entryInstruction
+    end
+    -- forced movement from the cell entered; a goal on a forced tile cannot
+    -- be stopped on, only where the movement ends
+    local fx, fy, kind, travelled = forcedChain(x, y, direction, onWater or toWater)
+    if fx == nil then return nil end
+    if fx == fromX and fy == fromY then return nil end
+    local instruction
+    if kind == "ice" then
+      instruction = "Move " .. direction .. " onto ice; slide " .. travelled
+        .. (travelled == 1 and " cell" or " cells")
+    elseif kind then
+      instruction = "Move " .. direction .. " " .. FORCED_TEXT[kind] .. "; carried to x "
+        .. fx .. ", y " .. fy
+    end
+    if entryInstruction and instruction then
+      instruction = entryInstruction .. ", then " .. instruction:sub(1, 1):lower() .. instruction:sub(2)
+    elseif entryInstruction then
+      instruction = entryInstruction
+    end
+    local edgeKind = entryKind or (kind == "waterfall" and "current") or kind
+    return fx, fy, edgeKind, instruction
+  end
+
+  local function neighbors(x, y)
+    local result = {}
+    for _, direction in ipairs(ORDER) do
+      local tx, ty, kind, instruction = landing(x, y, direction)
+      if tx ~= nil then
+        result[#result + 1] = { x = tx, y = ty, direction = direction,
+          kind = kind, instruction = instruction }
+      end
+    end
+    return result
+  end
+
+  return {
+    start = { x = startX, y = startY }, goals = goals,
+    bounds = { width = width, height = height },
+    allowBlockedGoal = false, policy = policy, neighbors = neighbors,
+    canTraverse = function() return true end, maxSeconds = 0.25,
+  }, world
+end
+
+function Navigation:worldRouteRequest(goals, policy)
+  local world, reason = self:worldForCommand()
+  if not world then return nil, reason end
+  return self:routeOptionsFor(world, goals, policy)
+end
+
+-- Directions counted ("3 up"), special moves spoken whole; a card key door
+-- on the way is said once.
+function Navigation:routeNarration(world, result, routePolicy)
+  if result.cost == 0 then return { "Already there" } end
+  routePolicy = routePolicy or result.policy or 1
+  local tokens = {}
+  local doors = {}
+  local function add(text, countable)
+    local prior = tokens[#tokens]
+    if countable and prior and prior.countable and prior.text == text then
+      prior.count = prior.count + 1
+    else
+      tokens[#tokens + 1] = { text = text, count = 1, countable = countable }
+    end
+  end
+  for _, step in ipairs(result.steps or {}) do
+    if routePolicy > 1 and self:isClosedCardKeyDoorCell(world, step.x, step.y) then
+      if not doors[cellKey(step.x, step.y)] then
+        add("Use Card Key facing " .. step.direction, false)
+      end
+      doors[cellKey(step.x, step.y)] = true
+    end
+    if step.kind then add(step.instruction or step.direction, false)
+    else add(step.direction, true) end
+  end
+  local parts = {}
+  for _, token in ipairs(tokens) do
+    parts[#parts + 1] = token.countable and (token.count .. " " .. token.text) or token.text
+  end
+  return parts
+end
+
+local REQUIREMENT_KEY = { CUT = "CUT", SURF = "SURF", ROCK_SMASH = "ROCK_SMASH",
+  WATERFALL = "WATERFALL" }
+
+function Navigation:routeRequirements(world, result)
+  local needed = {}
+  local function need(moveId)
+    local usable, missingMon, missingBadge = self:fieldMoveStatus(moveId)
+    if usable then return end
+    if missingMon then needed[REQUIREMENT_KEY[moveId] or moveId] = true end
+    if missingBadge then needed[(missingBadge:upper():gsub(" ", "_"))] = true end
+  end
+  for _, step in ipairs(result.steps or {}) do
+    if step.kind == "cut" then need("CUT") end
+    if step.kind == "surf" then need("SURF") end
+    if step.kind == "rock_smash" then need("ROCK_SMASH") end
+    if step.kind == "waterfall" then need("WATERFALL") end
+    if self:isClosedCardKeyDoorCell(world, step.x, step.y) and not self:hasCardKey() then
+      needed.CARD_KEY = true
+    end
+  end
+  return needed
+end
+
+-- ------------------------------------------------------------ sonar
+
+function Navigation:isPushableEntity(entity)
+  return Terrain.isBoulder(entity) == true
+end
+
+-- Ordinary walking only ("can I step there"); Surf only while surfing.
+function Navigation:sonarCanMove(world, probe, direction)
+  local map = world and world.map
+  local delta = DELTA[direction]
+  if not (map and delta and probe) then return false end
+  local fromX, fromY = probe.cellX, probe.cellY
+  local x, y = fromX + delta[1], fromY + delta[2]
+  if not map:inBounds(x, y) or map:dirBlocked(fromX, fromY, x, y, direction) then return false end
+  if actorAt(world.npcs or {}, x, y) then return false end
+  if map:isWater(x, y) then return probe.surfing == true end
+  return map:isWalkableCell(x, y) or map:warpAt(x, y) ~= nil
+end
+
+-- A door the player could enter except that a live object stands on every
+-- approach: leaving the map will not help, so say so.
+function Navigation:blockedWarpEntrance(navigation)
+  if not navigation or navigation.targetType ~= "warp" then return false end
+  local world = self:worldForCommand()
+  if not world or navigation.targetMapId ~= self:currentMapIdOf(world) then return false end
+  local map = world.map
+  local viable = false
+  for _, goal in ipairs(navigation.targetGoals or {}) do
+    for _, direction in ipairs(ORDER) do
+      local d = DELTA[direction]
+      local fromX, fromY = goal.x - d[1], goal.y - d[2]
+      if map:inBounds(fromX, fromY) and map:isWalkableCell(fromX, fromY)
+         and not map:dirBlocked(fromX, fromY, goal.x, goal.y, direction) then
+        viable = true
+        if not actorAt(world.npcs or {}, fromX, fromY) then return false end
+      end
+    end
+  end
+  return viable
+end
+
+-- ------------------------------------------------------------ cross-map
+
+function Navigation:regionalMapDef(mapId)
+  local data = self.game and self.game.data
+  local maps = data and data.maps
+  return maps and maps[mapId] or nil
+end
+
+local function regionalObjectVisible(object)
+  if type(object) ~= "table" then return false end
+  if tonumber(object.movementType) == 0x4C then return true end -- invisible, still blocks
+  local Space = loaded("src.core.game3.scripting.space")
+  if not (Space and Space.objectVisible) then return true end
+  local ok, visible = pcall(Space.objectVisible, object)
+  if not ok then return true end
+  return visible and true or false
+end
+Navigation.regionalObjectVisible = function(_, object) return regionalObjectVisible(object) end
+
+-- A headless world for a map the player is not on: its view and the
+-- objects the game would show.  Surfing carries into the plan.
+function Navigation:regionalStaticWorld(mapId, start)
+  local def = self:regionalMapDef(mapId)
+  local view = World.plannedView(self.game, def)
+  if not view then return nil end
+  local live = self:worldState()
+  local surfing = live and live.player and live.player.surfing == true or false
+  local player = { cellX = start.x, cellY = start.y, facing = "down", surfing = surfing }
+  local npcs = {}
+  for _, object in ipairs(def.objects or {}) do
+    if object.x and object.y and regionalObjectVisible(object) then
+      npcs[#npcs + 1] = { cellX = object.x, cellY = object.y, def = object,
+        graphicsId = object.graphicsId, currentElevation = object.elevation,
+        localId = object.localId, invisible = tonumber(object.movementType) == 0x4C }
+    end
+  end
+  local entities = { player }
+  for _, actor in ipairs(npcs) do entities[#entities + 1] = actor end
+  return { isOverworld = true, map = view, player = player, npcs = npcs, entities = entities }
+end
+
+function Navigation:regionalDryRoute(mapId, start, goals, useLive, maxSeconds)
+  if useLive then
+    local live = self:worldForCommand()
+    if live and self:currentMapIdOf(live) == mapId
+       and live.player.cellX == start.x and live.player.cellY == start.y then
+      local options = self:routeOptionsFor(live, goals, 1)
+      if not options then return nil end
+      options.maxSeconds = maxSeconds or options.maxSeconds
+      return Pathfinder.find(options)
+    end
+  end
+  local world = self:regionalStaticWorld(mapId, start)
+  if not world then return nil end
+  local options = self:routeOptionsFor(world, goals, 1)
+  if not options then return nil end
+  options.maxSeconds = maxSeconds or options.maxSeconds
+  return Pathfinder.find(options)
+end
+
+local CONNECTION_STEP = { north = "up", south = "down", west = "left", east = "right" }
+
+-- Warps (active ones, resolved as the game resolves them; dynamic warps
+-- through the session's record, else no edge) and connections (landing by
+-- Collision.connectionLanding, refused where the strip ends, on a wall, on
+-- water without Surf, or across a directional wall).
+function Navigation:regionalTransitions(mapId)
+  local def = self:regionalMapDef(mapId)
+  local live = World.liveView(self.game)
+  local view = (live and live.id == mapId) and live or World.plannedView(self.game, def)
+  if not (def and view) then return {} end
+  local result = {}
+  for index, warp in ipairs(def.warps or {}) do
+    local active, activeIndex = view:warpAt(tonumber(warp.x), tonumber(warp.y))
+    if active and activeIndex == index then
+      local destMap, destX, destY = view:warpDestination(warp)
+      if destMap and self:regionalMapDef(destMap) then
+        result[#result + 1] = {
+          kind = "warp", index = index, x = warp.x, y = warp.y,
+          destMap = destMap, destX = destX, destY = destY,
+        }
+      end
+    end
+  end
+  local C = loaded("src.core.game3.collision")
+  local Connections = loaded("src.core.game3.connections")
+  local rows = Connections and call(Connections.each, def) or {}
+  for _, conn in ipairs(rows or {}) do
+    local direction = conn.dir
+    local step = CONNECTION_STEP[direction]
+    local destDef = type(conn.map) == "string" and self:regionalMapDef(conn.map) or nil
+    local destView = World.plannedView(self.game, destDef)
+    if step and destView and C and C.connectionLanding then
+      local vertical = step == "up" or step == "down"
+      local count = vertical and view.widthCells or view.heightCells
+      for coordinate = 0, count - 1 do
+        local x = (direction == "west") and 0 or (direction == "east") and (view.widthCells - 1) or coordinate
+        local y = (direction == "north") and 0 or (direction == "south") and (view.heightCells - 1) or coordinate
+        local ok, destX, destY = pcall(C.connectionLanding, destDef, conn, step, x, y)
+        local crossable = false
+        if ok and destX and not view:dirBlocked(x, y, nil, nil, step)
+           and not destView:dirBlocked(nil, nil, destX, destY, step) then
+          local thereLand = destView:isWalkableCell(destX, destY)
+          crossable = (view:isWalkableCell(x, y) and thereLand)
+            or (view:isWater(x, y) and (destView:isWater(destX, destY)
+              or (thereLand and destView:elevation(destX, destY) == 3)))
+        end
+        if crossable then
+          result[#result + 1] = {
+            kind = "connection", direction = direction, x = x, y = y,
+            destMap = conn.map, destX = destX, destY = destY,
+          }
+        end
+      end
+    end
+  end
+  return result
+end
+
+function Navigation:regionalDestinationName(mapId)
+  local playerName, rivalName = self:names()
+  return Snapshot.locationName({ id = mapId }, mapId, nil, playerName, rivalName)
+end
+
+-- The Area category (decision 25) on FireRed maps: item balls the game
+-- would still show on the other maps of the building or zone.  Maps share
+-- an area when they share the first two words of their id (SILPH_CO_*,
+-- SAFARI_ZONE_*, ROCKET_HIDEOUT_*); on the Sevii Islands, where every map
+-- starts with the island, the first three (FIVE_ISLAND_LOST_CAVE_*).
+local function areaKey(mapId)
+  if type(mapId) ~= "string" then return nil end
+  local id = mapId:gsub("^FR_", "")
+  if id:match("^%u+_ISLAND_") then
+    return id:match("^(%u+_ISLAND_[%u%d]+)")
+  end
+  return id:match("^([%u%d]+_[%u%d]+)")
+end
+Navigation.areaKey = areaKey
+
+function Navigation:areaBrowse(world)
+  local data = self.game and self.game.data
+  local maps = data and data.maps or {}
+  local here = self:currentMapIdOf(world)
+  local key = areaKey(here)
+  local items = {}
+  if not key then return items end
+  local members = {}
+  for mapId in pairs(maps) do
+    if type(mapId) == "string" and mapId:match("^FR_") and areaKey(mapId) == key then
+      members[#members + 1] = mapId
+    end
+  end
+  if #members < 2 then return items end
+  table.sort(members)
+  for _, mapId in ipairs(members) do
+    if mapId ~= here then
+      local mapName = self:regionalDestinationName(mapId)
+      for _, object in ipairs(maps[mapId].objects or {}) do
+        if tonumber(object.graphicsId) == GFX.ITEM_BALL and regionalObjectVisible(object) then
+          local itemId = Scripts.itemBallItem(object.scriptKey)
+          local itemName = itemId and Scripts.itemLabel(itemId)
+          if itemName then
+            local label = itemName .. ", " .. tostring(mapName)
+            items[#items + 1] = {
+              id = "area:" .. mapId .. ":" .. tostring(object.index or object.localId),
+              type = "area", category = "area", label = label, description = label,
+              mapId = mapId, x = object.x, y = object.y,
+            }
+          end
+        end
+      end
+    end
+  end
+  return items
+end
+
+-- ------------------------------------------------------------ renaming
+
+-- Shift+K and Shift+M: FireRed's naming screen is a module on its own
+-- stack (src/ui/game3/naming.lua) with no initial-text option; until it is
+-- wired, say so rather than open something that cannot save.
+function Navigation:beginRename()
+  return self:announceManual({ "Renaming is not available in FireRed yet" })
+end
+
+function Navigation:commandAllowed()
+  return self:worldForCommand() ~= nil
+end
+
+-- F8 help: the camera line only when it is on, as in Gen 1.
+function Navigation:handleCommand(actionId)
+  return Shared.handleCommand(self, actionId)
+end
+
+return Navigation

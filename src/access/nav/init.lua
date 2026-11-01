@@ -3,12 +3,13 @@
 -- game, replacing what the old fork did by editing src/core/Game.lua and
 -- src/core/Game2.lua.
 --
--- Red, Blue and Yellow (Gen 1) and Gold, Silver and Crystal (Gen 2): the
--- running generation's world adapter (WorldAdapter.lua) finds the game and
--- answers "is the player on the map".  The coordinator is created once a game
--- with a world is up and re-created when a different game, save or mod event
--- bus appears.  Keys reach the router before upstream's love.keypressed; a
--- key the router consumes never reaches the game.
+-- Red, Blue and Yellow (Gen 1), Gold, Silver and Crystal (Gen 2) and
+-- FireRed (Gen 3): the running generation's world adapter (WorldAdapter.lua)
+-- finds the game and answers "is the player on the map".  The coordinator is
+-- created once a game with a world is up and re-created when a different
+-- game, save (FireRed: session) or mod event bus appears.  Keys reach the
+-- router before upstream's love.keypressed; a key the router consumes never
+-- reaches the game.
 
 local Speech = require("src.access.Speech")
 local AutoWalk = require("src.access.nav.AutoWalk")
@@ -55,8 +56,11 @@ end
 local function build(game, adapter)
   local CommandRouter = require("src.access.nav.CommandRouter")
   local Runtime = package.loaded["src.mods.Runtime"]
-  -- decision 22: the camera ("sonar") is off unless the player opts in
-  local cameraEnabled = game.save.options and game.save.options.accessibilityCamera == true
+  -- decision 22: the camera ("sonar") is off unless the player opts in.
+  -- The options table is per generation (Gen 3 keeps it in game.options).
+  local options = adapter.options and adapter.options(game)
+    or (type(game.save) == "table" and game.save.options) or nil
+  local cameraEnabled = type(options) == "table" and options.accessibilityCamera == true
   coordinator = adapter.newCoordinator(game, {
     speech = speechAdapter,
     cameraEnabled = cameraEnabled,
@@ -71,9 +75,10 @@ local function build(game, adapter)
         or state.accessibilityOwnsRawKeys == true)
     end,
     navigationAllowed = function(state, actionId)
-      if adapter.generation == 2 then
-        -- Gold's map is not a stack state: an empty stack with the world free
-        -- is the map; Shift+E also works on the Unown puzzle screen
+      if adapter.generation >= 2 then
+        -- Gold's and FireRed's map is not a stack state: the world free of
+        -- scripts, text and menus is the map; Shift+E also works on Gen 2's
+        -- Unown puzzle screen
         return coordinator:commandAllowed(actionId)
       end
       -- Gen 1's map is its own top stack state; a menu, battle or dialogue
@@ -97,6 +102,15 @@ local function build(game, adapter)
   end
 end
 
+-- What a coordinator is bound to besides the game: the save table in Gen 1
+-- and Gen 2, the session in FireRed (Game3:saveGame replaces game.save on
+-- every save, which re-created navigation and lost the object list and any
+-- walk each time the player saved).
+local function identityOf(adapter, game)
+  if adapter.identity then return adapter.identity(game) end
+  return game.save
+end
+
 -- Creates or re-creates the coordinator when the game, save or mod event
 -- bus changes.  Cheap when nothing changed: a few comparisons.
 local function ensure()
@@ -104,7 +118,8 @@ local function ensure()
   if not game then return nil end
   local Runtime = package.loaded["src.mods.Runtime"]
   local events = Runtime and Runtime.events
-  if coordinator and boundGame == game and boundSave == game.save
+  local identity = identityOf(adapter, game)
+  if coordinator and boundGame == game and boundSave == identity
      and boundEvents == events and boundAdapter == adapter then
     return coordinator, adapter, game
   end
@@ -115,7 +130,7 @@ local function ensure()
     require("src.core.Logger").error("[access] navigation unavailable: %s", tostring(err))
     coordinator, router = nil, nil
   end
-  boundGame, boundSave, boundEvents, boundAdapter = game, game.save, events, adapter
+  boundGame, boundSave, boundEvents, boundAdapter = game, identity, events, adapter
   return coordinator, adapter, game
 end
 
