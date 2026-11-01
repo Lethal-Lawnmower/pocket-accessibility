@@ -28,7 +28,8 @@ Topic files are created when work on that area starts, not before:
 `save-editor.md`, and one file per game holding differences only (for example
 `yellow.md`; Gold, Silver and Crystal share an engine: screens in
 `gold-silver-crystal.md`, navigation and the edition audit in
-`gold-silver-crystal-navigation.md`). About 300 lines each.
+`gold-silver-crystal-navigation.md`; FireRed and LeafGreen in
+`firered-leafgreen.md`). About 300 lines each.
 
 ## Rules
 
