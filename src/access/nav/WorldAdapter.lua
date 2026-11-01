@@ -362,9 +362,23 @@ function Gen3.afterSteer() end
 -- whole play session (a new game or Continue makes a new one).
 function Gen3.identity(game) return game and game.session end
 
--- Gen 3 persists its options in game.options (Game3:writeOptions).
+-- Gen 3 persists its options in game.options (Game3:writeOptions), but that
+-- is the root of the shared options.lua (Gen 1's save.options): FireRed's
+-- own values live in the cartridge block named by the profile (`firered`),
+-- where the ACCESSIBILITY page keeps them too (src/access/Settings.lua).
+-- Read as a plain field, never created here; nil until a session has bound
+-- its options.
 function Gen3.options(game)
-  return game and type(game.options) == "table" and game.options or nil
+  local root = game and type(game.options) == "table" and game.options or nil
+  if not root then return nil end
+  local id = "firered"
+  local Profile = package.loaded["src.core.game3.profile"]
+  if Profile and type(Profile.active) == "function" then
+    local ok, row = pcall(Profile.active)
+    if ok and type(row) == "table" and type(row.optionsBlock) == "string" then id = row.optionsBlock end
+  end
+  local block = root[id]
+  return type(block) == "table" and block or nil
 end
 
 function Gen3.newCoordinator(game, opts)

@@ -81,7 +81,10 @@ return function(game)
   L.logBrowse("all")
 
   -- Route 1 south at 200X AUTO-WALK SPEED: the ledges are jumped on the way
-  game.options.accessAutoWalkSpeed = 200
+  local block = require("src.access.nav.WorldAdapter").gen3.options(game)
+  L.check(block ~= nil, "FireRed options block bound")
+  block = block or {}
+  block.accessAutoWalkSpeed = 200
   L.teleport("FR_ROUTE_1", 10, 4, "down")
   local south = connection("south")
   if south then
@@ -106,7 +109,7 @@ return function(game)
     L.check(speeds["200"] == true, "auto-walk ran at 200X")
     L.check(said:find("Arrived at South connection", 1, true) ~= nil, "200X walk arrived at the south edge")
   end
-  game.options.accessAutoWalkSpeed = nil
+  block.accessAutoWalkSpeed = nil
   L.check(game:logicSpeed() ~= 200, "game speed handed back after the walk")
 
   L.finish("gen3_nav")
