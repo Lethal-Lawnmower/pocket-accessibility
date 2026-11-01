@@ -157,6 +157,15 @@ return function(game)
   local session = Runtime.getSession()
   if not session then U.log("FAIL", "no session") return end
   if os.getenv("POKEPORT_BATTLE_WHOLE") == "1" then game.options.accessDialogue = "whole" end
+  -- POKEPORT_BATTLE_NORECORDER=1 measures the presenter without its
+  -- Message.show recorder (only before the first battle installs it)
+  if os.getenv("POKEPORT_BATTLE_NORECORDER") == "1" then
+    local Gen3Battle = require("src.access.screens.gen3.Battle")
+    if Gen3Battle._recorder.module == nil then
+      Gen3Battle._recorder.install = function() return false end
+      U.log("RECORDER", "off")
+    end
+  end
 
   -- talk through anything the new game opened
   for _ = 1, 60 do
