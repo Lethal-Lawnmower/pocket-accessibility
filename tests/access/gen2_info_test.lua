@@ -232,7 +232,7 @@ do
   poll()
   menu.view = "entry"
   eq(poll(), "PIKACHU, MOUSE, number 25, height 1 feet 4 inches, weight 13.2 pounds. "
-    .. "It stores electricity in its cheeks. PAGE, 1 of 4", "entry: header, size, page text, action")
+    .. "PAGE, 1 of 4. It stores electricity in its cheeks.", "entry: header, size, action, then the page text")
   menu.page = 2
   eq(poll(), "page 2 of 2. Page two text.", "page flip: the marker, then the text")
   menu.entryAction = 2
@@ -354,6 +354,8 @@ do
   local line, interrupt = poll()
   eq(line, "OAK's PKMN Talk!", "a show line as it prints")
   check(interrupt == false, "show lines queue rather than cut each other off")
+  eq(poll(), nil, "no new line: silent (a game run once re-queued the show every frame)")
+  eq(poll(), nil, "still silent on the next frame")
   gear.radio.log[2] = "POKéMON"
   gear.radio.log[3] = "POKéMON        POKéMON"
   eq(poll(), "POKéMON POKéMON", "the jingle's rewritten line says only its new part")

@@ -542,7 +542,9 @@ local function dexEntryIntro(state)
   local header = join({ speakable(call(state, "monName", row.species) or row.species),
     entry.kind and speakable(entry.kind) or nil,
     entry.dex and ("number " .. tostring(entry.dex)) or nil, dexSize(entry, row) })
-  return sentences({ header, dexPageText(state, row), dexAction(state, true) })
+  -- The description goes last: a page often ends mid-sentence (the entry
+  -- runs on to page 2), so nothing may follow it as if it had ended.
+  return sentences({ header, dexAction(state, true), dexPageText(state, row) })
 end
 
 -- AREA: the title, the region shown, and every nest landmark in the
@@ -910,8 +912,9 @@ local function gearPoll(state, memo, entering)
       text = phoneRow(state)
     end
   end
-  -- radio show lines queue behind whatever else is said, like dialogue
-  local lines = (id == "radio") and newRadioLines(state.radio, memo) or newRadioLines(nil, memo)
+  -- radio show lines queue behind whatever else is said, like dialogue;
+  -- off the radio card the memo forgets the show
+  local lines = newRadioLines(id == "radio" and state.radio or nil, memo)
   memo.seen, memo.cardIndex, memo.mode = true, state.cardIndex, state.mode
   memo.mapCursor, memo.knob, memo.call = state.mapCursor, state.tuningKnob, state.call
   memo.submenu, memo.submenuCursor, memo.slot = state.phoneSubmenu, state.phoneSubmenuCursor, cursorSlot
