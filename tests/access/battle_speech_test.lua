@@ -84,5 +84,22 @@ battle.phase, battle.mimicIndex, battle.mimicMoves = "mimicSelect", 1, { "TACKLE
 SR.update(battle)
 eq(last().text, "Mimic which move? TACKLE", "mimic select")
 
+-- Status conditions join the turn summary.
+battle.phase, battle.safari, battle.menuIndex = "messages", nil, 1
+SR.update(battle)
+battle.player.mon.status = "PSN"
+battle.phase = "menu"
+SR.update(battle)
+check(last().text:find("SQUIRTLE, HP 18 of 20, PSN%.") ~= nil, "status in summary: " .. last().text)
+
+-- Level-up stats box: recognised by its draw function living in BattleState.lua.
+local statBoxClass = {}
+statBoxClass.__index = statBoxClass
+statBoxClass.draw = load("return function() end", "@src/battle/BattleState.lua")()
+SR.update(setmetatable({ game = { data = data }, mon = { species = "SQUIRTLE", level = 6,
+  stats = { attack = 12, defense = 14, speed = 11, special = 11 } } }, statBoxClass))
+eq(last().text, "SQUIRTLE, level 6 stats: attack 12, defense 14, speed 11, special 11",
+  "level-up stats box")
+
 Speech.shutdown()
 T.finish()

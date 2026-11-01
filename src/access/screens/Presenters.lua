@@ -368,7 +368,11 @@ Presenters.ordered = {
 for _, presenter in ipairs(require("src.access.screens.InfoScreens").ordered) do
   Presenters.ordered[#Presenters.ordered + 1] = presenter
 end
-Presenters.ordered[#Presenters.ordered + 1] = require("src.access.screens.Battle").presenter
+do
+  local Battle = require("src.access.screens.Battle")
+  Presenters.ordered[#Presenters.ordered + 1] = Battle.presenter
+  Presenters.ordered[#Presenters.ordered + 1] = Battle.statBox
+end
 for _, presenter in ipairs(require("src.access.screens.MinorScreens").ordered) do
   Presenters.ordered[#Presenters.ordered + 1] = presenter
 end

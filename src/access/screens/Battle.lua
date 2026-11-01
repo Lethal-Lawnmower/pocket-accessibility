@@ -30,20 +30,32 @@ local function monName(state, mon)
   return speakable(mon.nickname or def.name or mon.species)
 end
 
+-- A status condition as the HUD labels it (PSN, PAR, SLP...), or nil.
+local function statusText(state, mon)
+  if not mon.status then return nil end
+  local ok, Status = pcall(require, "src.battle.Status")
+  local label = ok and state.data and Status.hudLabelFor(state.data.statuses, mon.status)
+  return speakable(label or mon.status)
+end
+
 -- Your side as the HUD shows it (exact HP), the enemy as Gen 1 shows it (a
--- bar only, so a percentage).
+-- bar only, so a percentage); either side's status condition follows.
 local function sides(state)
   local parts = {}
   local player = state.player and state.player.mon
   if player and player.stats then
-    parts[#parts + 1] = string.format("%s, HP %d of %d", monName(state, player),
+    local text = string.format("%s, HP %d of %d", monName(state, player),
       player.hp or 0, player.stats.hp or 0)
+    local status = statusText(state, player)
+    parts[#parts + 1] = status and (text .. ", " .. status) or text
   end
   local enemy = state.enemy and state.enemy.mon
   if enemy and enemy.stats and (enemy.stats.hp or 0) > 0 then
     local percent = math.ceil(100 * math.max(0, enemy.hp or 0) / enemy.stats.hp)
-    parts[#parts + 1] = string.format("enemy %s, level %d, HP %d percent",
+    local text = string.format("enemy %s, level %d, HP %d percent",
       monName(state, enemy), enemy.level or 0, percent)
+    local status = statusText(state, enemy)
+    parts[#parts + 1] = status and (text .. ", " .. status) or text
   end
   return table.concat(parts, ". ")
 end
@@ -126,6 +138,38 @@ Battle.presenter = {
       return text, true
     end
     return nil
+  end,
+}
+
+-- Level-up stats window.  BattleState keeps it as a file-local class
+-- (StatBox: box with ATTACK, DEFENSE, SPEED, SPECIAL, dismissed with A or
+-- B), so there is no module to compare against.  It is recognised by its
+-- draw function living in BattleState.lua while not being BattleState
+-- itself; debug.getinfo runs only when the top screen changes.
+local function isStatBox(state)
+  local mt = getmetatable(state)
+  local BattleState = package.loaded["src.battle.BattleState"]
+  if type(mt) ~= "table" or mt == BattleState or type(mt.draw) ~= "function" then
+    return false
+  end
+  if type(state.mon) ~= "table" or type(state.mon.stats) ~= "table" then return false end
+  local info = debug.getinfo(mt.draw, "S")
+  return info ~= nil and tostring(info.source):find("battle[/\\.]BattleState") ~= nil
+end
+
+Battle.statBox = {
+  matches = isStatBox,
+  poll = function(state, memo)
+    if memo.said then return nil end
+    memo.said = true
+    -- name and level first, as the old project announced this box
+    local s = state.mon.stats
+    local game = state.game
+    local data = game and game.data
+    local def = data and data.pokemon and data.pokemon[state.mon.species] or {}
+    return string.format("%s, level %d stats: attack %d, defense %d, speed %d, special %d",
+      speakable(state.mon.nickname or def.name or state.mon.species), state.mon.level or 0,
+      s.attack or 0, s.defense or 0, s.speed or 0, s.special or 0), false
   end,
 }
 
