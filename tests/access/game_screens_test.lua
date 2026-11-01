@@ -159,6 +159,17 @@ eq(last(), "SLOW", "changing a value says only the value")
 options.index = 2
 SR.update(options)
 eq(last(), "BACK, 2 of 2", "back row")
+-- a group page is named after the row that opened it
+reset()
+local savedStack = package.loaded["src.core.StateStack"]
+local top = as("src.ui.OptionsMenu", { game = game, index = 1,
+  view = { { label = "ACCESSIBILITY", value = function() return "2 OPTIONS" end } } })
+local page = as("src.ui.OptionsMenu", { game = game, index = 1, sub = true,
+  rows = { { label = "AUTO-WALK SPEED", value = function() return "GAME SPEED" end } } })
+package.loaded["src.core.StateStack"] = { states = { top, page } }
+SR.update(page)
+eq(last(), "ACCESSIBILITY. AUTO-WALK SPEED, GAME SPEED, 1 of 2", "group page named on entry")
+package.loaded["src.core.StateStack"] = savedStack
 
 -- Town map.
 reset()

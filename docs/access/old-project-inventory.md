@@ -133,5 +133,7 @@ How this is applied:
 ## Open questions for the owner
 
 1. Is anything in the drop list something you actually want?
-2. Should old saves from the Purple build load in the new one?
+2. ~~Should old saves from the Purple build load in the new one?~~ No
+   (owner, 2026-10-31).
+
 3. Any old accessibility behaviour you disliked and do not want carried over?

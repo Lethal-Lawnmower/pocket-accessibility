@@ -231,6 +231,27 @@ local function optionValue(state, row)
   return ok and value ~= nil and speakable(value) or nil
 end
 
+-- A group page (AUDIO, ACCESSIBILITY ...) is the same screen pushed over the
+-- top level with `sub` set; its name is the row selected on the OptionsMenu
+-- below it in the stack.  Nil when there is none.
+local function pageName(state)
+  if not state.sub then return nil end
+  local stack = package.loaded["src.core.StateStack"]
+  local states = type(stack) == "table" and stack.states or {}
+  for i = #states, 2, -1 do
+    if states[i] == state then
+      local parent = states[i - 1]
+      if getmetatable(parent) == getmetatable(state) then
+        local rows = parent.view or parent.rows or {}
+        local row = rows[parent.index]
+        return row and row.label and speakable(row.label) or nil
+      end
+      return nil
+    end
+  end
+  return nil
+end
+
 InfoScreens.options = {
   matches = matcher("src.ui.OptionsMenu"),
   poll = function(state, memo, entering)
@@ -250,7 +271,7 @@ InfoScreens.options = {
       text = value -- the value changed on the same row
     end
     if entering or moved then text = join({ text, position(state.index, total) }) end
-    if entering then text = "Options. " .. text end
+    if entering then text = (pageName(state) or "Options") .. ". " .. text end
     return text, true
   end,
 }

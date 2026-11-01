@@ -51,8 +51,7 @@ and recorded in the topic file.
 
 ## Open questions for the owner
 
-- Should saves from the old Purple build load in the new one?
-- Next workstream: navigation (Pokémon Access features), the launcher, or the
+- Next workstream: the launcher, Chaos Cut as an optional mod, or the
   surfing minigame?
 
 ## Navigation
