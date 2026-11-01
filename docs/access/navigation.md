@@ -125,14 +125,24 @@ interaction hint (for example "Face up and interact"), or why it stopped:
 blocked for 90 frames, off the route, or any key or button pressed while
 walking.
 
+Route policies: plain walking first, then the old coordinator's policy 2
+(HMs the party knows, card-key doors with the Card Key), as guided
+navigation does. Pushed off the route (spinner, current) it re-plans
+quietly, up to 8 times per walk. It lets go and waits while a spinner
+slides or a door or stair transition runs (`spinnerSliding`,
+`player.spinning`, `transitioning`). A closed card-key door with the key in
+the bag is faced and opened with one A press (upstream opens them in its A
+interaction, `OverworldState:tryCardKeyDoor`).
+
 Battles pause it and it resumes afterwards (owner request, 2026-10-31):
-any screen opening pauses the walk and releases the direction; if a battle
-was on the stack during the pause, returning to the map recomputes the
-route from where the player stands and says "Resuming walk to ...". A
+any screen opening pauses the walk and releases the direction; returning to
+the same map recomputes the route from where the player stands and says
+"Resuming walk to ...". Extended from battles to every game-caused
+interruption (card-key door messages, scripted text) so doors do not end
+the walk. A
 trainer walks over on the open map first, so upstream's
 `world.trainer_engaged` event pauses the walk immediately and it waits for
-the battle. Without a battle (a sign, a scripted scene) the walk stops when
-the map returns. A changed map after a battle (blacked out) stops it.
+the battle. A changed map after a battle (blacked out) stops it.
 Presses during the battle do not cancel the paused walk. A door or staircase counts as arrival when its transition opens on
 the destination cell.
 
@@ -146,3 +156,31 @@ heard by the owner. `drivers/autowalk_battle.lua`: walking north on
 Route 1, a wild PIDGEY interrupted, the battle played normally, and after
 "Got away safely!" the trace says "Resuming walk to North connection to
 Viridian City". The trainer path is unit-tested only.
+
+## Hard-places sweep (`tests/access/drivers/hard_places_sweep.lua`)
+
+Auto-walks to every warp and item ball on the maps most likely to break
+navigation when finishing Red, from each map's entrances, winning battles
+on the way. Run silently with `POKEPORT_ACCESS_SILENT=1` (logs speech,
+never sends it to the screen reader); `SWEEP_MAPS` limits the maps.
+
+Results, 2026-10-31 (after the fixes above):
+
+| Map | Result |
+|---|---|
+| Safari Zone West | All 9 reached, including the Gold Teeth ("Arrived at Gold Teeth. Face left and interact"); some only from the matching entrance |
+| Safari Zone Center | All exits reached; the Nugget reports no path from every entrance (not yet checked by hand) |
+| Rocket Hideout B2F, B3F | All reached, across spinner floors, including the elevator |
+| Silph Co. 5F, 7F, no Card Key | All reached except the Protein and TM Swords Dance, which are behind locked doors |
+| Silph Co. 5F, 7F, with Card Key | All reached; locked doors opened on the way |
+
+History: the first run reached 9 of 63. Causes were the sweep teleporting
+during a door transition (frozen player, a harness bug), auto-walk stopping
+on spinners, trying only plain walking, and not opening card-key doors.
+An early run also sent its speech to the owner's screen reader and looped
+on a no-damage move; both were fixed in the sweep (silent mode, a damaging
+move, healing, a battle time limit).
+
+Not covered: multi-map journeys (auto-walk works within one map; guided
+navigation handles cross-map routes), Seafoam boulder puzzles, Victory
+Road strength puzzles, Surf and Cut in auto-walk (it stops when blocked).

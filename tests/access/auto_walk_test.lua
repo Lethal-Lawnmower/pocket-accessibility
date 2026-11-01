@@ -53,7 +53,8 @@ eq(spoken[#spoken], "Arrived at PC. Face up and interact", "arrival with the int
 check(not AutoWalk.active(), "walk ends on arrival")
 eq(game.input.state.down, false, "direction released on arrival")
 
--- A non-battle screen pauses the walk; returning to the map stops it.
+-- A non-battle screen (a card-key door message, a script) pauses the walk;
+-- it resumes when the map returns.
 local fakeStack = { states = {} }
 package.loaded["src.core.StateStack"] = fakeStack
 local BattleState = {}
@@ -66,7 +67,7 @@ AutoWalk.update(sign)
 check(AutoWalk.active() and not AutoWalk.walking(), "a screen opening pauses the walk")
 eq(game.input.state.right, false, "pausing releases the direction")
 AutoWalk.update(overworld)
-eq(spoken[#spoken], "Auto walk stopped", "back on the map without a battle: stopped")
+eq(spoken[#spoken], "Resuming walk to PC", "back on the map after any interruption: resumes")
 
 -- A battle pauses the walk and it resumes afterwards.
 game, overworld, nav = setup()
@@ -106,8 +107,8 @@ eq(game.input.state.right, false, "blocked walk releases the direction")
 game, overworld, nav = setup()
 AutoWalk.start(nav, game)
 overworld.player.cellX, overworld.player.cellY = 5, 5
-AutoWalk.update(overworld)
-eq(spoken[#spoken], "Off the route, auto walk stopped", "leaving the route stops the walk")
+for _ = 1, 10 do AutoWalk.update(overworld) end
+eq(spoken[#spoken], "Off the route, auto walk stopped", "re-plans a few times, then stops when still off the route")
 
 game, overworld, nav = setup()
 AutoWalk.start(nav, game)

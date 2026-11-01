@@ -33,6 +33,8 @@ on our own fork. Everything outside our folders is upstream code.
 - **Parallel work** happens on separate git branches.
 - **Game test runs use a disposable save identity** (`POKEPORT_IDENTITY=...`),
   never the default `pokemon-love2d`, which holds the owner's real saves.
+- **Scripted runs are silent** (`POKEPORT_ACCESS_SILENT=1`) so they never talk
+  over the owner's screen reader.
 
 ## Owner
 

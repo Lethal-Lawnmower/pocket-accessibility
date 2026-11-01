@@ -16,6 +16,9 @@ local status = "not started"
 -- POKEPORT_ACCESS_TRACE=1 logs every utterance, so scripted runs can check
 -- what would be spoken without anyone listening.
 local trace = os.getenv("POKEPORT_ACCESS_TRACE") == "1"
+-- POKEPORT_ACCESS_SILENT=1 keeps the trace but never reaches the screen
+-- reader, so scripted runs do not talk over the person at the computer.
+local silent = os.getenv("POKEPORT_ACCESS_SILENT") == "1"
 -- The last screen speech (opts.screen), for "read screen text" commands.
 local lastScreen = nil
 
@@ -61,6 +64,7 @@ function Speech.say(text, opts)
   local interrupt = opts and opts.interrupt or false
   if opts and opts.screen then lastScreen = text end
   if trace then Logger.info("[access] say%s: %s", interrupt and "!" or "", text) end
+  if silent then return true end
   local ok, err = backend:say(text, interrupt)
   if not ok then Logger.warn("[access] speech failed: %s", tostring(err)) end
   return ok
