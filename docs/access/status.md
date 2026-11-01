@@ -85,7 +85,9 @@ and recorded in the topic file.
   differences all game data. Details: `gold-silver-crystal-navigation.md`.
 - **Published (2026-11-01)** to the public fork as initial groundwork
   (decision 28); the README labels it untested by players.
-- **Next:** live user testing, Crystal first, when the owner chooses.
+- **Owner playtest:** Crystal from a new game to the first gym, 2026-11-01:
+  "It works perfectly in Crystal." More of Crystal, and Gold and Silver,
+  during the week.
 - **Open product questions:** listed in `gold-silver-crystal.md`.
 
 ## Open questions for the owner
