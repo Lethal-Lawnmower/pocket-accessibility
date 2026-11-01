@@ -210,7 +210,9 @@ local function pagesText(memo, pages, first, last)
   end
   local text = say(lines)
   if text == "" then return nil end
-  return text
+  -- "grew to LV. 13!" is printed with a literal "LV."; said as Gen 1 and
+  -- 2 print it ("level 13"), not spelled out
+  return (text:gsub("%f[%w]LV%. ?(%d)", "level %1"))
 end
 
 local function messagePart(state, memo, st)
@@ -551,7 +553,8 @@ local function menuPart(ctx, memo, entering)
   -- every side once per turn (a double battle's second menu, or a return
   -- after a refused choice, does not repeat it) and on a return from the
   -- party or bag
-  if entering or memo.summaryTurn ~= st.turn then
+  local summary = entering or memo.summaryTurn ~= st.turn
+  if summary then
     parts[#parts + 1] = sides(ctx, memo)
     memo.summaryTurn = st.turn
   end
@@ -559,8 +562,10 @@ local function menuPart(ctx, memo, entering)
   parts[#parts + 1] = label
   local text = Common.sentences(parts)
   if text == "" then return nil end
-  -- queued, so the turn's last self-advancing line is not cut off
-  return text, false
+  -- a turn's first menu queues, so its last self-advancing line is not
+  -- cut off; a menu reopened by a press (the partner's turn, B back to
+  -- the first battler) interrupts like any other move
+  return text, not summary
 end
 
 local function moveCount(mon)

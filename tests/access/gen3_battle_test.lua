@@ -295,6 +295,7 @@ do
   Ui._menuIndex = 4
   SR.update()
   eq(last().text, "What will CHARMANDER do? RUN", "same turn: the prompt and command only")
+  eq(last().interrupt, true, "a menu reopened by a press interrupts")
 
   -- a return from the bag (a stack layer) repeats every side
   local bagMod = {}
@@ -438,7 +439,7 @@ do
     { maxHp = 38, atk = 22, def = 19, spa = 24, spd = 20, spe = 25 })
   local n = count()
   SR.update()
-  eq(since(n)[1], "CHARMANDER grew to LV. 13! CHARMANDER, level 13 stat increases: max HP plus 3, "
+  eq(since(n)[1], "CHARMANDER grew to level 13! CHARMANDER, level 13 stat increases: max HP plus 3, "
     .. "attack plus 2, defense plus 1, special attack plus 2, special defense plus 1, speed plus 2",
     "level-up window page 1 behind its line")
   eq(last().interrupt, false, "page 1 queues")
@@ -553,6 +554,13 @@ do
   Ui._active = 2
   SR.update()
   eq(last().text, "What will SQUIRTLE do? FIGHT", "doubles: the partner's prompt")
+  -- B on the partner's menu goes back to the first battler
+  Ui._active = 0
+  SR.update()
+  eq(last().text, "What will CHARMANDER do? FIGHT", "doubles: B back to the first battler")
+  eq(last().interrupt, true, "the reopened menu interrupts")
+  Ui._active = 2
+  SR.update()
   -- its moves, then the target cursor
   Ui._mode = "moves"
   Ui._moveIndex = 1
