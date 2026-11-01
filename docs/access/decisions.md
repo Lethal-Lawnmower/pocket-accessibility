@@ -269,3 +269,9 @@ Gen 2"). Boundaries unchanged: those scripts are a behaviour reference only
 (decision 7: no license, so no code or authored text is copied); decision 20
 covers only the old project's navigation code. LeafGreen needs a clean dump
 from the owner before any game run.
+
+## 31. Publish FireRed as initial groundwork (2026-11-01)
+
+The owner approved pushing the FireRed work, labelled like Gen 2 as
+initial groundwork ("Yeah, push it and then open it for me so I can
+test"). The README says so. Covers that push only; not acceptance.

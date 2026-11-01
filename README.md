@@ -53,6 +53,12 @@ third-generation GBA games.
 > three games, but no player has tested them yet. Live user testing will be
 > done eventually; expect rough edges until then.
 
+> [!IMPORTANT]
+> **FireRed: initial groundwork.** Menus, battles, navigation, auto-walk
+> and Strength puzzle help are in place and pass automated tests and
+> scripted runs, but no player has tested them yet. LeafGreen, Ruby,
+> Sapphire and Emerald are not covered yet.
+
 **Based on the Pokemon Gen 1 Recompilation Project by BOIS CLUB GAMES, LLC
 (https://github.com/bryanthaboi/gen1recomp).** This is an unofficial fork and
 is not affiliated with or endorsed by that project. Pokémon Access features
@@ -65,7 +71,7 @@ are recreated, not copied; no code or data from those scripts is included.
    release and copy `prism.dll` into `local-deps/prism/` in this folder.
 3. Start the game with your ROM imported (see the upstream instructions
    below), choosing the game with `POKEPORT_GAME` (`red`, `blue`, `yellow`,
-   `gold`, `silver` or `crystal`), for example in
+   `gold`, `silver`, `crystal` or `firered`), for example in
    PowerShell: `$env:POKEPORT_GAME = 'red'; & 'C:\Program Files\LOVE\love.exe' .`
 
 You supply your own ROM. No game data is included.
