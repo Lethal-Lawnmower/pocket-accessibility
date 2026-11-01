@@ -115,6 +115,7 @@ changes to this layer.
 |---|---|
 | Unit tests | `screen_reader_test.lua` 23/23; `game_screens_test.lua` 37/37 (self-describing screens, nest areas, quantity, naming, party and sub-menu, TM able, summary pages, move learn, trainer card, Pokédex list, unseen rows and entry, options, town map); `minor_screens_test.lua` 13/13. |
 | Scripted game runs | Disposable identity `pocket-access-test`, `POKEPORT_ACCESS_TRACE=1`, real Prism (NVDA). `drivers/menus_and_text.lua`: title menu, Oak's speech, name menus, start menu. `drivers/gen1_screens.lua`: naming keyboard, party and sub-menu, summary pages, options entry, trainer card. `drivers/more_screens.lua`: bag, toss quantity, Pokédex list and a two-page entry, town map, a mart's buy list, priced quantity, price prompt with YES/NO, Pokédex nest areas, an options group page with a value change. Title and intro lines appear at every scripted start. `drivers/pc_and_moves.lua`: Bill's PC and deposit list, player's PC and withdraw list, the whole forget-a-move flow including the abandon prompt. |
+| Owner listening | 2026-10-31, Red: speech heard and judged "really good". Reported that a whole page is read at once, ahead of the lines revealed by each A press; pacing change offered. |
 | Yellow | Yellow imported into a fresh identity (`pocket-access-yellow`); `drivers/menus_and_text.lua` with `POKEPORT_VERSION=yellow` traced the Yellow intro, title, Oak's speech, naming and the start menu. |
 | Heard by the owner | Not yet. |
 

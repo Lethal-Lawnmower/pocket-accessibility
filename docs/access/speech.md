@@ -59,4 +59,4 @@ The declarations in `PrismBackend.lua` are copied from 0.17.3's `prism.h`.
 | Unit tests | `luajit tests/access/speech_test.lua`: 32/32 passed (fake backend; routing, interrupt, blank text, failures, install and quit wiring, library search order, missing-library message). |
 | Real Prism, outside the game | LuaJIT loaded `local-deps/prism/prism.dll`; Prism chose **NVDA** (features 181: output and speak supported); output of a test phrase returned success. |
 | Real game start | `lovec.exe .` from the repository root logged `[access] speech ready: NVDA`, then reached upstream's launcher. Output was captured by temporarily unbuffering stdout; that line was removed afterwards. |
-| Heard by the owner | **Not yet.** No agent can hear the output; the owner should confirm that "Pocket Accessibility ready." is spoken at start-up. |
+| Heard by the owner | **Yes, 2026-10-31.** First listening session (Red from source, `POKEPORT_GAME=red`): speech is audible through NVDA. Owner: "This is really good." Field report: a dialogue page is spoken whole, ahead of the lines the game reveals after each A press. |
