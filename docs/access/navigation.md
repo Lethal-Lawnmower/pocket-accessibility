@@ -51,8 +51,9 @@ LUA_PATH="<repo>/?.lua;<repo>/?/init.lua;;" luajit "<repo>/tests/access/nav/worl
   `isWarpTileCell` no longer report as active, so it drops out of the browse
   list and every later index shifts. To check against real maps once the
   object list runs in game; adapt the filter or the fixture then.
-- `world.bumped` (wall bumps) is not an upstream event; the old fork added
-  it. Needs another source.
+- Wall bumps (decision 24): only the game's own bump sound. The old spoken
+  bump descriptions depended on a `world.bumped` event the old fork added to
+  upstream; that code stays dormant.
 - Interactive objects 12/13: the bedroom SNES does not appear in the object
   list (the PC does). Not yet investigated.
 - Camera ("sonar") is off by default (decision 22): its keys pass through

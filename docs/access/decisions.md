@@ -192,3 +192,12 @@ navigation. Auto-walk is new (the old project had none): it walks the
 same route guided navigation describes by holding directions the way a
 player would. On the map the left trigger no longer lowers game speed
 (upstream's default); the left shoulder still does.
+
+## 24. Wall bumps: keep the game's own sound only (2026-10-31)
+
+The original game already plays its bump sound effect when the player walks
+into something, and the owner chose to leave it at that. The old project's
+spoken bump descriptions ("Wall ahead.", "Water ahead.", "Map edge.") are
+not restored; they depended on a `world.bumped` event the old fork added to
+upstream. The reused bump code stays dormant and can be revived later if
+wanted.
