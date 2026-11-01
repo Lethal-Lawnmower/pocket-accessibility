@@ -151,6 +151,28 @@ do
   check(not AutoWalk.active(), "and the walk is over")
 end
 
+-- The planners' reasons are said in words, never as code ("no path",
+-- "regional search timed out" were spoken as they were).
+do
+  local Pathfinder = package.loaded["src.access.nav.Pathfinder"]
+  local find = Pathfinder.find
+  Pathfinder.find = function() return nil, "no path" end
+  game, overworld, nav = setup()
+  check(not AutoWalk.start(nav, game), "no route: the walk does not start")
+  eq(spoken[#spoken], "No route to PC from here", "no path is said in words")
+  Pathfinder.find = find
+  game, overworld, nav = setup()
+  nav.selectedRouteGoals = function()
+    return { label = "Ether, Olivine Lighthouse 3F", type = "area", mapId = "OLIVINE_LIGHTHOUSE_3F" },
+      { { x = 1, y = 1 } }, nil, nil, overworld
+  end
+  nav.regionalNextLeg = function() return nil, "regional search timed out" end
+  AutoWalk.start(nav, game)
+  eq(spoken[#spoken], "Could not plan a route to Ether, Olivine Lighthouse 3F in time",
+    "a planner time-out is said in words")
+  eq(AutoWalk.spokenReason("Not on a map", "PC"), "Not on a map", "a reason that is a sentence stays")
+end
+
 -- A field move on the route (Gen 2): turn to face it, flagged as turning so
 -- the game runs that frame at 1X (a fast frame's worth of a held direction
 -- stepped onto a waterfall's bottom cell instead of turning), then press A.

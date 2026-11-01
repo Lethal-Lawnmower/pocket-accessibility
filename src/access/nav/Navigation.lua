@@ -2954,7 +2954,12 @@ function Accessibility:startAreaJourney(item, goals)
     targetId = item.id, targetLabel = item.label, targetCategory = "area",
   }
   local leg, legReason = self:regionalNextLeg(navigation)
-  if not leg then return self:announceManual({ legReason or "No route yet" }) end
+  if not leg then
+    -- v0.3.98 (Gen 2 audit): the planner's own reason ("regional search
+    -- timed out") was spoken as it was; say what it means
+    return self:announceManual({ require("src.access.nav.AutoWalk").spokenReason(
+      legReason or "no regional path", item.label) })
+  end
   self.activeNavigation = navigation
   self:emitSemantic("navigation.started", {
     targetId = item.id, targetLabel = item.label, targetCategory = "area",

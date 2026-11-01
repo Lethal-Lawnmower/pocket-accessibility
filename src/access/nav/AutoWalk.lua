@@ -95,6 +95,22 @@ local function findRoute(nav, goals)
   return nil, lastErr
 end
 
+-- The planners give their reasons for code ("no path", "regional search
+-- timed out"); those were spoken as they were.  The player hears what they
+-- mean; any other reason ("Not on a map") is already a sentence.
+local PLANNER_REASONS = {
+  ["no path"] = "none", ["no regional path"] = "none", ["no regional transition"] = "none",
+  ["regional search timed out"] = "slow", ["time limit exceeded"] = "slow",
+  ["node limit exceeded"] = "slow",
+}
+local function spokenReason(reason, label)
+  local kind = PLANNER_REASONS[reason]
+  if kind == "none" then return "No route to " .. tostring(label) .. " from here" end
+  if kind == "slow" then return "Could not plan a route to " .. tostring(label) .. " in time" end
+  return tostring(reason)
+end
+AutoWalk.spokenReason = spokenReason
+
 -- Starts walking to the coordinator's selected object.  Returns true when
 -- walking began; otherwise speaks why not.  `adapter` defaults to the running
 -- game's (WorldAdapter.current), Gen 1 when none is known.
@@ -117,14 +133,14 @@ function AutoWalk.start(nav, game, adapter)
     journey = { targetMapId = item.mapId, targetGoals = goals }
     local leg, legErr = nav:regionalNextLeg(journey)
     if not leg then
-      Speech.say(tostring(legErr or "No route yet"), { interrupt = true })
+      Speech.say(spokenReason(legErr or "no regional path", item.label), { interrupt = true })
       return false
     end
     goals, final = leg.goals, leg.final == true
   end
   local result, findErr = findRoute(nav, goals)
   if not result then
-    Speech.say(tostring(findErr or "Cannot reach yet"), { interrupt = true })
+    Speech.say(spokenReason(findErr or "no path", item.label), { interrupt = true })
     return false
   end
   local player = overworld.player

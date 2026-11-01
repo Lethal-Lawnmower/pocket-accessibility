@@ -149,12 +149,12 @@ return function(game)
     U.log("MAP", step.map, step.cardKey and "(with Card Key)" or "", #targets .. " targets")
     for _, target in ipairs(targets) do
       local outcome = walkTo(step.map, target)
-      if outcome:find("no path", 1, true) then
+      if outcome:find("no path", 1, true) or outcome:find("No route to", 1, true) then
         -- unreachable from the first entrance: try the map's other doors
         local warps = game.data.maps[step.map].warps or {}
         for e = 2, #warps do
           local other = walkTo(step.map, target, e)
-          if not other:find("no path", 1, true) then
+          if not (other:find("no path", 1, true) or other:find("No route to", 1, true)) then
             outcome = other .. " (from entrance " .. e .. ")"
             break
           end
@@ -163,7 +163,8 @@ return function(game)
       total = total + 1
       if outcome:find("^Arrived") or outcome:find(" is here$") then arrived = arrived + 1 end
       U.log("RESULT", step.map, target.label, "=>", outcome)
-      if outcome:find("no path", 1, true) or outcome:find("Blocked", 1, true) then
+      if outcome:find("no path", 1, true) or outcome:find("No route to", 1, true)
+         or outcome:find("Blocked", 1, true) then
         -- what guided navigation (P) would say from the first entrance
         local x, y = entrance(step.map)
         teleport(step.map, x, y)
