@@ -26,9 +26,14 @@ return function(game)
     return nil
   end
 
+  -- holes not yet filled; nil when the object list cannot be read (a battle
+  -- or text still up), which must never count as solved
   local function holesLeft()
+    L.settle(3000, true)
+    local items = L.browse("all")
+    if #items == 0 then return nil end
     local n = 0
-    for _, item in ipairs(L.browse("all")) do
+    for _, item in ipairs(items) do
       if tostring(item.label):match("^Hole %d") and not tostring(item.stateText):match("^filled") then
         n = n + 1
       end
@@ -74,7 +79,7 @@ return function(game)
           break
         end
         local id = target.id
-        local walk = L.walkTo(target, { filter = "objects", answer = "a" })
+        local walk = L.walkTo(target, { filter = "objects", answer = "a", limit = 12000 })
         local npc = boulderAt(id)
         local dir = target.requiredFacing
         U.log("RESULT", floor.id, "round " .. round, target.description, "=>", walk, "at", L.where())

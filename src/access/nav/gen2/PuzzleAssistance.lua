@@ -5,9 +5,8 @@
 
 -- Strength puzzle help for Gold, Silver and Crystal: the two stone-table
 -- floors, Ice Path B1F and Blackthorn Gym 2F (the owner's first puzzle-help
--- targets; Pokemon Access handles both badly).  The Sokoban search in
--- ../PuzzleAssistance.lua is generation-neutral; this module answers its
--- generation questions from the game's own data:
+-- targets; Pokemon Access handles both badly).  Everything is read from the
+-- game's own data:
 --
 --   targets      the rows of the stone table the world is actually polling
 --                (World.cmdQueue, written by the map's MAPCALLBACK_CMDQUEUE),
@@ -16,10 +15,14 @@
 --                drop the game would not make
 --   isBoulder    SPRITEMOVEDATA_STRENGTH_BOULDER and an object index, the
 --                gates CmdQueue.stoneFall itself applies
---   canMove      the player's step under Gold's side-wall rules
---   canPush      Map:objectStepPermitted, the boulder's own rule, and never
---                across a different pit first (the game drops it there)
---   canStand     never on a warp or pit (stepping there leaves the floor)
+--   the player   steps under Gold's side-wall rules, never onto a warp or pit
+--   a push       Map:objectStepPermitted, the boulder's own rule; never onto
+--                a warp other than the boulder's own hole
+--
+-- Puzzle.describe searches the whole floor (planFloor below), because
+-- Blackthorn needs boulders outside the stone table moved first; the shared
+-- single-boulder search (../PuzzleAssistance.lua) cannot plan that.  The
+-- RULES table is kept for that shared search and its tests.
 
 local Shared = require("src.access.nav.PuzzleAssistance")
 local Permissions = require("src.world.gen2.Permissions")

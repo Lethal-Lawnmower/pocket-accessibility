@@ -434,6 +434,36 @@ do -- standard tiles without signs, and a waterfall object faced from below
     "waterfall object: climbed from below its bottom cell")
 end
 
+-- ------------------------------------------------------------ cues and terrain query
+
+do
+  local map = gridMap("ICE_PATH_1F", { ".I.v", "...." })
+  local world = newWorld(map, 1, 0)
+  local game = newGame(world)
+  local nav = newNav(game)
+  local cues = {}
+  nav.earcons = { play = function(_, id) cues[#cues + 1] = id return true end,
+    setEnabled = function() end, stop = function() end }
+  events:emit("world.stepped", { mapId = "ICE_PATH_1F", x = 1, y = 0 })
+  nav:processWorldEvents(nil)
+  eq(cues[#cues], "ice", "footstep: a step onto ice cues ice (transient or not)")
+  world.player.cellX = 3
+  events:emit("world.stepped", { mapId = "ICE_PATH_1F", x = 3, y = 0 })
+  nav:processWorldEvents(nil)
+  eq(cues[#cues], "ledge", "footstep: a ledge cell cues the ledge once")
+  eq(#cues, 2, "footstep: no second adjacent-ledge cue on Gen 2")
+  world.textbox = {}
+  world.player.cellX = 1
+  events:emit("world.stepped", { mapId = "ICE_PATH_1F", x = 1, y = 0 })
+  nav:processWorldEvents(nil)
+  eq(#cues, 2, "footstep: nothing cued under a text box")
+  world.textbox = nil
+  spoken = {}
+  nav.sonarMapId, nav.sonarX, nav.sonarY = "ICE_PATH_1F", 1, 0
+  nav:handleCommand("read_terrain")
+  eq(spoken[#spoken - 1] or spoken[#spoken], "Sonar x 1, y 0. ice", "Shift+E: the cell's terrain")
+end
+
 -- ------------------------------------------------------------ landmark sign
 
 do
