@@ -434,6 +434,122 @@ do -- standard tiles without signs, and a waterfall object faced from below
     "waterfall object: climbed from below its bottom cell")
 end
 
+-- ------------------------------------------------------------ labels from the game's data (audit)
+-- Signs named by the standard script they run, neighbouring signs with one
+-- script as one object, Pokemon named by the species their script cries
+-- (the cartridge reuses its species sheets: GROWLITHE's for a MEOWTH), and
+-- sheet names that are not who stands there.
+
+do
+  local extra = {
+    bgEvents = {
+      { x = 0, y = 0, kind = 0, scriptKey = "trash" },                 -- 1: Trash Can
+      { x = 2, y = 0, kind = 0, scriptKey = "statue" },                -- 2: Gym Statue (via a branch)
+      { x = 4, y = 0, kind = 0, scriptKey = "slots" },                 -- 3: Slot Machine row,
+      { x = 5, y = 0, kind = 0, scriptKey = "slots" },                 --    one object
+      { x = 7, y = 0, kind = 0, scriptKey = "panel" },                 -- 5: Floor Panel
+      { x = 0, y = 2, kind = 0, scriptKey = "plain" },                 -- 6: Signpost 6, three cells
+      { x = 1, y = 2, kind = 0, scriptKey = "plain" },
+      { x = 1, y = 3, kind = 0, scriptKey = "plain" },
+      { x = 3, y = 2, kind = 0, scriptKey = "plain" },                 -- 9: not touching: its own
+      { x = 4, y = 2, kind = 1, scriptKey = "plain" },                 -- 10: other kind: its own
+    },
+  }
+  local rows = { "........", "........", "........", "........", "........", "........" }
+  local map = gridMap("GAME_CORNER", rows, extra)
+  local world = newWorld(map, 6, 5, { scripts = {
+    trash = { { op = "jumpstd", std = "TrashCanScript" } },
+    statue = { { op = "checkflag", flag = 3 }, { op = "iftrue", script = "statue2" },
+               { op = "jumptext", text = "x" } },
+    statue2 = { { op = "jumpstd", std = "GymStatue2Script" } },
+    slots = { { op = "random", value = 6 }, { op = "special", id = 1 } },
+    panel = { { op = "opentext" }, { op = "elevator", floors = {} } },
+    plain = { { op = "jumptext", text = "1b:5da7" } },
+    meowth = { { op = "faceplayer" }, { op = "opentext" }, { op = "cry", id = 52 } },
+  } })
+  world.constants = { specialOrder = { "PlaceMoneyTopRight", "SlotMachine" },
+    speciesOrder = { [52] = "MEOWTH", [83] = "FARFETCH_D" } }
+  world.npcs = {
+    npc("GAME_CORNER_obj_1", 7, 3, { index = 1, sprite = "SPRITE_GROWLITHE", scriptKey = "meowth" }),
+    npc("GAME_CORNER_obj_2", 7, 4, { index = 2, sprite = "SPRITE_GROWLITHE", scriptKey = "plain" }),
+    npc("GAME_CORNER_obj_3", 6, 3, { index = 3, sprite = "SPRITE_MONSTER", scriptKey = "plain" }),
+    npc("GAME_CORNER_obj_4", 5, 4, { index = 4, sprite = "SPRITE_CHRIS" }),
+    npc("GAME_CORNER_obj_5", 4, 4, { index = 5, sprite = "SPRITE_STANDING_YOUNGSTER" }),
+    npc("GAME_CORNER_obj_6", 3, 4, { index = 6, sprite = "SPRITE_POKE_BALL", itemball = { item = 28 } }),
+  }
+  world.npcs[1].spriteDef = { id = "SPRITE_GROWLITHE", source = "ROM:SpriteMons[2]" }
+  world.npcs[2].spriteDef = { id = "SPRITE_GROWLITHE", source = "ROM:SpriteMons[2]" }
+  world.npcs[3].spriteDef = { id = "SPRITE_MONSTER", source = "ROM:OverworldSprites[75]" }
+  local game = newGame(world)
+  game.data.pokemon = { MEOWTH = { name = "MEOWTH" }, FARFETCH_D = { name = "FARFETCH'D" } }
+  local nav = newNav(game)
+  local snap = nav:captureWorld("all")
+  local byLabel, counts, labels = {}, {}, {}
+  for _, item in ipairs(snap.browse) do
+    byLabel[item.label] = byLabel[item.label] or item
+    counts[item.label] = (counts[item.label] or 0) + 1
+    labels[#labels + 1] = item.label
+  end
+  local all = table.concat(labels, " | ")
+  check(byLabel["Trash Can"] ~= nil, "a sign running TrashCanScript is the Trash Can: " .. all)
+  check(byLabel["Gym Statue"] ~= nil, "a std script reached through a branch names the sign")
+  eq(counts["Slot Machine"], 1, "two neighbouring slot machines with one script are one object")
+  eq(byLabel["Slot Machine"] and #byLabel["Slot Machine"].interactionCells, 2,
+    "and both machines can be faced")
+  check(byLabel["Floor Panel"] ~= nil, "the elevator command names the car's panel")
+  eq(byLabel["Signpost 6"] and #byLabel["Signpost 6"].interactionCells, 3,
+    "three touching signs with one script are one Signpost, keeping the first ordinal")
+  check(byLabel["Signpost 7"] == nil and byLabel["Signpost 8"] == nil, "the grouped signs are not listed again")
+  check(byLabel["Signpost 9"] ~= nil, "a sign with the same script but not touching is its own object")
+  check(byLabel["Signpost 10"] ~= nil and byLabel["Signpost 10"].requiredFacing == "up",
+    "a facing-only sign is not merged into a read-from-anywhere one")
+  local goals = nav:interactionGoals(nav:worldState(), byLabel["Signpost 6"])
+  local fromBelow = false
+  for _, goal in ipairs(goals) do if goal.x == 1 and goal.y == 4 then fromBelow = true end end
+  check(fromBelow, "a grouped sign is approached from any of its cells (below the third)")
+
+  check(byLabel["Meowth"] ~= nil, "a GROWLITHE sheet whose script cries MEOWTH is the Meowth")
+  check(byLabel["Growlithe"] == nil, "the reused sheet's name is never spoken")
+  eq(counts["Pok\195\169mon"], 1, "a species sheet with no cry says only Pokemon")
+  check(byLabel["Monster"] ~= nil, "a shape sheet with no cry keeps its shape")
+  check(byLabel["Trainer"] ~= nil and byLabel["Chris"] == nil, "the player's sheet on someone else is a Trainer")
+  check(byLabel["Youngster"] ~= nil, "a pose variant names the person")
+  check(byLabel["Iron"] ~= nil, "item balls keep their item")
+
+  world.npcs[2].def.scriptKey = "bird"
+  world.scripts.bird = { { op = "cry", id = 83 } }
+  snap = nav:captureWorld("all")
+  local bird
+  for _, item in ipairs(snap.browse) do if item.label == "Farfetch'd" then bird = item end end
+  check(bird ~= nil, "species names are said as the game prints them, title case (Farfetch'd)")
+end
+
+do -- the rival before he is named: "???" may be said as nothing at all
+  local map = gridMap("SPROUT_TOWER_3F", { "....", "...." })
+  local world = newWorld(map, 0, 0)
+  world.npcs = { npc("SPROUT_TOWER_3F_obj_1", 3, 1, { index = 1, sprite = "SPRITE_RIVAL" }) }
+  local game = newGame(world)
+  game.save.rival.name = "???"
+  local nav = newNav(game)
+  local function rivalLabel()
+    for _, item in ipairs(nav:captureWorld("all").browse) do
+      if item.id == "SPROUT_TOWER_3F_obj_1" then return item.label end
+    end
+  end
+  eq(rivalLabel(), "Rival", "an unnamed rival (a new game's ???) is Rival")
+  game.save.rival.name = "SILVER"
+  eq(rivalLabel(), "SILVER", "once named, the rival is his name")
+end
+
+do -- spoken forms of abbreviations in generated ids (shared humanize)
+  local Shared = require("src.access.nav.WorldSnapshot")
+  eq(Shared.humanize("PP_UP"), "PP Up", "PP stays PP")
+  eq(Shared.humanize("HP_UP"), "HP Up", "HP stays HP")
+  eq(Shared.humanize("WHIRL_ISLAND_NE"), "Whirl Island NE", "compass points stay capitals")
+  eq(Shared.humanize("FAST_SHIP_CABINS_SW_SSW_NW"), "Fast Ship Cabins SW SSW NW", "three-letter points too")
+  eq(Shared.humanize("LAV_RADIO_TOWER_1F"), "Lavender Radio Tower 1F", "Lav is Lavender")
+end
+
 -- ------------------------------------------------------------ cues and terrain query
 
 do

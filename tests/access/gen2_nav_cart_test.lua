@@ -41,6 +41,9 @@ local tilesets = dofile(dir .. "/tilesets.lua")
 local items = readable(dir .. "/items.lua") and dofile(dir .. "/items.lua") or {}
 local scripts = readable(dir .. "/scripts.lua") and dofile(dir .. "/scripts.lua") or {}
 local initial = readable(dir .. "/initial_events.lua") and dofile(dir .. "/initial_events.lua") or {}
+local constants = readable(dir .. "/constants.lua") and dofile(dir .. "/constants.lua") or {}
+local sprites = readable(dir .. "/sprites.lua") and dofile(dir .. "/sprites.lua") or {}
+local pokemon = readable(dir .. "/pokemon.lua") and dofile(dir .. "/pokemon.lua") or {}
 local itemById = {}
 for id, item in pairs(items) do
   if type(item) == "table" and item.index then itemById[item.index] = id end
@@ -57,6 +60,24 @@ local Pathfinder = require("src.access.nav.Pathfinder")
 
 local BIG = { [0x15] = true, [0x20] = true, [0x21] = true }
 
+-- The sheet the live world draws an object with (World:resolveSprite and
+-- pooledNpc): a sheet name, or a variable-sprite slot filled by the new
+-- game's InitializeEventsScript (initial_events.sprites, constants.spriteOrder).
+-- No sheet, no object -- the game spawns nothing there either.
+local variableSprites = {}
+for _, row in ipairs(initial.sprites or {}) do variableSprites[row.slot] = row.sprite end
+local function sheetFor(sprite)
+  local function sheet(name)
+    if next(sprites) == nil then return { id = name } end -- an older cache without sprites.lua
+    return sprites[name]
+  end
+  if type(sprite) == "string" then return sheet(sprite) end
+  if type(sprite) ~= "number" or sprite < 0xf0 then return nil end
+  local byte = variableSprites[sprite - 0xf0]
+  local name = byte and (constants.spriteOrder or {})[byte]
+  return name and sheet(name) or nil
+end
+
 -- A headless world on a real map: the objects a new game shows (initial
 -- event flags applied), the command queue the map's callback writes, and the
 -- few World methods navigation reads.
@@ -68,15 +89,17 @@ local function world(mapId, px, py, opts)
   for _, flag in ipairs(initial.flags or {}) do events:set(flag, true) end
   local w = {
     map = map, maps = maps, tilesets = tilesets, scripts = scripts, events = events,
+    constants = constants,
     player = { cellX = px, cellY = py, facing = "down", moving = false },
     npcs = {}, cmdQueue = CmdQueue.new(), party = opts.party or {},
     playerState = opts.surfing and FieldMoves.PLAYER_SURF or FieldMoves.PLAYER_NORMAL,
     strengthActive = opts.strength, backupWarp = opts.backupWarp,
   }
   for _, obj in ipairs(def.objects or {}) do
-    if events:objectVisible(obj.eventFlag) then
+    local sheet = sheetFor(obj.sprite)
+    if sheet and events:objectVisible(obj.eventFlag) then
       w.npcs[#w.npcs + 1] = { id = mapId .. "_obj_" .. obj.index, cellX = obj.x, cellY = obj.y,
-        def = obj, bigObject = BIG[obj.movement] == true, facing = "down" }
+        def = obj, spriteDef = sheet, bigObject = BIG[obj.movement] == true, facing = "down" }
     end
   end
   for _, cb in ipairs(def.callbacks or {}) do
@@ -118,7 +141,7 @@ local function game(w, badges)
   return { world = w, phase = "play", stack = stack, input = { sources = {}, pressQueue = {}, state = {} },
     save = { player = { name = "GOLD", badges = badges or {} }, rival = { name = "SILVER" },
              mom = { name = "MOM" }, options = {}, party = {} },
-    data = { gen2Maps = maps, gen2Tilesets = tilesets } }
+    data = { gen2Maps = maps, gen2Tilesets = tilesets, pokemon = pokemon } }
 end
 
 local quiet = { isAvailable = function() return true end, output = function() return true end,
@@ -296,6 +319,127 @@ do -- Sprout Tower: the floors' transitions plan a journey
   check(result ~= nil and result.firstTransition ~= nil, "Sprout Tower: a journey from 1F to 3F is planned")
   eq(result and result.firstTransition and result.firstTransition.destMap, "SPROUT_TOWER_2F",
     "Sprout Tower: the first leg climbs to 2F")
+end
+
+-- ------------------------------------------------------------ whole-game label sweep
+-- Every map of the cache, from a new game's flags: the object list the layer
+-- shows, every label checked for the wrong-but-plausible kinds the old
+-- project shipped (Unknown, nil, raw ids, ROM addresses, "Object N", empty),
+-- every warp and connection leading somewhere real, every return warp
+-- having a way in.  Failures name the map and the label.
+
+local startCellOf = function(def, map)
+  local anchor = (def.warps or {})[1]
+  local ax, ay = anchor and anchor.x or 0, anchor and anchor.y or 0
+  local best, bx, by = math.huge, 0, 0
+  for y = 0, map.heightCells - 1 do
+    for x = 0, map.widthCells - 1 do
+      local c = map:cellCollision(x, y)
+      if Permissions.isWalkable(c) and not Permissions.isWarpCollision(c) and not Permissions.isIce(c)
+         and not Permissions.currentDirection(c) and not Permissions.doorForcedDirection(c) then
+        local d = math.abs(x - ax) + math.abs(y - ay)
+        if d < best then best, bx, by = d, x, y end
+      end
+    end
+  end
+  return bx, by
+end
+
+do
+  local ids = {}
+  for id in pairs(maps) do ids[#ids + 1] = id end
+  table.sort(ids)
+  -- the first map (by id) leading into each map, as the backup warp a return
+  -- warp resolves through
+  local enteredFrom = {}
+  for _, id in ipairs(ids) do
+    for i, warp in ipairs(maps[id].warps or {}) do
+      if warp.destWarp ~= 0xff and maps[warp.destMap] then
+        enteredFrom[warp.destMap] = enteredFrom[warp.destMap] or { map = id, warp = i }
+      end
+    end
+  end
+  local mapsChecked, labelsChecked, bad, badData = 0, 0, {}, {}
+  local function suspicious(label)
+    if type(label) ~= "string" or not label:match("%S") then return "empty" end
+    if label:find("Unknown", 1, true) or label:find("nil", 1, true) then return "unknown or nil" end
+    if label:match("%x%x?:%x%x%x%x") then return "ROM address" end
+    if label:find("_", 1, true) or label:find("SPRITE", 1, true) or label:find("EVENT", 1, true) then
+      return "raw id"
+    end
+    if label:match("^Object %d") or label:match("^Warp %d") or label:match("^Interactive object") then
+      return "generic placeholder"
+    end
+    return nil
+  end
+  for _, mapId in ipairs(ids) do
+    local def = maps[mapId]
+    if tilesets[def.tileset] then
+      mapsChecked = mapsChecked + 1
+      for i, warp in ipairs(def.warps or {}) do
+        if warp.destWarp == 0xff then
+          if not enteredFrom[mapId] then badData[#badData + 1] = mapId .. " return warp " .. i .. " has no way in" end
+        elseif not (maps[warp.destMap] and (maps[warp.destMap].warps or {})[warp.destWarp]) then
+          badData[#badData + 1] = mapId .. " warp " .. i .. " to " .. tostring(warp.destMap) .. "#" .. tostring(warp.destWarp)
+        end
+      end
+      for direction, conn in pairs(def.connections or {}) do
+        if type(conn) == "table" and not maps[conn.mapId or ""] then
+          badData[#badData + 1] = mapId .. " " .. direction .. " connection to " .. tostring(conn.mapId)
+        end
+      end
+      local map = Gen2Map.new(def, tilesets[def.tileset])
+      local px, py = startCellOf(def, map)
+      local w = world(mapId, px, py, { backupWarp = enteredFrom[mapId] })
+      local snap = nav(game(w)):captureWorld("all")
+      if not snap then
+        bad[#bad + 1] = mapId .. ": no object list"
+      else
+        if suspicious(snap.locationName) then bad[#bad + 1] = mapId .. " map name: " .. tostring(snap.locationName) end
+        for _, item in ipairs(snap.browse) do
+          labelsChecked = labelsChecked + 1
+          local why = suspicious(item.label)
+          if why then bad[#bad + 1] = mapId .. " " .. why .. ": " .. tostring(item.label) end
+          if item.label == "Exit" then bad[#bad + 1] = mapId .. " return warp unresolved with a way in" end
+        end
+      end
+    end
+  end
+  check(mapsChecked > 300, "label sweep: every map of the cache (" .. mapsChecked .. ")")
+  eq(#bad, 0, "label sweep: " .. labelsChecked .. " labels, none suspicious: " .. table.concat(bad, "; "))
+  eq(#badData, 0, "label sweep: every warp, return warp and connection resolves: " .. table.concat(badData, "; "))
+end
+
+do -- named from the game's own data rather than the sheet or "Signpost N"
+  local function labelsOn(mapId)
+    local def = maps[mapId]
+    if not def then return nil end
+    local map = Gen2Map.new(def, tilesets[def.tileset])
+    local px, py = startCellOf(def, map)
+    local byLabel, all = browse(nav(game(world(mapId, px, py))))
+    local counts = {}
+    for label in (all .. " | "):gmatch("(.-) | ") do counts[label] = (counts[label] or 0) + 1 end
+    return byLabel, counts, all
+  end
+  local byLabel, _, all = labelsOn("CHARCOAL_KILN")
+  check(byLabel and byLabel["Farfetch'd"] and not byLabel["Moltres"],
+    "Charcoal Kiln: the Farfetch'd drawn with MOLTRES's sheet is the Farfetch'd: " .. tostring(all))
+  byLabel, _, all = labelsOn("CELADON_MANSION_1F")
+  check(byLabel and byLabel["Meowth"] and not byLabel["Growlithe"],
+    "Celadon Mansion 1F: the Meowth drawn with GROWLITHE's sheet: " .. tostring(all))
+  byLabel, _, all = labelsOn("VIRIDIAN_GYM")
+  check(byLabel and byLabel["Gym Statue"], "Viridian Gym: the statues are Gym Statue: " .. tostring(all))
+  byLabel, _, all = labelsOn("GOLDENROD_GAME_CORNER")
+  check(byLabel and byLabel["Slot Machine"] and byLabel["Card Flip"],
+    "Goldenrod Game Corner: slot machines and Card Flip named by their special: " .. tostring(all))
+  local _, counts
+  byLabel, counts, all = labelsOn("TEAM_ROCKET_BASE_B2F")
+  local transmitter = 0
+  for label, n in pairs(counts or {}) do if label:match("^Signpost") then transmitter = transmitter + n end end
+  check(byLabel and transmitter <= 2,
+    "Rocket base B2F: the transmitter's twenty bg events are one object: " .. tostring(all))
+  byLabel, _, all = labelsOn("RUINS_OF_ALPH_KABUTO_CHAMBER")
+  check(byLabel and byLabel["Unown Puzzle"], "Ruins of Alph: the puzzle panel is named: " .. tostring(all))
 end
 
 Speech.shutdown()
