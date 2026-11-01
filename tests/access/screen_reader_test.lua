@@ -67,6 +67,27 @@ local before = #spoken
 ScreenReader.update(box)
 eq(#spoken, before, "returning to the same page stays quiet")
 
+-- Chunk pacing: a line marked in contBefore waits for A, so speech stops
+-- before it and speaks it only once the game moves lineIndex onto it.
+reset()
+local paced = setmetatable({ pageIndex = 1, lineIndex = 1,
+  pages = { { "PIDGEY is trying", "to learn GUST!", "But PIDGEY can't", "learn more!" },
+    contBefore = { { false, false, true, false } } } }, TextBox)
+ScreenReader.update(paced)
+eq(last().text, "PIDGEY is trying to learn GUST!", "first chunk stops at the A wait")
+paced.lineIndex = 2
+ScreenReader.update(paced)
+eq(#spoken, 1, "typing the rest of a chunk says nothing new")
+paced.lineIndex = 3
+ScreenReader.update(paced)
+eq(last().text, "But PIDGEY can't learn more!", "next chunk after the A press")
+eq(last().interrupt, true, "a new chunk interrupts")
+reset()
+local instant = setmetatable({ pageIndex = 1, lineIndex = 4, pages = paced.pages }, TextBox)
+ScreenReader.update(instant)
+eq(last().text, "PIDGEY is trying to learn GUST! But PIDGEY can't learn more!",
+  "an instant box speaks its whole page")
+
 -- Menu: position on entry and on return, label only while moving.
 reset()
 local menu = setmetatable({ index = 1, items = { { label = "POKéDEX" }, { label = "POKéMON" },

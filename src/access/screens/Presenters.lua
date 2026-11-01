@@ -44,11 +44,13 @@ Presenters.speakable = speakable
 -- Joins a page's lines into one sentence.  A line ending in a hyphen is a
 -- word the original split across lines ("grand-" / "son"), so it is joined
 -- without a space and reads as one word.
-local function joinLines(lines)
+-- `first` and `last` select a range (default: every line).
+local function joinLines(lines, first, last)
+  first, last = first or 1, last or #lines
   local out = ""
-  for i, line in ipairs(lines) do
-    line = tostring(line)
-    if i == 1 then
+  for i = first, last do
+    local line = tostring(lines[i])
+    if i == first then
       out = line
     elseif out:sub(-1) == "-" then
       out = out .. line
@@ -80,18 +82,33 @@ local function rowText(item)
 end
 Presenters.rowText = rowText
 
--- Dialogue box: the whole current page at once, never letter by letter.
--- pages[p] is a list of already-substituted lines (TextBox.paginate).  A
--- Yes/No box closing over the page must not make the question repeat, so
--- the page is said once per page number, entering or not.
+-- Dialogue box, paced like the game (owner request, 2026-10-31): a chunk is
+-- spoken as soon as the game starts showing it, and a chunk ends where the
+-- game waits for A before scrolling on (pages.contBefore[p][i] marks a line
+-- that waits; TextBox moves lineIndex onto it only after the press).  Each
+-- chunk is said whole, never letter by letter.  pages[p] holds the
+-- already-substituted lines (TextBox.paginate).
+--
+-- memo.through is the last line already spoken on memo.page, so nothing is
+-- said twice: a Yes/No box closing over the page stays quiet, and an
+-- instant box (lineIndex already at the end) speaks its whole page at once.
 Presenters.textBox = {
   matches = matcher("src.render.TextBox"),
   poll = function(state, memo)
-    if memo.page == state.pageIndex then return nil end
-    memo.page = state.pageIndex
-    local page = state.pages and state.pages[state.pageIndex]
-    if type(page) ~= "table" or #page == 0 then return nil end
-    return speakable(joinLines(page)), true
+    local pageIndex = state.pageIndex
+    if memo.page ~= pageIndex then
+      memo.page, memo.through = pageIndex, 0
+    end
+    local lines = state.pages and state.pages[pageIndex]
+    if type(lines) ~= "table" or #lines == 0 then return nil end
+    local current = math.min(state.lineIndex or 1, #lines)
+    if current <= memo.through then return nil end
+    local waits = state.pages.contBefore and state.pages.contBefore[pageIndex] or {}
+    local last = current
+    while last < #lines and not waits[last + 1] do last = last + 1 end
+    local first = memo.through + 1
+    memo.through = last
+    return speakable(joinLines(lines, first, last)), true
   end,
 }
 

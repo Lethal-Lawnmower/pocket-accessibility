@@ -37,7 +37,7 @@ Rules for presenters:
 
 | Screen (upstream class) | On entry or return | On change |
 |---|---|---|
-| Dialogue page (`TextBox`) | Whole page as one utterance, interrupting | Each new page |
+| Dialogue (`TextBox`) | The first chunk: the lines shown before the game waits for A | Each chunk the next A press reveals (owner request, 2026-10-31) |
 | Menu (`Menu`: title, start, name choice, PC, shop root) | Title, item, position | Item |
 | List (`ListMenu` and subclasses: bag, boxes, shop, controls, fly) | Title, item and detail, position | Item and detail, position |
 | Yes/No (`ChoiceBox`) | Selection, queued after the question | Selection |
@@ -68,8 +68,9 @@ teaching a TM or using an evolution stone. That check mirrors
 "male", "PK") because screen readers often skip them. Lines of a page join
 with spaces, except a word split by a line-end hyphen.
 
-Returning to a screen repeats its context. A dialogue page is spoken once
-per page, so a closing Yes/No box does not repeat the question.
+Returning to a screen repeats its context. Dialogue lines are spoken once
+each, so a closing Yes/No box does not repeat the question. An instant box
+(shown all at once) speaks its whole page.
 
 ## Mods
 
@@ -113,9 +114,10 @@ changes to this layer.
 
 | Level | Result |
 |---|---|
-| Unit tests | `screen_reader_test.lua` 23/23; `game_screens_test.lua` 37/37 (self-describing screens, nest areas, quantity, naming, party and sub-menu, TM able, summary pages, move learn, trainer card, Pokédex list, unseen rows and entry, options, town map); `minor_screens_test.lua` 13/13. |
+| Unit tests | `screen_reader_test.lua` 28/28; `game_screens_test.lua` 37/37 (self-describing screens, nest areas, quantity, naming, party and sub-menu, TM able, summary pages, move learn, trainer card, Pokédex list, unseen rows and entry, options, town map); `minor_screens_test.lua` 13/13. |
 | Scripted game runs | Disposable identity `pocket-access-test`, `POKEPORT_ACCESS_TRACE=1`, real Prism (NVDA). `drivers/menus_and_text.lua`: title menu, Oak's speech, name menus, start menu. `drivers/gen1_screens.lua`: naming keyboard, party and sub-menu, summary pages, options entry, trainer card. `drivers/more_screens.lua`: bag, toss quantity, Pokédex list and a two-page entry, town map, a mart's buy list, priced quantity, price prompt with YES/NO, Pokédex nest areas, an options group page with a value change. Title and intro lines appear at every scripted start. `drivers/pc_and_moves.lua`: Bill's PC and deposit list, player's PC and withdraw list, the whole forget-a-move flow including the abandon prompt. |
 | Owner listening | 2026-10-31, Red: speech heard and judged "really good". Reported that a whole page is read at once, ahead of the lines revealed by each A press; pacing change offered. |
+| Chunk pacing | Owner chose chunk-by-chunk speech. `screen_reader_test.lua` 28/28 (5 pacing checks); a scripted run (fresh identity `pocket-access-run`) traced Oak's speech and the move-learning prompt one A press at a time. Not yet heard by the owner. |
 | Yellow | Yellow imported into a fresh identity (`pocket-access-yellow`); `drivers/menus_and_text.lua` with `POKEPORT_VERSION=yellow` traced the Yellow intro, title, Oak's speech, naming and the start menu. |
 | Heard by the owner | Not yet. |
 
