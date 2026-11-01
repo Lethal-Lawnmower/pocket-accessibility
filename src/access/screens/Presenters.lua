@@ -312,7 +312,33 @@ Presenters.partyMenu = {
   end,
 }
 
+-- Any screen may describe itself, so a mod's custom screen can speak
+-- without depending on this layer: give the state table a method
+--   function state:accessibilityText() return "Jukebox. Track 3 of 10" end
+-- It is called once per frame while the screen is on top and must be cheap.
+-- The text is spoken (interrupting) whenever it differs from the last text.
+-- Checked before every other presenter, so a screen's own description also
+-- overrides ours.  Errors are logged once per screen and the screen goes
+-- quiet instead of breaking the game.
+Presenters.selfDescribing = {
+  matches = function(state) return type(state.accessibilityText) == "function" end,
+  poll = function(state, memo, entering)
+    if memo.failed then return nil end
+    local ok, text = pcall(state.accessibilityText, state)
+    if not ok then
+      memo.failed = true
+      require("src.core.Logger").warn("[access] accessibilityText failed: %s", tostring(text))
+      return nil
+    end
+    if type(text) ~= "string" or text == "" then return nil end
+    if not entering and text == memo.text then return nil end
+    memo.text = text
+    return speakable(text), true
+  end,
+}
+
 Presenters.ordered = {
+  Presenters.selfDescribing,
   Presenters.textBox,
   Presenters.menu,
   Presenters.listMenu,

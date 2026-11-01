@@ -32,7 +32,7 @@ and recorded in the topic file.
 - **State:** `src/access/screens/` speaks dialogue, menus, lists, Yes/No,
   quantity, naming keyboard, party, summary, move pickers, trainer card,
   Pokédex list and entry, options and town map, with no edits to screen
-  files. Unit tests 23/23 and 29/29. Two scripted game runs (disposable
+  files. Unit tests 23/23 and 34/34; mod screens can opt in with `accessibilityText`. Two scripted game runs (disposable
   identity `pocket-access-test`) traced the expected speech. Details and
   gaps: `menus-and-text.md`.
 - **Next:** battle (own workstream). Minor screens left: Hall of Fame,

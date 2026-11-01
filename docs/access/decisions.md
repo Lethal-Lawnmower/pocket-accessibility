@@ -125,3 +125,11 @@ workstream, and each session edits only its own section. Decisions are
 append-only. Parallel sessions work on separate git branches so collisions
 show up as merge conflicts, not silent overwrites. New sessions start from the
 root `CLAUDE.md` or `AGENTS.md`.
+
+## 17. Modular speech that works for mods (2026-10-31)
+
+Keep the layer as modular as possible: menus and text-based mechanics added
+by mods should speak without changes to this layer. Implemented by reading
+upstream's shared UI classes (which mods receive through `mod.ui`) and an
+opt-in `accessibilityText` method any screen can provide. Details:
+`menus-and-text.md`.

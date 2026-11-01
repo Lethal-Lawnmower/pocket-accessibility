@@ -166,5 +166,27 @@ map.sel = 2
 SR.update(map)
 eq(last(), "ROUTE 1", "town map move")
 
+-- Self-describing screens (the mod contract).
+reset()
+local track = 1
+local jukebox = { accessibilityText = function() return "Jukebox. Track " .. track end }
+SR.update(jukebox)
+eq(last(), "Jukebox. Track 1", "self-description spoken on entry")
+SR.update(jukebox)
+eq(#spoken, 1, "unchanged self-description is not repeated")
+track = 2
+SR.update(jukebox)
+eq(last(), "Jukebox. Track 2", "changed self-description spoken")
+reset()
+local overridden = as("src.ui.Menu", { index = 1, items = { { label = "X" } },
+  accessibilityText = function() return "Custom menu" end })
+SR.update(overridden)
+eq(last(), "Custom menu", "a screen's own description overrides the built-in presenter")
+reset()
+local broken = { accessibilityText = function() error("mod bug") end }
+SR.update(broken)
+SR.update(broken)
+eq(#spoken, 0, "a failing description stays quiet instead of raising")
+
 Speech.shutdown()
 T.finish()
