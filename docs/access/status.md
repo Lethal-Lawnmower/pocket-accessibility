@@ -70,7 +70,7 @@ and recorded in the topic file.
   navigation agree. All run in FireRed. What remains is in
   `firered-leafgreen-navigation.md`. Not heard.
 - **Scenery (2026-11-01):** flavor furniture hidden from the object list
-  (decision 34; swept in FireRed, not heard). Local, not pushed.
+  (decision 34; swept in FireRed, not heard).
 - **Owner playtest (2026-11-02):** the owner reports reaching the first gym in
   FireRed, with auto-walk and guided navigation: "works really good". The owner
   has not found the Area category useful so far (expected before multi-floor
@@ -80,14 +80,14 @@ and recorded in the topic file.
   the list keeps what is in sight (decision 37; `drivers/dark_maps.lua` in Red,
   Crystal and FireRed, not heard). The harness lit the maps by setting the
   state Flash sets; using Flash from the party menu was not run. A journey
-  stopping on reaching a dark floor is code only. Local, not pushed.
+  stopping on reaching a dark floor is code only.
 - **Misc category (2026-11-02):** FireRed's hidden flavor furniture listed
   under Misc, left out of All (decision 36; `drivers/npc_category.lua` in
-  FireRed walked to a Bookshelf and a Poster, not heard). Local, not pushed.
+  FireRed walked to a Bookshelf and a Poster, not heard).
 - **NPCs category (2026-11-01):** people and Pokémon moved out of Objects into
   NPCs in Gen 1, 2 and 3 (decision 35; `drivers/npc_category.lua` in Red,
   Yellow, Crystal and FireRed, not heard). Blue, Gold and Silver share the code
-  but were not run; Gen 2's bedroom decorations not run. Local, not pushed.
+  but were not run; Gen 2's bedroom decorations not run.
 - **Owner first try (2026-11-01):** a brief test, "works great".
 - **Screen gaps (2026-11-01):** Mystery Gift from the boot menu and every
   item the first runs had not reached (TM case and pouch from the bag,
@@ -177,7 +177,7 @@ and recorded in the topic file.
 
 - **State (2026-11-02):** native window finished, all pages (decision 39,
   `save-editor.md`). Owner's first use (2026-11-02): "save editor works nicely, and
-  was able to get to the second gym in fire red." Local, not pushed.
+  was able to get to the second gym in fire red."
 - **Upstream bug, for the owner:** source reading says Gen 2's Spawn action writes a map
   id to `save.spawn`, while `World:healPoint` expects a `SPAWN_*` name, so a whiteout
   would find no spawn point. Not run in game, not patched (no game fixes). The page
