@@ -37,6 +37,7 @@ internal sealed class PagePanel : UserControl
     private string fieldSignature = "", actionSignature = "", pickerSignature = "";
     private List<Row> allRows = [];
     private List<Row> shownRows = [];
+    private string filterOwner = "";
     private bool updating;
     private int requestCount;
 
@@ -217,7 +218,12 @@ internal sealed class PagePanel : UserControl
         listLabel.Visible = true;
         listLabel.Text = model["label"]?.ToString() + ":";
         ActiveList.AccessibleName = model["label"]?.ToString();
-        filterVisibility(model["filter"]?.GetValue<bool>() == true);
+        bool filtered = model["filter"]?.GetValue<bool>() == true;
+        filterVisibility(filtered);
+        // a filter from another view, or one with no box to clear it, must not hide rows
+        string label = model["label"]?.ToString() ?? "";
+        if (!filtered || label != filterOwner) filter.Text = "";
+        filterOwner = label;
         allRows = model["rows"]?.AsArray().Select(row => new Row(
             row!["id"]!.ToString(), row["text"]!.ToString(), row["checked"]?.GetValue<bool>() == true)).ToList() ?? [];
         ShowRows(model["selected"]?.ToString());

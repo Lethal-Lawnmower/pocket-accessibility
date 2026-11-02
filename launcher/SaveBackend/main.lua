@@ -138,7 +138,10 @@ end
 local function answer(line)
   local request = Json.decode(line)
   local S = App and App.getState()
-  local before, beforeToast = S and S.status, S and S.toast
+  local before = S and S.status
+  -- upstream reuses a toast repeated within its display time, so a second
+  -- identical refusal would look like no news
+  if S and request.cmd ~= "model" then S.toast = nil end
   local handler = handlers[request.cmd]
   local ok, result = xpcall(function()
     if not handler then error("unknown command " .. tostring(request.cmd), 0) end
@@ -153,7 +156,7 @@ local function answer(line)
   for key, value in pairs(statusOf()) do response[key] = value end
   S = App and App.getState()
   -- something new to say: the status changed, or the same words were said again
-  if S and request.cmd ~= "model" and (S.status ~= before or S.toast ~= beforeToast) then
+  if S and request.cmd ~= "model" and (S.status ~= before or S.toast ~= nil) then
     response.message = S.status
     response.messageKind = S.toast and S.toast.kind or "info"
   end
