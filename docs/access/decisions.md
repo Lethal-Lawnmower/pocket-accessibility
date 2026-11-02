@@ -283,3 +283,11 @@ After the FireRed gap work was merged locally, the owner declined a push
 remaining navigation quirks to be worked out where possible ("Can you
 figure out the rest of the navigation quirks? If it's possible?"). The
 merged work stays on the local main branch until the owner asks for a push.
+
+## 33. Thin ice stays automatic; push the FireRed finishing work (2026-11-01)
+
+Auto-walk keeps stepping off thin ice and back on to fall through when no
+other way exists ("Automatic should be good"). The owner then offered a push
+of the FireRed gap and quirk work ("You want to push these to GitHub?"), and
+the agent recommended and did it. Covers that push only; decision 32's hold
+is over for this work. Not acceptance: the owner plays from 2026-11-02.
