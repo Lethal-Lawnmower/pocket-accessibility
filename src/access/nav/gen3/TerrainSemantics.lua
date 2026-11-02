@@ -174,7 +174,9 @@ end
 
 -- Furniture the A button reads (src/core/game3/scripting/interaction_scripts.lua
 -- FLAVOR and CODE rows, keyed by MB), with spoken names derived from the
--- behaviour names.  `faceUp`: only read when the player faces up.
+-- behaviour names.  `faceUp`: only read when the player faces up.  `scenery`:
+-- one flavor line and no use to the game, so the object list leaves it out
+-- (decision 34); A still reads it.
 Terrain.FURNITURE = {
   [0x81] = { label = "Bookshelf" }, [0x82] = { label = "Mart Shelf" },
   [0x83] = { label = "PC" }, [0x85] = { label = "Town Map" },
@@ -189,9 +191,9 @@ Terrain.FURNITURE = {
   [0x94] = { label = "Painting" }, [0x95] = { label = "Machine" },
   [0x96] = { label = "Telephone" }, [0x97] = { label = "Computer" },
   [0x98] = { label = "Poster" }, [0x99] = { label = "Food" },
-  [0x9A] = { label = "Trash Can" }, [0x9B] = { label = "Cup" },
-  [0x9C] = { label = "Window" }, [0x9D] = { label = "Window" },
-  [0x9E] = { label = "Blinking Lights" }, [0x9F] = { label = "Tools" },
+  [0x9A] = { label = "Trash Can" }, [0x9B] = { label = "Cup", scenery = true },
+  [0x9C] = { label = "Window", scenery = true }, [0x9D] = { label = "Window", scenery = true },
+  [0x9E] = { label = "Blinking Lights", scenery = true }, [0x9F] = { label = "Tools" },
   [0xA0] = { label = "Machine" }, [0xA1] = { label = "Video Game" },
 }
 

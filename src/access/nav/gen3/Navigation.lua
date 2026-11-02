@@ -418,7 +418,8 @@ function Navigation:interactiveBrowseObjects(world, puzzle)
   for y = 0, height - 1 do
     for x = 0, width - 1 do
       local beh = map:behavior(x, y)
-      if beh and Terrain.FURNITURE[beh] then kinds[y * width + x] = beh end
+      local info = beh and Terrain.FURNITURE[beh]
+      if info and not info.scenery then kinds[y * width + x] = beh end
     end
   end
   local signCells = {}

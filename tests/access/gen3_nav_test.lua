@@ -725,4 +725,19 @@ do
 end
 
 Speech.shutdown()
+-- Scenery (windows, cups, blinking lights) is left out of the object list;
+-- other furniture stays (decision 34).
+do
+  local behaviors = { [0] = 0x9C, [1] = 0x9D, [2] = 0x9B, [3] = 0x9E, [4] = 0x81, [5] = 0x83 }
+  local world = {
+    player = { cellX = 0, cellY = 1 },
+    map = { id = "FR_TEST", widthCells = 6, heightCells = 1, def = { id = "FR_TEST" },
+      behavior = function(_, x) return behaviors[x] end },
+  }
+  local labels = {}
+  for _, object in ipairs(navFor():interactiveBrowseObjects(world, { objects = {} })) do labels[#labels + 1] = object.label end
+  table.sort(labels)
+  eq(table.concat(labels, ","), "Bookshelf,PC", "windows, cups and lights are not listed; a bookshelf and PC are")
+end
+
 T.finish("gen3 navigation")

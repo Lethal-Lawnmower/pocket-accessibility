@@ -291,3 +291,11 @@ other way exists ("Automatic should be good"). The owner then offered a push
 of the FireRed gap and quirk work ("You want to push these to GitHub?"), and
 the agent recommended and did it. Covers that push only; decision 32's hold
 is over for this work. Not acceptance: the owner plays from 2026-11-02.
+
+## 34. Hide FireRed's scenery from the object list (2026-11-01)
+
+The owner asked to hide windows, lights and cups ("probably hide them.
+Unless they're needed or the original access scripts used them"). Neither
+applies: in the game they are flavor lines only, and Pokémon Access's FireRed
+tile objects are just switches, thin and cracked ice, and the PC. Pressing A
+on them still reads them. A map's own sign event standing on one stays listed.
