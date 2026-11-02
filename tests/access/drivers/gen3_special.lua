@@ -140,33 +140,6 @@ return function(game)
 
   step("prize counter by the clerk's script", prizeCounter)
 
-  -- The change this branch asks of gen3/Top.lua, applied here only: a layer
-  -- that leaves what is under it visible (hideBelow false) yields to a
-  -- message or yes/no only when that opened after the layer; the message it
-  -- was opened over (the clerk's "Which prize?") stays under it.
-  step("prize counter with the proposed Top.lua change (driver only)", function()
-    local seen = setmetatable({}, { __mode = "k" })
-    local resolve = Top.resolve
-    Top.resolve = function(g)
-      local top, covered = resolve(g)
-      local layer = Stack.top()
-      if g.phase == "field" and layer then
-        local record = seen[layer]
-        if not record then
-          record = { pages = Message.open and Message._pages or false, choice = Choice.active and Choice.done or false }
-          seen[layer] = record
-        end
-        if layer.hideBelow == false and type(top) == "table" and top.layer == nil
-            and (top.key == record.pages or top.key == record.choice) then
-          return Top._proxy(layer, tostring(layer.id), { layer = layer, mod = layer.mod, game = g })
-        end
-      end
-      return top, covered
-    end
-    prizeCounter()
-    Top.resolve = resolve
-  end)
-
   step("braille wall by its script", function()
     goTo("FR_SIX_ISLAND_RUIN_VALLEY", 24, 25, "up")
     tap("a", 40)

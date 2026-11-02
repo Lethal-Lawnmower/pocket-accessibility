@@ -1440,6 +1440,54 @@ Special.modManager = add({
   end,
 })
 
+-- ================================================================ mod screens
+-- A mod's screen in a Gen 3 game is a Gen 1 style state pushed through
+-- src/ui/game3/mod_ui.lua, whose layer (id "modui:<n>") holds an adapter
+-- with the state as `state`.  The Gen 1 presenters read that state as they
+-- would on Gen 1's StateStack: a state's own accessibilityText first, then
+-- any screen class they know.  A state none of them knows stays quiet.
+Special.modScreen = add({
+  matches = function(state)
+    return type(state) == "table" and state.gen3 == "modui" and type(state.layer) == "table"
+      and type(state.layer.mod) == "table" and type(state.layer.mod.state) == "table"
+  end,
+  poll = function(state, memo, entering)
+    local inner = state.layer.mod.state
+    local Presenters = loaded("src.access.screens.Presenters")
+    if not Presenters then return nil end
+    if memo.inner ~= inner then
+      memo.inner, memo.innerMemo = inner, {}
+      local ok, found = pcall(Presenters.find, inner)
+      memo.presenter = ok and found or nil
+      entering = true
+    end
+    local presenter = memo.presenter
+    if not presenter then return nil end
+    return presenter.poll(inner, memo.innerMemo, entering)
+  end,
+})
+
+-- ================================================================ Union Room prep
+-- The cross-generation Union Room battle and trade preparation screens in a
+-- Gen 3 game (src/ui/union/prep/Gen3BattlePrep.lua, Gen3TradePrep.lua)
+-- push a layer whose module holds the same page model as Gen 1's screens
+-- (`model` for battle, `ctl` for trade), so the Gen 1 presenter reads it.
+local function unionPrep(kind, field)
+  return add({
+    matches = function(state)
+      return type(state) == "table" and state.gen3 == kind and type(state.layer) == "table"
+        and type(state.layer.mod) == "table" and type(state.layer.mod[field]) == "table"
+    end,
+    poll = function(state, memo, entering)
+      local Link = loaded("src.access.screens.LinkScreens")
+      if not (Link and Link.unionBattlePrep) then return nil end
+      return Link.unionBattlePrep.poll(state.layer.mod, memo, entering)
+    end,
+  })
+end
+Special.unionBattlePrep = unionPrep("union_battle_prep", "model")
+Special.unionTradePrep = unionPrep("union_trade_prep", "ctl")
+
 -- ================================================================ wireless minigames
 
 local function minigameText(key, ctx)
