@@ -116,6 +116,23 @@ D-pad presses used for navigation are marked with upstream's
 The old router's own gamepad defaults (shoulders and triggers) are not
 wired.
 
+## Dark maps (decision 37)
+
+On a map still dark for lack of Flash, navigation knows only what a sighted
+player can see. `Navigation:isDark` and `darkItemVisible` answer per generation:
+
+| Game | Dark when | In the list and for the camera |
+|---|---|---|
+| Red, Blue, Yellow | `field.darkMaps` (Rock Tunnel) and no `save.flashLit` | The screen: 4 cells left, 5 right, 4 up, 4 down. The game darkens it all and keeps silhouettes (`PaletteFX`) |
+| Gold, Silver, Crystal | `Palettes.isDarkness` (`PALETTE_DARK`, no `flashUsed`) | Warps on screen only, the cave entrance being the only light (`Palettes`); the camera cannot move. Not checked: that every warp on these maps blinks |
+| FireRed | `FieldView.flashLevel` above 0 | The circle `FieldView.flashRadius` gives, 24 pixels at level 4 |
+
+Auto-walk and guided navigation refuse with "Too dark. Use Flash.", and a
+journey ends on reaching such a floor. An empty list says the same. Walking by
+hand, reading the tiles around the player, position and map name still work.
+Ruby, Sapphire and Emerald keep flash level 1 after Flash, so they will need
+the flash flag as well when they get navigation.
+
 ## Auto-walk (`src/access/nav/AutoWalk.lua`)
 
 New, not reused. Uses `Navigation:selectedRouteGoals` (extracted from the

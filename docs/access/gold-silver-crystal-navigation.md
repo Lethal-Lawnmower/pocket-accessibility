@@ -148,7 +148,8 @@ Tower; every warp, item ball and person walked to from every entrance):
 Gates: story states (Sprout Tower's rival, Slowpoke Well once cleared, the
 Rocket base Lance scene, the Ilex Forest Revive behind the Farfetch'd, the
 Fast Ship captain), the Rocket base passwords, the Goldenrod Underground
-switches, Rock Smash rocks in Dark Cave, and layout (Olivine Lighthouse 3F
+switches, Rock Smash rocks in Dark Cave (behind Flash since decision 37; see
+`navigation.md`, "Dark maps"), and layout (Olivine Lighthouse 3F
 Ether, reachable only from 4F's ladder; Gold and Silver's Burned Tower B1F
 TM; Saffron Gym's pads; Diglett's Cave behind Snorlax). Follow-ups in all
 three editions: Blackthorn 2F solved from the hints (22 pushes), then

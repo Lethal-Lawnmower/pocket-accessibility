@@ -155,6 +155,11 @@ end
 function AutoWalk.start(nav, game, adapter)
   if walk then return AutoWalk.stop("Auto walk stopped") end
   adapter = adapter or WorldAdapter.current() or WorldAdapter.gen1
+  local tooDark = type(nav.darkRefusal) == "function" and nav:darkRefusal()
+  if tooDark then
+    Speech.say(tooDark, { interrupt = true })
+    return false
+  end
   local item, goals, interaction, _, overworld = nav:selectedRouteGoals()
   if not item then
     Speech.say(goals or "Select an object from the list", { interrupt = true })
@@ -387,6 +392,9 @@ local function nextLeg()
   if walk.legs > MAX_JOURNEY_LEGS then
     return AutoWalk.stop("No route from here to " .. tostring(walk.label) .. ", auto walk stopped")
   end
+  -- a floor still dark for lack of Flash ends the walk (decision 37)
+  local tooDark = type(walk.nav.darkRefusal) == "function" and walk.nav:darkRefusal()
+  if tooDark then return AutoWalk.stop(tooDark) end
   local leg, err = walk.nav:regionalNextLeg(walk.journey)
   if not leg then
     return AutoWalk.stop("No route from here to " .. tostring(walk.label) .. ", auto walk stopped")

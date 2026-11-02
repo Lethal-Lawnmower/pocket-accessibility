@@ -1194,10 +1194,65 @@ function Accessibility:interactiveBrowseObjects(overworld, puzzle)
   return result
 end
 
+-- ------------------------------------------------------------ dark maps
+-- Decision 37: on a map still dark for lack of Flash, navigation knows only
+-- what a sighted player can see there.  Auto-walk, guided navigation and the
+-- camera's route refuse, the object list keeps what is in sight, and the
+-- camera stays inside it.  Walking by hand and the tiles around the player
+-- still work.  Each generation answers the two questions below for itself.
+Accessibility.TOO_DARK = "Too dark. Use Flash."
+
+-- Gen 1: field.darkMaps (home/overworld.asm's check), lit by save.flashLit,
+-- which lasts between the tunnel's floors.
+function Accessibility:isDark(overworld)
+  local game = self.game
+  local field = game and game.data and game.data.field
+  local dark = type(field) == "table" and field.darkMaps
+  if type(dark) ~= "table" or (game.save and game.save.flashLit) then return false end
+  local mapId = overworld and currentMapId(overworld)
+  for _, candidate in ipairs(dark.maps or {}) do
+    if candidate == mapId then return true end
+  end
+  return false
+end
+
+-- The screen shows 4 cells left, 5 right, 4 up and 4 down of the player.
+function Accessibility:darkOnScreen(overworld, x, y)
+  local dx, dy = x - overworld.player.cellX, y - overworld.player.cellY
+  return dx >= -4 and dx <= 5 and dy >= -4 and dy <= 4
+end
+
+-- Gen 1 darkens the whole screen, with no window of light (PaletteFX): floors
+-- go dark grey and everything else black silhouettes, all of it still in view.
+function Accessibility:darkCellVisible(overworld, x, y)
+  return self:darkOnScreen(overworld, x, y)
+end
+
+function Accessibility:darkItemVisible(overworld, item)
+  return type(item.x) == "number" and type(item.y) == "number" and item.type ~= "area"
+    and self:darkCellVisible(overworld, item.x, item.y)
+end
+
+-- The refusal to speak, or nil when the player's map is not dark.
+function Accessibility:darkRefusal()
+  local overworld = self:worldForCommand()
+  if overworld and self:isDark(overworld) then return self.TOO_DARK end
+  return nil
+end
+
 function Accessibility:selectedBrowseItem(delta)
   local snapshot, reason = self:captureWorld(self.browseFilter)
   if not snapshot then return nil, reason end
   local items = snapshot.browse or {}
+  local overworld = self:worldForCommand()
+  if overworld and self:isDark(overworld) then
+    local visible = {}
+    for _, item in ipairs(items) do
+      if self:darkItemVisible(overworld, item) then visible[#visible + 1] = item end
+    end
+    items, snapshot.browse = visible, visible
+    if #items == 0 then return nil, self.TOO_DARK end
+  end
   if #items == 0 then return nil, "Empty List." end
 
   local index
@@ -2646,6 +2701,8 @@ function Accessibility:startWorldRoute(goals, appendInstructions, commandId,
   if self.pendingRoute then
     return self:cancelPendingRoute(true)
   end
+  local tooDark = self:darkRefusal()
+  if tooDark then return self:announceManual({ tooDark }) end
   local options, overworldOrReason = self:worldRouteRequest(goals, 1)
   if not options then return self:announceManual({ overworldOrReason }) end
   local task, taskError = Pathfinder.start(options, { yieldEvery = 128 })
@@ -2847,6 +2904,11 @@ function Accessibility:resumeRegionalNavigation()
   local navigation = self.activeNavigation
   if not (navigation and navigation.journey) then return false end
   navigation.awaitingMap = false
+  local tooDark = self:darkRefusal()
+  if tooDark then
+    self.activeNavigation = nil
+    return self:announceManual({ tooDark })
+  end
   local leg = self:regionalNextLeg(navigation)
   if not leg then
     self.activeNavigation = nil
@@ -2959,6 +3021,8 @@ function Accessibility:startAreaJourney(item, goals)
   if self.pendingRoute then return self:cancelPendingRoute(true) end
   local overworld, reason = self:worldForCommand()
   if not overworld then return self:announceManual({ reason }) end
+  local tooDark = self:darkRefusal()
+  if tooDark then return self:announceManual({ tooDark }) end
   local navigation = {
     mapId = currentMapId(overworld), goals = {}, announcedRequirements = {},
     targetMapId = item.mapId, targetGoals = goals, targetType = "area",
@@ -3125,6 +3189,9 @@ function Accessibility:moveSonar(direction, throughWalls)
   if not delta then return false, "unknown sonar direction" end
   local x, y = self:ensureSonar(overworld)
   local tx, ty = x + delta[1], y + delta[2]
+  if self:isDark(overworld) and not self:darkCellVisible(overworld, tx, ty) then
+    return self:announceManual({ self.TOO_DARK })
+  end
   local pan = self:sonarPan(overworld, tx)
   local boundsOK, inBounds = pcall(overworld.map.inBounds, overworld.map, tx, ty)
   if not boundsOK or not inBounds then

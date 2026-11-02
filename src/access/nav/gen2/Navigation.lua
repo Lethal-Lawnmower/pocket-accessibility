@@ -28,6 +28,7 @@ local Pathfinder = require("src.access.nav.Pathfinder")
 local Permissions = require("src.world.gen2.Permissions")
 local Gen2Map = require("src.world.gen2.Map")
 local FieldMoves = require("src.world.gen2.FieldMoves")
+local Palettes = require("src.world.gen2.Palettes")
 
 local Gen2 = WorldAdapter.gen2
 
@@ -123,6 +124,24 @@ end
 function Navigation:worldForCommand()
   if not self:isActionableWorld() then return nil, "Not on a map" end
   return self:worldState()
+end
+
+-- Decision 37.  A PALETTE_DARK map until Flash (Palettes.isDarkness, the test
+-- FLASH itself makes).  The whole screen is near black; the blinking cave
+-- entrance is the only light (Palettes), so warps on screen are all there is
+-- to see and the camera cannot move.
+function Navigation:isDark(world)
+  local native = world and world.native or (self.game and self.game.world)
+  local def = world and world.map and world.map.def
+  if type(native) ~= "table" or type(def) ~= "table" or type(native.hour) ~= "function" then return false end
+  return Palettes.isDarkness(def, native:hour(), native.flashUsed)
+end
+
+function Navigation:darkCellVisible() return false end
+
+function Navigation:darkItemVisible(world, item)
+  return item.type == "warp" and type(item.x) == "number" and type(item.y) == "number"
+    and self:darkOnScreen(world, item.x, item.y)
 end
 
 function Navigation:currentMapIdOf(world)

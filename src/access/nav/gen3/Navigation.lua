@@ -115,6 +115,24 @@ function Navigation:worldForCommand()
   return world
 end
 
+-- Decision 37.  A cave map's flash level until Flash clears it, and the circle
+-- of light it leaves (FieldView.flashRadius, in pixels from the player).
+-- Ruby, Sapphire and Emerald keep level 1 after Flash, so they will need the
+-- flash flag as well when they get navigation.
+local function fieldView() return package.loaded["src.core.game3.field_view"] end
+
+function Navigation:isDark()
+  local view = fieldView()
+  return type(view) == "table" and (tonumber(view.flashLevel) or 0) > 0
+end
+
+function Navigation:darkCellVisible(world, x, y)
+  local view = fieldView()
+  local radius = view and view.flashRadius and view.flashRadius() or 0
+  local dx, dy = (x - world.player.cellX) * 16, (y - world.player.cellY) * 16
+  return dx * dx + dy * dy <= radius * radius
+end
+
 function Navigation:currentMapIdOf(world)
   local map = type(world) == "table" and world.map or nil
   return map and (map.id or (type(map.def) == "table" and map.def.id)) or nil

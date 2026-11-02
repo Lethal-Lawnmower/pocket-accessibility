@@ -325,3 +325,19 @@ The FireRed order is All, Warps, Connections, Signposts, NPCs, Objects, Misc,
 Area. Agent choices, open to the owner: All leaves Misc out, because keeping
 the noise out of All was the point of decision 34; Gen 1 and 2 get no Misc
 stop, because they have no hidden furniture to put there.
+
+## 37. Dark maps need Flash, for navigation too (2026-11-02)
+
+The owner proposed that "Auto, walk, and manual navigation should not work
+until the user has applied flash like a sighted person would", across all
+games, and chose the option that also limits the object list. On a map still
+dark for lack of Flash, auto-walk and guided navigation say "Too dark. Use
+Flash."; a journey stops on reaching such a floor; the object list keeps only
+what is in sight. Walking by hand still works.
+
+Agent choices, open to the owner, from what each game draws: Gen 1 darkens the
+whole screen with silhouettes still in view, so the list keeps the screen; Gen
+2 is near black with only the cave entrance blinking, so it keeps warps on
+screen; Gen 3 has a circle of light, so it keeps that circle. The camera stays
+inside the same limit (in Gen 2 it cannot move). Reading the tiles around the
+player and wall sounds stay, as the stand-in for bumping around.

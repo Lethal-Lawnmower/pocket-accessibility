@@ -74,6 +74,12 @@ and recorded in the topic file.
   FireRed, with auto-walk and guided navigation: "works really good". The owner
   has not found the Area category useful so far (expected before multi-floor
   dungeons; to revisit from Mt. Moon).
+- **Dark maps need Flash (2026-11-02):** in Gen 1, 2 and 3, before Flash:
+  auto-walk, guided navigation and far camera moves say "Too dark. Use Flash.",
+  the list keeps what is in sight (decision 37; `drivers/dark_maps.lua` in Red,
+  Crystal and FireRed, not heard). The harness lit the maps by setting the
+  state Flash sets; using Flash from the party menu was not run. A journey
+  stopping on reaching a dark floor is code only. Local, not pushed.
 - **Misc category (2026-11-02):** FireRed's hidden flavor furniture listed
   under Misc, left out of All (decision 36; `drivers/npc_category.lua` in
   FireRed walked to a Bookshelf and a Poster, not heard). Local, not pushed.
