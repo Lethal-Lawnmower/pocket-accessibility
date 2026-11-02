@@ -361,6 +361,12 @@ local function projectActor(world, actor, opts)
     if type(sheet) == "string" then relabel.sprite = sheet end
   end
   local sheetId = relabel.sprite or def.sprite
+  -- The bedroom's decorations are variable sprites on a doll or console sheet
+  -- that can also be a real Pokemon elsewhere (decision 35).
+  local mapId = type(world) == "table" and type(world.map) == "table" and world.map.id
+  if type(def.sprite) ~= "string" and type(mapId) == "string" and mapId:find("PLAYERS_HOUSE_2F", 1, true) then
+    relabel.accessibilityKind = "thing"
+  end
   -- The Kanto character Pokemon Access calls "[red]'s Mom"; the player's own
   -- SPRITE_MOM follows the saved Mom name in the shared module instead.
   if sheetId == "SPRITE_REDS_MOM" then

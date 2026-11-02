@@ -70,6 +70,10 @@ and recorded in the topic file.
   `firered-leafgreen-navigation.md`. Not heard.
 - **Scenery (2026-11-01):** flavor furniture hidden from the object list
   (decision 34; swept in FireRed, not heard). Local, not pushed.
+- **NPCs category (2026-11-01):** people and Pokémon moved out of Objects into
+  NPCs in Gen 1, 2 and 3 (decision 35; `drivers/npc_category.lua` in Red,
+  Yellow, Crystal and FireRed, not heard). Blue, Gold and Silver share the code
+  but were not run; Gen 2's bedroom decorations not run. Local, not pushed.
 - **Owner first try (2026-11-01):** a brief test, "works great".
 - **Screen gaps (2026-11-01):** Mystery Gift from the boot menu and every
   item the first runs had not reached (TM case and pouch from the bag,

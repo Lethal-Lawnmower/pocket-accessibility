@@ -740,4 +740,37 @@ do
   eq(table.concat(labels, ","), "PC,Town Map", "flavor furniture is not listed; the PC and wall map are")
 end
 
+-- People and Pokemon have their own category; things stay under Objects, and
+-- all of them stay type "object" for routing (decision 35).
+do
+  local Shared = require("src.access.nav.WorldSnapshot")
+  eq(Shared.nextFilter("signposts", 1), "npcs", "NPCs follows Signposts")
+  eq(Shared.nextFilter("npcs", 1), "objects", "Objects follows NPCs")
+  eq(Shared.humanize("npcs"), "NPCs", "the category is spoken as NPCs")
+  local function actor(x, def) return { cellX = x, cellY = 0, facing = "down", def = def } end
+  local world = {
+    player = { cellX = 0, cellY = 0, facing = "down" },
+    map = { id = "TEST", widthCells = 8, heightCells = 1, def = { id = "TEST", label = "Test" } },
+    npcs = {
+      actor(1, { index = 1, sprite = "SPRITE_NURSE", accessibilityLabel = "Nurse" }),
+      actor(2, { index = 2, sprite = "SPRITE_SNORLAX", accessibilityLabel = "Snorlax" }),
+      actor(3, { index = 3, sprite = "SPRITE_POKE_BALL", item = "POTION" }),
+      actor(4, { index = 4, sprite = "SPRITE_BOULDER", accessibilityLabel = "Boulder" }),
+      actor(5, { index = 5, sprite = "SPRITE_POKE_BALL", accessibilityLabel = "Gift Ball" }),
+      actor(6, { index = 6, accessibilityKind = "thing", accessibilityLabel = "Tree" }),
+    },
+  }
+  local function labels(filter)
+    local items, out = Shared.browse(world, { filter = filter }), {}
+    for _, item in ipairs(items) do out[#out + 1] = item.label end
+    table.sort(out)
+    return table.concat(out, ",")
+  end
+  eq(labels("npcs"), "Nurse,Snorlax", "people and Pokemon are NPCs")
+  eq(labels("objects"), "Boulder,Gift Ball,Potion,Tree", "items and things are Objects")
+  local nurse = Shared.browse(world, { filter = "npcs" })[1]
+  eq(nurse.type, "object", "an NPC still routes as an object")
+  eq(nurse.category, "npcs", "an NPC's category is npcs")
+end
+
 T.finish("gen3 navigation")

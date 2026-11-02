@@ -13,7 +13,7 @@ local WorldSnapshot = {}
 local ChaosCut = require("src.access.nav.ChaosCut")
 
 WorldSnapshot.FILTER_ORDER = {
-  "all", "warps", "connections", "signposts", "objects", "area",
+  "all", "warps", "connections", "signposts", "npcs", "objects", "area",
 }
 
 WorldSnapshot.CONNECTION_ORDER = {
@@ -26,6 +26,7 @@ local FILTER_ALIASES = {
   connection = "connections", connections = "connections",
   sign = "signposts", signs = "signposts",
   signpost = "signposts", signposts = "signposts",
+  npc = "npcs", npcs = "npcs",
   object = "objects", objects = "objects",
   entity = "objects", entities = "objects",
   -- v0.3.98 addition: off-map item balls of the current area
@@ -38,6 +39,7 @@ local FILTER_TYPES = {
   area = "area",
   connections = "connection",
   signposts = "signpost",
+  npcs = "npc",
   objects = "object",
 }
 
@@ -55,7 +57,7 @@ local DISPLAY_WORDS = {
   silph = "Silph", co = "Co.",
   -- v0.3.98 additions (Gen 2 audit): abbreviations a screen reader would
   -- otherwise read as words ("Pp Up", "Whirl Island Ne", "Lav Radio Tower")
-  pp = "PP", hp = "HP", lav = "Lavender",
+  pp = "PP", hp = "HP", lav = "Lavender", npcs = "NPCs",
   ne = "NE", nw = "NW", se = "SE", sw = "SW",
   nne = "NNE", nnw = "NNW", sse = "SSE", ssw = "SSW",
 }
@@ -332,6 +334,25 @@ local function namedLabel(label, opts)
   return (label:gsub("%[([%a]+)%]", function(role)
     return personName(role, opts) or ("[" .. role .. "]")
   end))
+end
+
+-- Gen 1 and Gen 2 sheets that are things, not someone to talk to (decision
+-- 35).  Every other actor, Pokemon included, is listed under NPCs; unknown
+-- and mod sheets too, since they are nearly always characters.
+local THING_SPRITES = {
+  SPRITE_BOULDER = true, SPRITE_CLIPBOARD = true, SPRITE_FOSSIL = true,
+  SPRITE_OLD_AMBER = true, SPRITE_UNUSED_OLD_AMBER = true, SPRITE_PAPER = true,
+  SPRITE_POKEDEX = true, SPRITE_POKE_BALL = true,
+  SPRITE_FRUIT_TREE = true, SPRITE_ROCK = true, SPRITE_GOLD_TROPHY = true,
+  SPRITE_SILVER_TROPHY = true, SPRITE_FAMICOM = true, SPRITE_SNES = true,
+  SPRITE_N64 = true, SPRITE_VIRTUAL_BOY = true, SPRITE_CONSOLE = true,
+  SPRITE_BIG_DOLL = true, SPRITE_DOLL_1 = true, SPRITE_DOLL_2 = true,
+}
+
+local function isCharacter(entity)
+  local def = type(entity) == "table" and type(entity.def) == "table" and entity.def or {}
+  if nonempty(def.item) or def.accessibilityKind == "thing" then return false end
+  return not THING_SPRITES[def.sprite]
 end
 
 local function entityLabel(entity, mapId, mapLabel, ordinal, isPlayer, opts)
@@ -960,6 +981,8 @@ function WorldSnapshot.browse(overworld, opts)
       generation = opts.generation, playerName = opts.playerName,
       rivalName = opts.rivalName, momName = opts.momName,
     })
+    -- Still type "object" for routing; only the browse category differs.
+    if isCharacter(object) then item.browseType, item.category = "npc", "npcs" end
     applyObjectOverride(item, object, opts.objectOverrides)
     applyCustomLabel(item, opts.names)
     applyChaosCutLabel(item, object, opts)

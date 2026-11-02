@@ -305,3 +305,13 @@ furniture kind is hidden too (bookshelves, shelves, paintings, kitchens,
 computers, cabinets, telephones, tools, food and the like). The PC, wall Town
 Map, Battle Records and Questionnaire stay because they do something. Signs
 the map itself places stay, including the Vermilion Gym trash cans.
+
+## 35. NPCs get their own category, in every game (2026-11-01)
+
+The owner asked to move NPCs out of the object list into their own section,
+for every game ("Should probably move NPCs out of the object list and make a
+specific NPCs section", "This goes for every single game"). The order is now
+All, Warps, Connections, Signposts, NPCs, Objects, Area. Agent choices, open to
+the owner: Pokémon that stand on the map count as NPCs; All still lists
+everyone; unknown and mod actors default to NPCs. Items, boulders, trees,
+rocks, fossils, gift balls and decorations stay under Objects.

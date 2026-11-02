@@ -123,6 +123,22 @@ local function personLabel(name)
   return Shared.humanize(base)
 end
 
+-- Graphics that are things, not someone to talk to (decision 35): the object
+-- list keeps them, and every other actor is listed under NPCs.
+local THING_GRAPHICS = {
+  CLIPBOARD = true, CUT_TREE = true, FOSSIL = true, GYM_SIGN = true, ITEM_BALL = true,
+  LAPRAS_DOLL = true, METEORITE = true, OLD_AMBER = true, POKEDEX = true,
+  PUSHABLE_BOULDER = true, ROCK_SMASH_ROCK = true, RUBY = true, SAPPHIRE = true,
+  SEAGALLOP = true, SIGN = true, SS_ANNE = true, TOWN_MAP = true, TRAINER_TIPS = true,
+}
+
+function Snapshot.isThing(actor)
+  local def = type(actor.def) == "table" and actor.def or {}
+  local gfx = resolvedGraphics(actor, def)
+  local name = gfx and gfxName(gfx)
+  return name ~= nil and THING_GRAPHICS[(name:gsub("^OBJ_EVENT_GFX_", ""))] == true
+end
+
 -- The label for a FireRed object from its graphics, or nil.
 function Snapshot.objectLabel(actor, opts)
   local def = type(actor.def) == "table" and actor.def or {}
@@ -153,7 +169,7 @@ local function projectActor(actor, opts)
   local label, item = Snapshot.objectLabel(actor, opts)
   if not label then return actor end
   local defCopy = setmetatable({ accessibilityLabel = label, item = item and tostring(item) or nil,
-    sprite = false }, { __index = def })
+    sprite = false, accessibilityKind = Snapshot.isThing(actor) and "thing" or nil }, { __index = def })
   return setmetatable({ def = defCopy }, { __index = actor })
 end
 
