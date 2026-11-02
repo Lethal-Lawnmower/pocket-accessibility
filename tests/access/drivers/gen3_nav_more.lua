@@ -87,7 +87,9 @@ return function(game)
     U.log("SAID", L.heard())
   end
   L.check(L.nav():hasCardKey(), "the Card Key is in the bag")
-  if L.pos() ~= "FR_SILPH_CO_5F" then L.teleport("FR_SILPH_CO_5F", 28, 3, "down") end
+  -- the Card Key stands in a section of 5F reached by warp pad; the door
+  -- walk starts from the stairs side
+  L.teleport("FR_SILPH_CO_5F", 28, 3, "down")
   L.logBrowse("all")
   local behind = L.find(function(item) return item.type == "object" and item.x == 4 and item.y == 9 end, "objects")
   if behind then

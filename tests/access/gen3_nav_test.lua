@@ -242,6 +242,14 @@ do
     if edge.direction == "up" then found = edge end
   end
   check(found and found.kind == "ice" and found.y == 2, "ice slides until it stops: " .. tostring(found and found.y))
+  -- ice against a wall is a plain step, not "slide 0 cells"
+  options = nav:routeOptionsFor(worldOn(spin, 2, 3), { { x = 8, y = 5 } }, 1)
+  found = nil
+  for _, edge in ipairs(options.neighbors(2, 3)) do
+    if edge.direction == "left" then found = edge end
+  end
+  check(found and found.x == 1 and found.kind == nil and found.instruction == nil,
+    "a step onto ice that cannot slide is a plain step: " .. tostring(found and found.instruction))
 end
 
 do
@@ -324,6 +332,201 @@ do
   eq(targets[1].pressedBy, 1, "pressed by Boulder 1")
   check(Puzzle.elevationsMismatch(3, 4) and not Puzzle.elevationsMismatch(0, 4)
     and not Puzzle.elevationsMismatch(3, 15), "elevation rule: 0 and 15 match anything")
+end
+
+-- ------------------------------------------------------------ item balls
+do
+  local hall = mapDef("FR_TEST_HALL", { "#######", "#.....#", "###.###", "#.....#", "#######" })
+  maps.FR_TEST_HALL = hall
+  local nav = navFor()
+  local function ball(scriptKey)
+    return { cellX = 3, cellY = 2, graphicsId = 92, def = { graphicsId = 92, scriptKey = scriptKey, index = 1 } }
+  end
+  local r = route(nav, worldOn(hall, 1, 1, { ball("ball") }), { { x = 5, y = 3 } }, 1)
+  check(r == nil, "an item ball in the only way blocks a walk-only route")
+  local world = worldOn(hall, 1, 1, { ball("ball") })
+  r = route(nav, world, { { x = 5, y = 3 } }, 2)
+  check(r and kinds(r):find("down(item_ball)", 1, true) ~= nil, "policy 2 picks the ball up and walks on: " .. kinds(r))
+  local said = r and table.concat(nav:routeNarration(world, r, 2), ", ") or ""
+  check(said:find("Pick up [^,]+ facing down, then move down") ~= nil, "the pickup is said: " .. said)
+  local step
+  for _, s in ipairs(r and r.steps or {}) do if s.kind == "item_ball" then step = s end end
+  local action = step and nav:stepInteraction(world, step)
+  eq(action and action.move, "item", "auto-walk presses A facing the ball")
+  r = route(nav, worldOn(hall, 1, 1, { ball("gift") }), { { x = 5, y = 3 } }, 2)
+  check(r == nil, "a gift Poke Ball (no item ball script) is never walked through")
+  -- with a way round, walking (policy 1, tried first) goes round
+  local loop = mapDef("FR_TEST_LOOP", { "#######", "#.....#", "#.#.#.#", "#.....#", "#######" })
+  maps.FR_TEST_LOOP = loop
+  r = route(nav, worldOn(loop, 3, 1, { ball("ball") }), { { x = 3, y = 3 } }, 1)
+  check(r and #r.steps == 6 and not kinds(r):find("item_ball", 1, true), "a detour is walked round the ball: " .. kinds(r))
+end
+
+-- ------------------------------------------------------------ card key doors
+do
+  -- a planned floor draws its doors open (the load script closes those
+  -- whose own flag is unset): the door's flag decides there
+  local floor = mapDef("FR_TEST_DOORS", { "#######", "#.....#", "###.###", "#.....#", "#######" }, {},
+    { bgEvents = { { type = "sign", x = 3, y = 2, scriptKey = "door" } } })
+  maps.FR_TEST_DOORS = floor
+  eq(Scripts.cardKeyDoorOpenFlag("door"), 640, "a door's own flag is the first its script checks")
+  local nav = navFor()
+  local world = worldOn(floor, 3, 1)
+  check(nav:isClosedCardKeyDoorCell(world, 3, 2), "an unopened door on a planned floor is closed")
+  check(route(nav, world, { { x = 3, y = 3 } }, 2) == nil, "a closed door blocks without the Card Key")
+  local r = route(nav, world, { { x = 3, y = 3 } }, 3)
+  local said = r and table.concat(nav:routeNarration(world, r, 3), ", ") or ""
+  check(said:find("Use Card Key facing down", 1, true) ~= nil, "with the key the door is opened on the way: " .. said)
+  maps.FR_TEST_DOORS = nil
+end
+
+-- ------------------------------------------------------------ journeys
+do
+  -- A ladder on A leads to B; on B the way to the target runs down a
+  -- one-cell corridor at (5,2).
+  local A = mapDef("FR_TJ_ROOM_A", { "#####", "#...#", "#..W#", "#####" },
+    { { x = 3, y = 2, destMap = "FR_TJ_ROOM_B", destWarp = 1 } })
+  local function bMap(corridor)
+    return mapDef("FR_TJ_ROOM_B", { "#######", "#W....#", "#####" .. corridor .. "#", "#.....#", "#######" },
+      { { x = 1, y = 1, destMap = "FR_TJ_ROOM_A", destWarp = 1 } })
+  end
+  maps.FR_TJ_ROOM_A, maps.FR_TJ_ROOM_B = A, bMap(".")
+  local nav = navFor()
+  local start = { mapId = "FR_TJ_ROOM_A", x = 1, y = 1 }
+  local target = { mapId = "FR_TJ_ROOM_B", goals = { { x = 1, y = 3 } } }
+  local result, why = nav:journeySearch(start, target, 1, nil)
+  check(result ~= nil, "a journey through a ladder is planned: " .. tostring(why))
+  local first = result and result.firstTransition
+  check(first and first.destMap == "FR_TJ_ROOM_B" and first.x == 3 and first.y == 2,
+    "the first leg ends on A's ladder")
+  check(result and not result.final, "the target is on another map: not the final leg")
+  -- arriving on B's ladder, the player walks off it (it does not send them
+  -- back): 3 steps on A, the ladder, 10 steps on B
+  eq(result and result.cost, 14, "the journey walks off the ladder it arrived on")
+  result = nav:journeySearch({ mapId = "FR_TJ_ROOM_B", x = 2, y = 1 }, target, 1, nil)
+  check(result and result.final, "on the target's map the leg is final")
+  -- an item ball in B's corridor: policy 1 no path, policy 2 through it
+  maps.FR_TJ_ROOM_B = bMap(".")
+  maps.FR_TJ_ROOM_B.objects = { { x = 5, y = 2, graphicsId = 92, scriptKey = "ball", index = 1, localId = 1 } }
+  result, why = nav:journeySearch(start, target, 1, nil)
+  eq(why, "no regional path", "a ball in the only corridor blocks a walking journey")
+  result = nav:journeySearch(start, target, 2, nil)
+  check(result ~= nil, "policy 2 journeys pick the ball up")
+  -- water in the corridor: only Surf opens it, and the reason says so
+  maps.FR_TJ_ROOM_B = bMap("~")
+  result = nav:journeySearch(start, target, 2, nil)
+  check(result == nil, "no journey over water without Surf")
+  result = nav:journeySearch(start, target, 3, nil)
+  eq(result and nav:journeyRequirement(result), "Needs Surf", "the journey's missing capability is named")
+  -- the maps a journey may cross: the target's area plus the player's map
+  local allowed = nav:journeyMaps("FR_TJ_ROOM_A", "FR_TJ_ROOM_B")
+  check(allowed and allowed.FR_TJ_ROOM_A and allowed.FR_TJ_ROOM_B and not allowed.FR_TEST_HUB,
+    "a journey stays inside its area")
+  check(nav:journeyMaps("FR_TEST_HUB", "FR_TJ_ROOM_B") == nil, "a target outside the area may cross any map")
+  -- outside the allowed maps there is no way
+  result, why = nav:journeySearch(start, target, 1, { FR_TJ_ROOM_A = true })
+  eq(why, "no regional path", "maps outside the allowed set are not entered")
+  maps.FR_TJ_ROOM_A, maps.FR_TJ_ROOM_B = nil, nil
+end
+
+-- ------------------------------------------------------------ Strength plans
+do
+  -- The Tanoby Key room's floor (seven boulders, seven switches; read from
+  -- FireRed's SEVEN_ISLAND_SEVAULT_CANYON_TANOBY_KEY in a game run): the
+  -- whole plan takes more than one request's time, so it is searched on
+  -- across calls, kept, and followed push by push to the end.
+  local rows = {
+    "################", "################", "#######S########", "######...#######",
+    "####S.....S#####", "#####.#.#.######", "#####S...S######", "######...#######",
+    "#####S...S######", "#####.....######", "#####.....######", "#####.###.######",
+    "#####.....######", "#####.....######", "################", "################" }
+  local room = mapDef("FR_TEST_TANOBY", rows)
+  maps.FR_TEST_TANOBY = room
+  local npcs = {}
+  for i, p in ipairs({ { 6, 6 }, { 7, 6 }, { 8, 6 }, { 6, 9 }, { 8, 9 }, { 6, 10 }, { 8, 10 } }) do
+    npcs[i] = { cellX = p[1], cellY = p[2], graphicsId = 97, currentElevation = 3, localId = i,
+      def = { graphicsId = 97, index = i } }
+  end
+  local world = worldOn(room, 7, 12, npcs)
+  local targets, boulders = Puzzle.targetsFor(world)
+  eq(#targets .. "/" .. #boulders, "7/7", "seven switches and seven boulders")
+  local task = Puzzle.newPlanTask(world, targets, boulders)
+  local plan, why = task.run(0.01)
+  eq(why, "budget", "a short slice leaves the search running, with no push given")
+  local slices = 1
+  while not plan and why == "budget" and slices < 2000 do
+    plan, why = task.run(0.05)
+    slices = slices + 1
+  end
+  check(plan ~= nil, "the search carried on across slices to a whole plan (" .. slices .. " slices)")
+  check(plan and #plan.steps == plan.pushes and #plan.states == plan.pushes, "the plan keeps every push")
+  local pushes, push = 0, plan
+  while push and pushes < 100 do
+    local d = World.DELTA[push.direction]
+    world.player.cellX, world.player.cellY = push.standX, push.standY
+    local b = push.boulder.entity
+    b.cellX, b.cellY = b.cellX + d[1], b.cellY + d[2]
+    pushes = pushes + 1
+    targets, boulders = Puzzle.targetsFor(world)
+    push = Puzzle.followPlan(plan, world, boulders)
+  end
+  local open = 0
+  for _, t in ipairs(targets) do if not t.solved then open = open + 1 end end
+  eq(open, 0, "following the kept plan presses all seven switches (" .. pushes .. " pushes)")
+  -- describe: while the search runs the help says so and names no push
+  Puzzle._resetPlansForTests()
+  for i, p in ipairs({ { 6, 6 }, { 7, 6 }, { 8, 6 }, { 6, 9 }, { 8, 9 }, { 6, 10 }, { 8, 10 } }) do
+    npcs[i].cellX, npcs[i].cellY = p[1], p[2]
+  end
+  world.player.cellX, world.player.cellY = 7, 12
+  local saved = Puzzle.DESCRIBE_SECONDS
+  Puzzle.DESCRIBE_SECONDS = 0.01
+  local nav = navFor()
+  nav.strengthActive = function() return true end
+  allowed.STRENGTH = true
+  local described = Puzzle.describe(game, world, nav)
+  check(described.searching and described.nextAction == nil, "while searching there is no next push")
+  local state = described.targetStates[1] and described.targetStates[1].state or ""
+  check(state:find("still working out", 1, true) ~= nil, "the switch says the plan is still being worked out: " .. state)
+  local frames = 0
+  while Puzzle.continueSearch(world, 0.05) and frames < 2000 do frames = frames + 1 end
+  described = Puzzle.describe(game, world, nav)
+  check(described.nextAction ~= nil, "after the frames' slices the next push is known (" .. frames .. " frames)")
+  Puzzle.DESCRIBE_SECONDS = saved
+  allowed.STRENGTH = nil
+  maps.FR_TEST_TANOBY = nil
+end
+
+-- ------------------------------------------------------------ renaming
+do
+  local opened
+  package.loaded["src.ui.game3.naming"] = { open = function(opts) opened = opts return {} end }
+  local nav = navFor()
+  local item = { id = "object:FR_TEST:1", label = "Woman" }
+  nav.selectedBrowseItem = function() return item, nil, { mapId = "FR_TEST", locationName = "Test Town" } end
+  nav.captureWorld = function() return { mapId = "FR_TEST", locationName = "Test Town" } end
+  local spoken = {}
+  nav.announceManual = function(_, parts) spoken[#spoken + 1] = table.concat(parts, " ") return true end
+  local writes = 0
+  game.writeOptions = function() writes = writes + 1 end
+  check(nav:beginRename("object") == true, "Shift+K opens the naming screen")
+  eq(opened and opened.title, "Object name?", "the screen is titled for an object")
+  eq(opened and opened.initialText, "Woman", "it starts from the current label")
+  opened.onDone("Guide")
+  eq(game.options.firered.accessibilityNames.objects.FR_TEST[item.id], "Guide", "the name is kept per map and object")
+  eq(writes, 1, "options written")
+  eq(spoken[#spoken], "Names saved", "saving is confirmed")
+  nav:beginRename("map")
+  eq(opened.title, "Map name?", "Shift+M names the map")
+  opened.onDone("Home")
+  eq(game.options.firered.accessibilityNames.maps.FR_TEST, "Home", "the map name is kept")
+  nav:beginRename("map")
+  eq(opened.initialText, "Home", "renaming again starts from the given name")
+  opened.onDone("")
+  eq(game.options.firered.accessibilityNames.maps.FR_TEST, nil, "an empty name clears it")
+  eq(spoken[#spoken], "Name cleared", "clearing is confirmed")
+  package.loaded["src.ui.game3.naming"] = nil
+  game.writeOptions = nil
 end
 
 -- ------------------------------------------------------------ adapter

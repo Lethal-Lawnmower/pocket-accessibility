@@ -11,12 +11,15 @@ return function(game)
   U.teleport(game, "ROUTE_1", 9, 20, "up")
   U.wait(30)
 
-  love.gamepadaxis(nil, "triggerleft", 1.0) U.wait(5)
+  -- the navigation module's own controller handlers: isolated.lua turns
+  -- the love callbacks into no-ops, so a walk started through them never ran
+  local Nav = require("src.access.nav")
+  Nav.gamepadaxis(nil, "triggerleft", 1.0) U.wait(5)
   for _ = 1, 2 do -- Warps, then Connections
-    love.gamepadpressed(nil, "dpdown") U.wait(2) love.gamepadreleased(nil, "dpdown") U.wait(15)
+    Nav.gamepadpressed(nil, "dpdown") U.wait(2) Nav.gamepadreleased(nil, "dpdown") U.wait(15)
   end
-  love.gamepadaxis(nil, "triggerleft", 0.0) U.wait(5)
-  love.gamepadpressed(nil, "leftstick") U.wait(2) love.gamepadreleased(nil, "leftstick")
+  Nav.gamepadaxis(nil, "triggerleft", 0.0) U.wait(5)
+  Nav.gamepadpressed(nil, "leftstick") U.wait(2) Nav.gamepadreleased(nil, "leftstick")
   U.wait(50)
 
   local battle = BattleState.newWild(game, "PIDGEY", 2)
