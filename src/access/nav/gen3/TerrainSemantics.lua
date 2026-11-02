@@ -175,26 +175,27 @@ end
 -- Furniture the A button reads (src/core/game3/scripting/interaction_scripts.lua
 -- FLAVOR and CODE rows, keyed by MB), with spoken names derived from the
 -- behaviour names.  `faceUp`: only read when the player faces up.  `scenery`:
--- one flavor line and no use to the game, so the object list leaves it out
--- (decision 34); A still reads it.
+-- the game's flavor lines (FLAVOR rows), so the object list leaves them out
+-- (decision 34); A still reads them.  The PC, wall map, Battle Records and
+-- Questionnaire do something, so they stay.
 Terrain.FURNITURE = {
-  [0x81] = { label = "Bookshelf" }, [0x82] = { label = "Mart Shelf" },
+  [0x81] = { label = "Bookshelf", scenery = true }, [0x82] = { label = "Mart Shelf", scenery = true },
   [0x83] = { label = "PC" }, [0x85] = { label = "Town Map" },
-  [0x86] = { label = "TV", faceUp = true },
-  [0x87] = { label = "Pok\195\169mon Center Sign", faceUp = true },
-  [0x88] = { label = "Mart Sign", faceUp = true },
-  [0x89] = { label = "Cabinet" }, [0x8A] = { label = "Kitchen" },
-  [0x8B] = { label = "Dresser" }, [0x8C] = { label = "Snacks" },
+  [0x86] = { label = "TV", faceUp = true, scenery = true },
+  [0x87] = { label = "Pok\195\169mon Center Sign", faceUp = true, scenery = true },
+  [0x88] = { label = "Mart Sign", faceUp = true, scenery = true },
+  [0x89] = { label = "Cabinet", scenery = true }, [0x8A] = { label = "Kitchen", scenery = true },
+  [0x8B] = { label = "Dresser", scenery = true }, [0x8C] = { label = "Snacks", scenery = true },
   [0x8E] = { label = "Battle Records", faceUp = true },
   [0x8F] = { label = "Questionnaire" },
-  [0x90] = { label = "Food" }, [0x93] = { label = "Blueprints" },
-  [0x94] = { label = "Painting" }, [0x95] = { label = "Machine" },
-  [0x96] = { label = "Telephone" }, [0x97] = { label = "Computer" },
-  [0x98] = { label = "Poster" }, [0x99] = { label = "Food" },
-  [0x9A] = { label = "Trash Can" }, [0x9B] = { label = "Cup", scenery = true },
+  [0x90] = { label = "Food", scenery = true }, [0x93] = { label = "Blueprints", scenery = true },
+  [0x94] = { label = "Painting", scenery = true }, [0x95] = { label = "Machine", scenery = true },
+  [0x96] = { label = "Telephone", scenery = true }, [0x97] = { label = "Computer", scenery = true },
+  [0x98] = { label = "Poster", scenery = true }, [0x99] = { label = "Food", scenery = true },
+  [0x9A] = { label = "Trash Can", scenery = true }, [0x9B] = { label = "Cup", scenery = true },
   [0x9C] = { label = "Window", scenery = true }, [0x9D] = { label = "Window", scenery = true },
-  [0x9E] = { label = "Blinking Lights", scenery = true }, [0x9F] = { label = "Tools" },
-  [0xA0] = { label = "Machine" }, [0xA1] = { label = "Video Game" },
+  [0x9E] = { label = "Blinking Lights", scenery = true }, [0x9F] = { label = "Tools", scenery = true },
+  [0xA0] = { label = "Machine", scenery = true }, [0xA1] = { label = "Video Game", scenery = true },
 }
 
 return Terrain

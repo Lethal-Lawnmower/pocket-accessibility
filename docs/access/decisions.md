@@ -299,3 +299,9 @@ Unless they're needed or the original access scripts used them"). Neither
 applies: in the game they are flavor lines only, and Pokémon Access's FireRed
 tile objects are just switches, thin and cracked ice, and the PC. Pressing A
 on them still reads them. A map's own sign event standing on one stays listed.
+
+Extended the same day ("probably hide them as well"): every flavor-only
+furniture kind is hidden too (bookshelves, shelves, paintings, kitchens,
+computers, cabinets, telephones, tools, food and the like). The PC, wall Town
+Map, Battle Records and Questionnaire stay because they do something. Signs
+the map itself places stay, including the Vermilion Gym trash cans.

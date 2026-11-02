@@ -725,10 +725,10 @@ do
 end
 
 Speech.shutdown()
--- Scenery (windows, cups, blinking lights) is left out of the object list;
--- other furniture stays (decision 34).
+-- Flavor furniture (windows, bookshelves, kitchens, paintings) is left out of
+-- the object list; furniture that does something stays (decision 34).
 do
-  local behaviors = { [0] = 0x9C, [1] = 0x9D, [2] = 0x9B, [3] = 0x9E, [4] = 0x81, [5] = 0x83 }
+  local behaviors = { [0] = 0x9C, [1] = 0x81, [2] = 0x8A, [3] = 0x94, [4] = 0x85, [5] = 0x83 }
   local world = {
     player = { cellX = 0, cellY = 1 },
     map = { id = "FR_TEST", widthCells = 6, heightCells = 1, def = { id = "FR_TEST" },
@@ -737,7 +737,7 @@ do
   local labels = {}
   for _, object in ipairs(navFor():interactiveBrowseObjects(world, { objects = {} })) do labels[#labels + 1] = object.label end
   table.sort(labels)
-  eq(table.concat(labels, ","), "Bookshelf,PC", "windows, cups and lights are not listed; a bookshelf and PC are")
+  eq(table.concat(labels, ","), "PC,Town Map", "flavor furniture is not listed; the PC and wall map are")
 end
 
 T.finish("gen3 navigation")
