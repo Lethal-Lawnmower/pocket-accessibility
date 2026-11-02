@@ -28,6 +28,15 @@ local Terrain = require("src.access.nav.gen3.TerrainSemantics")
 local Snapshot = {}
 for key, value in pairs(Shared) do Snapshot[key] = value end
 
+-- Gen 3 alone has a Misc stop: its flavor furniture (decision 36).
+Snapshot.FILTER_ORDER = {
+  "all", "warps", "connections", "signposts", "npcs", "objects", "misc", "area",
+}
+
+function Snapshot.nextFilter(filter, delta)
+  return Shared.nextFilter(filter, delta, Snapshot.FILTER_ORDER)
+end
+
 local function nonempty(value)
   return type(value) == "string" and value:match("%S") ~= nil
 end

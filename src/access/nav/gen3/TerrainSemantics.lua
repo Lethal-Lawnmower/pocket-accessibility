@@ -175,8 +175,8 @@ end
 -- Furniture the A button reads (src/core/game3/scripting/interaction_scripts.lua
 -- FLAVOR and CODE rows, keyed by MB), with spoken names derived from the
 -- behaviour names.  `faceUp`: only read when the player faces up.  `scenery`:
--- the game's flavor lines (FLAVOR rows), so the object list leaves them out
--- (decision 34); A still reads them.  The PC, wall map, Battle Records and
+-- the game's flavor lines (FLAVOR rows), so they are listed under Misc, not
+-- Objects or All (decisions 34 and 36).  The PC, wall map, Battle Records and
 -- Questionnaire do something, so they stay.
 Terrain.FURNITURE = {
   [0x81] = { label = "Bookshelf", scenery = true }, [0x82] = { label = "Mart Shelf", scenery = true },

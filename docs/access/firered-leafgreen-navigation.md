@@ -137,11 +137,13 @@ beside a jumpable ledge, warps listed only when the game fires them.
 | Quirks run in FireRed (`gen3_nav_gaps` H to K) | Rocket Hideout B2F to Calcium: "Needs Lift Key" without it; with the flag, a walk to the car's panel, "Face up and take the elevator to B4F", the menu by the harness, auto-walk again out of the car and to the item. Icefall Cave 1F from the entrance to a ladder reached only from below: onto the thin ice, off and back on, fell, carried on through B1F, arrived. Planned floors against loaded ones, cell by cell, 0 differing: Seafoam B3F and B4F (calm), Mansion 1F and 2F (switch on), 1F (off), Silph 5F (doors shut). Load scripts on the cartridge: 117 readable (19 change the floor in this state), 35 not: 2 `getplayerxy`, the rest specials (18 `ValidateSavedWonderCard`, 8 Trainer Tower, E-Reader, Vermilion's trash cans, Icefall's remembered cracks, others). Seafoam B3F: guided navigation and auto-walk agree on all 7 warps. |
 | Heard by the owner | Not yet. |
 
-Flavor furniture is not listed (decision 34): the sweep after hiding it
+Flavor furniture is under Misc, not Objects or All (decision 36; Viridian's
+Pokémon Center and Mart listed it, a Bookshelf and a Poster walked to, 0 in
+All). Before that (decision 34), the sweep after hiding it
 lists 3033 labels on 418 maps (754 fewer than the first sweep), none bad. The
 PC, Town Map, Battle Records and Questionnaire stay, as do signs the map
 places (16 Trash Cans, 6 Bookshelves, 2 Computers, 1 Painting, 1 TV). A still
-reads hidden furniture. Not heard.
+reads this furniture. Not heard.
 
 Auto-walk falling through thin ice when no other way exists is the
 owner's choice (decision 33).

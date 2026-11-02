@@ -17,7 +17,7 @@ return function(game)
   if not started then U.log("FAIL", "never reached the free world") return end
   U.wait(30)
   local rooms = {
-    firered = { { "FR_MT_MOON_1F", 14, 22 }, { "FR_VIRIDIAN_CITY_POKEMON_CENTER_1F", 7, 8 } },
+    firered = { { "FR_MT_MOON_1F", 14, 22 }, { "FR_VIRIDIAN_CITY_POKEMON_CENTER_1F", 7, 8 }, { "FR_VIRIDIAN_CITY_MART", 3, 6 } },
     red = { { "MT_MOON_1F", 14, 35 }, { "OAKS_LAB", 5, 10 } },
     blue = { { "MT_MOON_1F", 14, 35 }, { "OAKS_LAB", 5, 10 } },
     yellow = { { "MT_MOON_1F", 14, 35 }, { "OAKS_LAB", 5, 10 } },
@@ -32,6 +32,17 @@ return function(game)
     for _, filter in ipairs({ "npcs", "objects" }) do
       U.log("RESULT", "category", filter)
       for _, item in ipairs(L.browse(filter)) do U.log("ITEM", filter, tostring(item.label), tostring(item.type)) end
+    end
+    if isGen3 then
+      local misc, all = L.browse("misc"), L.browse("all")
+      for _, item in ipairs(misc) do U.log("ITEM", "misc", tostring(item.label), tostring(item.type)) end
+      local leaked = 0
+      for _, item in ipairs(all) do if item.browseType == "misc" then leaked = leaked + 1 end end
+      U.log("RESULT", "misc", #misc, "in all", leaked)
+      if misc[1] then
+        local said = L.walkTo(misc[1], { filter = "misc", answer = "a", limit = 4000 })
+        U.log("RESULT", "walked to", tostring(misc[1].label), L.where(), tostring(said))
+      end
     end
   end
   U.log("RESULT", "npc_category done")

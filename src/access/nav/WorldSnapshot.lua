@@ -29,6 +29,8 @@ local FILTER_ALIASES = {
   npc = "npcs", npcs = "npcs",
   object = "objects", objects = "objects",
   entity = "objects", entities = "objects",
+  -- flavor scenery, in games whose order lists it (decision 36)
+  misc = "misc", miscellaneous = "misc",
   -- v0.3.98 addition: off-map item balls of the current area
   -- (Navigation:areaBrowse fills this category)
   area = "area",
@@ -41,6 +43,7 @@ local FILTER_TYPES = {
   signposts = "signpost",
   npcs = "npc",
   objects = "object",
+  misc = "misc",
 }
 
 local DELTA = {
@@ -445,17 +448,19 @@ function WorldSnapshot.normalizeFilter(filter)
   return FILTER_ALIASES[filter:lower()]
 end
 
-function WorldSnapshot.nextFilter(filter, delta)
+-- `order` lets a generation with extra categories cycle through its own list.
+function WorldSnapshot.nextFilter(filter, delta, order)
+  order = order or WorldSnapshot.FILTER_ORDER
   local normalized = WorldSnapshot.normalizeFilter(filter)
   if not normalized then return nil, "unknown browse filter: " .. tostring(filter) end
   local index = 1
-  for i, name in ipairs(WorldSnapshot.FILTER_ORDER) do
+  for i, name in ipairs(order) do
     if name == normalized then index = i break end
   end
-  local count = #WorldSnapshot.FILTER_ORDER
+  local count = #order
   local step = tonumber(delta) or 1
   index = ((index - 1 + step) % count) + 1
-  return WorldSnapshot.FILTER_ORDER[index]
+  return order[index]
 end
 
 function WorldSnapshot.filter(items, filter)
@@ -468,7 +473,9 @@ function WorldSnapshot.filter(items, filter)
     -- A browse category can differ from the route-goal type. Gen II pit
     -- holes belong to Access's Objects list, but still need warp-cell routing
     -- so guidance never asks the player to face and interact with the pit.
-    if wanted == nil or (item.browseType or item.type) == wanted then
+    -- Misc exists to keep scenery out of the way, so All leaves it out too.
+    local category = item.browseType or item.type
+    if (wanted == nil and category ~= "misc") or category == wanted then
       result[#result + 1] = item
     end
   end
@@ -958,7 +965,8 @@ function WorldSnapshot.browse(overworld, opts)
     end
     local item = {
       id = target.id or ("interactive:" .. tostring(mapId) .. ":" .. i),
-      type = "object", category = "objects", index = target.index or i,
+      type = "object", browseType = target.browseType,
+      category = target.category or "objects", index = target.index or i,
       label = explicitOr(target, "Interactive object " .. tostring(i)),
       x = target.x, y = target.y,
       requiredFacing = target.requiredFacing,

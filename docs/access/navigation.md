@@ -104,7 +104,7 @@ surrounding tiles, pathfinding start ("1 right"), and Pallet Town's warps
 | Input | Action |
 |---|---|
 | Hold left trigger | Navigation modifier (on the map, the game no longer sees it, so it does not lower game speed; the left shoulder still does) |
-| Left trigger + D-pad up / down | Previous / next object category (All, Warps, Connections, Signposts, NPCs, Objects, Area) |
+| Left trigger + D-pad up / down | Previous / next object category (All, Warps, Connections, Signposts, NPCs, Objects, Area; FireRed adds Misc after Objects) |
 | Left trigger + D-pad left / right | Previous / next object in the category |
 | Left stick click | Auto-walk to the selected object; again to stop |
 | Right stick click | Guided navigation to the selected object (the P command); again to stop |

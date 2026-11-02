@@ -725,8 +725,8 @@ do
 end
 
 Speech.shutdown()
--- Flavor furniture (windows, bookshelves, kitchens, paintings) is left out of
--- the object list; furniture that does something stays (decision 34).
+-- Flavor furniture (windows, bookshelves, kitchens, paintings) goes under Misc;
+-- furniture that does something stays in Objects (decisions 34 and 36).
 do
   local behaviors = { [0] = 0x9C, [1] = 0x81, [2] = 0x8A, [3] = 0x94, [4] = 0x85, [5] = 0x83 }
   local world = {
@@ -734,10 +734,26 @@ do
     map = { id = "FR_TEST", widthCells = 6, heightCells = 1, def = { id = "FR_TEST" },
       behavior = function(_, x) return behaviors[x] end },
   }
-  local labels = {}
-  for _, object in ipairs(navFor():interactiveBrowseObjects(world, { objects = {} })) do labels[#labels + 1] = object.label end
-  table.sort(labels)
-  eq(table.concat(labels, ","), "PC,Town Map", "flavor furniture is not listed; the PC and wall map are")
+  local Shared = require("src.access.nav.WorldSnapshot")
+  local Gen3Snapshot = require("src.access.nav.gen3.WorldSnapshot")
+  local objects = navFor():interactiveBrowseObjects(world, { objects = {} })
+  local function listed(filter)
+    local labels = {}
+    for _, item in ipairs(Shared.browse({ player = world.player, map = world.map, npcs = {} },
+        { filter = filter, interactiveObjects = objects })) do
+      labels[#labels + 1] = item.label
+    end
+    table.sort(labels)
+    return table.concat(labels, ",")
+  end
+  eq(listed("objects"), "PC,Town Map", "the PC and wall map stay in Objects")
+  eq(listed("all"), "PC,Town Map", "All leaves scenery out")
+  eq(listed("misc"), "Bookshelf,Kitchen,Painting,Window", "flavor furniture is listed under Misc")
+  eq(Gen3Snapshot.nextFilter("objects", 1), "misc", "Misc follows Objects in Gen 3")
+  eq(Gen3Snapshot.nextFilter("misc", 1), "area", "Area follows Misc")
+  eq(Gen3Snapshot.nextFilter("all", -1), "area", "cycling back from All still reaches Area")
+  eq(Shared.nextFilter("objects", 1), "area", "Gen 1 and 2 have no Misc stop")
+  eq(Gen3Snapshot.humanize("misc"), "Misc", "the category is spoken as Misc")
 end
 
 -- People and Pokemon have their own category; things stay under Objects, and

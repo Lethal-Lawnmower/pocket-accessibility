@@ -292,7 +292,7 @@ of the FireRed gap and quirk work ("You want to push these to GitHub?"), and
 the agent recommended and did it. Covers that push only; decision 32's hold
 is over for this work. Not acceptance: the owner plays from 2026-11-02.
 
-## 34. Hide FireRed's scenery from the object list (2026-11-01)
+## 34. Hide FireRed's scenery from the object list (2026-11-01; now listed under Misc, decision 36)
 
 The owner asked to hide windows, lights and cups ("probably hide them.
 Unless they're needed or the original access scripts used them"). Neither
@@ -315,3 +315,13 @@ All, Warps, Connections, Signposts, NPCs, Objects, Area. Agent choices, open to
 the owner: Pokémon that stand on the map count as NPCs; All still lists
 everyone; unknown and mod actors default to NPCs. Items, boulders, trees,
 rocks, fossils, gift balls and decorations stay under Objects.
+
+## 36. FireRed's hidden scenery goes under Misc (2026-11-02)
+
+The owner asked for the furniture hidden by decision 34 to go "under a tab
+called miscellaneous, or misc for short". This partly replaces decision 34:
+flavor furniture is listed again, in its own category, and can be walked to.
+The FireRed order is All, Warps, Connections, Signposts, NPCs, Objects, Misc,
+Area. Agent choices, open to the owner: All leaves Misc out, because keeping
+the noise out of All was the point of decision 34; Gen 1 and 2 get no Misc
+stop, because they have no hidden furniture to put there.
