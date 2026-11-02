@@ -1,6 +1,18 @@
 # Pocket Accessibility
 
-Accessibility mods for the PC ports of Pokémon Red, Blue and Yellow made by
+## Currently Supported Games
+
+Pokémon Red, Blue, Yellow, Gold, Silver, Crystal and FireRed.
+
+In my personal opinion, these games are in a playable enough state to hopefully
+be completed. Playing through each game myself, one by one, would be unrealistic,
+depending on how many games are added to this project. If you have any issues,
+reach out to me on Discord (`lethal_lawnmower`). But if not, I have adapted most
+of the features I want. Some features are subject to change.
+
+## About
+
+Accessibility mods for the PC ports of Pokémon games made by
 BOIS CLUB GAMES, LLC ([Pokemon Gen 1 Recompilation Project](https://github.com/bryanthaboi/gen1recomp)).
 
 ## Goal
@@ -50,14 +62,14 @@ third-generation GBA games.
 > **Gold, Silver and Crystal: initial groundwork.** Screens, battles,
 > navigation, auto-walk and puzzle help for the Ice Path and Blackthorn Gym
 > boulders are in place and pass automated tests and scripted runs in all
-> three games, but no player has tested them yet. Live user testing will be
-> done eventually; expect rough edges until then.
+> three games. I have played Crystal from a new game to the first gym; Gold
+> and Silver have not been played by anyone yet. Expect rough edges.
 
 > [!IMPORTANT]
 > **FireRed: initial groundwork.** Menus, battles, navigation, auto-walk
 > and Strength puzzle help are in place and pass automated tests and
-> scripted runs, but no player has tested them yet. LeafGreen, Ruby,
-> Sapphire and Emerald are not covered yet.
+> scripted runs, and I have played it as far as the second gym, using the save
+> editor to get there. LeafGreen, Ruby, Sapphire and Emerald are not covered yet.
 
 **Based on the Pokemon Gen 1 Recompilation Project by BOIS CLUB GAMES, LLC
 (https://github.com/bryanthaboi/gen1recomp).** This is an unofficial fork and
