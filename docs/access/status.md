@@ -58,8 +58,12 @@ and recorded in the topic file.
 - **Navigation (2026-11-01):** merged: object list, guided navigation,
   auto-walk with battle pauses, 200X, Surf, spinners, card key doors and
   Strength hints, traced in FireRed; Gen 1 and Gen 2 regressions clean.
-  Gaps (journeys, item balls blocking routes, renaming) in
-  `firered-leafgreen-navigation.md`.
+  Gaps closed (2026-11-01, branch work): journeys on a one-pass planner
+  (Silph Co. and Rocket Hideout walked in FireRed; real gates say "Needs
+  Card Key" or "No route"), item balls picked up when they block the only
+  way, the Tanoby Key room planned and followed, renaming, and runs on
+  Icefall Cave ice, Seafoam currents, a Mansion switch and a waterfall.
+  What remains is in `firered-leafgreen-navigation.md`. Not heard.
 - **Owner first try (2026-11-01):** a brief test, "works great".
 - **Next:** the owner keeps playtesting FireRed. The end-to-end walkthrough after
   all merges speaks the intro, title, start menu, bag and dialogue.

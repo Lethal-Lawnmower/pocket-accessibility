@@ -2199,6 +2199,9 @@ local function requirementPhrase(requirements)
   return "Needs " .. table.concat(ordered, ", ", 1, #ordered - 1)
     .. " and " .. ordered[#ordered]
 end
+-- v0.3.98: FireRed's journey planner names what a journey still needs
+-- with the same words (nav/gen3/Navigation.lua journeyRequirement).
+Accessibility.requirementPhrase = requirementPhrase
 
 -- Describe only capabilities the player cannot currently use. A route may
 -- still cross and narrate those cells; the requirement is context, never a

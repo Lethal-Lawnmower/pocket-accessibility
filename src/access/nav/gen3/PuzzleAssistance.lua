@@ -20,9 +20,12 @@
 -- A* over pushes, dead squares pruned, any boulder may move) with Gen 3's
 -- rules.  On a floor with switches the plan covers every open switch at
 -- once (boulders stay on switches; the Tanoby Key room needs all seven, and
--- pressing the nearest switch first can block the rest); otherwise, or when
--- that search runs out of budget, the plan drops one boulder into a hole or
--- onto one switch.  The answer is the plan's first push.  Elevation is read
+-- pressing the nearest switch first can block the rest); otherwise the plan
+-- drops one boulder into a hole or onto one switch.  The whole plan is kept
+-- and followed push by push while the boulders stand where it has them; a
+-- search that needs more than one request's time carries on across frames
+-- (until then the help says it is still working, never a guessed push).
+-- The answer is the plan's next push.  Elevation is read
 -- per cell for the boulder as for the player (objects take the elevation of
 -- the cell they stand on; 0 and 15 match anything).  Gen 1's Victory Road
 -- tables do not apply: FireRed's maps are redrawn on 16-pixel cells.
@@ -159,60 +162,89 @@ local function floorModel(world, targets, boulders)
       start = boulder.cellY * width + boulder.cellX,
       elevation = tonumber(boulder.currentElevation) or 0 }
   end
+  -- the step rule per cell and direction, worked out once (the search asks
+  -- it many thousands of times)
+  local DIR_INDEX = { up = 0, down = 1, left = 2, right = 3 }
+  local stepKnown = {}
   local function canStep(x, y, direction, toX, toY)
-    if map:dirBlocked(x, y, toX, toY, direction) then return false end
-    return not elevationsMismatch(elevation[y * width + x], elevation[toY * width + toX])
+    local slot = (y * width + x) * 4 + DIR_INDEX[direction]
+    local known = stepKnown[slot]
+    if known == nil then
+      known = not map:dirBlocked(x, y, toX, toY, direction)
+        and not elevationsMismatch(elevation[y * width + x], elevation[toY * width + toX])
+      stepKnown[slot] = known
+    end
+    return known
+  end
+  -- where the player can walk from each cell, other objects counted,
+  -- boulders not (playerRegion adds those)
+  local walkNext = {}
+  for y = 0, height - 1 do
+    for x = 0, width - 1 do
+      local i = y * width + x
+      local nexts = {}
+      for _, d in ipairs(DIRS) do
+        local nx, ny = x + d[2], y + d[3]
+        local ni = ny * width + nx
+        if nx >= 0 and ny >= 0 and nx < width and ny < height and standable[ni] and not fixed[ni]
+           and pressDir[i] ~= d[1] and canStep(x, y, d[1], nx, ny) then
+          nexts[#nexts + 1] = ni
+        end
+      end
+      walkNext[i] = nexts
+    end
   end
   local model = { map = map, width = width, height = height, land = land, pressDir = pressDir,
     standable = standable, fixed = fixed, warpCell = warpCell, hole = hole,
-    boulders = list, elevation = elevation, canStep = canStep }
-  -- Dead squares: cells from which a boulder can still reach some target,
-  -- searched backwards from every target (pulls), walls and directional
-  -- walls counted, other boulders not.
-  local live = {}
-  local queue, head = {}, 1
-  for _, target in ipairs(targets) do
+    boulders = list, elevation = elevation, canStep = canStep, walkNext = walkNext }
+  -- Push distances: for each target, the fewest pushes that bring a boulder
+  -- from each cell onto it, searched backwards from the target (pulls),
+  -- walls and directional walls counted, other boulders not.  A cell with
+  -- no distance to any target is a dead square.  `dist[i]` follows the
+  -- order of `targets`; unsolved ones only.
+  local live, dist = {}, {}
+  for index, target in ipairs(targets) do
     if not target.solved then
       local t = target.y * width + target.x
-      if not live[t] then live[t] = true queue[#queue + 1] = t end
-    end
-  end
-  while head <= #queue do
-    local n = queue[head]
-    head = head + 1
-    local nx, ny = n % width, math.floor(n / width)
-    for _, d in ipairs(DIRS) do
-      local cx, cy = nx - d[2], ny - d[3]  -- the boulder before the push
-      local sx, sy = cx - d[2], cy - d[3]  -- the player pushing it
-      local c, s = cy * width + cx, sy * width + sx
-      if cx >= 0 and cy >= 0 and cx < width and cy < height
-         and sx >= 0 and sy >= 0 and sx < width and sy < height
-         and not live[c] and land[c] and not hole[c] and standable[s] and pressDir[s] ~= d[1]
-         and canStep(cx, cy, d[1], nx, ny) and canStep(sx, sy, d[1], cx, cy) then
-        live[c] = true
-        queue[#queue + 1] = c
+      local d = { [t] = 0 }
+      dist[index] = d
+      live[t] = true
+      local queue, head = { t }, 1
+      while head <= #queue do
+        local n = queue[head]
+        head = head + 1
+        local nx, ny = n % width, math.floor(n / width)
+        for _, step in ipairs(DIRS) do
+          local cx, cy = nx - step[2], ny - step[3]  -- the boulder before the push
+          local sx, sy = cx - step[2], cy - step[3]  -- the player pushing it
+          local c, s = cy * width + cx, sy * width + sx
+          if cx >= 0 and cy >= 0 and cx < width and cy < height
+             and sx >= 0 and sy >= 0 and sx < width and sy < height
+             and d[c] == nil and land[c] and not hole[c] and standable[s] and pressDir[s] ~= step[1]
+             and canStep(cx, cy, step[1], nx, ny) and canStep(sx, sy, step[1], cx, cy) then
+            d[c] = d[n] + 1
+            live[c] = true
+            queue[#queue + 1] = c
+          end
+        end
       end
     end
   end
-  model.live = live
+  model.live, model.dist = live, dist
   return model
 end
 Puzzle.floorModel = floorModel
 
 local function playerRegion(model, px, py, occupied)
-  local width, height = model.width, model.height
-  local start = py * width + px
+  local start = py * model.width + px
   local seen, queue, head, rep = { [start] = true }, { start }, 1, start
+  local walkNext = model.walkNext
   while head <= #queue do
-    local i = queue[head]
+    local nexts = walkNext[queue[head]]
     head = head + 1
-    local x, y = i % width, math.floor(i / width)
-    for _, d in ipairs(DIRS) do
-      local nx, ny = x + d[2], y + d[3]
-      local ni = ny * width + nx
-      if nx >= 0 and ny >= 0 and nx < width and ny < height and not seen[ni]
-         and model.standable[ni] and not model.fixed[ni] and not occupied[ni]
-         and model.pressDir[i] ~= d[1] and model.canStep(x, y, d[1], nx, ny) then
+    for k = 1, nexts and #nexts or 0 do
+      local ni = nexts[k]
+      if not seen[ni] and not occupied[ni] then
         seen[ni] = true
         queue[#queue + 1] = ni
         if ni < rep then rep = ni end
@@ -257,11 +289,14 @@ end
 --     boulder that reaches a switch stays there, and none is dropped into a
 --     hole (Victory Road, the Tanoby Key room)
 --   mode "one": the goal is one boulder on a free switch or in a hole
---     (Seafoam's holes, and the fallback when the whole-floor search runs
---     out of budget)
--- Returns the first push: { boulder, standX, standY, direction, target,
--- pushes } (target: where that boulder ends in the plan), or nil, reason.
-local function search(world, targets, boulders, budget, mode)
+--     (Seafoam's holes, and floors with fewer boulders than switches)
+-- The search is a task: `run(seconds)` searches for that long and returns
+-- the plan, or nil and "budget" (call again to carry on from where it
+-- stopped), or nil and why there is none.  A plan is its first push
+-- { boulder, standX, standY, direction, target, pushes } with every push
+-- in `steps` (each with the cell it moves its boulder to) and the floor's
+-- boulder cells before each push in `states` (see stateKey).
+local function newSearch(world, targets, boulders, budget, mode)
   local goals = {}
   for _, target in ipairs(targets) do
     if not target.solved and (mode == "one" or target.kind == "switch") then
@@ -276,19 +311,23 @@ local function search(world, targets, boulders, budget, mode)
   local goalAt = {}
   for index, target in ipairs(goals) do goalAt[target.y * width + target.x] = index end
 
-  local function distance(pos, target)
-    return math.abs(pos % width - target.x) + math.abs(math.floor(pos / width) - target.y)
+  -- Estimates in pushes, from the push distances (walls count, other
+  -- boulders do not): "one", the nearest boulder to any goal; "switches",
+  -- the nearest free boulder for every open switch (not admissible, but it
+  -- keeps the whole-floor search short).  A switch no boulder can reach
+  -- makes the state hopeless.
+  local INF = math.huge
+  local function distance(pos, index)
+    local d = model.dist[index]
+    return d and d[pos] or INF
   end
-  -- "one": the nearest boulder to any goal; "switches": for every open
-  -- switch, the nearest free boulder (not admissible, but it keeps the
-  -- whole-floor search short)
   local function heuristic(positions, covered)
     if mode == "one" then
-      local best = math.huge
+      local best = INF
       for _, pos in ipairs(positions) do
         if pos then
-          for _, target in ipairs(goals) do
-            local dist = distance(pos, target)
+          for index = 1, #goals do
+            local dist = distance(pos, index)
             if dist < best then best = dist end
           end
         end
@@ -296,16 +335,16 @@ local function search(world, targets, boulders, budget, mode)
       return best
     end
     local total = 0
-    for index, target in ipairs(goals) do
+    for index = 1, #goals do
       if not covered[index] then
-        local best = math.huge
+        local best = INF
         for _, pos in ipairs(positions) do
           if pos then
-            local dist = distance(pos, target)
+            local dist = distance(pos, index)
             if dist < best then best = dist end
           end
         end
-        if best == math.huge then return math.huge end
+        if best == INF then return INF end
         total = total + best
       end
     end
@@ -322,101 +361,179 @@ local function search(world, targets, boulders, budget, mode)
     occupied[b.start] = true
   end
   local startCovered = {}
-  if heuristic(startPositions, startCovered) == math.huge then return nil, "unreachable" end
-  local region, rep = playerRegion(model, player.cellX, player.cellY, occupied)
+  if heuristic(startPositions, startCovered) == INF then return nil, "unreachable" end
+  -- a short key: two bytes per boulder (cells fit, floors are at most
+  -- 6400 cells), the covered switches as a bit mask, the region's lowest cell
+  local char, floor = string.char, math.floor
   local function key(positions, covered, r)
     local parts = {}
-    for i, pos in ipairs(positions) do parts[i] = pos or "x" end
-    local c = {}
-    for index in pairs(covered) do c[#c + 1] = index end
-    table.sort(c)
-    return table.concat(parts, ",") .. "|" .. table.concat(c, ",") .. "|" .. r
+    for i, pos in ipairs(positions) do
+      parts[i] = pos and char(pos % 256, floor(pos / 256) + 1) or "\0\0"
+    end
+    local mask = 0
+    for index in pairs(covered) do mask = mask + 2 ^ (index - 1) end
+    parts[#parts + 1] = char(r % 256, floor(r / 256) + 1)
+    parts[#parts + 1] = tostring(mask)
+    return table.concat(parts)
   end
   local function coveredCount(covered)
     local n = 0
     for _ in pairs(covered) do n = n + 1 end
     return n
   end
-  -- The whole-floor search leans on its estimate (weighted A*): a plan for
-  -- seven switches is found in time, at the cost of a few extra pushes; a
-  -- single target keeps the plain shortest search.
-  local weight = mode == "switches" and (budget.weight or 3) or 1
-  local heap = {}
-  heapPush(heap, { positions = startPositions, covered = startCovered, assign = assign,
-    region = region, g = 0, f = weight * heuristic(startPositions, startCovered) })
-  local visited = { [key(startPositions, startCovered, rep)] = true }
-  local expanded, maxExpanded = 0, budget.maxExpanded or 20000
-  local deadline = os.clock() + (budget.maxSeconds or 0.4)
-  while #heap > 0 do
-    local node = heapPop(heap)
-    expanded = expanded + 1
-    if budget.stats then budget.stats.expanded = (budget.stats.expanded or 0) + 1 end
-    if budget.onExpand then budget.onExpand(node.positions, node.g, mode) end
-    if expanded > maxExpanded or os.clock() > deadline then return nil, "budget" end
-    local positions = node.positions
-    -- every boulder's cell: free ones where they are, locked ones on their
-    -- switch (or where they started, already on one)
-    local taken = {}
-    for i, pos in ipairs(positions) do
-      taken[pos or (node.assign.cells and node.assign.cells[i]) or model.boulders[i].start] = true
+
+  -- The plan from the goal node back to the start: every push, the floor's
+  -- boulder cells before each one, and where each pushed boulder ends.
+  local function finish(node, lastPush, target)
+    local pushes = { lastPush }
+    while node.parent do
+      table.insert(pushes, 1, node.push)
+      node = node.parent
     end
-    for bi, b in ipairs(model.boulders) do
-      local pos = positions[bi]
-      if pos then
-        local bx, by = pos % width, math.floor(pos / width)
-        for _, d in ipairs(DIRS) do
-          local sx, sy = bx - d[2], by - d[3]
-          local lx, ly = bx + d[2], by + d[3]
-          local si, li = sy * width + sx, ly * width + lx
-          if node.region[si] and lx >= 0 and ly >= 0 and lx < width and ly < height
-             and model.land[li] and not model.fixed[li] and not taken[li]
-             and model.pressDir[si] ~= d[1] and model.canStep(sx, sy, d[1], bx, by)
-             and model.canStep(bx, by, d[1], lx, ly) then
-            local push = node.first or { boulder = b, standX = sx, standY = sy, direction = d[1] }
-            local goal = goalAt[li]
-            local g = node.g + 1
-            if goal and mode == "one" then
-              push.target = goals[goal]
-              push.pushes = g
-              return push
-            end
-            local allowed = (goal ~= nil and not node.covered[goal])
-              or (not model.hole[li] and model.live[li])
-            if allowed then
-              local nextPositions = {}
-              for i, p in ipairs(positions) do nextPositions[i] = p end
-              local nextCovered, nextAssign = node.covered, node.assign
-              if goal then
-                -- the boulder stays on the switch
-                nextPositions[bi] = false
-                nextCovered = {}
-                for index in pairs(node.covered) do nextCovered[index] = true end
-                nextCovered[goal] = true
-                nextAssign = { target = {}, cells = {} }
-                for k, v in pairs(node.assign.target or {}) do nextAssign.target[k] = v end
-                for k, v in pairs(node.assign.cells or {}) do nextAssign.cells[k] = v end
-                nextAssign.target[bi] = goals[goal]
-                nextAssign.cells[bi] = li
-                if coveredCount(nextCovered) == #goals then
-                  push.target = nextAssign.target[push.boulder.number] or goals[goal]
-                  push.pushes = g
-                  return push
+    local cells = {}
+    for i, b in ipairs(model.boulders) do cells[i] = b.start end
+    local states, finalCell = {}, {}
+    for k, push in ipairs(pushes) do
+      local parts = {}
+      for i, cell in ipairs(cells) do parts[i] = cell end
+      states[k] = table.concat(parts, ",")
+      cells[push.boulder.number] = push.to
+      finalCell[push.boulder.number] = push.to
+    end
+    for _, push in ipairs(pushes) do
+      local final = finalCell[push.boulder.number]
+      local goal = final and goalAt[final]
+      -- a boulder moved aside (single-target plans) is said to go toward
+      -- the plan's goal
+      push.target = goal and goals[goal] or target
+    end
+    local first = pushes[1]
+    local plan = { boulder = first.boulder, standX = first.standX, standY = first.standY,
+      direction = first.direction, target = first.target, pushes = #pushes,
+      steps = pushes, states = states, mode = mode }
+    return plan
+  end
+
+  -- The whole-floor search leans on its estimate (weighted A*): a plan for
+  -- seven switches is found in about a second (weights 3 to 6 were tried on
+  -- the Tanoby Key room; 5 expanded the fewest states), at the cost of a
+  -- few extra pushes; a single target keeps the plain shortest search.
+  local weight = mode == "switches" and (budget.weight or 5) or 1
+  local heap = {}
+  -- The player's region is flooded into stamped arrays rather than new
+  -- tables (the flood is most of the search's time): `taken` marks the
+  -- boulders of the node being expanded, `region` that node's own region,
+  -- `scratch` a child's region while its key is worked out.
+  local walkNext = model.walkNext
+  local takenMark, takenGen = {}, 0
+  local regionMark, regionGen = {}, 0
+  local scratchMark, scratchGen = {}, 0
+  local queue = {}
+  local function flood(px, py, mark, gen)
+    local start = py * width + px
+    mark[start] = gen
+    local n, head, rep = 1, 1, start
+    queue[1] = start
+    while head <= n do
+      local nexts = walkNext[queue[head]]
+      head = head + 1
+      for k = 1, nexts and #nexts or 0 do
+        local ni = nexts[k]
+        if mark[ni] ~= gen and takenMark[ni] ~= takenGen then
+          mark[ni] = gen
+          n = n + 1
+          queue[n] = ni
+          if ni < rep then rep = ni end
+        end
+      end
+    end
+    return rep
+  end
+  local function markTaken(positions, assigned)
+    takenGen = takenGen + 1
+    for i, pos in ipairs(positions) do
+      takenMark[pos or (assigned and assigned[i]) or model.boulders[i].start] = takenGen
+    end
+  end
+
+  markTaken(startPositions, nil)
+  scratchGen = scratchGen + 1
+  local rep = flood(player.cellX, player.cellY, scratchMark, scratchGen)
+  heapPush(heap, { positions = startPositions, covered = startCovered, assign = assign,
+    px = player.cellX, py = player.cellY, g = 0, f = weight * heuristic(startPositions, startCovered) })
+  local visited = { [key(startPositions, startCovered, rep)] = true }
+  local expanded, maxExpanded = 0, budget.maxExpanded or 200000
+  local control = { deadline = 0 }
+
+  local function body()
+    while #heap > 0 do
+      local node = heapPop(heap)
+      expanded = expanded + 1
+      if budget.stats then budget.stats.expanded = (budget.stats.expanded or 0) + 1 end
+      if budget.onExpand then budget.onExpand(node.positions, node.g, mode) end
+      if expanded > maxExpanded then return nil, "budget" end
+      if os.clock() > control.deadline then coroutine.yield() end
+      local positions = node.positions
+      -- every boulder's cell: free ones where they are, locked ones on their
+      -- switch (or where they started, already on one)
+      local assigned = node.assign.cells
+      markTaken(positions, assigned)
+      regionGen = regionGen + 1
+      flood(node.px, node.py, regionMark, regionGen)
+      for bi, b in ipairs(model.boulders) do
+        local pos = positions[bi]
+        if pos then
+          local bx, by = pos % width, math.floor(pos / width)
+          for _, d in ipairs(DIRS) do
+            local sx, sy = bx - d[2], by - d[3]
+            local lx, ly = bx + d[2], by + d[3]
+            local si, li = sy * width + sx, ly * width + lx
+            if regionMark[si] == regionGen and lx >= 0 and ly >= 0 and lx < width and ly < height
+               and model.land[li] and not model.fixed[li] and takenMark[li] ~= takenGen
+               and model.pressDir[si] ~= d[1] and model.canStep(sx, sy, d[1], bx, by)
+               and model.canStep(bx, by, d[1], lx, ly) then
+              local push = { boulder = b, standX = sx, standY = sy, direction = d[1], to = li }
+              local goal = goalAt[li]
+              local g = node.g + 1
+              if goal and mode == "one" then return finish(node, push, goals[goal]) end
+              local allowed = (goal ~= nil and not node.covered[goal])
+                or (not model.hole[li] and model.live[li])
+              if allowed then
+                local nextPositions = {}
+                for i, p in ipairs(positions) do nextPositions[i] = p end
+                local nextCovered, nextAssign = node.covered, node.assign
+                if goal then
+                  -- the boulder stays on the switch
+                  nextPositions[bi] = false
+                  nextCovered = {}
+                  for index in pairs(node.covered) do nextCovered[index] = true end
+                  nextCovered[goal] = true
+                  nextAssign = { target = {}, cells = {} }
+                  for k, v in pairs(node.assign.target or {}) do nextAssign.target[k] = v end
+                  for k, v in pairs(node.assign.cells or {}) do nextAssign.cells[k] = v end
+                  nextAssign.target[bi] = goals[goal]
+                  nextAssign.cells[bi] = li
+                  if coveredCount(nextCovered) == #goals then
+                    return finish(node, push, goals[goal])
+                  end
+                else
+                  nextPositions[bi] = li
                 end
-              else
-                nextPositions[bi] = li
-              end
-              local nextTaken = {}
-              for i, p in ipairs(nextPositions) do
-                nextTaken[p or (nextAssign.cells and nextAssign.cells[i]) or model.boulders[i].start] = true
-              end
-              local nextRegion, nextRep = playerRegion(model, sx, sy, nextTaken)
-              local k = key(nextPositions, nextCovered, nextRep)
-              if not visited[k] then
-                visited[k] = true
-                local h = heuristic(nextPositions, nextCovered)
-                if h < math.huge then
-                  heapPush(heap, { positions = nextPositions, covered = nextCovered, assign = nextAssign,
-                    region = nextRegion, g = g, f = g + weight * h, first = push })
+                -- the child's boulders: this one moved from pos to li
+                takenMark[pos] = 0
+                takenMark[li] = takenGen
+                scratchGen = scratchGen + 1
+                local nextRep = flood(sx, sy, scratchMark, scratchGen)
+                takenMark[li] = 0
+                takenMark[pos] = takenGen
+                local k = key(nextPositions, nextCovered, nextRep)
+                if not visited[k] then
+                  visited[k] = true
+                  local h = heuristic(nextPositions, nextCovered)
+                  if h < INF then
+                    heapPush(heap, { positions = nextPositions, covered = nextCovered, assign = nextAssign,
+                      px = sx, py = sy, g = g, f = g + weight * h, parent = node, push = push })
+                  end
                 end
               end
             end
@@ -424,49 +541,205 @@ local function search(world, targets, boulders, budget, mode)
         end
       end
     end
+    return nil, "no plan"
   end
-  return nil, "no plan"
+
+  local thread = coroutine.create(body)
+  local task = { done = false }
+  function task.run(seconds)
+    if task.done then return task.plan, task.why end
+    control.deadline = os.clock() + (seconds or 0.4)
+    local ok, plan, why = coroutine.resume(thread)
+    if not ok then
+      task.done, task.why = true, "error: " .. tostring(plan)
+    elseif coroutine.status(thread) == "dead" then
+      task.done, task.plan, task.why = true, plan, why
+    else
+      return nil, "budget"
+    end
+    return task.plan, task.why
+  end
+  return task
 end
 
--- The first push of the plan for this floor: every open switch covered when
--- the floor has switches (falling back to the nearest single switch when
--- that search runs out of budget), else one boulder into a hole.
+-- The cells of the floor's boulders in their numbering order, as a plan's
+-- `states` records them.
+local function stateKey(world, boulders)
+  local width = world.map.widthCells
+  local parts = {}
+  for i, b in ipairs(boulders) do parts[i] = b.cellY * width + b.cellX end
+  return table.concat(parts, ",")
+end
+Puzzle.stateKey = stateKey
+
+local function hasOpenSwitch(targets)
+  for _, target in ipairs(targets) do
+    if target.kind == "switch" and not target.solved then return true end
+  end
+  return false
+end
+
+-- A planning task for this floor: every open switch covered when the floor
+-- has switches, else one boulder into a hole.  When the whole-floor search
+-- runs out of time there is no hint rather than a nearest-first push that
+-- can block the rest (the Tanoby Key room); only a floor with no full
+-- solution (fewer boulders than switches) falls back to one target.
+-- `task.run(seconds)` as for newSearch.
+function Puzzle.newPlanTask(world, targets, boulders, budget)
+  budget = budget or {}
+  local current, why
+  local fellBack = false
+  local function fallBack()
+    fellBack = true
+    current, why = newSearch(world, targets, boulders, budget, "one")
+  end
+  if hasOpenSwitch(targets) then
+    current, why = newSearch(world, targets, boulders, budget, "switches")
+    if not current and why == "unreachable" then fallBack() end
+  else
+    fallBack()
+  end
+  local task = { done = false }
+  function task.run(seconds)
+    if task.done then return task.plan, task.why end
+    if not current then
+      task.done, task.why = true, why
+      return nil, why
+    end
+    local plan, reason = current.run(seconds)
+    if reason == "budget" and not current.done then return nil, "budget" end
+    if not plan and not fellBack and (reason == "no plan" or reason == "unreachable") then
+      fallBack()
+      return task.run(seconds)
+    end
+    task.done, task.plan, task.why = true, plan, reason
+    return plan, reason
+  end
+  return task
+end
+
+-- The first push of this floor's plan, searched for at most the budget's
+-- seconds (synchronous: the sweep and tests).
 function Puzzle.planFloor(world, targets, boulders, budget)
   budget = budget or {}
-  local hasSwitch = false
-  for _, target in ipairs(targets) do
-    if target.kind == "switch" and not target.solved then hasSwitch = true end
+  local task = Puzzle.newPlanTask(world, targets, boulders, budget)
+  return task.run(budget.maxSeconds or 0.4)
+end
+
+-- The push a known plan asks for next on this floor, or nil: the floor's
+-- boulders stand where the plan has them before one of its pushes.
+function Puzzle.followPlan(plan, world, boulders)
+  if type(plan) ~= "table" or type(plan.states) ~= "table" then return nil end
+  local here = stateKey(world, boulders)
+  for k, state in ipairs(plan.states) do
+    if state == here then
+      local step = plan.steps[k]
+      local entity = boulders[step.boulder.number]
+      if not entity then return nil end
+      return { boulder = { entity = entity, number = step.boulder.number },
+        standX = step.standX, standY = step.standY, direction = step.direction,
+        target = step.target, pushes = #plan.steps - k + 1 }
+    end
   end
-  if hasSwitch then
-    local plan, why = search(world, targets, boulders, budget, "switches")
-    if plan then return plan end
-    -- out of budget: no hint rather than a nearest-first push that can
-    -- block the rest (the Tanoby Key room); only a floor with no full
-    -- solution (fewer boulders than switches) falls back to one target
-    if why ~= "no plan" and why ~= "unreachable" then return nil, why end
-  end
-  return search(world, targets, boulders, budget, "one")
+  return nil
 end
 
 local CACHE = setmetatable({}, { __mode = "k" })
+-- Per map view: the last whole plan found (followed push by push while the
+-- boulders stand where it has them), and a search still running.
+local PLANS = setmetatable({}, { __mode = "k" })
+local PENDING = setmetatable({}, { __mode = "k" })
 
-local function signature(world, boulders, prefix)
+-- What a plan depends on besides the boulders: the floor (scripts open
+-- barriers with setmetatile, so the COLL grid counts) and every other
+-- object.  The player's cell is not part of it.
+local function floorKey(world, boulders)
   local map = world.map
-  local parts = { tostring(map), prefix, tostring(world.player.cellX), tostring(world.player.cellY) }
+  local parts = { tostring(map), tostring(#boulders) }
   for _, entity in ipairs(world.npcs or {}) do
-    if type(entity) == "table" then
+    if type(entity) == "table" and not isBoulder(entity) then
       parts[#parts + 1] = tostring(entity.localId) .. "@" .. tostring(entity.cellX) .. ","
         .. tostring(entity.cellY)
     end
   end
-  -- scripts open barriers with setmetatile: the COLL grid is part of the key
   local cells = {}
   for y = 0, map.heightCells - 1 do
     for x = 0, map.widthCells - 1 do cells[#cells + 1] = tostring(map:coll(x, y)) end
   end
   parts[#parts + 1] = table.concat(cells, "")
-  parts[#parts + 1] = tostring(#boulders)
   return table.concat(parts, "|")
+end
+
+local function signature(world, boulders, prefix)
+  return table.concat({ floorKey(world, boulders), prefix, tostring(world.player.cellX),
+    tostring(world.player.cellY), stateKey(world, boulders) }, "|")
+end
+
+local function now()
+  local timer = love and love.timer
+  if timer and timer.getTime then
+    local ok, value = pcall(timer.getTime)
+    if ok and type(value) == "number" then return value end
+  end
+  return os.clock()
+end
+
+-- Time one object-list request may spend on a running search, and the
+-- share of a frame the search takes while the player is on that floor.
+Puzzle.DESCRIBE_SECONDS = 0.3
+Puzzle.FRAME_SECONDS = 0.006
+
+-- The next push on this floor: from the kept plan when the boulders are
+-- where it has them, else from a search that carries on across requests
+-- and frames (the Tanoby Key room's seven switches take a few seconds).
+-- Returns the push, or nil and why ("budget" while still searching).
+local function nextPush(world, targets, boulders)
+  local map = world.map
+  local key = floorKey(world, boulders)
+  local kept = PLANS[map]
+  if kept and kept.key == key then
+    local push = Puzzle.followPlan(kept.plan, world, boulders)
+    if push then return push end
+  end
+  local state = stateKey(world, boulders)
+  local pending = PENDING[map]
+  if not (pending and pending.key == key and pending.state == state) then
+    pending = { key = key, state = state, task = Puzzle.newPlanTask(world, targets, boulders) }
+    PENDING[map] = pending
+  end
+  -- several requests in one command each read the floor: only the first
+  -- in a short while searches for long
+  local t = now()
+  local seconds = (pending.lastAsked and t - pending.lastAsked < 0.25) and 0.02 or Puzzle.DESCRIBE_SECONDS
+  pending.lastAsked = t
+  local plan, why = pending.task.run(seconds)
+  if why == "budget" and not pending.task.done then return nil, "budget" end
+  PENDING[map] = nil
+  if not plan then return nil, why end
+  PLANS[map] = { key = key, plan = plan }
+  return Puzzle.followPlan(plan, world, boulders) or plan
+end
+
+-- A search still running for the floor the player is on gets a slice of
+-- this frame (Navigation:updateNavigation).  True while one is running.
+function Puzzle.continueSearch(world, seconds)
+  local map = world and world.map
+  local pending = map and PENDING[map]
+  if not pending then return false end
+  local _, why = pending.task.run(seconds or Puzzle.FRAME_SECONDS)
+  if pending.task.done then
+    PENDING[map] = nil
+    local plan = pending.task.plan
+    if plan then PLANS[map] = { key = pending.key, plan = plan } end
+    return false
+  end
+  return why == "budget"
+end
+
+function Puzzle._resetPlansForTests()
+  for k in pairs(PLANS) do PLANS[k] = nil end
+  for k in pairs(PENDING) do PENDING[k] = nil end
+  for k in pairs(CACHE) do CACHE[k] = nil end
 end
 
 -- The puzzle's objects and states for the object list:
@@ -489,10 +762,19 @@ function Puzzle.describe(game, world, nav)
   local cached = okSig and CACHE[map]
   if cached and cached.key == key then return cached.result end
 
-  local okPlan, plan, why = pcall(Puzzle.planFloor, world, targets, boulders)
+  local okPlan, plan, why = pcall(nextPush, world, targets, boulders)
   if not okPlan then plan, why = nil, nil end
-  local served = plan and plan.target
-  local noPlan = why == "budget" and "no boulder plan found in time from here"
+  -- the plan's target, matched by cell (a kept plan holds the targets of
+  -- the floor it was searched on)
+  local served
+  for _, target in ipairs(targets) do
+    if plan and plan.target and target.x == plan.target.x and target.y == plan.target.y then
+      served = target
+    end
+  end
+  if plan and not served then plan = nil end
+  local searching = why == "budget"
+  local noPlan = searching and "still working out a boulder plan; ask again in a few seconds"
     or "no safe boulder route from current positions"
   for _, target in ipairs(targets) do
     local state
@@ -540,12 +822,15 @@ function Puzzle.describe(game, world, nav)
       override.stateText = "on " .. onSwitch.label
       override.routeInstruction = "Leave it on " .. onSwitch.label
     else
-      override.stateText = plan and "not the next push" or "no safe push known"
+      override.stateText = plan and "not the next push"
+        or (searching and "plan still being worked out" or "no safe push known")
       override.routeInstruction = prefix .. "push only when a route is known"
     end
     result.objectOverrides[objectId(mapId, entity)] = override
   end
-  if okSig then CACHE[map] = { key = key, result = result } end
+  result.searching = searching
+  -- a search still running is asked again next time, not cached
+  if okSig and not searching then CACHE[map] = { key = key, result = result } end
   return result
 end
 

@@ -137,6 +137,15 @@ function Scripts.cardKeyFlag(key)
   return Scripts.reach(key).flagsChecked[2]
 end
 
+-- The door's own flag (the first flag its script checks: set once it is
+-- opened).  The floor's load script closes every door whose flag is unset;
+-- the layout itself draws them open.
+function Scripts.cardKeyDoorOpenFlag(key)
+  local _, kind = Scripts.signRole(key)
+  if kind ~= "card_key_door" then return nil end
+  return Scripts.reach(key).flagsChecked[1]
+end
+
 -- The item an item ball holds (numeric FireRed item id), or nil.
 function Scripts.itemBallItem(key)
   local list = Scripts.get(key)
@@ -185,7 +194,12 @@ end
 -- "Card Key", "TM 28", "Potion": the item's own name in title case.
 function Scripts.itemLabel(itemId)
   local ok, ItemsData = pcall(require, "src.core.game3.items_data")
-  local name = ok and ItemsData and ItemsData.displayName and ItemsData.displayName(itemId) or nil
+  local name
+  if ok and type(ItemsData) == "table" and type(ItemsData.displayName) == "function" then
+    -- the item pack may not be loaded (it raises then)
+    local okName, value = pcall(ItemsData.displayName, itemId)
+    name = okName and value or nil
+  end
   if type(name) ~= "string" or name == "" or name == tostring(itemId) then return nil end
   return Scripts.titleCase(name)
 end

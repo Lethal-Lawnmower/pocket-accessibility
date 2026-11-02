@@ -5,8 +5,10 @@
 -- the active warps and how each one fires, connections, objects (Cut trees,
 -- Rock Smash rocks and Strength boulders are objects in Gen 3), badges and
 -- the party's field moves.  The commands, object list, route narration,
--- guided navigation, cross-map planner and auto-walk are the shared ones.
--- Nothing here changes game state.
+-- guided navigation and auto-walk are the shared ones; journeys use a
+-- one-pass search over every map of the area (journeySearch below) in
+-- place of the shared per-transition planner.  Nothing here changes game
+-- state.
 --
 -- New for FireRed (there was no Gen 3 navigation in the old project, only a
 -- field inventory and an input classifier, reused in World.lua and
@@ -278,27 +280,48 @@ function Navigation:hasCardKey()
   return bagHas(session and session.bag, CARD_KEY)
 end
 
--- A closed Silph Co. door: a card-key door sign over a cell that is not
--- floor yet.
+-- Silph Co.'s doors: the cells of every card-key door sign on the map,
+-- each with the door's own flag (or true when the script names none).
+-- Kept per map, since journeys plan many floors at once.
 function Navigation:cardKeyDoorCells(world)
   local map = world and world.map
   if not map or not map.def then return {} end
-  local cache = self.gen3DoorCache
-  if cache and cache.def == map.def then return cache.cells end
-  local cells = {}
-  for _, sign in ipairs(Snapshot.projectSigns(map, map.def, nil)) do
-    if sign.roleKind == "card_key_door" then
-      for _, cell in ipairs(sign.cells or {}) do cells[cellKey(cell.x, cell.y)] = true end
+  self.gen3DoorCaches = self.gen3DoorCaches or setmetatable({}, { __mode = "k" })
+  local cells = self.gen3DoorCaches[map.def]
+  if cells then return cells end
+  cells = {}
+  -- every sign cell of every door (a door is two to four of them), whether
+  -- or not the object list would show it now
+  for _, event in ipairs(map.def.bgEvents or {}) do
+    if event.type == "sign" and type(event.x) == "number" then
+      local _, kind = Scripts.signRole(event.scriptKey)
+      if kind == "card_key_door" then
+        cells[cellKey(event.x, event.y)] = Scripts.cardKeyDoorOpenFlag(event.scriptKey) or true
+      end
     end
   end
-  self.gen3DoorCache = { def = map.def, cells = cells }
+  self.gen3DoorCaches[map.def] = cells
   return cells
 end
 
+local function flagSet(flag)
+  local Space = loaded("src.core.game3.scripting.space")
+  local Flags = loaded("src.core.game3.scripting.flags")
+  if not (Space and Space.store and Flags and Flags.getFlag) then return false end
+  return call(Flags.getFlag, Space.store, nil, flag) == true
+end
+
+-- A closed Silph Co. door.  On the map the player is on, a door sign over
+-- a cell that is not floor yet.  On a planned map the layout draws every
+-- door open (the floor's load script closes those whose own flag is
+-- unset), so the door's flag decides: journeys from 4F walked through
+-- 5F's closed doors and then found no way on 5F.
 function Navigation:isClosedCardKeyDoorCell(world, x, y)
   local map = world and world.map
   if not map then return false end
-  if not self:cardKeyDoorCells(world)[cellKey(x, y)] then return false end
+  local door = self:cardKeyDoorCells(world)[cellKey(x, y)]
+  if not door then return false end
+  if not map.live and type(door) == "number" then return not flagSet(door) end
   return not map:isWalkableCell(x, y)
 end
 
@@ -308,6 +331,12 @@ local A_PRESS_KINDS = { cut = "Cut", rock_smash = "Rock Smash", surf = "Surf",
   waterfall = "Waterfall" }
 
 function Navigation:stepInteraction(_world, step)
+  if step and step.kind == "item_ball" then
+    -- the pickup message pauses the walk; it resumes past the cell the
+    -- ball stood on.  Still there afterwards (a full bag): stop.
+    return { move = "item", failText = "Could not pick up the item, auto walk stopped",
+      hint = "Pick up the item facing " .. step.direction }
+  end
   local move = step and A_PRESS_KINDS[step.kind]
   if not move then return nil end
   return { move = move, failText = "Could not use " .. move .. ", auto walk stopped",
@@ -677,6 +706,9 @@ function Navigation:updateNavigation()
   self:updateNavigationInterruption(state)
   self:updatePendingRoute()
   self:processWorldEvents(state)
+  -- a Strength plan still being searched for this floor carries on a
+  -- little each frame, so the next request has it
+  if self:isActionableWorld() then Puzzle.continueSearch(self:worldState()) end
 end
 
 function Navigation:update()
@@ -759,7 +791,15 @@ local function occupancy(world)
       local gfx = tonumber(actor.graphicsId or (actor.def and actor.def.graphicsId))
       local kind = (gfx == GFX.CUT_TREE and "cut_tree") or (gfx == GFX.ROCK and "rock")
         or (gfx == GFX.BOULDER and "boulder") or "object"
-      local entry = { actor = actor, kind = kind,
+      -- an item ball the A button picks up (its script gives an item; a
+      -- gift Poke Ball does not count): it leaves the map once taken
+      local item
+      if gfx == GFX.ITEM_BALL then
+        item = Scripts.itemBallItem((type(actor.def) == "table" and actor.def.scriptKey) or actor.scriptKey)
+        if item then kind = "item_ball" end
+      end
+      local entry = { actor = actor, kind = kind, item = item,
+        itemName = item and (Scripts.itemLabel(item) or "the item") or nil,
         elevation = tonumber(actor.currentElevation) or 0 }
       cells[cellKey(actor.cellX, actor.cellY)] = entry
       if actor.moving and actor.targetX and actor.targetY then
@@ -783,7 +823,10 @@ end
 --   * ledges: the cell ahead is a ledge facing the move; land two cells on
 --   * Surf: from land onto water with an A press facing it; on water,
 --     water; back onto land of elevation 3
---   * Cut trees and Rock Smash rocks: objects, "use, then move"
+--   * Cut trees and Rock Smash rocks: objects, "use, then move"; an item
+--     ball in the way is picked up the same way (policy 2 and up; gone
+--     once taken, as Gen 1 and Gen 2 treat collected balls)
+--   * closed card key doors: walls, or opened on the way with the key
 --   * Waterfall: climbed from below while surfing, the whole column in one
 --     move; going down, the current carries the player down the column
 --   * forced movement (ice, spinners, currents, walk and slide tiles) as one
@@ -804,7 +847,11 @@ function Navigation:routeOptionsFor(world, goals, policy)
   local canWaterfall = self:hmAllowed(world, "WATERFALL", policy)
   local useCardKey = policy >= 2 and (self:hasCardKey() or policy >= 3)
   local occupied = occupancy(world)
-  local doorCells = useCardKey and self:cardKeyDoorCells(world) or {}
+  local closedDoors = {}
+  for key in pairs(self:cardKeyDoorCells(world)) do
+    local x, y = key:match("^(-?%d+),(-?%d+)$")
+    if self:isClosedCardKeyDoorCell(world, tonumber(x), tonumber(y)) then closedDoors[key] = true end
+  end
   local startX, startY = player.cellX, player.cellY
   local startElevation = tonumber(player.currentElevation)
   local width, height = map.widthCells, map.heightCells
@@ -850,7 +897,8 @@ function Navigation:routeOptionsFor(world, goals, policy)
     local beh = map:behavior(x, y)
     if beh == Terrain.MB.FALL_WARP and not isGoal then return false end
     if beh == Terrain.MB.CRACKED_ICE and not isGoal then return false end
-    if doorCells[cellKey(x, y)] and not map:isWalkableCell(x, y) then return true end
+    -- a closed card key door: opened on the way with the key, else a wall
+    if closedDoors[cellKey(x, y)] then return useCardKey end
     local water = map:isWater(x, y)
     local differs = mismatch(fromX, fromY, x, y)
     if onWater then
@@ -887,7 +935,6 @@ function Navigation:routeOptionsFor(world, goals, policy)
         if nextKind == "waterfall" and not onWater then nextDir = nil end
       end
       if not nextDir then break end
-      kind = kind or nextKind
       local d = DELTA[nextDir]
       local nx, ny = x + d[1], y + d[2]
       local facings = map:ledgeFacings(nx, ny)
@@ -904,7 +951,7 @@ function Navigation:routeOptionsFor(world, goals, policy)
           -- the game carries the player onto it and it fires; the move ends
           -- there, usable only when that warp is the goal
           if not goalSet[cellKey(nx, ny)] then return nil end
-          return nx, ny, kind, travelled + 1
+          return nx, ny, kind or nextKind, travelled + 1
         end
         local water = map:isWater(nx, ny)
         if onWater then
@@ -913,6 +960,9 @@ function Navigation:routeOptionsFor(world, goals, policy)
           break
         end
       end
+      -- the kind of forced move is known once it has carried the player a
+      -- cell (ice against a wall is only a step: "slide 0 cells" was said)
+      kind = kind or nextKind
       x, y, moveDir = nx, ny, nextDir
       travelled = travelled + 1
       if travelled > limit then return nil end
@@ -965,12 +1015,18 @@ function Navigation:routeOptionsFor(world, goals, policy)
     local toWater = map:isWater(x, y)
     if entry then
       -- Cut trees and Rock Smash rocks are cleared from where the player
-      -- stands, then the step is taken
+      -- stands, then the step is taken; an item ball is picked up the same
+      -- way (policy 2 and up, and dearer than a detour of one cell, so a
+      -- way round is preferred)
       if entry.kind == "cut_tree" and canCut then
         entryKind, entryInstruction = "cut", "Use Cut facing " .. direction .. ", then move " .. direction
       elseif entry.kind == "rock" and canSmash then
         entryKind, entryInstruction = "rock_smash",
           "Use Rock Smash facing " .. direction .. ", then move " .. direction
+      elseif entry.kind == "item_ball" and policy >= 2 then
+        entryKind, entryInstruction = "item_ball",
+          "Pick up " .. entry.itemName .. " facing " .. direction
+            .. ", then move " .. direction
       else
         return nil
       end
@@ -1017,7 +1073,7 @@ function Navigation:routeOptionsFor(world, goals, policy)
       local tx, ty, kind, instruction = landing(x, y, direction)
       if tx ~= nil then
         result[#result + 1] = { x = tx, y = ty, direction = direction,
-          kind = kind, instruction = instruction }
+          kind = kind, instruction = instruction, cost = kind == "item_ball" and 2 or nil }
       end
     end
     return result
@@ -1254,7 +1310,263 @@ end
 
 function Navigation:regionalDestinationName(mapId)
   local playerName, rivalName = self:names()
-  return Snapshot.locationName({ id = mapId }, mapId, nil, playerName, rivalName)
+  local names = self:customNames()
+  local mapNames = type(names.maps) == "table" and names.maps or {}
+  return Snapshot.locationName({ id = mapId }, mapId, mapNames[mapId], playerName, rivalName)
+end
+
+-- ------------------------------------------------------------ journeys
+
+-- The shared journey planner (RegionalPathfinder) runs one route search
+-- per transition per map it reaches, each with its own time slice: on
+-- FireRed's many-warp floors that ran out of time before the first floor
+-- was done (Silph Co. 1F to the Card Key, Rocket Hideout B2F to B4F:
+-- "regional search timed out" after half a second, though a long search
+-- found the Hideout route in 0.7 seconds).  Here one search runs over the
+-- cells of every map in the journey at once, with the same movement graph
+-- as a walked route (routeOptionsFor) and warps and connections as edges
+-- between maps, so each cell is visited once.
+
+local function heapPush(heap, node)
+  heap[#heap + 1] = node
+  local i = #heap
+  while i > 1 do
+    local parent = math.floor(i / 2)
+    local p = heap[parent]
+    if p.cost < node.cost or (p.cost == node.cost and p.seq < node.seq) then break end
+    heap[i], heap[parent] = p, node
+    i = parent
+  end
+end
+
+local function heapPop(heap)
+  local top = heap[1]
+  local last = table.remove(heap)
+  if #heap > 0 then
+    heap[1] = last
+    local i = 1
+    while true do
+      local l, r, best = i * 2, i * 2 + 1, i
+      local function earlier(a, b) return a.cost < b.cost or (a.cost == b.cost and a.seq < b.seq) end
+      if heap[l] and earlier(heap[l], heap[best]) then best = l end
+      if heap[r] and earlier(heap[r], heap[best]) then best = r end
+      if best == i then break end
+      heap[i], heap[best] = heap[best], heap[i]
+      i = best
+    end
+  end
+  return top
+end
+
+-- One map as the journey search sees it: its world (the live one for the
+-- map the player is on), its movement graph with every transition cell
+-- (and, on the target map, every target cell) as a goal, its transitions
+-- by cell.  nil when the map cannot be planned.
+function Navigation:journeyMap(mapId, policy, target, live)
+  local world
+  if live and self:currentMapIdOf(live) == mapId then
+    world = live
+  else
+    world = self:regionalStaticWorld(mapId, { x = 0, y = 0 })
+  end
+  if not world then return nil end
+  local byCell, goals = {}, {}
+  for _, transition in ipairs(self:regionalTransitions(mapId)) do
+    local key = cellKey(transition.x, transition.y)
+    if not byCell[key] then
+      byCell[key] = {}
+      goals[#goals + 1] = { x = transition.x, y = transition.y }
+    end
+    table.insert(byCell[key], transition)
+  end
+  local targetSet = {}
+  if mapId == target.mapId then
+    for _, goal in ipairs(target.goals) do
+      targetSet[cellKey(goal.x, goal.y)] = true
+      goals[#goals + 1] = { x = goal.x, y = goal.y }
+    end
+  end
+  if #goals == 0 then goals[1] = { x = 0, y = 0 } end
+  local options = self:routeOptionsFor(world, goals, policy)
+  if not options then return nil end
+  return { world = world, map = world.map, neighbors = options.neighbors, byCell = byCell,
+    targetSet = targetSet }
+end
+
+-- The cheapest journey from `start` ({ mapId, x, y }) to any of the
+-- target's cells ({ mapId, goals }), at one route policy, over the maps
+-- `allowed` admits (nil: any).  Returns { firstTransition, final, cost,
+-- legs } (legs: the steps walked on each map, for requirements), or nil
+-- and why ("no regional path", "regional search timed out").
+function Navigation:journeySearch(start, target, policy, allowed, maxSeconds)
+  local live = self:worldForCommand()
+  local deadline = os.clock() + (maxSeconds or 1.5)
+  local maps = {}
+  local function mapOf(mapId)
+    local entry = maps[mapId]
+    if entry == nil then
+      entry = self:journeyMap(mapId, policy, target, live) or false
+      maps[mapId] = entry
+    end
+    return entry or nil
+  end
+  -- A node is a cell on a map, reached either by walking (`arrived` false:
+  -- a door or ladder entered fires) or by a transition (`arrived` true:
+  -- the player stands on the warp they came out of and may walk off it).
+  local function nodeKey(mapId, x, y, arrived)
+    return mapId .. ":" .. x .. "," .. y .. (arrived and "a" or "w")
+  end
+  local seq = 1
+  local first = { mapId = start.mapId, x = start.x, y = start.y, arrived = true,
+    cost = 0, hops = 0, seq = seq }
+  local heap, best = { first }, { [nodeKey(start.mapId, start.x, start.y, true)] = 0 }
+  local function reach(node)
+    local key = nodeKey(node.mapId, node.x, node.y, node.arrived)
+    if best[key] ~= nil and best[key] <= node.cost then return end
+    best[key] = node.cost
+    seq = seq + 1
+    node.seq = seq
+    heapPush(heap, node)
+  end
+  local function finish(node)
+    local legs, cursor = {}, node
+    while cursor.parent do
+      if cursor.step then
+        local leg = legs[1]
+        if not (leg and leg.mapId == cursor.mapId) then
+          leg = { mapId = cursor.mapId, steps = {} }
+          table.insert(legs, 1, leg)
+        end
+        table.insert(leg.steps, 1, cursor.step)
+      end
+      cursor = cursor.parent
+    end
+    return { firstTransition = node.firstTransition, final = node.hops == 0,
+      cost = node.cost, legs = legs, maps = maps }
+  end
+  local expanded = 0
+  while #heap > 0 do
+    local node = heapPop(heap)
+    local key = nodeKey(node.mapId, node.x, node.y, node.arrived)
+    if best[key] == node.cost then
+      expanded = expanded + 1
+      if expanded % 64 == 0 and os.clock() > deadline then return nil, "regional search timed out" end
+      local entry = mapOf(node.mapId)
+      if entry then
+        local cell = cellKey(node.x, node.y)
+        if node.mapId == target.mapId and entry.targetSet[cell] then return finish(node) end
+        local map = entry.map
+        local fires = not node.arrived and map:warpAt(node.x, node.y) ~= nil
+          and not map:standingWarp(node.x, node.y)
+        -- transitions: a warp fires on arrival by walking (or, for exit mats,
+        -- arrows and stairs, while their direction is pressed); a
+        -- connection is crossed by stepping off the edge
+        for _, transition in ipairs(entry.byCell[cell] or {}) do
+          local usable = transition.kind == "connection" or fires
+            or map:standingWarp(node.x, node.y) ~= nil
+          if usable and (not allowed or allowed[transition.destMap]) then
+            reach({ mapId = transition.destMap, x = transition.destX, y = transition.destY,
+              arrived = true, cost = node.cost + 1, hops = node.hops + 1, parent = node,
+              firstTransition = node.firstTransition or transition })
+          end
+        end
+        -- walking on, unless the cell was a warp that fired
+        if not fires then
+          for _, edge in ipairs(entry.neighbors(node.x, node.y)) do
+            reach({ mapId = node.mapId, x = edge.x, y = edge.y, arrived = false,
+              cost = node.cost + (edge.cost or 1), hops = node.hops, parent = node,
+              firstTransition = node.firstTransition,
+              step = { fromX = node.x, fromY = node.y, x = edge.x, y = edge.y,
+                direction = edge.direction, kind = edge.kind, instruction = edge.instruction } })
+          end
+        end
+      end
+    end
+  end
+  return nil, "no regional path"
+end
+
+-- The maps a journey may cross: those of the target's area (decision 25:
+-- an Area target is on a map sharing the first words of the player's map
+-- id), plus the map the player is on; nil (any map) for a target outside
+-- the player's area.
+function Navigation:journeyMaps(fromMapId, targetMapId)
+  local areaKeyOf = Navigation.areaKey -- defined with the Area category below
+  local key = areaKeyOf(targetMapId)
+  if not key or areaKeyOf(fromMapId) ~= key then return nil end
+  local allowed = { [fromMapId] = true }
+  for mapId in pairs(self.game and self.game.data and self.game.data.maps or {}) do
+    if type(mapId) == "string" and areaKeyOf(mapId) == key then allowed[mapId] = true end
+  end
+  return allowed
+end
+
+-- What a journey that is possible only with everything (policy 3) still
+-- needs, as Gen 1 says it for a route on one map ("Needs Card Key").
+function Navigation:journeyRequirement(result)
+  local needed = {}
+  for _, leg in ipairs(result and result.legs or {}) do
+    local entry = result.maps[leg.mapId]
+    if entry then
+      for key, value in pairs(self:routeRequirements(entry.world, { steps = leg.steps })) do
+        if value then needed[key] = true end
+      end
+    end
+  end
+  if next(needed) == nil then return nil end
+  return Shared.requirementPhrase(needed)
+end
+
+-- The next leg of a journey (the shared contract: { final, goals,
+-- nextMapId, appendInstructions }, or nil and a reason).  Walks first, then
+-- uses what the party can (policy 2, as auto-walk does on one map); when
+-- only a field move or the Card Key the player lacks would open the way,
+-- the reason says so.
+function Navigation:regionalNextLeg(navigation)
+  local live = self:worldForCommand()
+  if not live then return nil, "Not on a map" end
+  local mapId = self:currentMapIdOf(live)
+  local start = { mapId = mapId, x = live.player.cellX, y = live.player.cellY }
+  local target = { mapId = navigation.targetMapId, goals = navigation.targetGoals }
+  if type(target.mapId) ~= "string" or type(target.goals) ~= "table" or #target.goals == 0 then
+    return nil, "no regional path"
+  end
+  local allowed = self:journeyMaps(mapId, target.mapId)
+  local result, reason
+  for policy = 1, 2 do
+    result, reason = self:journeySearch(start, target, policy, allowed)
+    if result or reason ~= "no regional path" then break end
+  end
+  if not result then
+    if reason == "no regional path" then
+      local everything = self:journeySearch(start, target, 3, allowed)
+      local needs = everything and self:journeyRequirement(everything)
+      if needs then return nil, needs end
+    end
+    return nil, reason
+  end
+  if result.final then
+    -- an Area target's cells were worked out on the map the journey began
+    -- on; one outside this map (Silph Co. 5F is shorter than 1F) made the
+    -- last leg's route fail outright ("Cannot reach Card Key")
+    local goals = {}
+    for _, goal in ipairs(navigation.targetGoals) do
+      if live.map:inBounds(goal.x, goal.y) then goals[#goals + 1] = goal end
+    end
+    return { final = true, goals = #goals > 0 and goals or navigation.targetGoals,
+      appendInstructions = navigation.targetAppendInstructions }
+  end
+  local transition = result.firstTransition
+  local destinationName = self:regionalDestinationName(transition.destMap)
+  local instruction = transition.kind == "connection"
+    and ("Continue " .. transition.direction .. " to " .. destinationName)
+    or ("Continue to " .. destinationName)
+  return {
+    final = false,
+    goals = { { x = transition.x, y = transition.y } },
+    nextMapId = transition.destMap,
+    appendInstructions = function(parts) parts[#parts + 1] = instruction end,
+  }
 end
 
 -- The Area category (decision 25) on FireRed maps: item balls the game
@@ -1311,11 +1623,58 @@ end
 
 -- ------------------------------------------------------------ renaming
 
--- Shift+K and Shift+M: FireRed's naming screen is a module on its own
--- stack (src/ui/game3/naming.lua) with no initial-text option; until it is
--- wired, say so rather than open something that cannot save.
-function Navigation:beginRename()
-  return self:announceManual({ "Renaming is not available in FireRed yet" })
+-- Shift+K and Shift+M, as Gen 2 does them, with FireRed's own naming
+-- screen (src/ui/game3/naming.lua: Naming.open takes a title, a length,
+-- an initial text and onDone, and closes itself).  The box-name keyboard
+-- (letters, both cases, digits) suits names; the Gen 3 screen presenter
+-- speaks its title.  Names are kept in game.options (customNames).
+Navigation.RENAME_MAX = 10
+
+function Navigation:beginRename(kind)
+  local item, snapshot, reason
+  if kind == "object" then
+    item, reason, snapshot = self:selectedBrowseItem(0)
+    if not item then return self:announceManual({ reason }) end
+  else
+    snapshot, reason = self:captureWorld("all")
+    if not snapshot then return self:announceManual({ reason }) end
+  end
+  local names = self:writableCustomNames()
+  if not names then return self:announceManual({ "Names could not be saved" }) end
+  local okNaming, Naming = pcall(require, "src.ui.game3.naming")
+  if not (okNaming and type(Naming) == "table" and type(Naming.open) == "function") then
+    return self:announceManual({ "Renaming is not available here" })
+  end
+  local mapId = snapshot.mapId
+  local current
+  if kind == "map" then
+    current = names.maps[mapId] or snapshot.locationName
+  else
+    names.objects[mapId] = names.objects[mapId] or {}
+    current = names.objects[mapId][item.id] or item.label
+  end
+  local game = self.game
+  local limit = Navigation.RENAME_MAX
+  local initial = tostring(current or "")
+  if #initial > limit then initial = "" end -- a long label is retyped, not cut mid-word
+  local ok, err = pcall(Naming.open, {
+    template = "BOX", title = kind == "map" and "Map name?" or "Object name?",
+    maxLen = limit, initialText = initial, game = game,
+    onDone = function(value)
+      value = type(value) == "string" and value:gsub("^%s+", ""):gsub("%s+$", "") or ""
+      if kind == "map" then
+        names.maps[mapId] = value ~= "" and value or nil
+      else
+        names.objects[mapId][item.id] = value ~= "" and value or nil
+      end
+      if type(game.writeOptions) == "function" then pcall(game.writeOptions, game) end
+      self:announceManual({ value ~= "" and "Names saved" or "Name cleared" })
+    end,
+  })
+  if not ok then
+    return self:announceManual({ "Renaming could not open: " .. tostring(err) })
+  end
+  return true
 end
 
 function Navigation:commandAllowed()

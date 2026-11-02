@@ -106,8 +106,24 @@ return function(game)
   L.check(stats.maps >= 400, "every FireRed map has a view (" .. stats.maps .. ")")
   L.check(stats.bad == 0, "no bad labels (" .. stats.bad .. ")")
 
-  -- Strength floors: follow only the next push, on a copy of the floor
+  -- Strength floors: follow only the next push, on a copy of the floor.
+  -- The plan is searched as the game does it (a task run in slices until
+  -- it is found, then kept and followed push by push).
+  local kept
+  local function nextPush(world, targets, boulders)
+    local push = kept and Puzzle.followPlan(kept, world, boulders)
+    if push then return push end
+    local task = Puzzle.newPlanTask(world, targets, boulders)
+    local plan, why
+    for _ = 1, 200 do
+      plan, why = task.run(0.1)
+      if why ~= "budget" then break end
+    end
+    kept = plan
+    return plan, why
+  end
   for _, floor in ipairs(puzzleFloors) do
+    kept = nil
     local world = floor.world
     local targets, boulders = Puzzle.targetsFor(world)
     local holes, switches, total = 0, 0, #boulders
@@ -126,7 +142,8 @@ return function(game)
     local placed = false
     for _, cell in ipairs(startCells) do
       world.player.cellX, world.player.cellY = cell[1], cell[2]
-      local plan = Puzzle.planFloor(world, targets, boulders)
+      kept = nil
+      local plan = nextPush(world, targets, boulders)
       if plan then placed = true break end
     end
     local dropped = 0
@@ -141,7 +158,7 @@ return function(game)
         end
         if switches > 0 and openSwitches == 0 then done = true break end
         if not targets then done = switches == 0 and dropped > 0 break end
-        local plan = Puzzle.planFloor(world, targets, boulders)
+        local plan = nextPush(world, targets, boulders)
         if not plan then
           done = switches == 0 and dropped > 0
           U.log("PUZZLE", floor.id, "round", round, "no further push; open switches", openSwitches,
@@ -165,11 +182,9 @@ return function(game)
     if floor.id:match("VICTORY_ROAD") then
       L.check(done, floor.id .. " switches all pressed by following the hints (" .. pushes .. " pushes)")
     elseif floor.id:match("TANOBY_KEY") then
-      -- known gap: the seven-switch plan needs about six seconds of search,
-      -- over the hint budget; the help must then give no push at all rather
-      -- than a nearest-first one that can block the rest
-      L.check(pushes == 0 or done, floor.id .. " gives no misleading push when out of time ("
-        .. pushes .. " pushes)")
+      -- the seven-switch plan takes about a second: searched in slices,
+      -- kept, and followed to the end
+      L.check(done, floor.id .. " switches all pressed by following the hints (" .. pushes .. " pushes)")
     elseif floor.id == "FR_SEAFOAM_ISLANDS_1F" then
       L.check(dropped == total, floor.id .. " every boulder dropped by following the hints ("
         .. pushes .. " pushes)")

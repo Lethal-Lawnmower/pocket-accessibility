@@ -3,14 +3,17 @@
 -- next push, auto-walk to the pushing position it names, switch Strength on
 -- through the game's own offer at a boulder, push once the hinted way, and
 -- repeat.  Victory Road 1F (the switch opens the way on) and Seafoam
--- Islands 1F (both boulders into the holes).  Silent and isolated:
+-- Islands 1F (both boulders into the holes), the Tanoby Key room (seven
+-- switches; the plan is searched across frames).  Silent and isolated:
 --   POKEPORT_DRIVER=tests/access/drivers/isolated.lua
 --   ISOLATED_DRIVER=tests/access/drivers/gen3_nav_puzzle.lua
 return function(game)
   local L = dofile("tests/access/drivers/gen3_nav_lib.lua").new(game)
   local U = L.U
   if not L.boot() then return end
-  L.giveParty(6, 70, { "STRENGTH", "SURF" }, { "STRENGTH", "SURF" })
+  -- level 100: no level-up or move prompts can strand the harness in a
+  -- battle on the long walks
+  L.giveParty(6, 100, { "STRENGTH", "SURF" }, { "STRENGTH", "SURF" })
   local Player = require("src.core.game3.player")
 
   local function boulderEntity(id)
@@ -42,11 +45,20 @@ return function(game)
       if done() then break end
       L.settle(600, true)
       local target
-      for _, item in ipairs(L.browse("objects")) do
-        if tostring(item.label):match("^Boulder") and tostring(item.stateText):match("^next push") then
-          target = item
-          break
+      -- a plan still being searched for (the Tanoby Key room) is carried
+      -- on a little each frame; ask again after a moment
+      for _ = 1, 40 do
+        local searching = false
+        for _, item in ipairs(L.browse("objects")) do
+          if tostring(item.label):match("^Boulder") and tostring(item.stateText):match("^next push") then
+            target = item
+            break
+          end
+          if tostring(item.stateText):find("still being worked out", 1, true) then searching = true end
         end
+        if target or not searching then break end
+        U.log("WAIT", name, "plan still being worked out")
+        L.wait(30)
       end
       if not target then
         U.log("RESULT", name, "no planned push; round", round)
@@ -67,7 +79,15 @@ return function(game)
         end
         L.settle(300, true)
       end
-      if not push(eo, dir) then
+      local battlesBefore = L.battles
+      local moved = push(eo, dir)
+      if not moved and L.battles ~= battlesBefore then
+        -- a wild battle began while the direction was held: finish it and
+        -- push again from where the hint said
+        L.settle(6000, true)
+        moved = push(eo, dir)
+      end
+      if not moved then
         U.log("RESULT", name, "push did not move the boulder at", L.where(), "facing", dir)
         break
       end
@@ -87,21 +107,45 @@ return function(game)
   L.check(switchPressed(), "Victory Road 1F switch pressed by following the hints (" .. pushes .. " pushes)")
   local ladder = L.findLabel("Victory Road 2F", "warps")
   if ladder then
-    local said = L.walkTo(ladder, { answer = "a", limit = 8000 })
+    local said = L.walkTo(ladder, { answer = "a", limit = 30000 })
     U.log("WALK", said, "at", L.where())
     L.check(L.pos() == "FR_VICTORY_ROAD_2F", "auto-walk reached the 2F ladder past the opened barrier")
   end
 
-  -- Seafoam Islands 1F
+  -- Seafoam Islands 1F (any battle from the ladder walk finished first)
+  L.settle(6000, true)
   L.teleport("FR_SEAFOAM_ISLANDS_1F", 6, 20, "up")
   L.logBrowse("all")
+  -- an empty list means the map could not be read (a battle still open),
+  -- not that the floor is done
   local function noBoulders()
-    for _, item in ipairs(L.browse("objects")) do
+    local items = L.browse("objects")
+    if #items == 0 then return false end
+    for _, item in ipairs(items) do
       if tostring(item.label):match("^Boulder") then return false end
     end
     return true
   end
   pushes = solve("FR_SEAFOAM_ISLANDS_1F", noBoulders)
   L.check(noBoulders(), "Seafoam Islands 1F boulders dropped into the holes (" .. pushes .. " pushes)")
+
+  -- The Tanoby Key room: seven boulders onto seven switches.  The whole
+  -- plan takes about a second of search, spread over requests and frames;
+  -- no push is offered before it exists.
+  L.settle(6000, true)
+  L.teleport("FR_SEVEN_ISLAND_SEVAULT_CANYON_TANOBY_KEY", 7, 12, "up")
+  L.logBrowse("objects")
+  local function allPressed()
+    local open, items = 0, L.browse("objects")
+    if #items == 0 then return false end
+    for _, item in ipairs(items) do
+      if tostring(item.label):match("^Pressure Switch") and not tostring(item.stateText):find("pressed by", 1, true) then
+        open = open + 1
+      end
+    end
+    return open == 0
+  end
+  pushes = solve("FR_SEVEN_ISLAND_SEVAULT_CANYON_TANOBY_KEY", allPressed)
+  L.check(allPressed(), "Tanoby Key room: all seven switches pressed by following the hints (" .. pushes .. " pushes)")
   L.finish("gen3_nav_puzzle")
 end
