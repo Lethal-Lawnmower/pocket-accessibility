@@ -344,9 +344,21 @@ player and wall sounds stay, as the stand-in for bumping around.
 
 ## 38. The save editor comes next (2026-11-02)
 
+Agent choices below superseded by #39; the owner's request stands.
+
 The owner does not plan a full vanilla playthrough and will use the save editor
 instead, and asked to work on it next. Agent choices, open to the owner: speech and
 keyboard sit over upstream's editor through Kit rather than a separate editor;
 Tab moves between controls and the arrows also stop on text; Shift+arrows walk a
 cell cursor on the map. Pages work as upstream wrote them, with no extra legality
 limits. Does not authorize a push.
+
+## 39. A native save editor; speech over upstream's is scrapped (2026-11-02)
+
+The owner did not want "a whole new vocabulary" to use a save editor, asked whether
+the interface was the cause and whether it could be redone like the launcher, then
+said: "Yeah, use subagents and handle it. I trust you. I'll test the final result.
+Scrap the current method we have." So: a standard Windows Forms window in the launcher
+over upstream's save logic, which runs windowless and unedited. Authorizes subagents
+for this work. Does not authorize a push. The owner tests the finished result.
+Refines #5: the logic carries over, upstream's interface does not face the player.

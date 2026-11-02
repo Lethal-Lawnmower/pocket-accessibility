@@ -26,6 +26,20 @@ internal sealed record GamePaths(string? LoveExe, string? GameDir, string SaveDi
         }
     }
 
+    /// <summary>The windowless save backend (launcher/SaveBackend), found the same way.</summary>
+    public string? SaveBackendDir
+    {
+        get
+        {
+            string[] candidates =
+            [
+                Path.Combine(AppContext.BaseDirectory, "SaveBackend"),
+                GameDir == null ? "" : Path.Combine(GameDir, "launcher", "SaveBackend"),
+            ];
+            return candidates.FirstOrDefault(dir => dir != "" && File.Exists(Path.Combine(dir, "main.lua")));
+        }
+    }
+
     public const string DefaultIdentity = "pokemon-love2d";
 
     public static GamePaths Discover()

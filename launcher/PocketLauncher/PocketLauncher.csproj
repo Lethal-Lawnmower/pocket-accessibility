@@ -19,6 +19,7 @@
   <!-- The windowless ready check the launcher runs with LÖVE (ReadyCheck.cs). -->
   <ItemGroup>
     <None Include="..\ReadyCheck\*.lua" CopyToOutputDirectory="PreserveNewest" LinkBase="ReadyCheck" />
+    <None Include="..\SaveBackend\**\*.lua" CopyToOutputDirectory="PreserveNewest" LinkBase="SaveBackend" />
   </ItemGroup>
 
 </Project>

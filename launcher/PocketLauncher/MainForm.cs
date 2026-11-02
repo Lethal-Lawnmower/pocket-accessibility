@@ -51,7 +51,7 @@ internal sealed class MainForm : Form
         gamesList.DoubleClick += async (_, _) => await PlaySelectedAsync();
 
         ConfigureButton(playButton, "&Play", async () => await PlaySelectedAsync());
-        ConfigureButton(editButton, "&Edit save", async () => await EditSelectedAsync());
+        ConfigureButton(editButton, "&Edit save", () => { EditSelected(); return Task.CompletedTask; });
         ConfigureButton(importButton, "&Import ROM...", async () => await ImportAsync());
         ConfigureButton(creditsButton, "&Credits", () => { using var credits = new CreditsForm(); credits.ShowDialog(this); return Task.CompletedTask; });
         ConfigureButton(exitButton, "E&xit", () => { Close(); return Task.CompletedTask; });
@@ -170,16 +170,10 @@ internal sealed class MainForm : Form
         return true;
     }
 
-    private async Task PlaySelectedAsync() =>
-        await RunSelectedAsync(game => $"Playing {game.Name}.", runner.PlayAsync);
-
-    private async Task EditSelectedAsync() =>
-        await RunSelectedAsync(game => $"Editing the {game.Name} save.", runner.EditAsync);
-
-    /// <summary>Runs the game program for the selected game, which must be imported.</summary>
-    private async Task RunSelectedAsync(Func<Game, string> message, Func<Game, Task> work)
+    /// <summary>The selected game if it can run; otherwise says what is missing.</summary>
+    private Game? SelectedImportedGame()
     {
-        if (busy || SelectedGame is not Game game) return;
+        if (busy || SelectedGame is not Game game) return null;
         ImportState state = StateOf(game);
         if (state != ImportState.Ready)
         {
@@ -188,15 +182,30 @@ internal sealed class MainForm : Form
                 : $"{game.Name} is not imported yet. Choose Import ROM and pick your {game.Name} cartridge dump first.",
                 MessageBoxIcon.Information);
             importButton.Focus();
-            return;
+            return null;
         }
-        await RunBusyAsync(message(game), async () =>
+        return game;
+    }
+
+    /// <summary>The native save editor, over this window until it closes.</summary>
+    private void EditSelected()
+    {
+        if (SelectedImportedGame() is not Game game) return;
+        using var editor = new SaveEditorForm(paths, game);
+        editor.ShowDialog(this);
+        gamesList.Focus();
+    }
+
+    private async Task PlaySelectedAsync()
+    {
+        if (SelectedImportedGame() is not Game game) return;
+        await RunBusyAsync($"Playing {game.Name}.", async () =>
         {
-            // Out of the way while it runs; back with focus on the list after.
+            // Out of the way while the game runs; back with focus on the list after.
             WindowState = FormWindowState.Minimized;
             try
             {
-                await work(game);
+                await runner.PlayAsync(game);
             }
             finally
             {

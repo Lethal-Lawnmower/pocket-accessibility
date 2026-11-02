@@ -175,8 +175,7 @@ and recorded in the topic file.
 
 ## Save editor
 
-- **State (2026-11-02):** keyboard focus and speech over upstream's editor, and
-  Edit save in the launcher (decision 38, `save-editor.md`). Run in game by driver
-  in Red, Crystal and FireRed, silently: edits, save and reload work. Not heard.
-  Local, not pushed.
-- **Next:** the owner's first try; then what it finds.
+- **State (2026-11-02):** native window being built (decision 39,
+  `save-editor.md`). Foundation and Trainer page run through the backend with no
+  window. Local, not pushed.
+- **Next:** the remaining pages, then the owner tests the finished result.

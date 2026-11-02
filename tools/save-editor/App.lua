@@ -1245,7 +1245,4 @@ function App.quit()
   return false
 end
 
--- Pocket Accessibility hook (docs/access/architecture.md)
-require("src.access.editor").attach(App, Kit)
-
 return App

@@ -1,109 +1,82 @@
 # Save editor
 
-Upstream's save editor (`tools/save-editor/`, decision 5) with keyboard focus and
-speech on top (decision 38). Upstream is a mouse program; our code is in
-`src/access/editor/`, and one line in `App.lua` attaches it. Every action still
-goes through upstream's own click, confirmation and save paths, so backups,
-modal shields and Undo behave as they do for a sighted player.
+A native Windows window (decision 39), opened with Edit save in the launcher:
+standard tabs, lists, text boxes and buttons, read by the screen reader like any
+Windows program. The first attempt, speech and keys laid over upstream's mouse
+editor, was removed at the owner's request: it meant learning a vocabulary.
 
-## Keys
+## How it fits together
 
-| Key | Does |
+| Part | Holds |
 |---|---|
-| Tab, Shift+Tab | Next or previous control |
-| Down, Up | Next or previous stop, including plain text (like browse mode) |
-| Home, End | First or last stop on the screen |
-| Enter, Space | Activate |
-| Escape | Close a popup or menu, leave a text box, or clear the selection (upstream) |
-| F1 | Help for the focused value, when it has any |
-| F2 | Repeat the focused item |
-| Shift+arrows | Map page: move the cell cursor (below) |
-| Page Up, Page Down | Scroll the list under the focus (upstream) |
-| Ctrl+S, Ctrl+R, Ctrl+Z, Ctrl+Y | Save, reload from disk, undo, redo (upstream) |
+| `launcher/PocketLauncher/SaveEditorForm.cs` | Window, tabs, Save, Undo, Redo, Reload, Close, status line |
+| `launcher/PocketLauncher/PagePanel.cs` | One page, drawn from the backend's description; no knowledge of any page |
+| `launcher/PocketLauncher/SaveBackendClient.cs` | Starts the backend, sends one request at a time |
+| `launcher/SaveBackend/main.lua` | Windowless LÖVE program (`lovec.exe`): upstream's `App.load`, `App.save`, `History`, `Ops`, and the protocol |
+| `launcher/SaveBackend/pages/<id>.lua` | What each page shows and which `Ops` calls its controls make |
 
-Results upstream reports (status line, toasts, notes) are spoken after the focus.
+Save logic stays in upstream's `tools/save-editor/`, unedited: ranges, undo, backups
+(`save.lua.bak-...` before each write) and `.sav` export all remain upstream's. The
+form cannot run with a game on the same save because it is modal over the launcher.
 
-## How it works
+## Protocol
 
-`Capture.lua` wraps Kit, the editor's widget module, at runtime. Kit already
-reports every clickable control to `Kit.audit` for its layout tests, and leaves
-out whatever a modal covers, so popups trap focus without extra code. The
-wrappers add drawn text in sequence, control state and the regions that scroll;
-they do not change what Kit draws or returns. Each frame becomes a list of stops.
-Nothing is a separate model of the editor, so any page upstream adds is readable
-at once, if not always well named.
+One JSON object per line on stdin; one per line on stdout, prefixed `@@PA `. Other
+output is upstream's logging. `print` goes to stderr.
 
-`init.lua` keeps the focus between frames by control id or label, and activates
-with `App.mousepressed` at the control's visible centre. `PadInput.pointer`
-returns the focused control, so hover and the wheel act where the focus is.
+Requests: `open {version, path?}`, `model {page}`, `select {page, row}`,
+`pick {page, picker, value}`, `set {page, field, value}`,
+`toggle {page, row, checked}`, `action {page, action}`, `save`, `undo`, `redo`,
+`reload`. The page commands answer with a fresh `model`.
 
-Naming rules worth knowing:
+Every answer has `ok`, `error` (when not ok), `status`, `dirty`, `canUndo`,
+`canRedo`, `canSave`, and `message` and `messageKind` when there is something new to
+say. `messageKind` of `error` shows a message box; otherwise the status line, a live
+region, reads it. Opening answers `title`, `path`, `pages`, `missingCache`, `corrupt`.
 
-- A row is named by the text drawn inside it. A value box or dropdown that shows
-  only its value takes its name from the line above.
-- Not stops: `slider-` controls (a click there sets a value from where it lands;
-  the box beside each edits the same number), the scrollbar, and press regions
-  with no words. Help marks belong to the value beside them (F1).
-- Pokédex toggles are prefixed with the species, since Tab skips the name.
-- Upstream's mouse hints ("Ctrl+S save . ... arrows pan map") are dropped.
+## A page
 
-Behaviour added for keyboard use:
+`pages/<id>.lua` returns a table. Only `model` is required.
 
-- Leaving a list with rows out of view scrolls them in first; entering one left
-  scrolled partway starts from its near end.
-- A picker with a search box opens ready to type. After a pause it says "First:"
-  and the result Enter would take; Tab or the arrows walk the results.
-- A number popup opens on "Type a value" and says the current value. A number box
-  opens holding the old value and the first digit replaces it.
+```lua
+function Page.model(S, state) return model end  -- S: upstream's state; state: this page's, kept between calls
+function Page.select(S, state, request) end     -- default: state.selected = request.row
+function Page.pick(S, state, request) end       -- default: state[request.picker] = request.value
+function Page.set(S, state, request) end        -- request.field, request.value
+function Page.toggle(S, state, request) end     -- request.row, request.checked
+function Page.action(S, state, request) end     -- request.action
+```
 
-## Map page
+Edits call upstream's `Ops`, which reports through `S.status`; an error raised in a
+page becomes a message box. `state` survives Undo but resets on Reload, so a page must
+cope with a selection that no longer exists.
 
-The map is a picture with no controls in it. Choose a map with the search box and
-the list, then Shift+arrows walk a cell cursor. It starts where the player stands
-on that map, or else in the middle. Each step says the coordinates, a warp's
-destination, and "walkable" or "blocked" where upstream's map object can answer
-(Gen 1 and Gen 2; FireRed's preview has no such method, so it says neither).
-Player and Heal or Spawn (and Outdoor in Gen 1) then act on that cell. Upstream
-allows placing the player on a blocked cell; the speech warns but does not stop it.
-Clicking a warp cell with a mouse follows it; the cursor only selects it.
+The model, all parts optional, in tab order:
 
-## Opening
+```lua
+{
+  pickers = { { id, label, value, options = { { value, label } }, below = false } },
+  summary = "read-only lines",
+  list = { label, rows = { { id, text, checked } }, selected = id,
+           checks = false,   -- rows are checkboxes; Space sends toggle
+           filter = false }, -- show a filter box (the client filters)
+  fields = { { id, label, kind, value, lo, hi, options, help, issue, enabled } },
+  actions = { { id, label, enabled, confirm = "question" } },
+}
+```
 
-The launcher's Edit save sets `POKEPORT_EDITOR=1` and `POKEPORT_VERSION`. A
-standalone start names no file, and upstream's default is a pre-slots path, so
-`Editor.activeSavePath` asks `SaveData` for the file the game itself would load.
-That lookup can move a flat `save_<game>.lua` into `saves/<game>/slot1.lua`,
-which is upstream's own migration and also happens on the next game start (a
-first session saves flat until then). Checked on a disposable profile: the game's
-load and the editor's path were the same file.
+`below = true` puts a picker after the list. `kind` is `number`, `text`, `choice`,
+`check` or `info` (read-only). `lo` and `hi` are spoken with the name; `help` and
+`issue` become the control's description. `options` may be long: a dropdown of 400
+species is fine and replaces upstream's picker popups. `confirm` asks yes or no first,
+replacing upstream's click-twice arming. An action with id `delete` also runs on the
+Delete key from the list. Row ids and option values may be strings or numbers; list
+row ids reach the backend as strings.
 
-## Verified
+Wording: name first, then value; plain words over internal ids where upstream has a
+display name; short rows, since they are listened to.
 
-Driver `tests/access/drivers/editor_tour.lua` (silent, isolated, scratch saves),
-run in game in Red, Crystal and FireRed. By keyboard only it added a Pokémon,
-changed species and level, added an item through the search, set
-money, chose a map and a cell and placed the player, earned a badge, saved, and
-reloaded from disk with the money intact; Close with unsaved edits asked first. It
-read every page. A copy of the owner's FireRed save opened and read correctly
-(party, trainer), with nothing edited. Unit test `editor_capture_test.lua`.
+## Testing
 
-Not established:
-
-- **Nobody has heard it.** Scripted runs are silent.
-- The real key path: drivers call `App.keypressed` directly. The standalone start
-  was only shown to run for 14 seconds without crashing, window hidden. Source
-  reading says the game's command router stays out of the way with no game running.
-- Blue, Yellow, Gold, Silver, LeafGreen, Ruby, Sapphire and Emerald were not run.
-- Not exercised: Boxes moves, Events edits, Pokédex edits, move and stat editing
-  (Stats, Moves, Origin, Extras), Tools menus, Sort, Open's file dialog, F1.
-- Upstream's own editor suites need generated data and were not run through the
-  layer. The layer stays off when speech is unavailable, so they do not attach it.
-
-## Known rough edges
-
-- Box slots read as bare numbers when empty ("2"), and the first row of a long
-  flag list takes many stops; the filter box is the quick way.
-- The Events page lists internal flag names. Setting flags can break a story;
-  that is upstream's editor, unchanged.
-- Sliders have no keyboard form; the value box covers them.
-- Open uses a native Windows dialog, outside this layer.
+`python tests/access/save_backend.py <game> <identity> <script.json> [scratch-save]`
+drives the backend with no window. Use disposable identities and scratch saves.
