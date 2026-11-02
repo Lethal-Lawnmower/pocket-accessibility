@@ -71,7 +71,9 @@ and recorded in the topic file.
 - **Scenery (2026-11-01):** flavor furniture hidden from the object list
   (decision 34; swept in FireRed, not heard). Local, not pushed.
 - **Owner playtest (2026-11-02):** the owner reports reaching the first gym in
-  FireRed. No findings reported yet; acceptance of any feature not stated.
+  FireRed, with auto-walk and guided navigation: "works really good". The owner
+  has not found the Area category useful so far (expected before multi-floor
+  dungeons; to revisit from Mt. Moon).
 - **Misc category (2026-11-02):** FireRed's hidden flavor furniture listed
   under Misc, left out of All (decision 36; `drivers/npc_category.lua` in
   FireRed walked to a Bookshelf and a Poster, not heard). Local, not pushed.
