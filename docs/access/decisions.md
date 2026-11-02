@@ -341,3 +341,12 @@ whole screen with silhouettes still in view, so the list keeps the screen; Gen
 screen; Gen 3 has a circle of light, so it keeps that circle. The camera stays
 inside the same limit (in Gen 2 it cannot move). Reading the tiles around the
 player and wall sounds stay, as the stand-in for bumping around.
+
+## 38. The save editor comes next (2026-11-02)
+
+The owner does not plan a full vanilla playthrough and will use the save editor
+instead, and asked to work on it next. Agent choices, open to the owner: speech and
+keyboard sit over upstream's editor through Kit rather than a separate editor;
+Tab moves between controls and the arrows also stop on text; Shift+arrows walk a
+cell cursor on the map. Pages work as upstream wrote them, with no extra legality
+limits. Does not authorize a push.

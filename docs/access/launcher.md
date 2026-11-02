@@ -12,6 +12,7 @@ it, found the stale-import problem (fixed), and approved it ("Looks good").
 |---|---|
 | Games list (Alt+G) | Every game upstream supports (Red, Blue, Yellow, Gold, Silver, Crystal, FireRed, LeafGreen, Ruby, Sapphire, Emerald; owner request 2026-11-01), the ones our speech does not cover yet marked "no speech yet", each "<name>, imported", "not imported" or "needs importing again" (imported by an older build). Starts on the first playable game. Enter plays the selected game. |
 | Play (Alt+P) | Starts the selected game directly. The launcher minimises while the game runs and comes back with focus on the list when the game closes. A game that is not imported gets a message pointing to Import ROM. |
+| Edit save (Alt+E) | Opens the save editor on the selected game's current save (`save-editor.md`). Same import check as Play; the launcher minimises and returns when the editor closes. Built, not yet opened by the owner. |
 | Import ROM (Alt+I) | A standard Open dialog for `.gb`, `.gbc` and `.gba`. The file's SHA-1 says which game it is; anything else is refused with a message. The game program imports it and quits; a message box says whether it worked. |
 | Credits (Alt+C) | A read-only text box, readable line by line: project, the upstream credit, Prism, Pokémon Access as inspiration, license, source, the Nintendo disclaimer. |
 | Exit (Alt+X) | Closes the launcher. |
@@ -107,7 +108,6 @@ run. Build output is ignored by git.
 
 ## Next
 
-Edit save (opens upstream's save editor, decision 5; the editor itself is
-not yet screen-reader accessible), Settings (game options before start,
+Settings (game options before start,
 such as the Accessibility page's values), a bring-your-own Pokémon Access
 sound folder (decision 8), packaging.

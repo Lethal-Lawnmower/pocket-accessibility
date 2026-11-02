@@ -1,6 +1,7 @@
 # Status
 
-**Current focus (2026-11-01):** FireRed and LeafGreen (decision 29). Gen 1
+**Current focus (2026-11-02):** the save editor (decision 38), then FireRed and
+LeafGreen (decision 29). Gen 1
 and Gen 2 are built; the owner playtests them during the week (Crystal to
 the first gym: "It works perfectly"). Yellow's surfing minigame is the
 owner's.
@@ -172,6 +173,10 @@ and recorded in the topic file.
 - **Next:** walking cues (no upstream event),
   Chaos Cut as an optional mod (decision 21); the owner's playtest.
 
-## Not started
+## Save editor
 
-Save editor accessibility.
+- **State (2026-11-02):** keyboard focus and speech over upstream's editor, and
+  Edit save in the launcher (decision 38, `save-editor.md`). Run in game by driver
+  in Red, Crystal and FireRed, silently: edits, save and reload work. Not heard.
+  Local, not pushed.
+- **Next:** the owner's first try; then what it finds.

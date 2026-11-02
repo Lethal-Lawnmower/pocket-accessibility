@@ -46,6 +46,9 @@ check exactly these places.
 | Minor screens (read only): `TitleState`, `IntroMovie`, `YellowIntro`, `LeaguePC`, `PrizeCounter`, `SlotMachine`, `HallOfFame`, `Diploma`, `Credits` | Their index, stage, message and screen fields; `game.data.text` Diploma strings | Screen speech (`menus-and-text.md`) | 2026-10-31 |
 | Extra screens (read only): `ManagerState`, `QuarantineReport`, `LinkState`, `Gen1BattlePrep`, `Gen1TradePrep`, `PicBox`, `SurfHiScore` | Mod manager `screen`, `tab`, `cursor`, `overlay`, `notice`, `optionRows`, read-only `rowsForScreen`, `isStaged`, `runsHere`; link `stage`, `index`, `side`, `trade`, `willText`, `listLabel`; union page models' `page`, `label`, `formatLines` | Screen speech (`menus-and-text.md`) | 2026-10-31 |
 | `src/world/OverworldController.lua` (read only) | The module is Gen 1's overworld (`Game.overworld = OverworldState`); field `emote.pikaPic`, traced through `field.pikachu.emotions` and `.pics` | Pikachu reactions (`yellow.md`) | 2026-10-31 |
+| `tools/save-editor/App.lua` | Last line before `return App` | Calls `require("src.access.editor").attach(App, Kit)`. Does nothing without speech | 2026-11-02 |
+| `tools/save-editor/` (runtime wrappers, no edit) | `App.load`, `draw`, `keypressed`, `textinput`; Kit `text`, `textCenter`, `textCenterBold`, `ellipsize`, `button`, `row`, `checkbox`, `textfield`, `press`, `scrollPixels`; `TouchEditor.help`; `PadInput.pointer`. Originals called with the same arguments and results passed through. Sets `Kit.audit` during a draw | Save editor speech and keyboard (`save-editor.md`) | 2026-11-02 |
+| `tools/save-editor/` (read only, one write) | `S.tab`, `status`, `note`, `toast`, `navPopup`, `editPopup` (`mode`, `value`, `wheelRect`), `speciesPicker`, `movePicker`, `itemPicker`, `mapId`; `MapBrowser.preview`, `Gen.playerMap`. Writes `S.mapClickCell`, the field a map click sets | Same | 2026-11-02 |
 | `main.lua` (runtime wrappers, no edit) | `love.keypressed` (ours first, may consume), `love.keyreleased` | Navigation command keys (`navigation.md`) | 2026-10-31 |
 | `main.lua` (runtime wrappers, no edit) | `love.gamepadaxis`, `gamepadpressed`, `gamepadreleased` (ours first, may consume) | Controller navigation (`navigation.md`) | 2026-10-31 |
 | `src/core/Input.lua` (input injection) | Auto-walk holds directions in `sources`, `pressQueue`, `state` under its own source; `padEventSeen` marks D-pad presses used for navigation | Auto-walk, controller navigation | 2026-10-31 |
@@ -94,7 +97,7 @@ launcher needs, so no game-side change is planned. Our launcher
 |---|---|---|
 | Start a specific game, skipping upstream's launcher | `POKEPORT_GAME=red`, `blue`, `yellow`, `gold`, `silver` or `crystal`; optional `--slot <id>` | exists upstream; verified 2026-10-31, through our launcher 2026-11-01 |
 | Import a ROM without any launcher | `POKEPORT_IMPORT_ROM=<path>` with `POKEPORT_IMPORT_ONLY=1`; quits when done | exists upstream |
-| Open the save editor | `--editor`, optional `--save <path>`, game from `POKEPORT_VERSION` | exists upstream |
+| Open the save editor | `POKEPORT_EDITOR=1` or `--editor`, optional `--save <path>`, game from `POKEPORT_VERSION` | exists upstream; our launcher uses the variable (2026-11-02) |
 | Keep upstream's self-updater off | `POKEPORT_PORTMASTER_MANAGED=1` (checked only by the updater and `Prelaunch`) | exists upstream; our launcher sets it (`launcher.md`) |
 
 **Do not pass `--game` on the command line from source** (`love . --game red`): on 2026-10-31 that failed before `main.lua` ran (no output at all, with the layer on or off), and the owner saw LÖVE's blue error screen. `POKEPORT_GAME=red` works. Re-check this for packaged builds.

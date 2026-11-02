@@ -2,7 +2,7 @@ namespace PocketLauncher;
 
 /// <summary>
 /// The launcher window: a list of the six games with whether each is
-/// imported, and Play, Import ROM, Credits and Exit.  Only standard controls
+/// imported, and Play, Edit save, Import ROM, Credits and Exit.  Only standard controls
 /// with explicit accessible names, laid out in a table so the tab order is
 /// the reading order: games list, buttons, the required upstream credit.
 /// Results the player must hear (import done, errors) come as message boxes,
@@ -19,6 +19,7 @@ internal sealed class MainForm : Form
     private readonly GameRunner runner;
     private readonly ListBox gamesList = new();
     private readonly Button playButton = new();
+    private readonly Button editButton = new();
     private readonly Button importButton = new();
     private readonly Button creditsButton = new();
     private readonly Button exitButton = new();
@@ -50,13 +51,14 @@ internal sealed class MainForm : Form
         gamesList.DoubleClick += async (_, _) => await PlaySelectedAsync();
 
         ConfigureButton(playButton, "&Play", async () => await PlaySelectedAsync());
+        ConfigureButton(editButton, "&Edit save", async () => await EditSelectedAsync());
         ConfigureButton(importButton, "&Import ROM...", async () => await ImportAsync());
         ConfigureButton(creditsButton, "&Credits", () => { using var credits = new CreditsForm(); credits.ShowDialog(this); return Task.CompletedTask; });
         ConfigureButton(exitButton, "E&xit", () => { Close(); return Task.CompletedTask; });
         AcceptButton = playButton; // Enter on the list plays the selected game
 
         var buttons = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, WrapContents = false };
-        buttons.Controls.AddRange([playButton, importButton, creditsButton, exitButton]);
+        buttons.Controls.AddRange([playButton, editButton, importButton, creditsButton, exitButton]);
 
         var credit = new Label { Text = UpstreamCredit, AutoSize = true, MaximumSize = new Size(480, 0) };
 
@@ -153,7 +155,7 @@ internal sealed class MainForm : Form
                 ? "The game folder was not found. Start the launcher from inside the Pocket Accessibility folder, or set POCKET_GAME_DIR."
                 : "LÖVE 11.5 was not found. Install it from love2d.org, or set POCKET_LOVE to love.exe.";
             status.Text = missing;
-            playButton.Enabled = importButton.Enabled = false;
+            playButton.Enabled = editButton.Enabled = importButton.Enabled = false;
             ShowMessage(missing, MessageBoxIcon.Error);
             return false;
         }
@@ -168,7 +170,14 @@ internal sealed class MainForm : Form
         return true;
     }
 
-    private async Task PlaySelectedAsync()
+    private async Task PlaySelectedAsync() =>
+        await RunSelectedAsync(game => $"Playing {game.Name}.", runner.PlayAsync);
+
+    private async Task EditSelectedAsync() =>
+        await RunSelectedAsync(game => $"Editing the {game.Name} save.", runner.EditAsync);
+
+    /// <summary>Runs the game program for the selected game, which must be imported.</summary>
+    private async Task RunSelectedAsync(Func<Game, string> message, Func<Game, Task> work)
     {
         if (busy || SelectedGame is not Game game) return;
         ImportState state = StateOf(game);
@@ -181,13 +190,13 @@ internal sealed class MainForm : Form
             importButton.Focus();
             return;
         }
-        await RunBusyAsync($"Playing {game.Name}.", async () =>
+        await RunBusyAsync(message(game), async () =>
         {
-            // Out of the way while the game runs; back with focus on the list after.
+            // Out of the way while it runs; back with focus on the list after.
             WindowState = FormWindowState.Minimized;
             try
             {
-                await runner.PlayAsync(game);
+                await work(game);
             }
             finally
             {
@@ -255,7 +264,7 @@ internal sealed class MainForm : Form
     {
         busy = true;
         status.Text = message;
-        playButton.Enabled = importButton.Enabled = false;
+        playButton.Enabled = editButton.Enabled = importButton.Enabled = false;
         try
         {
             await work();
@@ -267,7 +276,7 @@ internal sealed class MainForm : Form
         finally
         {
             busy = false;
-            playButton.Enabled = importButton.Enabled = true;
+            playButton.Enabled = editButton.Enabled = importButton.Enabled = true;
         }
     }
 
