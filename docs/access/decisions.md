@@ -275,3 +275,11 @@ from the owner before any game run.
 The owner approved pushing the FireRed work, labelled like Gen 2 as
 initial groundwork ("Yeah, push it and then open it for me so I can
 test"). The README says so. Covers that push only; not acceptance.
+
+## 32. FireRed finishing work stays local; navigation quirks next (2026-11-01)
+
+After the FireRed gap work was merged locally, the owner declined a push
+("I don't think it's really worth a GitHub push yet") and asked for the
+remaining navigation quirks to be worked out where possible ("Can you
+figure out the rest of the navigation quirks? If it's possible?"). The
+merged work stays on the local main branch until the owner asks for a push.
