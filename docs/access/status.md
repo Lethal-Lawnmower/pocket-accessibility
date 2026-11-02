@@ -61,6 +61,15 @@ and recorded in the topic file.
   Gaps (journeys, item balls blocking routes, renaming) in
   `firered-leafgreen-navigation.md`.
 - **Owner first try (2026-11-01):** a brief test, "works great".
+- **Screen gaps (2026-11-01):** Mystery Gift from the boot menu and every
+  item the first runs had not reached (TM case and pouch from the bag,
+  TAKE, Softboiled, Teachy TV demos, double-battle party, a clerk's shop,
+  habitat pages, catch registration, wallpaper, MOVE, level-up window,
+  "can fly", prize list) run in FireRed (`drivers/gen3_screens_more.lua`).
+  Audit of `src/ui/game3/` layers: Teachy TV demo layers, mod screens,
+  Union Room prep, the Berry Crush berry choice and the Union battle's text
+  were silent and now have a path; ShaderFX menu and the Union battle's
+  menus remain. Not heard.
 - **Next:** the owner keeps playtesting FireRed. The end-to-end walkthrough after
   all merges speaks the intro, title, start menu, bag and dialogue.
 - **LeafGreen:** deferred by the owner (decision 30); no clean dump on this

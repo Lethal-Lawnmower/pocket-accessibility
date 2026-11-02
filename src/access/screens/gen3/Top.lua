@@ -131,6 +131,27 @@ local function bootTop(game, layer)
   return nil
 end
 
+-- Layers that only drive the screen under them and draw nothing: Teachy
+-- TV's Poké Dude demos push one over the bag or TM case they play back
+-- (src/ui/game3/teachy_tv.lua TmDemo, BagDemo).  The screen is the layer
+-- under it, so its own presenter reads the demo as it plays.
+local DRIVER_LAYERS = { teachy_pokedude_tm_case = true, teachy_pokedude_bag = true }
+
+local function screenLayer(Stack, layer)
+  if not (layer and DRIVER_LAYERS[layer.id]) then return layer end
+  local layers = type(Stack._layers) == "table" and Stack._layers or {}
+  for i = #layers - 1, 1, -1 do
+    if not DRIVER_LAYERS[layers[i].id] then return layers[i] end
+  end
+  return layer
+end
+
+-- Layers that only paint what the message and yes/no modules show: the
+-- cross-generation Union Room battle (src/ui/g3u/Gen3Presenter.lua) draws
+-- the battle interface with its text in Message and Choice.  Its text is
+-- read as dialogue and questions; its command and move menus are not read.
+local PAINT_LAYERS = { g3u_battle = true }
+
 -- The ACCESSIBILITY page in Gen 3's OPTION screen wraps OptionMenu.show
 -- once that module has loaded (src/access/Settings.lua); the game loads it
 -- with its HUD, long before the player can open OPTION.
@@ -152,11 +173,13 @@ function Top.resolve(game)
   end
   local Stack = loaded("src.ui.game3.stack")
   local layer = Stack and call(Stack.top)
+  if Stack then layer = screenLayer(Stack, layer) end
   if game.phase == "boot" then return bootTop(game, layer) end
   if game.phase ~= "field" then return nil end
 
   local message = messageProxy(game)
   local choice = choiceProxy(game)
+  if layer and PAINT_LAYERS[layer.id] then layer = nil end
   if layer then
     local top = proxy(layer, kindOf(layer.id), { layer = layer, mod = layer.mod, game = game })
     -- A layer that leaves what is under it visible (hideBelow false, such

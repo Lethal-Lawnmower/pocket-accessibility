@@ -789,4 +789,45 @@ do
   eq(Special._lineName(Model, 1), "top row", "line 1")
 end
 
+-- ------------------------------------------------------------ Union Room prep (cross-generation)
+do
+  reset()
+  local model = { cursorAt = 1 }
+  function model:page()
+    return { title = "BATTLE RULES", lines = { "Level 50", "Singles" }, info = {},
+      items = { { label = "READY" }, { label = "CANCEL" } }, cursor = self.cursorAt }
+  end
+  function model:label(text) return text end
+  function model:formatLines(lines) return lines end
+  local layerRec = { id = "union_battle_prep", mod = { model = model } }
+  local p = Top._proxy(layerRec, "union_battle_prep", { layer = layerRec, mod = layerRec.mod, game = game })
+  SR.update(p)
+  eq(last(), "BATTLE RULES. Level 50 Singles. READY, 1 of 2", "Gen 3 Union battle prep read through the Gen 1 page model")
+  model.cursorAt = 2
+  SR.update(p)
+  eq(last(), "CANCEL, 2 of 2", "prep cursor")
+  local tradeRec = { id = "union_trade_prep", mod = { ctl = model } }
+  model.cursorAt = 1
+  local q = Top._proxy(tradeRec, "union_trade_prep", { layer = tradeRec, mod = tradeRec.mod, game = game })
+  SR.update(q)
+  eq(last(), "BATTLE RULES. Level 50 Singles. READY, 1 of 2", "Gen 3 Union trade prep (ctl)")
+end
+
+-- The cross-generation Union battle layer only paints Message and Choice:
+-- its text is the screen, read as dialogue.
+do
+  reset()
+  local Stack = require("src.ui.game3.stack")
+  local Message = require("src.ui.game3.message")
+  local saved = Stack._layers
+  Stack._layers = {}
+  Stack.push("g3u_battle", { handleInput = function() end }, { hideBelow = true })
+  local pages = { "Waiting for the other player..." }
+  Message.open, Message._pages, Message._page, Message._frame = true, pages, 1, "battle"
+  local top = Top.resolve(game)
+  eq(top and top.gen3, "message", "the Union battle's message is the screen, not its layer")
+  Message.open, Message._pages, Message._frame = false, nil, nil
+  Stack._layers = saved
+end
+
 T.finish("gen3 special")

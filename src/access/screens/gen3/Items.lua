@@ -722,10 +722,18 @@ function Berry.read(P, memo, entering)
   return text
 end
 
+-- Berry Crush's berry choice (src/ui/game3/minigames/berry_crush/pouch.lua)
+-- opens the berry pouch, then pushes its own layer under the same id, which
+-- replaces the pouch's layer; the pouch module still holds the list.
+local matchesPouch = Common.matcher("berry_pouch", "src.ui.game3.berry_pouch")
+local matchesCrushPouch = Common.matcher("berry_pouch", "src.ui.game3.minigames.berry_crush.pouch")
+
 Items.berryPouch = {
-  matches = Common.matcher("berry_pouch", "src.ui.game3.berry_pouch"),
+  matches = function(state) return matchesPouch(state) or matchesCrushPouch(state) end,
   poll = function(state, memo, entering)
-    local text = Berry.read(state.mod, memo, entering)
+    local P = package.loaded["src.ui.game3.berry_pouch"]
+    if not P then return nil end
+    local text = Berry.read(P, memo, entering)
     if not text then return nil end
     return text, true
   end,
@@ -928,7 +936,8 @@ function Party.read(P, memo, entering)
       -- back on the list from one of its own layers (sub-menu, message,
       -- YES/NO, a switch made): the row under the cursor with its position
       -- (after a switch, the Pokémon now there).  Otherwise the prompt.
-      local back = not entering and mode ~= "switch" and from ~= nil and from ~= "oak" and not LIST_MODES[from]
+      local back = not entering and mode ~= "switch" and mode ~= "softboiled" and from ~= nil and from ~= "oak"
+        and not LIST_MODES[from]
       if back then
         text = withPosition
       else

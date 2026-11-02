@@ -639,6 +639,44 @@ Stack.push("passive_window", {}, { hideBelow = false })
 update()
 eq(last(), "Hello.", "message stays the screen over a passive layer")
 
+-- Teachy TV's Poké Dude demos push a layer that only drives the TM case or
+-- bag under it: the screen is the layer under it, read by its presenter.
+reset("field")
+do
+  local TmCase = require("src.ui.game3.tm_case")
+  local TvUi = require("src.ui.game3.teachy_tv")
+  Stack.push("tm_case", TmCase, { hideBelow = true })
+  Stack.push("teachy_pokedude_tm_case", TvUi.tmDemo, { drawUnder = true, hideBelow = false })
+  local demoTop = Top.resolve(game)
+  eq(demoTop and demoTop.gen3, "tm_case", "the TM case under the Poké Dude demo is the screen")
+  check(demoTop and demoTop.layer and demoTop.layer.mod == TmCase, "its layer is the TM case's own")
+  local BagMenu = require("src.ui.game3.bag_menu")
+  reset("field")
+  Stack.push("bag", BagMenu, { hideBelow = true })
+  Stack.push("teachy_pokedude_bag", {}, { drawUnder = true, hideBelow = false })
+  local bagTop = Top.resolve(game)
+  eq(bagTop and bagTop.gen3, "bag", "the bag under the Poké Dude bag demo is the screen")
+end
+
+-- A mod's screen pushed through src/ui/game3/mod_ui.lua (layer
+-- "modui:<n>", an adapter holding a Gen 1 style state) speaks through the
+-- Gen 1 presenters: its own accessibilityText.
+reset("field")
+do
+  local jukebox = { track = 3 }
+  function jukebox:accessibilityText() return "Jukebox. Track " .. self.track .. " of 10" end
+  Stack.push("modui:1", { isMenu = true, state = jukebox, handleInput = function() end }, { hideBelow = false })
+  update()
+  eq(last(), "Jukebox. Track 3 of 10", "mod screen in Gen 3 speaks its accessibilityText")
+  jukebox.track = 4
+  update()
+  eq(last(), "Jukebox. Track 4 of 10", "mod screen change")
+  local n = count()
+  Stack.push("modui:2", { isMenu = true, state = {}, handleInput = function() end }, { hideBelow = false })
+  update(2)
+  eq(count(), n, "a mod screen no presenter knows stays quiet")
+end
+
 -- ------------------------------------------------------------- overlays
 local Popup = require("src.ui.game3.map_name_popup")
 local Preview = require("src.ui.game3.map_preview_screen")

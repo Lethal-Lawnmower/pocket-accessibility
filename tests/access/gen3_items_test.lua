@@ -365,6 +365,21 @@ BerryPouch.mode = "list"
 poll(berryScreen)
 eq(last(), "CLOSE, 2 of 2. The BERRY POUCH will be put away.", "berry close row after a sub-mode: row with position")
 
+-- Berry Crush's berry choice replaces the pouch's layer with its own under
+-- the same id; the pouch module still holds the list (no CLOSE row).
+do
+  reset()
+  local CrushPouch = require("src.ui.game3.minigames.berry_crush.pouch")
+  BerryPouch.open, BerryPouch.cursor, BerryPouch.mode = true, 1, "list"
+  BerryPouch._fromBerryCrush = true
+  local crushScreen = screen("berry_pouch", CrushPouch)
+  poll(crushScreen)
+  eq(last(), "BERRY POUCH. number 01, CHERI BERRY, quantity 3, 1 of 1. Heals paralysis.",
+    "Berry Crush berry choice read from the pouch module")
+  BerryPouch._fromBerryCrush = false
+  check(Items.berryPouch.matches(screen("berry_pouch", {})) == false, "a mod's berry_pouch layer stays quiet")
+end
+
 -- ---------------------------------------------------------------- party
 local PartyMenu = require("src.ui.game3.party_menu")
 local bulba = { species = 1, nickname = "BULBA", level = 7, hp = 20, maxHp = 22, gender = "M", item = 13,
@@ -448,6 +463,20 @@ eq(last(), "BULBA grew to Lv. 8! MAX. HP plus 2, ATTACK plus 1, DEFENSE plus 1, 
 PartyMenu._statGrowthPage = 2
 poll(partyScreen)
 eq(last(), "MAX. HP 24, ATTACK 12, DEFENSE 12, SP. ATK 14, SP. DEF 14, SPEED 11", "level-up page 2: the values")
+
+-- Softboiled / Milk Drink: from the action menu to the target choice, a new
+-- question (the screen's prompt), not a return to the list
+reset()
+partyScreen = openParty({ bulba, pidgey }, "action", { actionCursor = 1 })
+PartyMenu.ACTIONS = { "SUMMARY", "SOFTBOILED", "CANCEL" }
+poll(partyScreen)
+PartyMenu.mode = "softboiled"
+poll(partyScreen)
+eq(last(), "Choose a POKéMON. BULBA, BULBASAUR, level 7, male, HP 20 of 22, holding an item, 1 of 3",
+  "Softboiled target: prompt, donor row, position")
+PartyMenu.cursor = 2
+poll(partyScreen)
+eq(last(), "PIDGEY, female, HP 10 of 16, poisoned", "Softboiled target row")
 
 reset()
 partyScreen = openParty({ bulba, pidgey }, "use", { _item = 289 })

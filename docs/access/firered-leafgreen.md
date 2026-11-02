@@ -61,7 +61,7 @@ Battle speech is in `battle.md` (section "Gen 3"); navigation in
 | Save (`save_menu`) | "Save", location, player, badges, Pokédex, time, the question, YES queued | Overwrite question; saved line |
 | Help (`help_system`, L or R) | "HELP", controls, greeting or row with its description | Row and description; topic and question; the article whole; a scroll says the new line |
 | Quest log | Controls, "Previously on your quest... N", the event | Each event, queued |
-| Trainer card, Fame Checker, Teachy TV, move relearner | Card front and badges; person and panels; lesson list and pages; move with type, power, accuracy, PP, effect | Back side; panel text; next page; YES/NO |
+| Trainer card, Fame Checker, Teachy TV, move relearner | Card front and badges; person and panels; lesson list and pages; move with type, power, accuracy, PP, effect | Back side; panel text; next page; the Poké Dude's bag and TM case demos read by the bag and TM case presenters as they play (his messages page by page); YES/NO |
 | Evolution and egg | Their messages; "Press B to stop the evolution." when it can be stopped; "Egg hatching." | Next page; nickname question |
 | Script lists (elevator floors) | Floor and position, queued behind the question | Floor |
 | Overlays: map name popup, forest title card, elevator "Now on", coins box | Said once per new name or value, queued | (as shown) |
@@ -75,13 +75,19 @@ Battle speech is in `battle.md` (section "Gen 3"); navigation in
 | Slots (`slot_machine`) | Title, credit, controls | Bet and the lines it buys; each reel as it lands, queued; the winning lines' symbols or "No win"; credit; payout chart; quit yes/no |
 | Prize corner, Day-Care list, records, PIN pad, Easy Chat, Hall of Fame PC | Row and position, or the whole page | Row; digit; word slot, group, word; confirm and yes/no |
 | Link, Union Room, chat, trade, Mystery Gift, minigame lobbies | Context, row, position | Rows, arrivals, counts, messages, yes/no, countdown, results |
+| Cross-generation Union Room prep (`src/ui/union/prep/Gen3*Prep.lua`), mod screens (`mod_ui.lua`, layers `modui:<n>`) | Through the Gen 1 presenters: the prep page (title, lines, row, position); a mod state's own `accessibilityText` | Row; the mod's text when it changes |
+| Berry Crush berry choice (`minigames/berry_crush/pouch.lua`) | The berry pouch presenter (no CLOSE row) | Berry |
 | Overlays: braille, pictures, ferry, Itemfinder, VS Seeker, Berry Powder, arena | Said once, queued | Value changes |
 | Credits, diploma, whiteout | Each screen's text, queued | Next screen |
 
 Layers that keep the field visible (prize corner, Day-Care list, Union
 Room, PIN pad, shop, script lists) are the screen while they take input; a
 message already open when one appeared is reported as covered and said
-first, and a message or yes/no opened after it wins until it closes. The
+first, and a message or yes/no opened after it wins until it closes.
+Layers that draw nothing themselves are skipped: Teachy TV's Poké Dude
+demo layers (the bag or TM case under them is the screen) and the
+cross-generation Union battle layer (`g3u_battle`, whose text is read as
+dialogue and yes/no). The
 ACCESSIBILITY page wraps `OptionMenu.show`; Gen 3 keeps its values in the
 game's own options block (`firered`), separate from Gen 1's.
 
@@ -106,9 +112,10 @@ the Mystery Gift record is never created by reading.
 |---|---|
 | Baseline (2026-11-01) | FireRed new game, start menu, bag, field messages: nothing spoken. |
 | Core (dialogue, yes/no) | FireRed run through `isolated.lua`: "RED played with the NES." then "…Okay! It's time to go!", a page per A press. |
-| Menus, boot, options, overlays | `gen3_menus_test.lua` 139/139, `settings_test.lua` 52/52 (reading never creates the options block, hides the elevator window, builds Fame Checker rows or fills the relearner cache). `drivers/gen3_menus.lua` and `gen3_menus_more.lua` in FireRed (identity `pocket-access-menus-firered`): boot, new game, naming, start menu, OPTION and ACCESSIBILITY, CONTROLS, trainer card, save, help, EXIT, CONTINUE, quest log, map names, forest card, elevator, Fame Checker, Teachy TV, relearner, evolution, egg. Unit tests only: save errors, key capture, naming PC pages, help scrolling, coins box. Not spoken: Mystery Gift (boot), ShaderFX menu, the never-drawn script help window, start menu descriptions (none drawn upstream). |
-| Items, party, summary, Pokédex, PC, shop, map | `gen3_items_test.lua` 133/133 (traps `Bag.listPocket`, `Bag.get`, `Storage.ensure`: zero calls). `drivers/gen3_items.lua` in FireRed (identity `pocket-access-items-firered`), six runs, every section reached. Unit tests only: habitat pages, registration after a catch, wallpaper, MOVE in storage, the party level-up window, "can fly". Not reached: TM case and berry pouch from the bag's menu, TAKE, Softboiled, Teachy TV demos, double-battle party, a clerk's script opening the shop. |
-| Special screens | `gen3_special_test.lua` 122/122. `drivers/gen3_special.lua` in FireRed (identity `pocket-access-special-firered`): slots, braille, records, PIN pad, Easy Chat, Day-Care, Hall of Fame PC, diploma, overlays, mod manager, whiteout, credits spoken. Unit tests only: link and Union Room flows, Mystery Gift, minigames, Berry Powder box, fossil picture, VS Seeker, arena. The prize corner list needs the `Top.lua` change below. |
+| Menus, boot, options, overlays | `gen3_menus_test.lua` 145/145, `settings_test.lua` 52/52 (reading never creates the options block, hides the elevator window, builds Fame Checker rows or fills the relearner cache). `drivers/gen3_menus.lua` and `gen3_menus_more.lua` in FireRed (identity `pocket-access-menus-firered`): boot, new game, naming, start menu, OPTION and ACCESSIBILITY, CONTROLS, trainer card, save, help, EXIT, CONTINUE, quest log, map names, forest card, elevator, Fame Checker, Teachy TV, relearner, evolution, egg. Unit tests only: save errors, key capture, naming PC pages, help scrolling, coins box, mod screens (`modui`). Not spoken: ShaderFX menu, the never-drawn script help window, start menu descriptions (none drawn upstream). |
+| Gaps closed (2026-11-01) | `drivers/gen3_screens_more.lua` in FireRed (identity `pocket-access-finish-firered`; harness: CONTINUE rows forced so MYSTERY GIFT is listed, the gift search answered "offline" by a stub so no server is contacted, party, items and flags given). Run in game: Mystery Gift from the boot menu (menu, rows, "don't have any WONDER NEWS", searching, "not connected", back); TM case and berry pouch opened from the bag's KEY ITEMS menu; TAKE ("Received the POTION from BIRDY."); Softboiled (prompt, target rows, healed row); the party level-up window from a RARE CANDY (both pages, twice); Teachy TV's TMs lesson with the Poké Dude's bag and TM case demos and all his pages; Pokédex habitat pages and an entry from them; MOVE and wallpaper in box storage; "can fly" on the Fly map; a clerk's script opening the shop (Pewter mart); the prize corner list over the clerk's message; registration after a MASTER BALL catch, the nickname question and naming; the party from a double battle's menu. |
+| Items, party, summary, Pokédex, PC, shop, map | `gen3_items_test.lua` 137/137 (traps `Bag.listPocket`, `Bag.get`, `Storage.ensure`: zero calls). `drivers/gen3_items.lua` in FireRed (identity `pocket-access-items-firered`), six runs, every section reached. The items it could not reach are now run in game (row "Gaps closed"). Unit tests only: the Berry Crush berry choice. |
+| Special screens | `gen3_special_test.lua` 126/126. `drivers/gen3_special.lua` in FireRed (identity `pocket-access-special-firered`): slots, braille, records, PIN pad, Easy Chat, Day-Care, Hall of Fame PC, diploma, overlays, mod manager, whiteout, credits spoken. Unit tests only: link and Union Room flows (including the cross-generation prep screens and Union battle text), minigames, Berry Powder box, fossil picture, VS Seeker, arena. The prize corner list is run in game (row "Gaps closed"); the `Top.lua` rule it waited for (a layer that keeps the field visible is the screen over the message it opened on) was already merged. |
 | End to end (lead, after all merges) | `drivers/gen3_walkthrough.lua` in FireRed: intro, title, navigation greeting, start menu, bag pockets, field dialogue all spoken. |
 | Heard by the owner | 2026-11-01: the owner opened FireRed on their own profile and reported "works great" after a brief test. |
 
@@ -137,13 +144,24 @@ the Mystery Gift record is never created by reading.
 
 ## Known gaps
 
-- Mystery Gift (boot) is not spoken yet. The copyright card is silent (an
-  image); Gen 2 says a fixed copyright line (agent choice).
+- The copyright card is silent (an image); Gen 2 says a fixed copyright
+  line (agent choice).
+- The cross-generation Union battle (`src/ui/g3u/Gen3Presenter.lua`):
+  its messages and questions are read; its command and move menus are
+  not (it keeps its own battle state, not the battle module's). Needs a
+  second player to test.
+- ShaderFX menu and the never-drawn script help window (above).
+- Mystery Gift was traced with no save, so the CONTINUE panel said an
+  empty player name; a real save always has one. Receiving a card or news
+  needs upstream's gift server and was not run.
 
 ## Upstream observations (recorded, not fixed)
 
 - The party's Softboiled / Milk Drink target mode draws "Choose a
   POKéMON."; the cartridge asks "Use on which POKéMON?" (source read).
+  After the HP moves over, upstream shows no "HP was restored" message
+  and returns to the list (run in game); the layer then says the healed
+  row.
 - The summary falls back to the name "RED" for a Pokémon with no OT name.
 
 - Trainer Tower results board: the first row has no label and every row
