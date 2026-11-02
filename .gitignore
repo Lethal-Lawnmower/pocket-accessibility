@@ -74,6 +74,7 @@ mobile/dist/
 /tests/fixtures/*
 !/tests/fixtures/save/
 !/tests/fixtures/gen2_buena.lua
+!/tests/fixtures/gen2_flypoints.lua
 
 # per-machine iOS bundle-id pin (see scripts/build_ios.sh)
 mobile/ios/bundle_id.local
@@ -132,6 +133,7 @@ src/import/gba/chrome/*.pal
 src/import/gba/chrome/*.rgba
 /os
 /re
+/PATCH_NOTES.md
 
 # --- Pocket Accessibility additions (keep this block at the end) ---
 # Never commit private inputs: ROM dumps, saves, the bring-your-own
