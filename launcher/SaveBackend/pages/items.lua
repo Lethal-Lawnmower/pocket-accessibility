@@ -167,7 +167,15 @@ local function chosenItem(S, state)
   for _, item in ipairs(items) do
     if tostring(item.id) == tostring(state.addItem) then return item end
   end
+  -- Sorted by name, Gen 1's list opens on its elevator floors ("10F"), which
+  -- upstream lists as items; start on a real item so Add is never a surprise.
   local first = items[1]
+  for _, item in ipairs(items) do
+    if not tostring(item.name):match("^B?%d+F$") then
+      first = item
+      break
+    end
+  end
   state.addItem = first and first.id or nil
   return first
 end

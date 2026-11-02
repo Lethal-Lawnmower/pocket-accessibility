@@ -76,6 +76,56 @@ row ids reach the backend as strings.
 Wording: name first, then value; plain words over internal ids where upstream has a
 display name; short rows, since they are listened to.
 
+## Pages
+
+| Page | Holds |
+|---|---|
+| Party | Pokémon list; Section dropdown (Main, Stats, Moves, Origin, Extras, Checks); add, remove, order, tools |
+| Boxes | Box dropdown, slots, the same sections; withdraw, deposit, release, add, sort |
+| Items | View dropdown: Bag, PC, Wallet, Badges, and Pokéblocks on Ruby, Sapphire, Emerald |
+| Trainer | Name, IDs, money, coins, per-game currencies, gender |
+| Map | Map list, X and Y, what the cell is, warps; put player, heal or spawn, outdoor (Gen 1) |
+| Pokédex | Species list, Seen and Owned, bulk actions, National Pokédex (Gen 3) |
+| Events | Category dropdown and flags as checkboxes; variables |
+| Checks | Read-only report; Fix all errors |
+
+Differences from upstream's interface, by design:
+
+- Dropdowns replace picker popups, so upstream's search by number, type or power is
+  typing the name instead. Inspect is gone: fields are always on the page.
+- One confirmation (yes or no) replaces click-twice; pages pre-arm `Ops.arm`.
+- Nickname: a bad character refuses the whole name rather than being stripped.
+- Map: a warp cell can be selected, and Follow warp is separate. Follow does not write
+  `save.lastOutdoor`, so looking around leaves the save alone. Elevator and link-room
+  warps (19 FireRed maps, Red's Silph elevator) say so and do not follow.
+- Gen 3 cell text reads real collision through `src/access/nav/gen3/World.plannedView`.
+  Only terrain: people and boulders are not in map data.
+- Checks shows issues in place rather than jumping to the Pokémon.
+
+Upstream behaviour kept: Party Add makes the first catalog species, then you change it;
+Gen 3 level cannot go below met level; choosing a box updates the save's current box
+without marking it changed. Gen 3 bag sort does not survive saving (export drops
+`bagOrder`). Only the active save slot opens.
+
+Recommended moveset asks upstream's sync server, sending the species name, as upstream's
+editor does. Its confirmation says it goes online. Other controls wait until it answers: about 2
+seconds offline in testing, and possibly up to about 20 on a slow connection.
+
+## Verified
+
+Backend scripts `tests/access/save_backend_{party,boxes,items,world}.json`, plus scratch
+read-back runs: every section and action, Undo, Redo, save, Reload and a fresh process, in
+Red, Crystal and FireRed. The same four scripts passed in Blue, Yellow, Gold and Silver
+without read-back checks. In the real game (`drivers/edited_save.lua`, disposable
+profiles): saves edited through the backend continued in all three, at the map and cell
+set, with the party level set. Window (UI Automation and real key presses on a disposable
+Red save): all eight tabs read, Tab order, dropdown change, badge toggle with focus kept,
+Ctrl+Z, typed level, refusal box, Ctrl+S, Escape back to the launcher's list.
+
+Not established: anything heard through a screen reader, including the live status line;
+Gen 2 mail after a party change; `.sav` export; Pokéblocks on a real save; LeafGreen, Ruby,
+Sapphire and Emerald, which no test profile has imported. No owner test.
+
 ## Testing
 
 `python tests/access/save_backend.py <game> <identity> <script.json> [scratch-save]`

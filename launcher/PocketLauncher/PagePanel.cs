@@ -240,7 +240,21 @@ internal sealed class PagePanel : UserControl
             : allRows.Where(row => row.Text.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
         bool wasUpdating = updating;
         updating = true;
-        if (!rows.SequenceEqual(shownRows) || box.Items.Count != rows.Count)
+        bool sameRows = box.Items.Count == rows.Count && rows.Select(row => (row.Id, row.Text))
+            .SequenceEqual(shownRows.Select(row => (row.Id, row.Text)));
+        if (sameRows)
+        {
+            // a toggled checkbox: rebuilding a long list would make the screen reader lose its place
+            shownRows = rows;
+            if (box is CheckedListBox checks)
+            {
+                for (int i = 0; i < rows.Count; i++)
+                {
+                    if (checks.GetItemChecked(i) != rows[i].Checked) checks.SetItemChecked(i, rows[i].Checked);
+                }
+            }
+        }
+        else
         {
             shownRows = rows;
             int top = box.TopIndex;
@@ -458,7 +472,10 @@ internal sealed class PagePanel : UserControl
         {
             var button = actionButtons[entry["id"]!.ToString()];
             button.Text = entry["label"]!.ToString();
-            button.Enabled = entry["enabled"]?.GetValue<bool>() != false;
+            bool enabled = entry["enabled"]?.GetValue<bool>() != false;
+            // disabling the focused button would throw the focus somewhere arbitrary
+            if (!enabled && button.Focused && ActiveList.Visible) ActiveList.Focus();
+            button.Enabled = enabled;
             button.Tag = entry["confirm"]?.ToString();
         }
     }

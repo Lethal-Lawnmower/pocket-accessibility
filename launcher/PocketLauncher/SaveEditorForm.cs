@@ -49,6 +49,7 @@ internal sealed class SaveEditorForm : Form
         var buttons = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Top, WrapContents = true };
         buttons.Controls.AddRange([saveButton, undoButton, redoButton, reloadButton, closeButton]);
 
+        CancelButton = closeButton; // Escape closes, as in any dialog
         Controls.Add(tabs);
         Controls.Add(status);
         Controls.Add(buttons);
@@ -118,7 +119,7 @@ internal sealed class SaveEditorForm : Form
     {
         ShowMessage(message, MessageBoxIcon.Error);
         closingConfirmed = true;
-        Close();
+        BeginInvoke(new Action(Close));
     }
 
     private PagePanel? CurrentPanel => tabs.SelectedTab?.Controls.OfType<PagePanel>().FirstOrDefault();
@@ -225,7 +226,8 @@ internal sealed class SaveEditorForm : Form
             }
         }
         closingConfirmed = true;
-        Close();
+        // Close() inside its own closing event does nothing, so finish after it returns.
+        BeginInvoke(new Action(Close));
     }
 
     private void ShowMessage(string text, MessageBoxIcon icon) =>
