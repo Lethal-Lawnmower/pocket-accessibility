@@ -23,7 +23,6 @@ internal sealed class SaveEditorForm : Form
         AutoSize = true,
         Dock = DockStyle.Bottom,
         Padding = new Padding(0, 6, 0, 0),
-        AccessibleName = "Status",
         // read out when it changes, without moving focus
         LiveSetting = System.Windows.Forms.Automation.AutomationLiveSetting.Polite,
     };
