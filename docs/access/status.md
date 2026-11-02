@@ -63,7 +63,11 @@ and recorded in the topic file.
   Card Key" or "No route"), item balls picked up when they block the only
   way, the Tanoby Key room planned and followed, renaming, and runs on
   Icefall Cave ice, Seafoam currents, a Mansion switch and a waterfall.
-  What remains is in `firered-leafgreen-navigation.md`. Not heard.
+  Quirks after that (decision 32): elevators are journey legs ending at the
+  panel ("Needs Lift Key" without it), thin ice is fallen through on the
+  way, planned floors read their load scripts, auto-walk and guided
+  navigation agree. All run in FireRed. What remains is in
+  `firered-leafgreen-navigation.md`. Not heard.
 - **Owner first try (2026-11-01):** a brief test, "works great".
 - **Screen gaps (2026-11-01):** Mystery Gift from the boot menu and every
   item the first runs had not reached (TM case and pouch from the bag,

@@ -8,6 +8,9 @@
 --   D. Icefall Cave ice and thin ice, E. Seafoam Islands currents,
 --   F. a Pokemon Mansion secret switch, G. a waterfall climbed with
 --      Waterfall
+--   H. an elevator as a journey leg, I. Icefall Cave 1F's fall through thin
+--      ice, J. planned floors against loaded ones (load scripts read),
+--      K. guided navigation and auto-walk agreeing on Seafoam B3F
 -- Harness setup (party, badges, story flags, teleports) uses the game's
 -- own loader, party and flag store.  Silent and isolated:
 --   POKEPORT_DRIVER=tests/access/drivers/isolated.lua
@@ -177,13 +180,13 @@ return function(game)
     said, seconds = journey("FR_ROCKET_HIDEOUT_B2F", 28, 3, "^TM 49")
     L.check(said and said:find("Arrived at", 1, true) ~= nil,
       "Rocket Hideout B2F to TM 49 on B4F walked by journey (planned in " .. tostring(seconds) .. "s)")
-    -- B4F's elevator side: no walk reaches it; the answer says no route
+    -- B4F's elevator side: no walk reaches it, and the elevator needs a key
     L.teleport("FR_ROCKET_HIDEOUT_B2F", 28, 3, "down")
     local calcium = L.find(function(item) return tostring(item.label):find("^Calcium, Rocket Hideout B4F") end, "area")
     if calcium then
       local text = L.walkTo(calcium, { answer = "a", limit = 200, filter = "area" })
       U.log("GATE", text)
-      L.check(text:find("No route to Calcium", 1, true) ~= nil, "the elevator-only B4F item says no route: " .. text)
+      L.check(text:find("Needs Lift Key", 1, true) ~= nil, "the elevator-only B4F item names the key: " .. text)
     end
   end
 
@@ -332,10 +335,14 @@ return function(game)
       U.log("WALK", said, "at", L.where())
       L.check(said:find("Arrived at", 1, true) ~= nil, "walked to the Secret Switch: " .. said)
       local face = said:match("Face (%a+) and interact")
-      if face then L.tap(face, 12) end
-      L.tap("a", 30)
-      for _ = 1, 10 do if L.messageOpen() then L.tap("a", 20) end end
-      L.settle(600, true)
+      -- twice at most: a wild battle can swallow the first press
+      for _ = 1, 2 do
+        if face then L.tap(face, 12) end
+        L.tap("a", 30)
+        for _ = 1, 10 do if L.messageOpen() then L.tap("a", 20) end end
+        L.settle(1500, true)
+        if coll() ~= before then break end
+      end
       U.log("SAID", L.heard())
       L.check(coll() ~= before, "pressing the switch changed the floor's gates")
       -- every warp of the floor: which ones a route reaches now
@@ -396,6 +403,144 @@ return function(game)
     U.log("WALK", said, "at", L.where())
     local _, x, y = L.pos()
     L.check(x == column and y == top - 1, "climbed the waterfall by auto-walk (Surf, then Waterfall): " .. said)
+  end
+
+  -- ---------------------------------------------------------------- H
+  if part("H") then
+    -- the elevator as a journey leg: without the key, what it needs; with
+    -- it, the walk ends at the panel with the floor to choose
+    L.teleport("FR_ROCKET_HIDEOUT_B2F", 28, 3, "down")
+    local function calcium()
+      return L.find(function(item) return tostring(item.label):find("^Calcium") ~= nil end, "area")
+    end
+    local item = calcium()
+    local said = item and L.walkTo(item, { answer = "a", limit = 200, filter = "area" }) or ""
+    U.log("GATE", said)
+    L.check(said:find("Needs Lift Key", 1, true) ~= nil, "Rocket Hideout elevator without the key: " .. said)
+    L.setFlag(677, true)
+    item = calcium()
+    said = item and L.walkTo(item, { trace = true, answer = "a", limit = 30000, filter = "area" }) or ""
+    U.log("JOURNEY", said, "at", L.where())
+    L.check(L.pos() == "FR_ROCKET_HIDEOUT_ELEVATOR" and said:find("take the elevator to B4F", 1, true) ~= nil,
+      "the walk ends at the floor panel with the floor to choose: " .. said)
+    -- the player's part: the panel, the menu, the exit
+    local face = said:match("Face (%a+) and take")
+    if face then L.tap(face, 12) end
+    L.heard()
+    L.tap("a", 40)
+    -- the menu opens on some floor; move until B4F is the one said last
+    for _ = 1, 8 do
+      local heard = L.heard()
+      if heard:find("B4F", 1, true) and not heard:find("B4F.-|.-%d of %d") then break end
+      L.tap("down", 15)
+    end
+    L.tap("a", 30)
+    L.settle(1500, true)
+    U.log("RIDE", L.heard(), "at", L.where())
+    item = calcium()
+    said = item and L.walkTo(item, { trace = true, answer = "a", limit = 30000, filter = "area" }) or ""
+    U.log("JOURNEY", said, "at", L.where())
+    L.check(said:find("Arrived at Calcium", 1, true) ~= nil, "after the ride, the walk goes on to the item: " .. said)
+    -- Celadon and Silph: what a journey through their elevators would say
+    for _, case in ipairs({ { "FR_SILPH_CO_ELEVATOR", 2, 4, "." }, { "FR_CELADON_CITY_DEPARTMENT_STORE_ELEVATOR", 2, 4, "." } }) do
+      L.teleport(case[1], case[2], case[3], "up")
+      for _, target in ipairs(L.browse("area")) do
+        L.select(target, "area")
+        local _, goals = L.nav():selectedRouteGoals()
+        local leg, why = L.nav():regionalNextLeg({ targetMapId = target.mapId, targetGoals = goals })
+        U.log("CAR", case[1], target.label, leg and tostring(leg.stopText or leg.nextMapId or "final") or tostring(why))
+        break
+      end
+    end
+  end
+
+  -- ---------------------------------------------------------------- I
+  if part("I") then
+    -- Icefall Cave 1F from the entrance: a warp only reached from below
+    -- plans the fall through thin ice, and auto-walk takes it
+    L.teleport("FR_FOUR_ISLAND_ICEFALL_CAVE_1F", 3, 17, "up")
+    local ladder = L.find(function(item) return item.type == "warp" and item.x == 12 and item.y == 12 end, "warps")
+    L.check(ladder ~= nil, "the 1F ladder is listed")
+    local text = ladder and L.guide(ladder, "warps") or ""
+    U.log("GUIDE", text)
+    L.check(not text:find("Cannot reach", 1, true), "guided navigation has a way: " .. text)
+    local said = ladder and L.walkTo(ladder, { trace = true, answer = "a", limit = 12000, filter = "warps" }) or ""
+    U.log("WALK", said, "at", L.where())
+    L.check(said:find("fall through to", 1, true) ~= nil, "the walk says it falls through the ice: " .. said)
+    L.check(said:find("Arrived at", 1, true) ~= nil, "and arrives by way of B1F: " .. said .. " at " .. L.where())
+  end
+
+  -- ---------------------------------------------------------------- J
+  if part("J") then
+    -- the planned floor (load scripts read) against the floor once loaded
+    local function floorText(view)
+      local cells = {}
+      for cy = 0, view.heightCells - 1 do
+        for cx = 0, view.widthCells - 1 do
+          cells[#cells + 1] = (view:isWalkableCell(cx, cy) and "1" or "0") .. (view:isWater(cx, cy) and "w" or "")
+            .. tostring(view:behavior(cx, cy))
+        end
+      end
+      return cells
+    end
+    local function compare(mapId, x, y, label)
+      local def = maps[mapId]
+      local planned = floorText(World.loadedView(game, def))
+      L.teleport(mapId, x, y, "down")
+      local live = floorText(World.liveView(game))
+      local diff = 0
+      for i = 1, #live do if live[i] ~= planned[i] then diff = diff + 1 end end
+      U.log("COMPARE", mapId, label, "cells differing", diff, "of", #live)
+      return diff
+    end
+    for flag = 70, 77 do L.setFlag(flag, false) end
+    L.check(compare("FR_SEAFOAM_ISLANDS_B3F", 8, 14, "boulders here") == 0, "Seafoam B3F planned as loaded, currents calm")
+    L.check(compare("FR_SEAFOAM_ISLANDS_B4F", 15, 9, "boulders here") == 0, "Seafoam B4F planned as loaded, currents calm")
+    L.setFlag(620, true)
+    L.check(compare("FR_POKEMON_MANSION_1F", 7, 32, "switch on") == 0, "Mansion 1F planned as loaded, switch on")
+    L.check(compare("FR_POKEMON_MANSION_2F", 6, 14, "switch on") == 0, "Mansion 2F planned as loaded, switch on")
+    L.setFlag(620, false)
+    L.check(compare("FR_POKEMON_MANSION_1F", 7, 32, "switch off") == 0, "Mansion 1F planned as loaded, switch off")
+    L.check(compare("FR_SILPH_CO_5F", 28, 3, "doors shut") == 0, "Silph Co. 5F planned as loaded, doors shut")
+    -- how many maps' load scripts can be read at all
+    local Scripts = require("src.access.nav.gen3.Scripts")
+    local readable, changed, unread, reasons = 0, 0, 0, {}
+    for mapId, def in pairs(maps) do
+      if mapId:match("^FR_") and type(def) == "table" and type(def.mapScripts) == "table"
+         and (def.mapScripts.onLoad or def.mapScripts.onTransition) then
+        local state, why = Scripts.loadState(def)
+        if state then
+          readable = readable + 1
+          if next(state.cells) or state.layoutIndex then changed = changed + 1 end
+        else
+          unread = unread + 1
+          reasons[tostring(why)] = (reasons[tostring(why)] or 0) + 1
+        end
+      end
+    end
+    local list = {}
+    for why, n in pairs(reasons) do list[#list + 1] = why .. "=" .. n end
+    table.sort(list)
+    U.log("LOADSCRIPTS", "readable", readable, "changing the floor now", changed, "unreadable", unread, table.concat(list, " "))
+  end
+
+  -- ---------------------------------------------------------------- K
+  if part("K") then
+    -- guided navigation and auto-walk give the same answer on Seafoam B3F
+    L.teleport("FR_SEAFOAM_ISLANDS_B3F", 8, 14, "down")
+    local same, tried = 0, 0
+    for _, warp in ipairs(L.browse("warps")) do
+      if L.pos() ~= "FR_SEAFOAM_ISLANDS_B3F" then L.teleport("FR_SEAFOAM_ISLANDS_B3F", 8, 14, "down") end
+      local text = L.guide(warp, "warps")
+      local said = L.walkTo(warp, { answer = "a", limit = 12000, filter = "warps" })
+      U.log("AGREE", warp.label, "guide", text, "walk", said:sub(1, 200), "at", L.where())
+      tried = tried + 1
+      local guidedNone = text:find("Cannot reach", 1, true) or text:find("No path", 1, true)
+      local walkedNone = said:find("No route", 1, true)
+      if (guidedNone and walkedNone) or (not guidedNone and not walkedNone) then same = same + 1 end
+      L.teleport("FR_SEAFOAM_ISLANDS_B3F", 8, 14, "down")
+    end
+    L.check(tried > 0 and same == tried, ("guided navigation and auto-walk agree (%d of %d warps)"):format(same, tried))
   end
 
   L.finish("gen3_nav_gaps")

@@ -36,7 +36,7 @@ local CELL = {
   ["W"] = { 0x71, 0x61, 3 }, ["D"] = { 0x71, 0x69, 3 }, ["M"] = { 0x71, 0x65, 3 },
   [">"] = { 0x00, 0x54, 3 }, ["^"] = { 0x00, 0x56, 3 }, ["x"] = { 0x00, 0x58, 3 },
   ["I"] = { 0x00, 0x23, 3 }, ["~"] = { 0x29, 0x10, 1 }, ["S"] = { 0x00, 0x20, 3 },
-  ["H"] = { 0x71, 0x66, 3 }, ["c"] = { 0x00, 0x27, 3 },
+  ["H"] = { 0x71, 0x66, 3 }, ["c"] = { 0x00, 0x27, 3 }, ["t"] = { 0x00, 0x26, 3 },
 }
 InteractionScripts.behaviors.testpair = setmetatable({}, { __index = function(_, mid) return mid - 1000 end })
 
@@ -118,7 +118,29 @@ do
     trash = { { op = "special", id = 347 } },
     panel = { { op = "special", id = 216 } },
     plain = { { op = "callstd", std = 3 } },
+    -- load scripts
+    load_gates = { { op = "checkflag", flag = 620 }, { op = "call_if", cond = 1, target = "gates_set" }, { op = "end" } },
+    gates_set = { { op = "setmetatile", 3, 2, 1007, 1 }, { op = "setmetatile", 1, 1, 1000, 0 }, { op = "return" } },
+    load_count = { { op = "setvar", var = 0x4002, value = 0 }, { op = "checkflag", flag = 70 },
+      { op = "call_if", cond = 0, target = "count_one" }, { op = "checkflag", flag = 71 },
+      { op = "call_if", cond = 0, target = "count_one" }, { op = "compare_var_to_value", var = 0x4002, value = 2 },
+      { op = "call_if", cond = 1, target = "swap" }, { op = "end" } },
+    count_one = { { op = "addvar", 0x4002, 1 }, { op = "return" } },
+    swap = { { op = "setmaplayoutindex", 278 }, { op = "return" } },
+    load_special = { { op = "special", id = 142 }, { op = "end" } },
+    -- elevators: floors by map group and number
+    panel_free = { { op = "lockall" }, { op = "special", id = 216 }, { op = "goto", target = "panel_floors" } },
+    panel_floors = { { op = "setdynamicwarp", 1, 1, 255, 1, 1 }, { op = "setdynamicwarp", 1, 2, 255, 1, 1 }, { op = "end" } },
+    panel_gated = { { op = "checkflag", flag = 677 }, { op = "goto_if", cond = 0, target = "no_key" },
+      { op = "special", id = 216 }, { op = "goto", target = "panel_floors" } },
+    no_key = { { op = "callstd", std = 4 }, { op = "end" } },
+    lift_key = { { op = "setflag", flag = 677 }, { op = "setorcopyvar", 0x8000, 356 }, { op = "callstd", std = 0 } },
+    -- the floor that gives way
+    ice_resume = { { op = "setstepcallback", 4 }, { op = "end" } },
+    ice_frame = { { op = "warphole", 1, 3 }, { op = "end" } },
   })
+  Scripts.setMapGroups({ MAP_TEST_SHAFT_A = { group = 1, num = 1 }, MAP_TEST_SHAFT_B = { group = 1, num = 2 },
+    MAP_TEST_CAVE_B1 = { group = 1, num = 3 } })
   eq(Scripts.itemBallItem("ball"), 355, "item ball script names its item")
   eq(Scripts.itemBallItem("gift"), nil, "a gift script (callstd 0) is not an item ball")
   eq(Scripts.itemBallItem("missing"), nil, "an unknown script names nothing")
@@ -427,6 +449,137 @@ do
   result, why = nav:journeySearch(start, target, 1, { FR_TJ_ROOM_A = true })
   eq(why, "no regional path", "maps outside the allowed set are not entered")
   maps.FR_TJ_ROOM_A, maps.FR_TJ_ROOM_B = nil, nil
+end
+
+-- ------------------------------------------------------------ load scripts
+do
+  local flagsOn = {}
+  local function flag(id) return flagsOn[id] == true end
+  local state = Scripts.loadState({ mapScripts = { onLoad = "load_gates" } }, flag)
+  check(state and next(state.cells) == nil, "a flag unset: its setmetatile calls are not on the path")
+  flagsOn[620] = true
+  state = Scripts.loadState({ mapScripts = { onLoad = "load_gates" } }, flag)
+  check(state and state.cells[2 * 1024 + 3] and state.cells[2 * 1024 + 3].impassable, "flag set: the gate closes")
+  eq(state and state.cells[1 * 1024 + 1].impassable, false, "and another opens")
+  flagsOn[620] = nil
+  state = Scripts.loadState({ mapScripts = { onTransition = "load_count" } }, flag)
+  eq(state and state.layoutIndex, 278, "both flags unset, counted in a temporary variable: the layout is swapped")
+  flagsOn[70] = true
+  state = Scripts.loadState({ mapScripts = { onTransition = "load_count" } }, flag)
+  eq(state and state.layoutIndex, nil, "one flag set: the layout stays")
+  flagsOn[70] = nil
+  local none, why = Scripts.loadState({ mapScripts = { onLoad = "load_special" } }, flag)
+  check(none == nil and tostring(why):find("^special") ~= nil, "a special cannot be read: " .. tostring(why))
+
+  -- the view: gates on a planned floor, and a swapped layout
+  local floor = mapDef("FR_TEST_LOADED", { "#######", "#.....#", "###.###", "#.....#", "#######" }, {},
+    { mapScripts = { onLoad = "load_gates" } })
+  maps.FR_TEST_LOADED = floor
+  local Flags = { getFlag = function(_, _, id) return flagsOn[id] == true end, getVar = function() return 0 end }
+  package.loaded["src.core.game3.scripting.space"] = { store = {} }
+  package.loaded["src.core.game3.scripting.flags"] = Flags
+  local nav = navFor()
+  local world = nav:regionalStaticWorld("FR_TEST_LOADED", { x = 3, y = 1 })
+  check(route(nav, world, { { x = 3, y = 3 } }, 1) ~= nil, "the planned floor as the layout has it")
+  flagsOn[620] = true
+  world = nav:regionalStaticWorld("FR_TEST_LOADED", { x = 3, y = 1 })
+  check(route(nav, world, { { x = 3, y = 3 } }, 1) == nil, "the load script's closed gate blocks the planned route")
+  flagsOn[620] = nil
+  world = nav:regionalStaticWorld("FR_TEST_LOADED", { x = 3, y = 1 })
+  check(route(nav, world, { { x = 3, y = 3 } }, 1) ~= nil, "gates follow the flag each time")
+  -- a whole-layout swap: water in the corridor in the base, floor in the alternate
+  local base = mapDef("FR_TEST_SWAP", { "#######", "#.....#", "###~###", "#.....#", "#######" }, {},
+    { mapScripts = { onTransition = "load_count" } })
+  maps.FR_TEST_SWAP = base
+  World.alternateReader = function(id)
+    eq(id, 278, "the alternate layout asked for by number")
+    local cells = {}
+    for i = 1, 35 do cells[i] = { mid = 1000, coll = 0x00, elev = 3 } end
+    return { width = 7, height = 5, cells = cells }
+  end
+  world = nav:regionalStaticWorld("FR_TEST_SWAP", { x = 3, y = 1 })
+  eq(world.map:isWater(3, 2), false, "the planned floor reads the swapped layout")
+  flagsOn[70] = true
+  world = nav:regionalStaticWorld("FR_TEST_SWAP", { x = 3, y = 1 })
+  eq(world.map:isWater(3, 2), true, "with the flag set the base layout stands")
+  World.alternateReader = nil
+  flagsOn[70] = nil
+  maps.FR_TEST_LOADED, maps.FR_TEST_SWAP = nil, nil
+
+  -- ---------------------------------------------------------- elevators
+  local function shaftMaps(panelKey)
+    maps.FR_TEST_SHAFT_CAR = mapDef("FR_TEST_SHAFT_CAR", { "#####", "#...#", "#...#", "#####" }, {},
+      { bgEvents = { { type = "sign", x = 2, y = 0, kind = 0, scriptKey = panelKey } } })
+    maps.FR_TEST_SHAFT_A = mapDef("FR_TEST_SHAFT_A", { "#####", "#...#", "#####" }, {})
+    maps.FR_TEST_SHAFT_B = mapDef("FR_TEST_SHAFT_B", { "#####", "#...#", "#####" }, {})
+  end
+  local labelled = Scripts.itemLabel
+  Scripts.itemLabel = function(id) if id == 356 then return "Lift Key" end return labelled(id) end
+  shaftMaps("panel_free")
+  local panel = Scripts.elevatorPanel("panel_free")
+  eq(panel and #panel.floors, 2, "the panel's floors, from its setdynamicwarp commands")
+  eq(panel and panel.floors[2].mapId, "FR_TEST_SHAFT_B", "floors named from their group and number")
+  eq(panel and panel.gateFlag, nil, "no gate on a free panel")
+  local gated = Scripts.elevatorPanel("panel_gated")
+  eq(gated and gated.gateFlag, 677, "the flag checked before the floors is the gate")
+  eq(Scripts.itemSettingFlag(677), 356, "the item whose receipt sets that flag")
+  nav = navFor()
+  local function liveOn(mapId, x, y)
+    local w = nav:regionalStaticWorld(mapId, { x = x, y = y })
+    nav.worldForCommand = function() return w end
+    return w
+  end
+  liveOn("FR_TEST_SHAFT_CAR", 1, 2)
+  local leg, reason = nav:regionalNextLeg({ targetMapId = "FR_TEST_SHAFT_B", targetGoals = { { x = 3, y = 1 } } })
+  check(leg and leg.stopAtGoal, "an elevator leg ends at the panel: " .. tostring(reason))
+  eq(leg and leg.goals[1].x .. "," .. leg.goals[1].y, "2,1", "the cell the panel is used from")
+  eq(leg and leg.stopText, "Arrived at the floor panel. Face up and take the elevator to B",
+    "the instruction names the floor without the car's own words")
+  local parts = {}
+  if leg then leg.appendInstructions(parts) end
+  check(parts[1] and parts[1]:find("take the elevator to B", 1, true) ~= nil, "guided navigation says it too")
+  -- a way that can be walked is preferred to the menu
+  maps.FR_TEST_SHAFT_CAR = mapDef("FR_TEST_SHAFT_CAR", { "#####", "#...#", "#..W#", "#####" },
+    { { x = 3, y = 2, destMap = "FR_TEST_SHAFT_B", destWarp = 1 } },
+    { bgEvents = { { type = "sign", x = 2, y = 0, kind = 0, scriptKey = "panel_free" } } })
+  maps.FR_TEST_SHAFT_B = mapDef("FR_TEST_SHAFT_B", { "#####", "#W..#", "#####" },
+    { { x = 1, y = 1, destMap = "FR_TEST_SHAFT_CAR", destWarp = 1 } })
+  liveOn("FR_TEST_SHAFT_CAR", 1, 1)
+  leg = nav:regionalNextLeg({ targetMapId = "FR_TEST_SHAFT_B", targetGoals = { { x = 3, y = 1 } } })
+  check(leg and not leg.stopAtGoal and leg.goals[1].x == 3, "the ladder is taken, not the elevator")
+  -- the gate
+  shaftMaps("panel_gated")
+  liveOn("FR_TEST_SHAFT_CAR", 1, 2)
+  leg, reason = nav:regionalNextLeg({ targetMapId = "FR_TEST_SHAFT_B", targetGoals = { { x = 3, y = 1 } } })
+  check(leg == nil and reason == "Needs Lift Key", "a gated panel without its key: " .. tostring(reason))
+  flagsOn[677] = true
+  leg, reason = nav:regionalNextLeg({ targetMapId = "FR_TEST_SHAFT_B", targetGoals = { { x = 3, y = 1 } } })
+  check(leg and leg.stopAtGoal, "with the flag set the elevator is a leg: " .. tostring(reason))
+  flagsOn[677] = nil
+  Scripts.itemLabel = labelled
+  maps.FR_TEST_SHAFT_CAR, maps.FR_TEST_SHAFT_A, maps.FR_TEST_SHAFT_B = nil, nil, nil
+
+  -- ---------------------------------------------------------- thin ice
+  maps.FR_TEST_CAVE_1F = mapDef("FR_TEST_CAVE_1F", { "#######", "#..t.##", "#######" }, {},
+    { mapScripts = { onResume = "ice_resume", onFrame = { { script = "ice_frame", var = 16385, value = 1 } } } })
+  maps.FR_TEST_CAVE_B1 = mapDef("FR_TEST_CAVE_B1", { "#######", "#.....#", "#######" }, {})
+  eq(Scripts.crackedIceDrop(maps.FR_TEST_CAVE_1F), "FR_TEST_CAVE_B1", "the frame script's hole, on a floor that cracks")
+  eq(Scripts.crackedIceDrop(maps.FR_TEST_CAVE_B1), nil, "a floor that does not crack")
+  liveOn("FR_TEST_CAVE_1F", 1, 1)
+  leg, reason = nav:regionalNextLeg({ targetMapId = "FR_TEST_CAVE_B1", targetGoals = { { x = 5, y = 1 } } })
+  check(leg and leg.danceAtGoal and not leg.stopAtGoal, "falling through thin ice is a leg auto-walk takes itself: " .. tostring(reason))
+  eq(leg and leg.goals[1].x, 3, "it ends on the thin ice")
+  parts = {}
+  if leg then leg.appendInstructions(parts) end
+  check(parts[1] and parts[1]:find("Step off the thin ice and back onto it", 1, true) ~= nil, "guided navigation says how: " .. tostring(parts[1]))
+  maps.FR_TEST_CAVE_1F = mapDef("FR_TEST_CAVE_1F", { "#######", "#..c.##", "#######" }, {},
+    { mapScripts = { onResume = "ice_resume", onFrame = { { script = "ice_frame", var = 16385, value = 1 } } } })
+  liveOn("FR_TEST_CAVE_1F", 1, 1)
+  leg = nav:regionalNextLeg({ targetMapId = "FR_TEST_CAVE_B1", targetGoals = { { x = 5, y = 1 } } })
+  check(leg and not leg.stopAtGoal and not leg.danceAtGoal, "cracked ice is simply walked onto")
+  maps.FR_TEST_CAVE_1F, maps.FR_TEST_CAVE_B1 = nil, nil
+  package.loaded["src.core.game3.scripting.space"] = nil
+  package.loaded["src.core.game3.scripting.flags"] = nil
 end
 
 -- ------------------------------------------------------------ Strength plans

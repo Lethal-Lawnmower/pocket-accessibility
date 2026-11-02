@@ -105,13 +105,6 @@ return function(game)
   end
   local pushes = solve("FR_VICTORY_ROAD_1F", switchPressed)
   L.check(switchPressed(), "Victory Road 1F switch pressed by following the hints (" .. pushes .. " pushes)")
-  local ladder = L.findLabel("Victory Road 2F", "warps")
-  if ladder then
-    local said = L.walkTo(ladder, { answer = "a", limit = 30000 })
-    U.log("WALK", said, "at", L.where())
-    L.check(L.pos() == "FR_VICTORY_ROAD_2F", "auto-walk reached the 2F ladder past the opened barrier")
-  end
-
   -- Seafoam Islands 1F (any battle from the ladder walk finished first)
   L.settle(6000, true)
   L.teleport("FR_SEAFOAM_ISLANDS_1F", 6, 20, "up")
@@ -147,5 +140,40 @@ return function(game)
   end
   pushes = solve("FR_SEVEN_ISLAND_SEVAULT_CANYON_TANOBY_KEY", allPressed)
   L.check(allPressed(), "Tanoby Key room: all seven switches pressed by following the hints (" .. pushes .. " pushes)")
+
+  -- Victory Road 2F in the game: a barrier stays closed until its switch is
+  -- pressed, so plans are made again as the floor opens up
+  L.settle(6000, true)
+  local w2 = game.data.maps.FR_VICTORY_ROAD_2F.warps[1]
+  L.teleport("FR_VICTORY_ROAD_2F", w2.x, w2.y, "down")
+  L.logBrowse("objects")
+  local function switchesPressed()
+    local items, open, seen = L.browse("objects"), 0, 0
+    for _, item in ipairs(items) do
+      if tostring(item.label):match("^Pressure Switch") then
+        seen = seen + 1
+        if not tostring(item.stateText):find("pressed by", 1, true) then open = open + 1 end
+      end
+    end
+    return seen > 0 and open == 0
+  end
+  pushes = solve("FR_VICTORY_ROAD_2F", switchesPressed)
+  L.check(switchesPressed(), "Victory Road 2F switches pressed by following the hints (" .. pushes .. " pushes)")
+
+  -- Last: the long walk from Victory Road 1F's switch to the 2F ladder, past
+  -- its trainers (a lost battle whites out: the harness's Pokemon, not this
+  -- layer; it ends the walk)
+  L.settle(6000, true)
+  L.teleport("FR_VICTORY_ROAD_1F", 20, 14, "down")
+  local ladder = L.findLabel("Victory Road 2F", "warps")
+  if ladder then
+    local said = L.walkTo(ladder, { answer = "a", limit = 40000 })
+    U.log("WALK", said:sub(-300), "at", L.where())
+    if said:find("whited out", 1, true) then
+      U.log("NOTE", "the walk's trainer battle was lost; ladder not reached")
+    else
+      L.check(L.pos() == "FR_VICTORY_ROAD_2F", "auto-walk reached the 2F ladder past the opened barrier")
+    end
+  end
   L.finish("gen3_nav_puzzle")
 end
