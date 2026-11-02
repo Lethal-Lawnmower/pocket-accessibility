@@ -519,6 +519,11 @@ end
 local function addPressInstructions(snapshot, world)
   local map = world.map
   for _, item in ipairs(snapshot and snapshot.browse or {}) do
+    -- a hole's warning names the landing as the list does (the shared
+    -- snapshot builds it from the raw map id: "Drop to Fr Seafoam ...")
+    if item.type == "warp" and item.routePreamble then
+      item.routePreamble = (tostring(item.label):gsub(", entrance %d+ of %d+$", ""))
+    end
     if item.type == "warp" and type(item.navigationCells) == "table" then
       for _, cell in ipairs(item.navigationCells) do
         local press = map:pressDirection(cell.x, cell.y)
@@ -1087,6 +1092,10 @@ function Navigation:routeOptionsFor(world, goals, policy)
   }, world
 end
 
+-- Auto-walk tries a journey through other maps when a target on this map
+-- has no route here, as guided navigation does (advancePendingRoute).
+Navigation.autoWalkJourneys = true
+
 function Navigation:worldRouteRequest(goals, policy)
   local world, reason = self:worldForCommand()
   if not world then return nil, reason end
@@ -1212,7 +1221,7 @@ Navigation.regionalObjectVisible = function(_, object) return regionalObjectVisi
 -- objects the game would show.  Surfing carries into the plan.
 function Navigation:regionalStaticWorld(mapId, start)
   local def = self:regionalMapDef(mapId)
-  local view = World.plannedView(self.game, def)
+  local view = World.loadedView(self.game, def)
   if not view then return nil end
   local live = self:worldState()
   local surfing = live and live.player and live.player.surfing == true or false
@@ -1358,11 +1367,79 @@ local function heapPop(heap)
   return top
 end
 
+-- An elevator car's floor panel as journey edges: from each cell the panel
+-- is used from, to each floor its script serves.  The floor menu stays the
+-- player's (as in Gen 1 and Gen 2): such a leg ends at the panel with the
+-- instruction.  A panel that checks a flag first (the Rocket Hideout's Lift
+-- Key) opens only with the flag set, or at policy 3 to name what it needs.
+function Navigation:elevatorTransitions(world, policy)
+  local map = world.map
+  local result = {}
+  local def = map.def
+  local seen = {}
+  for _, event in ipairs(type(def) == "table" and def.bgEvents or {}) do
+    local key = event.type == "sign" and event.scriptKey or nil
+    if key and not seen[key] and Scripts.signRole(key) == "Floor Panel" then
+      seen[key] = true
+      local panel = Scripts.elevatorPanel(key)
+      local open = panel ~= nil and (panel.gateFlag == nil or policy >= 3 or flagSet(panel.gateFlag))
+      if open then
+        local needs
+        if panel.gateFlag and not flagSet(panel.gateFlag) then
+          local item = Scripts.itemSettingFlag(panel.gateFlag)
+          needs = (item and Scripts.itemLabel(item)) or "Elevator Key"
+        end
+        -- every sign event of the panel, from the cell below or beside it
+        for _, other in ipairs(def.bgEvents) do
+          if other.type == "sign" and other.scriptKey == key then
+            for _, direction in ipairs(ORDER) do
+              local d = DELTA[direction]
+              local sx, sy = other.x - d[1], other.y - d[2]
+              if map:isWalkableCell(sx, sy) and not map:warpAt(sx, sy) then
+                for _, floor in ipairs(panel.floors) do
+                  result[#result + 1] = { kind = "elevator", x = sx, y = sy, facing = direction,
+                    destMap = floor.mapId, destX = floor.x, destY = floor.y, needs = needs }
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+  return result
+end
+
+-- Where the floor gives way (Scripts.crackedIceDrop): thin ice cracks when
+-- stepped on and drops the player, at the same place one floor down, when
+-- stepped on again; cracked ice drops them at once.  Only cells with floor
+-- below count.
+function Navigation:fallTransitions(world)
+  local map = world.map
+  local result = {}
+  local def = map.def
+  local destId = type(def) == "table" and Scripts.crackedIceDrop(def) or nil
+  local destDef = destId and self:regionalMapDef(destId)
+  local below = destDef and World.loadedView(self.game, destDef)
+  if not below then return result end
+  for y = 0, map.heightCells - 1 do
+    for x = 0, map.widthCells - 1 do
+      local beh = map:behavior(x, y)
+      if (beh == Terrain.MB.THIN_ICE or beh == Terrain.MB.CRACKED_ICE)
+         and below:isWalkableCell(x, y) then
+        result[#result + 1] = { kind = "fall", x = x, y = y, cracked = beh == Terrain.MB.CRACKED_ICE,
+          destMap = destId, destX = x, destY = y }
+      end
+    end
+  end
+  return result
+end
+
 -- One map as the journey search sees it: its world (the live one for the
 -- map the player is on), its movement graph with every transition cell
 -- (and, on the target map, every target cell) as a goal, its transitions
 -- by cell.  nil when the map cannot be planned.
-function Navigation:journeyMap(mapId, policy, target, live)
+function Navigation:journeyMap(mapId, policy, target, live, special)
   local world
   if live and self:currentMapIdOf(live) == mapId then
     world = live
@@ -1378,6 +1455,18 @@ function Navigation:journeyMap(mapId, policy, target, live)
       goals[#goals + 1] = { x = transition.x, y = transition.y }
     end
     table.insert(byCell[key], transition)
+  end
+  local function add(transition)
+    local key = cellKey(transition.x, transition.y)
+    if not byCell[key] then
+      byCell[key] = {}
+      goals[#goals + 1] = { x = transition.x, y = transition.y }
+    end
+    table.insert(byCell[key], transition)
+  end
+  if special then
+    for _, transition in ipairs(self:elevatorTransitions(world, policy)) do add(transition) end
+    for _, transition in ipairs(self:fallTransitions(world)) do add(transition) end
   end
   local targetSet = {}
   if mapId == target.mapId then
@@ -1395,17 +1484,18 @@ end
 
 -- The cheapest journey from `start` ({ mapId, x, y }) to any of the
 -- target's cells ({ mapId, goals }), at one route policy, over the maps
--- `allowed` admits (nil: any).  Returns { firstTransition, final, cost,
--- legs } (legs: the steps walked on each map, for requirements), or nil
--- and why ("no regional path", "regional search timed out").
-function Navigation:journeySearch(start, target, policy, allowed, maxSeconds)
+-- `allowed` admits (nil: any), with elevators and falls through thin ice
+-- when `special` is set.  Returns { firstTransition, final, cost, legs }
+-- (legs: the steps walked on each map, for requirements), or nil and why
+-- ("no regional path", "regional search timed out").
+function Navigation:journeySearch(start, target, policy, allowed, maxSeconds, special)
   local live = self:worldForCommand()
   local deadline = os.clock() + (maxSeconds or 1.5)
   local maps = {}
   local function mapOf(mapId)
     local entry = maps[mapId]
     if entry == nil then
-      entry = self:journeyMap(mapId, policy, target, live) or false
+      entry = self:journeyMap(mapId, policy, target, live, special) or false
       maps[mapId] = entry
     end
     return entry or nil
@@ -1430,7 +1520,9 @@ function Navigation:journeySearch(start, target, policy, allowed, maxSeconds)
   end
   local function finish(node)
     local legs, cursor = {}, node
+    local needs = {}
     while cursor.parent do
+      if cursor.needs then needs[cursor.needs] = true end
       if cursor.step then
         local leg = legs[1]
         if not (leg and leg.mapId == cursor.mapId) then
@@ -1442,7 +1534,7 @@ function Navigation:journeySearch(start, target, policy, allowed, maxSeconds)
       cursor = cursor.parent
     end
     return { firstTransition = node.firstTransition, final = node.hops == 0,
-      cost = node.cost, legs = legs, maps = maps }
+      cost = node.cost, legs = legs, maps = maps, needs = needs }
   end
   local expanded = 0
   while #heap > 0 do
@@ -1458,16 +1550,22 @@ function Navigation:journeySearch(start, target, policy, allowed, maxSeconds)
         local map = entry.map
         local fires = not node.arrived and map:warpAt(node.x, node.y) ~= nil
           and not map:standingWarp(node.x, node.y)
+        -- cracked ice gives way under the player: no walking on from it
+        if not node.arrived and map:behavior(node.x, node.y) == Terrain.MB.CRACKED_ICE then fires = true end
         -- transitions: a warp fires on arrival by walking (or, for exit mats,
         -- arrows and stairs, while their direction is pressed); a
         -- connection is crossed by stepping off the edge
         for _, transition in ipairs(entry.byCell[cell] or {}) do
-          local usable = transition.kind == "connection" or fires
-            or map:standingWarp(node.x, node.y) ~= nil
+          local usable = transition.kind == "connection" or transition.kind == "elevator"
+            or transition.kind == "fall" or fires or map:standingWarp(node.x, node.y) ~= nil
           if usable and (not allowed or allowed[transition.destMap]) then
+            -- a menu is dearer than a walk (stairs win when they are close,
+            -- and after a floor is chosen the car's exit beats the panel);
+            -- thin ice takes a few steps more than a warp
+            local extra = (transition.kind == "elevator" and 20) or (transition.kind == "fall" and 4) or 1
             reach({ mapId = transition.destMap, x = transition.destX, y = transition.destY,
-              arrived = true, cost = node.cost + 1, hops = node.hops + 1, parent = node,
-              firstTransition = node.firstTransition or transition })
+              arrived = true, cost = node.cost + extra, hops = node.hops + 1, parent = node,
+              firstTransition = node.firstTransition or transition, needs = transition.needs })
           end
         end
         -- walking on, unless the cell was a warp that fired
@@ -1513,6 +1611,9 @@ function Navigation:journeyRequirement(result)
       end
     end
   end
+  for label in pairs(result and result.needs or {}) do
+    needed[(label:upper():gsub(" ", "_"))] = true
+  end
   if next(needed) == nil then return nil end
   return Shared.requirementPhrase(needed)
 end
@@ -1533,13 +1634,15 @@ function Navigation:regionalNextLeg(navigation)
   end
   local allowed = self:journeyMaps(mapId, target.mapId)
   local result, reason
-  for policy = 1, 2 do
-    result, reason = self:journeySearch(start, target, policy, allowed)
+  -- a journey that can be walked is walked: an elevator's menu and a fall
+  -- that cannot be undone come only when nothing else gets there
+  for _, try in ipairs({ { 1, false }, { 2, false }, { 2, true } }) do
+    result, reason = self:journeySearch(start, target, try[1], allowed, nil, try[2])
     if result or reason ~= "no regional path" then break end
   end
   if not result then
     if reason == "no regional path" then
-      local everything = self:journeySearch(start, target, 3, allowed)
+      local everything = self:journeySearch(start, target, 3, allowed, nil, true)
       local needs = everything and self:journeyRequirement(everything)
       if needs then return nil, needs end
     end
@@ -1561,10 +1664,44 @@ function Navigation:regionalNextLeg(navigation)
   local instruction = transition.kind == "connection"
     and ("Continue " .. transition.direction .. " to " .. destinationName)
     or ("Continue to " .. destinationName)
+  local stopText, danceText
+  if transition.kind == "elevator" then
+    -- the rest of the name after the words the elevator shares with it:
+    -- "B4F" in the Rocket Hideout Elevator, as its menu lists it
+    local car = self:regionalDestinationName(mapId)
+    local floorName = destinationName
+    local carWords = {}
+    for word in car:gmatch("%S+") do carWords[#carWords + 1] = word end
+    local index = 1
+    for word in destinationName:gmatch("%S+") do
+      if carWords[index] == word then
+        floorName = floorName:sub(#word + 2)
+        index = index + 1
+      else
+        break
+      end
+    end
+    if floorName == "" then floorName = destinationName end
+    instruction = "Face " .. transition.facing .. " and use the floor panel; take the elevator to "
+      .. floorName
+    stopText = "Arrived at the floor panel. Face " .. transition.facing
+      .. " and take the elevator to " .. floorName
+  elseif transition.kind == "fall" and not transition.cracked then
+    instruction = "Step off the thin ice and back onto it: it cracks and you fall through to "
+      .. destinationName
+    danceText = "Stepping off the thin ice and back on, to fall through to " .. destinationName
+  elseif transition.kind == "fall" then
+    instruction = "Step onto the cracked ice to fall through to " .. destinationName
+  end
   return {
     final = false,
     goals = { { x = transition.x, y = transition.y } },
     nextMapId = transition.destMap,
+    -- auto-walk ends here and says what to do: the game's menu or the ice
+    -- is the player's (AutoWalk: stopAtGoal)
+    stopAtGoal = stopText ~= nil, stopText = stopText,
+    -- thin ice is only steps: auto-walk takes them (AutoWalk: danceAtGoal)
+    danceAtGoal = danceText ~= nil, danceText = danceText,
     appendInstructions = function(parts) parts[#parts + 1] = instruction end,
   }
 end

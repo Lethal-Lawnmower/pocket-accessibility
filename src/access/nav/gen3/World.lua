@@ -396,6 +396,140 @@ function World.plannedView(game, def)
   return ok and built or nil
 end
 
+-- ------------------------------------------------------------ load state
+
+-- A planned map as it would be once its load scripts ran.  The layout of
+-- a map the player is not on is the one the ROM stores; its transition and
+-- load scripts may swap the whole layout (Seafoam B3F and B4F calm their
+-- currents with setmaplayoutindex) or set metatiles by flag (Pokemon
+-- Mansion gates, Silph Co. doors).  Scripts.loadState reads what they
+-- would do; the view here reads that on top of the layout's own base
+-- cells (not the overrides a past visit left behind).  A map whose load
+-- scripts cannot be read keeps the plain planned view.
+
+local function lazyFlags()
+  local Space = loaded("src.core.game3.scripting.space")
+  local Flags = loaded("src.core.game3.scripting.flags")
+  if not (Space and Space.store and Flags) then return nil, nil end
+  local function flag(id) return call(Flags.getFlag, Space.store, nil, id) == true end
+  local function var(id) return tonumber(call(Flags.getVar, Space.store, nil, id)) or 0 end
+  return flag, var
+end
+
+-- An alternate layout (setmaplayoutindex) as upstream bakes it for FireRed:
+-- native/layouts/alt_<id>.mid in the extracted data (scripting/ops_a.lua
+-- set_map_layout reads the same file).  Decoded once per id; nil when it
+-- is not there.
+local alternates = {}
+World.alternateReader = nil -- tests: function(id) -> { width, height, cells }
+function World.alternateLayout(layoutId)
+  if alternates[layoutId] ~= nil then return alternates[layoutId] or nil end
+  local decoded
+  if World.alternateReader then
+    decoded = World.alternateReader(layoutId)
+  else
+    local ok, value = pcall(function()
+      local Extract = require("src.import.gba.extract_island1")
+      local Dataset = require("src.core.game3.dataset")
+      local root = Extract.NATIVE_ROOT or ((Extract.CACHE_ROOT or "data/generated/gba") .. "/native")
+      local blob = Dataset.cache():read(root .. "/layouts/alt_" .. layoutId .. ".mid")
+      return blob and require("src.import.gba.native_pack").decodeMidLayout(blob) or nil
+    end)
+    decoded = ok and value or nil
+  end
+  alternates[layoutId] = decoded or false
+  return decoded
+end
+
+local function loadedLayout(def, state, alternate)
+  local base = def.midLayout
+  local width = base.width
+  local native = type(base.cells) == "table" and type(base.overrides) == "table"
+  local pair = def.pair or base.pair
+  local Interaction = lazy("src.core.game3.scripting.interaction_scripts")
+  local ScriptColl = lazy("src.core.game3.scripting.collision")
+  local layout = setmetatable({ _revision = 0 }, { __index = base })
+  local function cell(x, y)
+    if x < 0 or y < 0 or x >= base.width or y >= base.height then return nil end
+    local set = state.cells[y * 1024 + x]
+    if set then
+      if set.coll == nil then
+        local beh = Interaction and Interaction.behaviors and Interaction.behaviors[pair]
+          and Interaction.behaviors[pair][set.mid]
+        local coll = 0x00
+        if set.impassable then
+          coll = 0x07
+        elseif beh ~= nil and ScriptColl and ScriptColl.fromCell then
+          local ok, value = pcall(ScriptColl.fromCell, set.mid, 0, beh, def.kind)
+          coll = ok and value or 0x00
+        end
+        set.coll = coll
+      end
+      return set.mid, set.coll, nil
+    end
+    local alt = alternate and alternate.cells[y * width + x + 1]
+    if alt then return alt.mid, alt.coll, alt.elev end
+    if native then
+      local own = base.cells[y * width + x + 1]
+      if own then return own.mid, own.coll, own.elev end
+    end
+    return nil
+  end
+  function layout:midAt(x, y)
+    local mid = cell(x, y)
+    if mid ~= nil then return mid end
+    return base:midAt(x, y)
+  end
+  function layout:collAt(x, y)
+    local _, coll = cell(x, y)
+    if coll ~= nil then return coll end
+    return base:collAt(x, y)
+  end
+  function layout:elevAt(x, y)
+    local _, _, elev = cell(x, y)
+    if elev ~= nil then return elev end
+    if native and x >= 0 and y >= 0 and x < base.width and y < base.height then
+      local own = base.cells[y * width + x + 1]
+      if own then return own.elev end
+    end
+    return base:elevAt(x, y)
+  end
+  return layout
+end
+
+local loadedViews = setmetatable({}, { __mode = "k" })
+
+-- The planned view of `def` with its load scripts' effect, or the plain
+-- planned view when they cannot be read (or change nothing).
+function World.loadedView(game, def)
+  if type(def) ~= "table" or not def.midLayout then return World.plannedView(game, def) end
+  local Scripts = lazy("src.access.nav.gen3.Scripts")
+  local flag, var = lazyFlags()
+  local state = Scripts and Scripts.loadState(def, flag, var) or nil
+  if not state then return World.plannedView(game, def) end
+  if next(state.cells) == nil and not state.layoutIndex then
+    -- nothing to apply; but what a past visit left on the layout (gates a
+    -- switch has since moved back) no longer holds
+    local overrides = def.midLayout.overrides
+    if type(overrides) ~= "table" or next(overrides) == nil then return World.plannedView(game, def) end
+  end
+  local alternate
+  if state.layoutIndex then
+    alternate = World.alternateLayout(state.layoutIndex)
+    if not (alternate and alternate.width == def.midLayout.width
+            and alternate.height == def.midLayout.height) then
+      return World.plannedView(game, def)
+    end
+  end
+  local cached = loadedViews[def]
+  if cached and cached.key == state.key then return cached.view end
+  local shadow = setmetatable({ midLayout = loadedLayout(def, state, alternate) }, { __index = def })
+  local view = newView(game, shadow, def.id, false)
+  view.loadState = state
+  loadedViews[def] = { key = state.key, view = view }
+  return view
+end
+
 -- ------------------------------------------------------------ the facade
 
 -- The live player, with Gen 1's spelling of the fields the shared code

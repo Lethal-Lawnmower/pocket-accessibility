@@ -759,5 +759,19 @@ do
   eq(Shared.normalize("Sunday, 10:00 AM"), "Sunday, 10:00 AM", "a clock time is not a speaker label")
 end
 
+do -- the shared journey's last leg keeps only target cells inside the map
+  local Shared = require("src.access.nav.Navigation")
+  local map = { id = "SMALL", inBounds = function(_, x, y) return x >= 0 and y >= 0 and x < 4 and y < 4 end }
+  local nav = setmetatable({
+    worldForCommand = function() return { map = map, player = { cellX = 1, cellY = 1 } } end,
+    regionalDryRoute = function() return { cost = 1 } end,
+    regionalTransitions = function() return {} end,
+  }, { __index = Shared })
+  local leg = nav:regionalNextLeg({ targetMapId = "SMALL",
+    targetGoals = { { x = 2, y = 3 }, { x = 2, y = 4 } } })
+  check(leg and leg.final, "a target on this map is the final leg")
+  eq(leg and #leg.goals, 1, "a goal cell outside this map (worked out on a bigger one) is dropped")
+end
+
 Speech.shutdown()
 T.finish("gen2 navigation")

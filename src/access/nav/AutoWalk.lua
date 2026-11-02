@@ -31,6 +31,7 @@ local PUSH_FRAMES = 60
 -- the player back there (Ecruteak's Tin Tower sages stop every walk north
 -- and step the player back; auto-walk resumed into them for ever).
 local MAX_RESUMES_AT_CELL = 3
+local MAX_JOURNEY_LEGS = 32
 
 local walk = nil -- active walk, or nil
 
@@ -111,6 +112,43 @@ local function spokenReason(reason, label)
 end
 AutoWalk.spokenReason = spokenReason
 
+-- The goal of this leg only works by leaving it and stepping back on (a
+-- teleport pad the player stands on; thin ice, which cracks under the first
+-- step and gives way under the next).  Sets the two steps; false when there
+-- is no cell to step to.  A plain floor cell is preferred over more ice.
+local function stepOffAndBack()
+  local player, map = walk.overworld.player, walk.overworld.map
+  local x, y = player.cellX, player.cellY
+  local function tileAt(cx, cy)
+    if type(map.cellTile) ~= "function" then return nil end
+    local ok, tile = pcall(map.cellTile, map, cx, cy)
+    return ok and tile or nil
+  end
+  local here = tileAt(x, y)
+  local best
+  for _, d in ipairs({ { "up", 0, -1, "down" }, { "down", 0, 1, "up" },
+                       { "left", -1, 0, "right" }, { "right", 1, 0, "left" } }) do
+    local nx, ny = x + d[2], y + d[3]
+    local ok, walkable = pcall(map.isWalkableCell, map, nx, ny)
+    if ok and walkable then
+      local plain = here == nil or tileAt(nx, ny) ~= here
+      if not best or (walk.danceAtGoal and plain and not best.plain) then
+        best = { nx = nx, ny = ny, off = d[1], back = d[4], plain = plain }
+      end
+    end
+  end
+  if not best then return false end
+  walk.steps = {
+    { fromX = x, fromY = y, x = best.nx, y = best.ny, direction = best.off },
+    { fromX = best.nx, fromY = best.ny, x = x, y = y, direction = best.back },
+  }
+  walk.dancing = walk.danceAtGoal == true
+  walk.lastX, walk.lastY, walk.still = x, y, 0
+  if walk.danceText then Speech.say(walk.danceText, { interrupt = false }) end
+  walk.danceAtGoal, walk.danceText = nil, nil
+  return true
+end
+
 -- Starts walking to the coordinator's selected object.  Returns true when
 -- walking began; otherwise speaks why not.  `adapter` defaults to the running
 -- game's (WorldAdapter.current), Gen 1 when none is known.
@@ -128,7 +166,7 @@ function AutoWalk.start(nav, game, adapter)
   end
   -- an Area target is on another map: walk the cross-map journey leg by
   -- leg (Navigation:regionalNextLeg), re-planning on every new map
-  local journey, final = nil, true
+  local journey, final, stopText, danceLeg = nil, true, nil, nil
   if item.type == "area" then
     journey = { targetMapId = item.mapId, targetGoals = goals }
     local leg, legErr = nav:regionalNextLeg(journey)
@@ -136,9 +174,27 @@ function AutoWalk.start(nav, game, adapter)
       Speech.say(spokenReason(legErr or "no regional path", item.label), { interrupt = true })
       return false
     end
-    goals, final = leg.goals, leg.final == true
+    goals, final = leg.goals, leg.final == true or leg.stopAtGoal == true
+    stopText = leg.stopAtGoal and leg.stopText or nil
+    danceLeg = leg
   end
   local result, findErr = findRoute(nav, goals)
+  -- A target on this map with no way here may have one through other maps
+  -- (Seafoam's floors): the coordinator that says so (FireRed) walks it as
+  -- a journey, the same answer guided navigation gives.
+  if not result and not journey and nav.autoWalkJourneys and type(nav.currentMapIdOf) == "function" then
+    local attempt = { targetMapId = nav:currentMapIdOf(overworld), targetGoals = goals }
+    local leg, legErr = nav:regionalNextLeg(attempt)
+    if leg and not leg.final then
+      journey, goals = attempt, leg.goals
+      final = leg.stopAtGoal == true
+      stopText = leg.stopAtGoal and leg.stopText or nil
+      danceLeg = leg
+      result, findErr = findRoute(nav, goals)
+    elseif not leg and legErr and not PLANNER_REASONS[legErr] then
+      findErr = legErr -- "Needs Surf": what guided navigation would name
+    end
+  end
   if not result then
     Speech.say(spokenReason(findErr or "no path", item.label), { interrupt = true })
     return false
@@ -161,18 +217,31 @@ function AutoWalk.start(nav, game, adapter)
     -- the map a warp target leads to: reaching it is the arrival even when
     -- a fast game speed moved the player past the last step between two
     -- updates (several tiles per real frame at 200X)
-    targetMapId = item.type == "warp" and item.destinationMapId or nil,
+    -- (a walk that ends at a panel is not going through that warp)
+    targetMapId = not stopText and item.type == "warp" and item.destinationMapId or nil,
     interaction = interaction,
     nav = nav,
     goals = goals,
     journey = journey,
     final = final,
+    stopText = stopText,
+    danceAtGoal = danceLeg and danceLeg.danceAtGoal or nil,
+    danceText = danceLeg and danceLeg.danceText or nil,
+    legs = 0,
     lastX = player.cellX, lastY = player.cellY,
     still = 0,
   }
   if #result.steps == 0 then
     -- already in place: still say which way to face (Yellow's Pikachu is
     -- usually right behind the player), as an arrival would
+    if stopText then
+      AutoWalk.stop(stopText)
+      return true
+    end
+    if walk.danceAtGoal then
+      Speech.say("Walking to " .. tostring(item.label), { interrupt = true })
+      if stepOffAndBack() then return true end
+    end
     local text = tostring(item.label) .. " is here"
     local hint = interaction and result.goal
       and interaction[tostring(result.goal.x) .. "," .. tostring(result.goal.y)]
@@ -185,6 +254,9 @@ function AutoWalk.start(nav, game, adapter)
 end
 
 local function arrivalText()
+  -- a leg that ends where the player must act: an elevator's panel, thin
+  -- ice to crack (Navigation:regionalNextLeg's stopAtGoal)
+  if walk.stopText then return walk.stopText end
   local text = "Arrived at " .. tostring(walk.label)
   local goal = walk.goal
   if walk.interaction and goal then
@@ -297,20 +369,7 @@ local function resume(quiet)
     if walk.journey and not walk.final then
       -- standing on the warp this leg needs (a teleport pad lands you on a
       -- pad): pads fire on stepping onto them, so step off and back on
-      local x, y = player.cellX, player.cellY
-      local map = walk.overworld.map
-      for _, d in ipairs({ { "up", 0, -1, "down" }, { "down", 0, 1, "up" },
-                           { "left", -1, 0, "right" }, { "right", 1, 0, "left" } }) do
-        local nx, ny = x + d[2], y + d[3]
-        local ok, walkable = pcall(map.isWalkableCell, map, nx, ny)
-        if ok and walkable then
-          walk.steps = {
-            { fromX = x, fromY = y, x = nx, y = ny, direction = d[1] },
-            { fromX = nx, fromY = ny, x = x, y = y, direction = d[4] },
-          }
-          return
-        end
-      end
+      if stepOffAndBack() then return end
     end
     return AutoWalk.stop(arrivalText())
   end
@@ -322,11 +381,21 @@ end
 -- Journey: the map changed on a leg that was not the last one.  Once the new
 -- map is settled, plan its leg and keep walking.
 local function nextLeg()
+  -- a plan that keeps changing its mind between maps (one floor's load
+  -- state read wrong) must not walk for ever
+  walk.legs = (walk.legs or 0) + 1
+  if walk.legs > MAX_JOURNEY_LEGS then
+    return AutoWalk.stop("No route from here to " .. tostring(walk.label) .. ", auto walk stopped")
+  end
   local leg, err = walk.nav:regionalNextLeg(walk.journey)
   if not leg then
     return AutoWalk.stop("No route from here to " .. tostring(walk.label) .. ", auto walk stopped")
   end
-  walk.map, walk.goals, walk.final = walk.overworld.map, leg.goals, leg.final == true
+  walk.map, walk.goals, walk.final = walk.overworld.map, leg.goals, leg.final == true or leg.stopAtGoal == true
+  walk.stopText = leg.stopAtGoal and leg.stopText or nil
+  if walk.stopText then walk.targetMapId = nil end
+  walk.danceAtGoal, walk.danceText = leg.danceAtGoal or nil, leg.danceText or nil
+  walk.dancing = nil
   walk.awaitingMap, walk.reroutes, walk.doorTries = nil, nil, nil
   walk.pushDir, walk.pushFrames = nil, nil
   return resume(true)
@@ -346,7 +415,12 @@ function AutoWalk.update(top)
     if battleOnStack(stack) or battleTop(top) then walk.battleSeen = true end
     if not onMap(top) then return end
     if transitioning() then return end
-    if overworld.map ~= walk.map then return AutoWalk.stop("Auto walk stopped") end
+    if overworld.map ~= walk.map then
+      -- on a journey a new map is the next leg (FireRed's thin ice drops the
+      -- player while the walk waits on the game's own script)
+      if walk.journey then return nextLeg() end
+      return AutoWalk.stop("Auto walk stopped")
+    end
     if walk.expectBattle and not walk.battleSeen then return end -- trainer still walking over
     -- battles, card-key door messages and other game-caused screens: carry
     -- on, unless the game keeps sending the player back to the same cell
@@ -440,6 +514,13 @@ function AutoWalk.update(top)
       -- direction is held, which need not be the step that reached them
       local press = pressDirection(x, y)
       if walk.journey and not walk.final then
+        if walk.danceAtGoal and stepOffAndBack() then return end
+        if walk.dancing then
+          -- back on the thin ice: it gives way; wait for the game's fall
+          release(walk.input, walk.held)
+          walk.held = nil
+          return
+        end
         walk.pushDir, walk.pushFrames = press or last.direction, 0
         return
       end
@@ -557,7 +638,8 @@ function AutoWalk.stepped(x, y)
   -- player keeps pressing into them after stepping on; letting go here
   -- stranded the player on the door.  A Gen 2 carpet wants its own direction.
   local last = walk.steps[#walk.steps]
-  if walk.targetMapId and last and last.x == x and last.y == y then
+  if walk.targetMapId and not walk.dancing and not walk.danceAtGoal
+     and last and last.x == x and last.y == y then
     local press = pressDirection(x, y)
     if press and walk.held ~= press then
       release(walk.input, walk.held)

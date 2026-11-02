@@ -274,7 +274,15 @@ Silph Co. 5F) matches Red; Yellow results are in `yellow.md`.
   pad lands it on the pad the next leg needs, it steps off and back on. A
   map change counts as arrival only when the player was finishing the
   route; otherwise a journey re-plans and a single-map walk reports
-  "Left the map".
+  "Left the map". A journey is stopped after 32 legs (a plan changing its
+  mind between maps). Hooks for coordinators that need them (FireRed): a leg
+  with `stopAtGoal` ends the walk there with its `stopText`; `danceAtGoal`
+  steps off the goal and back on; `autoWalkJourneys` walks a journey to a
+  target on this map when it has no route here.
+- **Last leg's cells:** an Area target's cells are worked out on the map the
+  journey began on, so the last leg drops any outside the target map (a
+  smaller map made the route refuse them all). Unit test only for Gen 1 and
+  Gen 2: FireRed's Silph Co. showed it, no Gen 1 or Gen 2 case was looked for.
 - **Inactive data warps:** map data lists some warps the game never fires
   (Silph Co. 1F has one to 3F off any warp tile). The planner now skips
   them with the same rule the object list uses

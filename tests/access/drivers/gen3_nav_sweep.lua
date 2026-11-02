@@ -125,6 +125,9 @@ return function(game)
   for _, floor in ipairs(puzzleFloors) do
     kept = nil
     local world = floor.world
+    -- the floor as drawn, gates open: nothing here runs the switches' scripts
+    -- that open them (drivers/gen3_nav_puzzle.lua does, in the game)
+    world.map = World.plannedView(game, maps[floor.id])
     local targets, boulders = Puzzle.targetsFor(world)
     local holes, switches, total = 0, 0, #boulders
     for _, t in ipairs(targets) do if t.kind == "hole" then holes = holes + 1 else switches = switches + 1 end end

@@ -241,5 +241,112 @@ overworld.player.cellY = 1
 AutoWalk.update(overworld)
 eq(spoken[#spoken], "Arrived at Gold Teeth, Safari Zone West", "journey arrives on the final map")
 
+-- A leg that ends where the player must act (an elevator's panel): the walk
+-- stops there with the instruction, not pressing on.
+game, overworld, nav = setup()
+nav.selectedRouteGoals = function()
+  return { label = "Calcium", type = "area", mapId = "B4F" }, { { x = 1, y = 1 } }, nil, nil, overworld
+end
+nav.regionalNextLeg = function()
+  return { goals = { { x = 1, y = 1 } }, final = false, stopAtGoal = true,
+    stopText = "Arrived at the floor panel. Face up and take the elevator to B4F" }
+end
+check(AutoWalk.start(nav, game), "a stop leg starts")
+AutoWalk.update(overworld)
+overworld.player.cellX = 1
+AutoWalk.update(overworld)
+overworld.player.cellY = 1
+AutoWalk.update(overworld)
+eq(spoken[#spoken], "Arrived at the floor panel. Face up and take the elevator to B4F", "the walk ends with the instruction")
+check(not AutoWalk.active(), "the walk ended at the panel")
+-- already there: the same words
+game, overworld, nav = setup()
+overworld.player.cellX, overworld.player.cellY = 1, 1
+nav.selectedRouteGoals = function()
+  return { label = "Calcium", type = "area", mapId = "B4F" }, { { x = 1, y = 1 } }, nil, nil, overworld
+end
+nav.regionalNextLeg = function()
+  return { goals = { { x = 1, y = 1 } }, final = false, stopAtGoal = true, stopText = "Take the elevator" }
+end
+local PF = package.loaded["src.access.nav.Pathfinder"]
+local realFind = PF.find
+PF.find = function() return { steps = {}, goal = { x = 1, y = 1 } } end
+AutoWalk.start(nav, game)
+eq(spoken[#spoken], "Take the elevator", "standing at the panel says what to do")
+PF.find = realFind
+
+-- Thin ice: the leg ends on the ice, then the walk steps off and back on
+-- and waits for the fall; the new map carries on.
+game, overworld, nav = setup()
+overworld.map.isWalkableCell = function(_, x, y) return x == 1 and y == 0 end
+nav.selectedRouteGoals = function()
+  return { label = "Ladder", type = "area", mapId = "BELOW" }, { { x = 1, y = 1 } }, nil, nil, overworld
+end
+local legCalls = 0
+nav.regionalNextLeg = function()
+  legCalls = legCalls + 1
+  if legCalls == 1 then
+    return { goals = { { x = 1, y = 1 } }, final = false, danceAtGoal = true, danceText = "Stepping off the thin ice" }
+  end
+  return { goals = { { x = 1, y = 1 } }, final = true }
+end
+check(AutoWalk.start(nav, game), "a thin ice leg starts")
+AutoWalk.update(overworld)
+overworld.player.cellX = 1
+AutoWalk.update(overworld)
+overworld.player.cellY = 1
+AutoWalk.update(overworld)
+eq(spoken[#spoken], "Stepping off the thin ice", "reaching the ice, the walk says what it does")
+eq(AutoWalk._state().steps[1].direction, "up", "it steps off")
+eq(AutoWalk._state().steps[2].direction, "down", "and back on")
+AutoWalk.update(overworld)
+eq(game.input.state.up, true, "the step off is held")
+overworld.player.cellY = 0
+AutoWalk.update(overworld)
+overworld.player.cellY = 1
+AutoWalk.update(overworld)
+check(AutoWalk.active() and not game.input.state.down, "back on the ice it lets go and waits for the fall")
+overworld.map = { below = true, isWalkableCell = function() return true end }
+AutoWalk.update(overworld)
+AutoWalk.update(overworld)
+eq(legCalls, 2, "the fall's new map plans the next leg")
+AutoWalk.stop()
+
+-- FireRed's coordinator: a target on this map with no route here is walked
+-- as a journey through other maps, as guided navigation does; other
+-- generations' coordinators do not ask for this.
+game, overworld, nav = setup()
+local tried = 0
+nav.autoWalkJourneys = true
+nav.currentMapIdOf = function() return "HERE" end
+PF.find = function()
+  tried = tried + 1
+  if tried <= 2 then return nil, "no path" end -- both policies, on this map
+  return { steps = { { fromX = 0, fromY = 0, x = 1, y = 0, direction = "right" } }, goal = { x = 1, y = 0 } }
+end
+local asked
+nav.regionalNextLeg = function(_, journey)
+  asked = journey.targetMapId
+  return { goals = { { x = 1, y = 0 } }, final = false, nextMapId = "OTHER" }
+end
+check(AutoWalk.start(nav, game) and AutoWalk.active(), "no local route: a journey starts")
+eq(asked, "HERE", "the journey's target is on this map")
+AutoWalk.stop()
+-- nothing that way either: "Needs Surf" is said, as guided navigation does
+game, overworld, nav = setup()
+tried = 0
+nav.autoWalkJourneys = true
+nav.currentMapIdOf = function() return "HERE" end
+PF.find = function() return nil, "no path" end
+nav.regionalNextLeg = function() return nil, "Needs Surf" end
+check(not AutoWalk.start(nav, game), "no way at all: no walk")
+eq(spoken[#spoken], "Needs Surf", "what the way needs is said")
+-- without the coordinator's say-so the old answer stands
+game, overworld, nav = setup()
+nav.regionalNextLeg = function() error("must not be asked") end
+AutoWalk.start(nav, game)
+eq(spoken[#spoken], "No route to PC from here", "Gen 1 and Gen 2 coordinators keep their answer")
+PF.find = realFind
+
 Speech.shutdown()
 T.finish()

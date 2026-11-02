@@ -2106,8 +2106,16 @@ function Accessibility:regionalNextLeg(navigation)
   })
   if not result then return nil, reason end
   if result.final then
+    -- v0.3.98: an Area target's cells are worked out on the map the
+    -- journey began on; a cell outside this (smaller) map makes the
+    -- Pathfinder refuse the whole last leg ("goal is outside bounds")
+    local goals = {}
+    for _, goal in ipairs(navigation.targetGoals or {}) do
+      local okBounds, inside = pcall(overworld.map.inBounds, overworld.map, goal.x, goal.y)
+      if not okBounds or inside then goals[#goals + 1] = goal end
+    end
     return {
-      final = true, goals = navigation.targetGoals,
+      final = true, goals = #goals > 0 and goals or navigation.targetGoals,
       appendInstructions = navigation.targetAppendInstructions,
     }
   end
