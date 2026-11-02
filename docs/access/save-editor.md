@@ -122,7 +122,10 @@ set, with the party level set. Window (UI Automation and real key presses on a d
 Red save): all eight tabs read, Tab order, dropdown change, badge toggle with focus kept,
 Ctrl+Z, typed level, refusal box, Ctrl+S, Escape back to the launcher's list.
 
-Not established: anything heard through a screen reader, including the live status line;
+Owner's first use, 2026-11-02, on FireRed: "save editor works nicely, and was able to get
+to the second gym in fire red." Which pages were used was not said.
+
+Not established: that the live status line speaks; other games by ear;
 Gen 2 mail after a party change; `.sav` export; Pokéblocks on a real save; LeafGreen, Ruby,
 Sapphire and Emerald, which no test profile has imported. No owner test.
 

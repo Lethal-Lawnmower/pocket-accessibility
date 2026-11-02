@@ -176,9 +176,8 @@ and recorded in the topic file.
 ## Save editor
 
 - **State (2026-11-02):** native window finished, all pages (decision 39,
-  `save-editor.md`). Backend, window and game load tested by script; not heard.
-  Local, not pushed.
-- **Next:** the owner's test.
+  `save-editor.md`). Owner's first use (2026-11-02): "save editor works nicely, and
+  was able to get to the second gym in fire red." Local, not pushed.
 - **Upstream bug, for the owner:** source reading says Gen 2's Spawn action writes a map
   id to `save.spawn`, while `World:healPoint` expects a `SPAWN_*` name, so a whiteout
   would find no spawn point. Not run in game, not patched (no game fixes). The page
