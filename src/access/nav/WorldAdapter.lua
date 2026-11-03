@@ -74,7 +74,7 @@ end
 function Gen1.afterSteer() end
 
 function Gen1.newCoordinator(game, opts)
-  return require("src.access.nav.Navigation").new(game, opts)
+  return require("src.access.nav.gen1.Navigation").new(game, opts)
 end
 
 -- ------------------------------------------------------------------ Gen 2

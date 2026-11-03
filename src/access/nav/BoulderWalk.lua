@@ -65,7 +65,10 @@ function BoulderWalk.tryStart(nav, game, adapter, item, goals, overworld)
   if not require("src.access.Settings").autoWalkBoulders(game) then return false end
   local plan, _, needs, stone = nav:boulderOpening(overworld, goals)
   if not plan then return false end
-  return begin(nav, game, adapter, item, overworld, plan, needs, stone)
+  local started = begin(nav, game, adapter, item, overworld, plan, needs, stone)
+  -- the walk is for this target: when the floor is done, go on to it
+  if run then run.thenWalk = true end
+  return started
 end
 
 -- Auto-walk to a boulder or a hole on a floor of holes still to fill does the whole
@@ -94,7 +97,7 @@ local function choose()
   if not present and not run.stone then
     return BoulderWalk.stop(tostring(run.label) .. " is gone, auto walk stopped")
   end
-  local plan, reason = run.nav:boulderOpening(run.overworld, present and goals or {})
+  local plan, reason, _, _, remaining = run.nav:boulderOpening(run.overworld, present and goals or {})
   if reason == "searching" then
     run.searching = (run.searching or 0) + 1
     if run.searching > SEARCH_FRAMES then
@@ -105,9 +108,13 @@ local function choose()
   run.searching = nil
   if not plan then
     local nav, game, adapter, stone, pushes = run.nav, run.game, run.adapter, run.stone, run.pushes
+    local thenWalk = run.thenWalk
     run = nil
+    if thenWalk and stone and reason == "open" then return autoWalk().start(nav, game, adapter) end
     if stone and (reason == "open" or (reason == "finished" and pushes > 0)) then
-      Speech.say("The boulders are all in place", { interrupt = true })
+      -- Victory Road 2F: its second switch's boulder comes from the floor above
+      Speech.say((remaining or 0) > 0 and "No boulder can reach the rest from here"
+        or "The boulders are all in place", { interrupt = true })
       return
     end
     if reason == "open" then return autoWalk().start(nav, game, adapter) end
@@ -195,7 +202,12 @@ function BoulderWalk.update()
     run.held = nil
     if not strengthOn() then
       run.phase, run.waited = "strength", 0
-      press()
+      -- Gen 1 has no A press for it: the coordinator calls what the party menu calls
+      if type(run.nav.startStrength) == "function" then
+        run.nav:startStrength(run.overworld)
+      else
+        press()
+      end
       return
     end
     local boulder = plan.boulder.entity
@@ -208,6 +220,12 @@ function BoulderWalk.update()
   if run.phase == "pushing" then
     local boulder = plan.boulder.entity
     run.frames = run.frames + 1
+    -- let go as soon as it starts to slide: still holding when it lands walks the
+    -- player after it, on Seafoam Islands into the hole it just filled
+    if boulder.moving and run.held then
+      AutoWalk.releaseDirection(input, run.held)
+      run.held = nil
+    end
     if boulder.cellX ~= run.fromX or boulder.cellY ~= run.fromY then
       AutoWalk.releaseDirection(input, run.held)
       run.held = nil

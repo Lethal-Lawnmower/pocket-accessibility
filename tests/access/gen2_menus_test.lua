@@ -1,4 +1,4 @@
--- Gen 2 menu presenters (decision 27): boot cards, title, main menu, clock
+﻿-- Gen 2 menu presenters (decision 27): boot cards, title, main menu, clock
 -- setting, gender, name choice, naming keyboard, start menu, OPTION, SAVE,
 -- script menus, elevator, Bank of Mom, evolution and egg hatching.
 -- States are built with the real upstream classes (their constructors where
@@ -50,8 +50,8 @@ eq(lastInterrupt(), false, "boot lines queue")
 SR.update(copyright)
 eq(count(), 1, "copyright said once")
 reset()
-SR.update(as("CopyrightSplash", { lines = { "©1995 Nintendo", "©1995 GAME FREAK" } }))
-eq(last(), "©1995 Nintendo ©1995 GAME FREAK", "copyright fallback lines are read when drawn")
+SR.update(as("CopyrightSplash", { lines = { "Â©1995 Nintendo", "Â©1995 GAME FREAK" } }))
+eq(last(), "Â©1995 Nintendo Â©1995 GAME FREAK", "copyright fallback lines are read when drawn")
 
 reset()
 SR.update(as("CrystalSplash", { scene = 0 }))
@@ -72,12 +72,12 @@ SR.update(title)
 eq(count(), 0, "title waits for the entrance to land")
 title.entranceScx = 0
 SR.update(title)
-eq(last(), "POKéMON Crystal Version. Copyright GAME FREAK inc. Press start.", "title names the running edition")
+eq(last(), "POKÃ©MON Crystal Version. Copyright GAME FREAK inc. Press start.", "title names the running edition")
 eq(lastInterrupt(), false, "title line queues behind the intro")
 GameVersion.set("silver")
 reset()
 SR.update(as("TitleState", { entranceScx = 0 }))
-eq(last(), "POKéMON Silver Version. Copyright GAME FREAK inc. Press start.", "Silver title")
+eq(last(), "POKÃ©MON Silver Version. Copyright GAME FREAK inc. Press start.", "Silver title")
 GameVersion.set("crystal")
 reset()
 SR.update(as("TitleState", { entranceScx = 0, fadeStart = 10 }))
@@ -96,7 +96,7 @@ main.list.index = 1
 SR.update(main)
 main.phase = "confirm"
 SR.update(main)
-eq(last(), "KRIS, badges 1, POKéDEX 2, time 3:07. A to continue, B to go back", "CONTINUE save panel")
+eq(last(), "KRIS, badges 1, POKÃ©DEX 2, time 3:07. A to continue, B to go back", "CONTINUE save panel")
 main.phase = "menu"
 SR.update(main)
 eq(last(), "CONTINUE, 1 of 4", "back from the panel says the row and position")
@@ -230,13 +230,13 @@ SR.update(naming)
 eq(last(), "deleted, B", "delete announced")
 naming.text = "B\xc3\xa9"
 SR.update(naming)
-eq(last(), "e acute, Bé", "typed é")
-naming.text = "B\xc3" -- the screen deletes one byte, leaving half of é
+eq(last(), "e acute, BÃ©", "typed Ã©")
+naming.text = "B\xc3" -- the screen deletes one byte, leaving half of Ã©
 SR.update(naming)
 eq(last(), "deleted, B", "a broken character is left out of speech")
 reset()
 SR.update(gen2("NamingScreen").new(game, { type = "nickname", monName = "TOTODILE" }))
-eq(last(), "TOTODILE, NICKNAME? empty. A", "nickname prompt names the POKéMON")
+eq(last(), "TOTODILE, NICKNAME? empty. A", "nickname prompt names the POKÃ©MON")
 
 -- ---------------------------------------------------------------- start menu
 reset()
@@ -246,10 +246,10 @@ save.options.menuAccount = true
 local start = StartMenu.new(game, { save = save,
   unlocked = { pokedex = true, party = true, pack = true, pokegear = true } })
 SR.update(start)
-eq(last(), "Start menu. POKéDEX, 1 of 8. POKéMON database", "start menu entry with description")
+eq(last(), "Start menu. POKÃ©DEX, 1 of 8. POKÃ©MON database", "start menu entry with description")
 start.list.index = 4
 SR.update(start)
-eq(last(), "POKéGEAR. Trainer's key device", "ligature row and description")
+eq(last(), "POKÃ©GEAR. Trainer's key device", "ligature row and description")
 start.list.index = 5
 SR.update(start)
 eq(last(), "KRIS. Your own status", "player name row")
@@ -277,14 +277,14 @@ save.options.menuAccount = false
 reset()
 StartMenu.lastIndex = 1
 SR.update(StartMenu.new(game, { save = save, unlocked = { party = true, pack = true } }))
-eq(last(), "Start menu. POKéMON, 1 of 6", "MENU ACCOUNT off: no description")
+eq(last(), "Start menu. POKÃ©MON, 1 of 6", "MENU ACCOUNT off: no description")
 save.options.menuAccount = nil
 -- the Bug-Catching Contest status box
 reset()
 save.bugContest = { active = true, balls = 18, caught = { species = "CATERPIE", name = "CATERPIE", level = 7 } }
 StartMenu.lastIndex = 1
 SR.update(StartMenu.new(game, { save = save, unlocked = { party = true, pack = true } }))
-check(last():find("^Start menu%. Caught CATERPIE, level 7, balls 18%. POKéMON, 1 of") ~= nil,
+check(last():find("^Start menu%. Caught CATERPIE, level 7, balls 18%. POKÃ©MON, 1 of") ~= nil,
   "contest status on entry: " .. tostring(last()))
 save.bugContest = nil
 
@@ -346,7 +346,7 @@ local game2 = { data = {}, save = {}, options = {},
 local real = OptionsMenu.new(game2, { options = game2.options })
 stackStates[1] = real
 SR.update(real)
-eq(last(), "Options. ACCESSIBILITY, 2 OPTIONS, 1 of " .. #real.view, "real OPTION screen entry")
+eq(last(), "Options. ACCESSIBILITY, 3 OPTIONS, 1 of " .. #real.view, "real OPTION screen entry")
 real.view[1].activate(game2)
 local access = stackStates[2]
 SR.update(access)
@@ -378,7 +378,7 @@ SR.update(saving)
 eq(count(), 0, "nothing before the first update types the prompt")
 saving:enterPhase("confirm")
 SR.update(saving)
-eq(last(), "Save. KRIS, badges 1, POKéDEX 2, time 3:07. Would you like to save the game?", "save entry")
+eq(last(), "Save. KRIS, badges 1, POKÃ©DEX 2, time 3:07. Would you like to save the game?", "save entry")
 saving.typer.shown = saving.typer.total
 SR.update(saving)
 eq(last(), "YES", "YES/NO once typed")
@@ -401,7 +401,7 @@ SR.update(saving)
 eq(last(), "YES", "overwrite YES/NO")
 saving:accept()
 SR.update(saving)
-eq(last(), "SAVING… DON'T TURN OFF THE POWER.", "saving line")
+eq(last(), "SAVINGâ€¦ DON'T TURN OFF THE POWER.", "saving line")
 eq(lastInterrupt(), false, "saving line queues")
 saving.saved = true
 saving:enterPhase("done")
@@ -412,16 +412,16 @@ eq(last(), "KRIS saved the game.", "saved line")
 reset()
 local ScriptMenu = gen2("ScriptMenu")
 local vend = ScriptMenu.new(game, { save = save, balance = "money",
-  header = { items = { "FRESH WATER  ¥200", "SODA POP     ¥300", "CANCEL" }, cursor = 1 } })
+  header = { items = { "FRESH WATER  Â¥200", "SODA POP     Â¥300", "CANCEL" }, cursor = 1 } })
 SR.update(vend)
-eq(last(), "FRESH WATER ¥200, 1 of 3. Money ¥3000", "script menu entry with the balance box")
+eq(last(), "FRESH WATER Â¥200, 1 of 3. Money Â¥3000", "script menu entry with the balance box")
 vend.row = 2
 SR.update(vend)
-eq(last(), "SODA POP ¥300", "script menu move")
+eq(last(), "SODA POP Â¥300", "script menu move")
 reset()
 SR.update(ScriptMenu.new(game, { save = save, balance = "moneycoins",
   header = { items = { "50 COINS", "CANCEL" }, cursor = 1 } }))
-eq(last(), "50 COINS, 1 of 2. Money ¥3000, Coins 120", "money and coins")
+eq(last(), "50 COINS, 1 of 2. Money Â¥3000, Coins 120", "money and coins")
 reset()
 local grid = ScriptMenu.new(game, { save = save, style = "2d",
   header = { grid = { rows = 2, cols = 2, spacing = 6 }, gridItems = { "RED", "BLU", "YLW", "GRN" }, cursor = 1 } })
@@ -447,19 +447,19 @@ eq(last(), "1F, current floor", "current floor marked")
 reset()
 local bank = gen2("BankOfMom").new(game, { kind = "deposit", saved = 3000, held = 500 })
 SR.update(bank)
-eq(last(), "Saved ¥3000, held ¥500. Deposit ¥0, ones, 0", "bank entry")
+eq(last(), "Saved Â¥3000, held Â¥500. Deposit Â¥0, ones, 0", "bank entry")
 bank.position = 3
 SR.update(bank)
 eq(last(), "hundreds, 0", "digit move")
 bank.amount = 100
 SR.update(bank)
-eq(last(), "¥100", "amount change")
+eq(last(), "Â¥100", "amount change")
 bank.position = 3
 bank.amount = 100
 SR.update(bank)
 reset()
 SR.update(gen2("BankOfMom").new(game, { kind = "withdraw", saved = 3000, held = 500 }))
-check(last():find("Withdraw ¥0") ~= nil, "withdraw kind")
+check(last():find("Withdraw Â¥0") ~= nil, "withdraw kind")
 
 -- ---------------------------------------------------------------- evolution, eggs
 reset()

@@ -629,26 +629,12 @@ local function liveObjects(overworld)
   return result
 end
 
--- Floors and named regions inside one dungeon are not interchangeable merely
--- because their warps share a destination map. Mt. Moon's three 1F ladders
--- land in disconnected B1F pockets; Safari Zone North/West likewise has two
--- physically separate passages. Keep contiguous trigger tiles together while
--- retaining distinct internal entrances. Explicit target ids can still merge
--- authored noncontiguous entrances when a map or mod knows they are equivalent.
-local function transitionFamily(mapId)
-  if type(mapId) ~= "string" then return nil end
-  local floorBase = mapId:gsub("_B?%d+F$", "")
-  if floorBase ~= mapId then return floorBase end
-  if mapId:match("^SAFARI_ZONE_") then return "SAFARI_ZONE" end
-  return nil
-end
-
-local function distinctInternalTransitions(mapId, destId)
-  if mapId == destId then return true end
-  local fromFamily, toFamily = transitionFamily(mapId), transitionFamily(destId)
-  return fromFamily ~= nil and fromFamily == toFamily
-end
-
+-- Warps to one map that are not side by side stay apart: floors and regions inside a
+-- dungeon land in disconnected pockets (Mt. Moon's ladders), and in every generation a
+-- town's or a gate's two doors can be different places (Pewter Museum's front and side
+-- door, S.S. Anne's cabins, Tohjo Falls).  Contiguous trigger tiles merge.  Explicit target
+-- ids can still merge authored noncontiguous entrances when a map or mod knows they are
+-- equivalent.
 local function adjacentToNavigationCell(item, x, y)
   for _, cell in ipairs(item.navigationCells or {}) do
     if math.abs(cell.x - x) + math.abs(cell.y - y) == 1 then return true end
@@ -784,26 +770,19 @@ function WorldSnapshot.browse(overworld, opts)
     if not targetId then
       local baseTarget = "destination:" .. tostring(destId)
         .. ":" .. tostring(item.label)
-      -- Gen 2 and 3 also keep apart any warps that are not side by side: Tohjo Falls
-      -- has two exits to Route 27, on opposite sides of its waterfall, and merged they
-      -- read as one "Route 27: here" with no way on (FireRed: Rock Tunnel, Power Plant).
-      if (tonumber(opts.generation) or 1) >= 2 or distinctInternalTransitions(mapId, destId) then
-        local clusters = internalTargets[baseTarget] or {}
-        internalTargets[baseTarget] = clusters
-        for _, candidate in ipairs(clusters) do
-          if adjacentToNavigationCell(candidate, warp.x, warp.y) then
-            targetId = candidate._targetId
-            break
-          end
+      local clusters = internalTargets[baseTarget] or {}
+      internalTargets[baseTarget] = clusters
+      for _, candidate in ipairs(clusters) do
+        if adjacentToNavigationCell(candidate, warp.x, warp.y) then
+          targetId = candidate._targetId
+          break
         end
-        if not targetId then
-          targetId = baseTarget .. ":entrance:" .. tostring(i)
-          item._targetId = targetId
-          item._internalLabelKey = baseTarget
-          clusters[#clusters + 1] = item
-        end
-      else
-        targetId = baseTarget
+      end
+      if not targetId then
+        targetId = baseTarget .. ":entrance:" .. tostring(i)
+        item._targetId = targetId
+        item._internalLabelKey = baseTarget
+        clusters[#clusters + 1] = item
       end
     end
     local group = warpTargets[targetId]

@@ -255,7 +255,10 @@ function AutoWalk.start(nav, game, adapter, opts)
       end
     end
     if not opts.quiet then
-      Speech.say(spokenReason(findErr or "no path", item.label), { interrupt = true })
+      -- a coordinator may name what is missing ("Needs Surf")
+      local needs = type(nav.routeNeeds) == "function" and nav:routeNeeds(goals) or nil
+      Speech.say(needs and (tostring(item.label) .. ": " .. needs)
+        or spokenReason(findErr or "no path", item.label), { interrupt = true })
     end
     return false
   end
@@ -655,10 +658,17 @@ function AutoWalk.update(top)
       return AutoWalk.stop(tostring(action.failText) .. ". " .. tostring(action.hint))
     end
     walk.fieldMoveAt = key
+    walk.still = 0
+    -- Gen 1 has no A press for field moves: the coordinator calls what the party menu calls
+    if action.use then
+      if not action.use() then
+        return AutoWalk.stop(tostring(action.failText) .. ". " .. tostring(action.hint))
+      end
+      return
+    end
     table.insert(walk.input.pressQueue, "a")
     walk.input.state.a = true
     walk.tapA = true
-    walk.still = 0
     return
   end
   -- a closed card-key door opens when faced and A is pressed (Gen 1 Silph

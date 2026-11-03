@@ -109,15 +109,13 @@ function Settings.rows()
         return true
       end },
   }
-  if GameVersion.generation() >= 2 then
-    rows[#rows + 1] = { id = "accessAutoWalkBoulders", label = "AUTO-WALK PUZZLES",
-      value = function(g) return Settings.autoWalkBoulders(g) and "ON" or "OFF" end,
-      step = function(g)
-        local o = options(g)
-        o.accessAutoWalkBoulders = o.accessAutoWalkBoulders == false and true or false
-        return true
-      end }
-  end
+  rows[#rows + 1] = { id = "accessAutoWalkBoulders", label = "AUTO-WALK PUZZLES",
+    value = function(g) return Settings.autoWalkBoulders(g) and "ON" or "OFF" end,
+    step = function(g)
+      local o = options(g)
+      o.accessAutoWalkBoulders = o.accessAutoWalkBoulders == false and true or false
+      return true
+    end }
   return rows
 end
 
