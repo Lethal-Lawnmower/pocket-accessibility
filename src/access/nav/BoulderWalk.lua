@@ -13,6 +13,7 @@ local MAX_PUSHES = 120
 local PUSH_FRAMES = 150
 local PROMPT_FRAMES = 1500
 local PROMPT_GAP = 30
+local SEARCH_FRAMES = 1800
 
 local run = nil
 
@@ -27,8 +28,9 @@ end
 
 local function autoWalk() return require("src.access.nav.AutoWalk") end
 
-local function nativeWorld()
-  return run.overworld.native or run.overworld
+local function strengthOn()
+  if type(run.nav.strengthActive) == "function" then return run.nav:strengthActive() end
+  return (run.overworld.native or run.overworld).strengthActive
 end
 
 function BoulderWalk.stop(reason)
@@ -43,14 +45,15 @@ function BoulderWalk.stop(reason)
 end
 
 local function begin(nav, game, adapter, item, overworld, plan, needs, stone)
-  -- "Use Strength from the party menu" is what this does itself
-  if needs and needs ~= "" and not needs:find("party menu", 1, true) then
+  -- switching Strength on is what this does itself
+  if needs and needs ~= "" and not needs:find("party menu", 1, true)
+     and not needs:find("Use Strength", 1, true) then
     Speech.say("Boulders block the way. " .. needs:gsub(";%s*$", ""), { interrupt = true })
     return true
   end
   run = { nav = nav, game = game, adapter = adapter, overworld = overworld, map = overworld.map,
     id = item.id, label = item.label, pushes = 0, phase = "choose", stone = stone }
-  Speech.say(stone and "Pushing boulders into the holes"
+  Speech.say(stone and "Pushing boulders into place"
     or ("Pushing boulders to reach " .. tostring(item.label)), { interrupt = true })
   return true
 end
@@ -70,10 +73,11 @@ end
 function BoulderWalk.tryStone(nav, game, adapter, item, overworld)
   if type(nav.boulderOpening) ~= "function" then return false end
   local label = tostring(item.label)
-  if not (label:find("^Boulder %d") or label:find("^Hole %d")) then return false end
+  if not (label:find("^Boulder %d") or label:find("^Hole %d")
+      or label:find("^Pressure Switch") or label:find("^Boulder Drop Hole")) then return false end
   if not require("src.access.Settings").autoWalkBoulders(game) then return false end
-  local plan, _, needs, stone = nav:boulderOpening(overworld, {})
-  if not (plan and stone) then return false end
+  local plan, reason, needs, stone = nav:boulderOpening(overworld, {})
+  if not (stone and (plan or reason == "searching")) then return false end
   return begin(nav, game, adapter, item, overworld, plan, needs, true)
 end
 
@@ -91,11 +95,19 @@ local function choose()
     return BoulderWalk.stop(tostring(run.label) .. " is gone, auto walk stopped")
   end
   local plan, reason = run.nav:boulderOpening(run.overworld, present and goals or {})
+  if reason == "searching" then
+    run.searching = (run.searching or 0) + 1
+    if run.searching > SEARCH_FRAMES then
+      return BoulderWalk.stop("Could not plan the boulders in time, auto walk stopped")
+    end
+    return
+  end
+  run.searching = nil
   if not plan then
-    local nav, game, adapter, stone = run.nav, run.game, run.adapter, run.stone
+    local nav, game, adapter, stone, pushes = run.nav, run.game, run.adapter, run.stone, run.pushes
     run = nil
-    if reason == "open" and stone then
-      Speech.say("All the holes are filled", { interrupt = true })
+    if stone and (reason == "open" or (reason == "finished" and pushes > 0)) then
+      Speech.say("The boulders are all in place", { interrupt = true })
       return
     end
     if reason == "open" then return autoWalk().start(nav, game, adapter) end
@@ -133,7 +145,7 @@ function BoulderWalk.update()
     if run.waited > PROMPT_FRAMES then
       return BoulderWalk.stop("Could not use Strength, auto walk stopped")
     end
-    if nativeWorld().strengthActive and onMap then
+    if strengthOn() and onMap then
       run.phase = "face"
     elseif onMap and run.waited > PROMPT_GAP * 2 then
       return BoulderWalk.stop("Could not use Strength, auto walk stopped")
@@ -181,7 +193,7 @@ function BoulderWalk.update()
     end
     AutoWalk.releaseDirection(input, run.held)
     run.held = nil
-    if not nativeWorld().strengthActive then
+    if not strengthOn() then
       run.phase, run.waited = "strength", 0
       press()
       return

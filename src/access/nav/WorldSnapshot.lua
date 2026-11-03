@@ -784,10 +784,10 @@ function WorldSnapshot.browse(overworld, opts)
     if not targetId then
       local baseTarget = "destination:" .. tostring(destId)
         .. ":" .. tostring(item.label)
-      -- Gen 2 also keeps apart any warps that are not side by side: Tohjo Falls has
-      -- two exits to Route 27, on opposite sides of its waterfall, and merged they
-      -- read as one "Route 27: here" with no way on.
-      if opts.generation == 2 or distinctInternalTransitions(mapId, destId) then
+      -- Gen 2 and 3 also keep apart any warps that are not side by side: Tohjo Falls
+      -- has two exits to Route 27, on opposite sides of its waterfall, and merged they
+      -- read as one "Route 27: here" with no way on (FireRed: Rock Tunnel, Power Plant).
+      if (tonumber(opts.generation) or 1) >= 2 or distinctInternalTransitions(mapId, destId) then
         local clusters = internalTargets[baseTarget] or {}
         internalTargets[baseTarget] = clusters
         for _, candidate in ipairs(clusters) do

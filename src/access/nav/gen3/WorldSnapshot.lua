@@ -304,10 +304,12 @@ function Snapshot.projectSigns(view, def, player)
           end
         end
         local event = first.event
+        local okWords, signWords = pcall(Scripts.signWords, key)
+        signWords = okWords and signWords or nil
         signs[#signs + 1] = {
           x = nearest.x, y = nearest.y,
           accessibilityLabel = event.accessibilityLabel or role or furniture
-            or ("Signpost " .. first.index),
+            or (signWords and ("Sign: " .. signWords)) or ("Signpost " .. first.index),
           accessibilityId = event.accessibilityId
             or ("bg_event:" .. tostring(def.id) .. ":" .. first.index),
           requiredFacing = SIGN_FACING[first.kind],

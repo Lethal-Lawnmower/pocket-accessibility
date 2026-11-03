@@ -153,6 +153,21 @@ reads this furniture. Not heard.
 Auto-walk falling through thin ice when no other way exists is the
 owner's choice (decision 33).
 
+## Audit, 2026-11-03 (by script; not heard)
+
+Whole-map audit (`gen3_nav_sweep`, 418 maps, 0 bad labels) plus new runs:
+
+| Check | Result |
+|---|---|
+| Plain signs | 307 "Signpost N" down to 42, named "Sign: " and their first line. Left: Game Corner machines, Cinnabar Gym, Ruby Path B4F, Dotted Hole and a few others, whose scripts load no text first |
+| Merged exits | 49 pairs of warps to one map that are not side by side are now separate ("entrance 1 of 2"), as Tohjo Falls needed: Rock Tunnel, Power Plant, Mansion, Seafoam. 3 remain merged |
+| Boulder floors (`gen3_boulders`) | Finished: Seafoam 1F (8 pushes), B1F (1), B2F (3), Victory Road 1F (19). Stopped by the harness in a battle menu, not by the walk: Seafoam B3F, Victory Road 2F. Not started: Victory Road 3F, no boulder within reach of the start cell. Tanoby Key: no boulder listed |
+| Secret Switches (`gen3_switches`) | Mansion 3F Iron (1 flip), B1F TM 22 (2), TM 14 (1), Secret Key (3). 1F, from beside the door: "No switch opens a way", 3 flips, which can leave a switch flipped |
+| Owner's save (Cerulean) | Routes and refusals read as expected on a copy |
+
+Boulder floors with no pressure switch or hole (Mt. Ember, Warden's House) have no auto-pushing; Gen 2's
+search for an opening is not in Gen 3. Not run: anything by ear.
+
 ## Known gaps
 
 - Load scripts not read: see the verification table for the count. The

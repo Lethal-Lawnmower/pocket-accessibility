@@ -34,7 +34,10 @@ end
 local function floorState(map)
   local parts = {}
   for y = 0, map.heightCells - 1 do
-    for x = 0, map.widthCells - 1 do parts[#parts + 1] = tostring(map:cellCollision(x, y)) end
+    for x = 0, map.widthCells - 1 do
+      local read = map.cellCollision or map.coll
+      parts[#parts + 1] = tostring(read(map, x, y))
+    end
   end
   return table.concat(parts, ",")
 end
@@ -55,6 +58,14 @@ local function press()
   table.insert(run.game.input.pressQueue, "a")
   run.game.input.state.a = true
   run.tapped = true
+end
+
+-- A press while the switch's script runs with no text up would land after it ends and
+-- start the switch again (Pokemon Mansion), so A only goes to text the game shows.
+local function promptUp()
+  local nav = run.nav
+  if type(nav.promptWaiting) ~= "function" then return true end
+  return nav:promptWaiting()
 end
 
 -- The first switch toward a state with switches left to try, through flips
@@ -153,7 +164,7 @@ function SwitchWalk.update()
       end
     else
       run.calm = 0
-      if run.waited % PROMPT_GAP == 0 then press() end
+      if run.waited % PROMPT_GAP == 0 and promptUp() then press() end
     end
     return
   end

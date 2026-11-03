@@ -68,7 +68,7 @@ function Settings.autoWalkSpeed(game)
   return GameSpeed.clamp(value)
 end
 
--- Auto-walk pushes boulders and tries switches when a target has no route (Gen 2).
+-- Auto-walk pushes boulders and tries switches when a target has no route (Gen 2 and 3).
 function Settings.autoWalkBoulders(game)
   return options(game).accessAutoWalkBoulders ~= false
 end
@@ -109,7 +109,7 @@ function Settings.rows()
         return true
       end },
   }
-  if GameVersion.generation() == 2 then
+  if GameVersion.generation() >= 2 then
     rows[#rows + 1] = { id = "accessAutoWalkBoulders", label = "AUTO-WALK PUZZLES",
       value = function(g) return Settings.autoWalkBoulders(g) and "ON" or "OFF" end,
       step = function(g)

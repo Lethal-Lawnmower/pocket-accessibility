@@ -131,6 +131,24 @@ end
 -- flag it checks (the first is the door's own "already open" flag).  In
 -- FireRed that is the Card Key ball's pickup flag, not the bag, so a key
 -- in the bag from anywhere else does not open the door.
+-- What a plain sign says, for its name: the first text its script loads, first line
+-- only (read from the script, never run).  Nil when it has none.
+function Scripts.signWords(key)
+  local list = Scripts.get(key)
+  local RomText = package.loaded["src.core.game3.rom_text"] or require("src.core.game3.rom_text")
+  for _, cmd in ipairs(type(list) == "table" and list or {}) do
+    if type(cmd) == "table" and cmd.op == "loadword" and type(cmd.value) == "string" then
+      local ok, text = pcall(RomText.plain, cmd.value)
+      if ok and type(text) == "string" then
+        local line = text:gsub("{[^}]*}", " "):gsub("%c.*$", ""):gsub("%s+", " ")
+          :gsub("^%s+", ""):gsub("%s+$", "")
+        if line ~= "" then return line:sub(1, 48) end
+      end
+    end
+  end
+  return nil
+end
+
 function Scripts.cardKeyFlag(key)
   local role, kind = Scripts.signRole(key)
   if kind ~= "card_key_door" then return nil end

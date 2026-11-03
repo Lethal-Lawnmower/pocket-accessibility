@@ -48,7 +48,7 @@ return function(game)
         end
         local spoken = L.heard()
         U.log("RESULT", floor.id, "ended", L.where(), "pushes", pushes, spoken:sub(-70))
-        if not spoken:find("All the holes are filled", 1, true) then
+        if not spoken:find("The boulders are all in place", 1, true) then
           U.log("FAIL", floor.id, "floor not filled")
         end
       end

@@ -62,53 +62,72 @@ third-generation GBA games.
 
 ## Status
 
-> [!NOTE]
-> **Early development.** In Red, Blue and Yellow, menus, dialogue, the
-> Pokémon screens, battles and the mod manager speak, and overworld
-> navigation works (object list, guided routes, auto-walk, keyboard and
-> controller). There is no packaged release yet; run it from source.
+There is no packaged release yet; run it from source (below). Expect mild
+inconveniences to moderate bugs.
 
-> [!IMPORTANT]
-> **Gold, Silver and Crystal: initial groundwork.** Screens, battles,
-> navigation, auto-walk and puzzle help for the Ice Path and Blackthorn Gym
-> boulders are in place and pass automated tests and scripted runs in all
-> three games. I have played Crystal from a new game to the first gym; Gold
-> and Silver have not been played by anyone yet. Expect mild inconveniences to moderate bugs.
+| Game | How far it has been played by me | Otherwise |
+|---|---|---|
+| Crystal | Finished: beat the Elite Four, November 2026 | Automated tests and scripted runs |
+| Red | Played through, August 2026 | Automated tests and scripted runs |
+| FireRed | Played to about the second gym | Automated tests and scripted runs |
+| Blue, Yellow, Gold, Silver | Not played through | Automated tests and scripted runs; share most of their code with the games above |
+| LeafGreen, Ruby, Sapphire, Emerald | Not supported yet | |
 
-> [!TIP]
-> **The Farfetch'd in Ilex Forest (Gold, Silver, Crystal).** Auto-walk to it,
-> press A once, then auto-walk again without moving, and it keeps after the bird
-> by itself. It learns by trying each side, and the wrong side can send the bird
-> backwards, so this can take a while: 19 to 36 attempts in our test runs. It
-> gives up after 64. Press A through each "Kwaa!" message.
+## What It Does
 
-> [!IMPORTANT]
-> **FireRed: initial groundwork.** Menus, battles, navigation, auto-walk
-> and Strength puzzle help are in place and pass automated tests and
-> scripted runs, and I have played it as far as the second gym, using the save
-> editor to get there. LeafGreen, Ruby, Sapphire and Emerald are not covered yet.
+- **Speech** through your screen reader: menus, dialogue, the Pokémon screens and
+  battles. F6 repeats, F7 turns on the accessibility command keys, F8 is help.
+- **Navigation:** a list of what is on the map (warps, connections, signs, people,
+  objects), spoken directions, and auto-walk to whatever you select, on keyboard
+  or controller. Battles pause it, and it carries on afterwards.
+- **Across floors:** if a target has no route on your floor, auto-walk looks for one
+  through other floors, and the Area category lists other floors and their items.
+- **Launcher:** a standard Windows program that lists the games, imports your ROMs
+  and starts a game.
+- **Save editor:** a standard Windows window, opened from the launcher with Edit save,
+  with tabs for party, boxes, items, trainer, map, Pokédex and events.
+
+### Puzzles
+
+With AUTO-WALK PUZZLES on, which is the default in Gold, Silver, Crystal and FireRed,
+auto-walk can do these for you. For those who want to solve them, turn it off in the
+Accessibility page of the game's options. You still get the hints.
+
+- **Boulders:** auto-walk to a boulder, hole or pressure switch on a floor like Ice Path
+  B1F or Blackthorn Gym, or to a target only boulders are blocking, like Chuck in
+  Cianwood Gym. You need a Pokémon with Strength.
+- **Switches:** when a target has no route, it tries the switches, such as Goldenrod
+  Underground's and Pokémon Mansion's, and watches what opens. This can take a while.
+- **The Farfetch'd in Ilex Forest (Gold, Silver, Crystal):** auto-walk to it, press A once,
+  then auto-walk again without moving, and it keeps after the bird by itself. It learns by
+  trying each side, and the wrong side can send the bird backwards, so this can take a
+  while: 19 to 36 attempts in our test runs. It gives up after 64. Press A through each
+  "Kwaa!" message.
+
+Not everything is covered. The docs linked below list what has only been tested by script.
+
+## Running from source (Windows)
+
+You supply your own ROM. No game data is included.
+
+1. Install [LÖVE 11.5](https://love2d.org/).
+2. Download a [Prism](https://github.com/ethindp/prism/releases) Windows x64
+   release and copy `prism.dll` into `local-deps/prism/` in this folder.
+3. Install the .NET 10 SDK and build the launcher:
+   `dotnet build launcher/PocketLauncher -c Release`.
+4. Run `launcher/PocketLauncher/bin/Release/net10.0-windows/PocketLauncher.exe`, use Import
+   ROM for your game, then Play. See [the launcher notes](docs/access/launcher.md).
+
+Without the launcher, choose the game with `POKEPORT_GAME` (`red`, `blue`, `yellow`, `gold`,
+`silver`, `crystal` or `firered`), for example in PowerShell:
+`$env:POKEPORT_GAME = 'red'; & 'C:\Program Files\LOVE\love.exe' .`
+
+## Credit
 
 **Based on the Pokemon Gen 1 Recompilation Project by BOIS CLUB GAMES, LLC
 (https://github.com/bryanthaboi/gen1recomp).** This is an unofficial fork and
 is not affiliated with or endorsed by that project. Pokémon Access features
 are recreated, not copied; no code or data from those scripts is included.
-
-## Running from source (Windows)
-
-1. Install [LÖVE 11.5](https://love2d.org/).
-2. Download a [Prism](https://github.com/ethindp/prism/releases) Windows x64
-   release and copy `prism.dll` into `local-deps/prism/` in this folder.
-3. Start the game with your ROM imported (see the upstream instructions
-   below), choosing the game with `POKEPORT_GAME` (`red`, `blue`, `yellow`,
-   `gold`, `silver`, `crystal` or `firered`), for example in
-   PowerShell: `$env:POKEPORT_GAME = 'red'; & 'C:\Program Files\LOVE\love.exe' .`
-
-You supply your own ROM. No game data is included.
-
-A screen-reader friendly launcher is in early development in `launcher/`
-(build with the .NET 10 SDK: `dotnet build launcher/PocketLauncher -c Release`).
-It lists the games, imports ROMs and starts a game; see
-`docs/access/launcher.md`.
 
 ## Documentation
 

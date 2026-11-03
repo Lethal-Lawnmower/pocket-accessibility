@@ -720,6 +720,12 @@ local function nextPush(world, targets, boulders)
   return Puzzle.followPlan(plan, world, boulders) or plan
 end
 
+-- For auto-walk (BoulderWalk): the next push of this floor, with the search given
+-- a slice; nil, "budget" while it still runs.
+function Puzzle.nextPushFor(world, targets, boulders)
+  return nextPush(world, targets, boulders)
+end
+
 -- A search still running for the floor the player is on gets a slice of
 -- this frame (Navigation:updateNavigation).  True while one is running.
 function Puzzle.continueSearch(world, seconds)

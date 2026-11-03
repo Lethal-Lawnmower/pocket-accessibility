@@ -150,12 +150,12 @@ eq(Settings.installGen3(), true, "Gen 3 OPTION screen wrapped once loaded")
 OptionMenu3.show({ game = game3 })
 local top3 = OptionMenu3._pages[1].rows
 eq(top3[1].label, "ACCESSIBILITY", "Gen 3 top page gets the group row first")
-eq(top3[1].value(), "2 OPTIONS", "Gen 3 group row value")
+eq(top3[1].value(), "3 OPTIONS", "Gen 3 group row value")
 eq(top3[2].label, "SPEED", "the game's own rows follow")
 top3[1].activate(OptionMenu3._ctx)
 local page3 = OptionMenu3._pages[2]
 check(page3 and page3.title == "ACCESSIBILITY", "Gen 3 page pushed like the screen's own pages")
-eq(page3 and #page3.rows, 2, "Gen 3 page rows")
+eq(page3 and #page3.rows, 3, "Gen 3 page rows")
 eq(page3.rows[2].value(OptionMenu3._ctx), "ALL AT ONCE", "rows read the game from the screen's ctx")
 local written = 0
 game3.writeOptions = function() written = written + 1 end

@@ -245,6 +245,46 @@ function Navigation:strengthActive()
   return flag ~= nil and call(Flags.getFlag, Space.store, nil, flag) == true
 end
 
+-- Auto-walk's boulder pushing (BoulderWalk.lua): the next push on a floor with
+-- pressure switches or boulder holes, and what still stands in the way of Strength.
+function Navigation:boulderOpening(world)
+  local ok, targets, boulders = pcall(Puzzle.targetsFor, world)
+  -- no targets left: the last boulder has dropped through its hole
+  if not (ok and targets) then return nil, "finished", nil, true end
+  local needs = Puzzle.strengthPrefix(self)
+  local okPush, push, why = pcall(Puzzle.nextPushFor, world, targets, boulders)
+  if not okPush then return nil, nil, needs, true end
+  if push then return push, nil, needs, true end
+  if why == "budget" then return nil, "searching", needs, true end
+  return nil, "finished", needs, true
+end
+
+-- A message or a yes/no is on screen, waiting for the player.
+function Navigation:promptWaiting()
+  local Message = loaded("src.ui.game3.message")
+  local Choice = loaded("src.ui.game3.choice")
+  return (Message ~= nil and Message.open == true) or (Choice ~= nil and Choice.active == true)
+end
+
+-- Auto-walk's switch trying (SwitchWalk.lua): the Secret Switches on this floor,
+-- each with the cells to stand on (the role comes from their scripts, Scripts.signRole).
+function Navigation:switchSigns(world)
+  local signs = {}
+  local ok, snapshot = pcall(self.captureWorld, self, "signposts")
+  if not (ok and type(snapshot) == "table") then return signs end
+  for _, item in ipairs(snapshot.browse or {}) do
+    if item.label == "Secret Switch" then
+      local goals = self:interactionGoals(world, item)
+      if type(goals) == "table" and #goals > 0 then
+        local cell = (item.interactionCells or {})[1] or item
+        signs[#signs + 1] = { label = "Secret Switch " .. tostring(cell.x) .. "," .. tostring(cell.y),
+          x = cell.x, y = cell.y, goals = goals }
+      end
+    end
+  end
+  return signs
+end
+
 -- Cut trees are objects in FireRed, handled by the route graph.
 function Navigation:isCuttableCell() return false end
 

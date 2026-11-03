@@ -16,6 +16,9 @@ return function(game)
   L.giveParty(6, 100, { "STRENGTH", "SURF" }, { "STRENGTH", "SURF" })
   local Player = require("src.core.game3.player")
 
+  -- follows the hints by hand, as with AUTO-WALK PUZZLES off
+  game.options.firered = game.options.firered or {}
+  game.options.firered.accessAutoWalkBoulders = false
   local function boulderEntity(id)
     for _, eo in ipairs(require("src.access.nav.gen3.World").actors()) do
       if require("src.access.nav.gen3.PuzzleAssistance").objectId(L.pos(), eo) == id then return eo end

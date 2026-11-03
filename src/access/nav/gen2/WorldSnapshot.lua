@@ -101,6 +101,10 @@ local function signRoleFromText(world, key)
   if labeled then return titled(labeled) end
   local slot = said:match("the ([%u ]-[%u]) slot")
   if slot then return titled(slot) .. " Slot" end
+  -- any other sign is named by the start of what it says
+  local first = words[1] and words[1]:gsub("{[^}]*}", " "):gsub("%c.*$", ""):gsub("%s+", " ")
+    :gsub("^%s+", ""):gsub("%s+$", "")
+  if first and first ~= "" then return "Sign: " .. first:sub(1, 48) end
   return nil
 end
 

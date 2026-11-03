@@ -1,6 +1,7 @@
 # Status
 
-**Current focus (2026-11-02):** the save editor (decision 38), then FireRed and
+**Current focus (2026-11-03):** the owner's plan: FireRed tonight (Tuesday), then Emerald Wednesday and
+Thursday; the owner returns to work Friday and expects little time after that. Earlier: the save editor (decision 38), FireRed and
 LeafGreen (decision 29). Gen 1
 and Gen 2 are built; the owner playtests them during the week (Crystal to
 the first gym: "It works perfectly"). Yellow's surfing minigame is the
@@ -144,6 +145,8 @@ and recorded in the topic file.
   menus remain. Not heard.
 - **Next:** the owner keeps playtesting FireRed. The end-to-end walkthrough after
   all merges speaks the intro, title, start menu, bag and dialogue.
+- **Audit (2026-11-03):** whole-map audit and fixes, by script; results in
+  `firered-leafgreen-navigation.md`. Pushed at the owner's request before an owner test. Not heard.
 - **LeafGreen:** deferred by the owner (decision 30); no clean dump on this
   PC yet. FireRed's whole UI first, with Pokémon Access as a behaviour
   reference.

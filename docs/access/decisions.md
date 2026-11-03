@@ -386,6 +386,11 @@ off ... manuals should be able to do it as well, if they have the proper guidanc
 on, auto-walk to a boulder or a hole fills the whole floor (`BoulderWalk.tryStone`); with it off, the
 hints work as before.
 
+FireRed, same day ("do a complete kind of search of FireRed"): auto-walk to a boulder, pressure switch or
+hole does the floor there too, using its own plan (`Navigation:boulderOpening`), and Secret Switches are
+tried like Goldenrod's. Non-adjacent warps to one map stay apart in Gen 2 and 3. Signs with no other name
+are "Sign: " and the start of their own text, in Gen 2 and 3.
+
 Same day, the owner on Goldenrod Underground: "I don't mind having the Pathfinder auto do it." So a
 target with no route also tries switches (`nav/SwitchWalk.lua`): signs whose text asks to turn them on
 or off are flipped, and each result is watched from the map itself, with no switch table. Same
