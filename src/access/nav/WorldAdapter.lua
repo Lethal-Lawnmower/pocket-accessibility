@@ -63,8 +63,9 @@ end
 
 function Gen1.transitioning(world)
   local player = world and world.player
+  -- a ledge hop is two cells on one input: mid-hop the player is on the ledge's own tile
   return (world and (world.spinnerSliding or world.transitioning))
-    or (player and player.spinning) or false
+    or (player and (player.spinning or player.ledgeHop)) or false
 end
 
 function Gen1.isBattle(state)

@@ -278,6 +278,11 @@ function Navigation:captureWorld(filter)
       local who = self.game.save and self.game.save.player or {}
       local name = Navigation.signNameFrom(self:signWords(mapId, def, item.textId),
         { player = who.name, rival = who.rival })
+      -- what runs a screen says nothing to read: the map's own name for it (TV, Vending
+      -- Machine 1, Prize Vendor 2)
+      if not name and type(item.textId) == "string" then
+        name = self.worldSnapshot.humanize((item.textId:gsub("^TEXT_%w+_", "")))
+      end
       if name then
         item.description = name .. tostring(item.description or ""):sub(#item.label + 1)
         item.label = name
@@ -310,16 +315,23 @@ function Navigation:stepInteraction(world, step)
   -- the tile number of water is a plain floor tile in some indoor tilesets
   if map:isWaterCell(step.x, step.y) and not map:isWalkableCell(step.x, step.y)
      and not map:isWaterCell(step.fromX, step.fromY) then
-    return { move = "Surf", failText = "Could not use Surf, auto walk stopped",
-      hint = "Use Surf facing " .. step.direction,
-      use = function()
-        if world.useSurfFieldMove and world:useSurfFieldMove() == "ok" then
-          local fx, fy = player:facingCell()
-          world:trySurf(fx, fy)
-          return true
-        end
-        return false
-      end }
+    local action = { move = "Surf", failText = "Could not use Surf, auto walk stopped",
+      hint = "Use Surf facing " .. step.direction }
+    action.use = function()
+      local why = world.useSurfFieldMove and world:useSurfFieldMove()
+      if why == "ok" then
+        local fx, fy = player:facingCell()
+        world:trySurf(fx, fy)
+        return true
+      end
+      -- Seafoam Islands B4F, before the boulders above have stopped its current
+      if why == "current" then
+        action.failText = "The current is too fast to Surf here, auto walk stopped"
+        action.hint = "Boulders dropped from the floor above calm it"
+      end
+      return false
+    end
+    return action
   end
   if self:isCuttableCell(world, step.x, step.y) then
     return { move = "Cut", failText = "Could not use Cut, auto walk stopped",
@@ -335,10 +347,45 @@ function Navigation:stepInteraction(world, step)
   return nil
 end
 
--- What is missing, when only that stands in the way ("Needs Surf"), for auto-walk's refusal.
+-- What stands in the way, for auto-walk's refusal: a field move ("Needs Surf"), the
+-- Cinnabar quiz doors, or a person in the only way through (the Game Corner's Rocket on
+-- his poster, a guard): the list names them, so the player knows who to deal with.
 function Navigation:routeNeeds(goals)
   local phrase = self:routeRequirement(goals)
   if phrase and phrase ~= "Cannot reach yet" then return phrase end
+  local world = Shared.worldForCommand(self)
+  if not world then return nil end
+  local passable = {}
+  for key, value in pairs(world) do passable[key] = value end
+  local people = {}
+  for _, entity in ipairs(world.entities or {}) do
+    if entity == world.player or (type(entity.def) == "table" and Map.isPushable(entity.def)) then
+      people[#people + 1] = entity
+    end
+  end
+  passable.entities, passable.npcs = people, nil
+  self.plannedWorld = passable
+  local ok, options = pcall(self.worldRouteRequest, self, goals, 2)
+  self.plannedWorld = nil
+  if ok and options then
+    local found, result = pcall(Pathfinder.find, options)
+    if found and result then
+      for _, step in ipairs(result.steps or {}) do
+        for _, entity in ipairs(world.entities or {}) do
+          if entity ~= world.player and entity.cellX == step.x and entity.cellY == step.y and not entity.passable then
+            local described = self.worldSnapshot.describeEntity(entity, { mapId = self:currentMapIdOf(world) })
+            return "Blocked by " .. tostring(described and described.label or "someone")
+          end
+        end
+      end
+    end
+  end
+  local traversal = TraversalSemantics.forMap(self:currentMapIdOf(world), world.map)
+  for _, switch in ipairs(traversal and traversal.switches or {}) do
+    if switch.gate and not self.game.save.flags[switch.stateFlag] then
+      return "Behind doors the quiz machines open"
+    end
+  end
   return nil
 end
 

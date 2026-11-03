@@ -7,12 +7,15 @@ return function(game)
   local U = dofile("tests/drivers/util.lua")
   if not U.newGame(game) then U.log("FAIL", "never reached the overworld") return end
 
-  local function axis(value) love.gamepadaxis(nil, "triggerleft", value) U.wait(5) end
+  -- the navigation module's own handlers: isolated.lua turns the love callbacks into
+  -- no-ops, so through them no press ever arrived and this reported a walk that never started
+  local Nav = require("src.access.nav")
+  local function axis(value) Nav.gamepadaxis(nil, "triggerleft", value) U.wait(5) end
   local function button(b, frames)
     U.log("pad", b)
-    love.gamepadpressed(nil, b)
+    Nav.gamepadpressed(nil, b)
     U.wait(2)
-    love.gamepadreleased(nil, b)
+    Nav.gamepadreleased(nil, b)
     U.wait(frames or 15)
   end
 

@@ -516,6 +516,7 @@ function AutoWalk.update(top)
     if not onMap(top) or transitioning() or overworld.map == walk.map then return end
     return nextLeg()
   end
+  if walk.teleported and onMap(top) and not transitioning() then return AutoWalk.stop(arrivalText()) end
   if walk.paused then
     local stack = package.loaded["src.core.StateStack"]
     if battleOnStack(stack) or battleTop(top) then walk.battleSeen = true end
@@ -560,7 +561,11 @@ function AutoWalk.update(top)
     -- screen opening on the destination cell is the arrival (or, mid-journey,
     -- the way onto the next map)
     local last = walk.steps[#walk.steps]
-    if last and player.cellX == last.x and player.cellY == last.y then
+    -- ...unless it is the game's text, which can turn the player back (Route 16's gate
+    -- guard on a player with no Bicycle): that pauses, as anywhere else
+    local TextBox = package.loaded["src.render.TextBox"]
+    local isText = TextBox and type(top) == "table" and getmetatable(top) == TextBox
+    if last and player.cellX == last.x and player.cellY == last.y and not (isText and walk.targetMapId) then
       if walk.journey and not walk.final then
         release(walk.input, walk.held)
         walk.held, walk.awaitingMap = nil, true
@@ -802,6 +807,17 @@ function AutoWalk.stepped(x, y)
   release(walk.input, walk.held)
   walk.held = nil
   steered()
+end
+
+-- Called from upstream's map.entered event, inside the game's step.  At a fast speed a
+-- whole door transition fits between two updates, and a direction still held on landing
+-- takes the stairs straight back (Celadon Mart, Silph Co.; the walk then said "Arrived"
+-- on the floor it started from).  A pad on one floor counts as arrival here too.
+function AutoWalk.mapEntered(mapId)
+  if not walk then return end
+  release(walk.input, walk.held)
+  walk.held = nil
+  if walk.targetMapId and walk.targetMapId == mapId and not walk.journey then walk.teleported = true end
 end
 
 -- For scripted debugging: the active walk's plan (read-only use).
