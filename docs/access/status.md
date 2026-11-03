@@ -16,6 +16,24 @@ and recorded in the topic file.
   `upstream` (bryanthaboi/pokemon-gen1-recomp-project) and `origin` (the
   public fork `pocket-accessibility` under the owner's GitHub account).
 - Commits use the owner's GitHub username and noreply address (decision 13).
+- **Upstream v0.4.0, merged 2026-11-02** (`de56d2eb`, only `.gitignore` conflicted). Gold,
+  Silver and Crystal must be imported again (cache format v18); saves are kept (seen on test
+  profiles only). Checked on old and new code from the same starting saves, on disposable
+  profiles: 80 driver runs, then speech traces for the 28 that logged none, two rounds each.
+  Every difference in speech traced to chance (battle rolls, genders, an elevator chosen
+  through `pairs`, one FireRed elevator prompt that varies on both). Failures on both: Red
+  `nav_controller` "auto-walk took the stairs"; the old `tests/access/nav` tests' known ones.
+  Two hangs on new code only, neither reproduced in 4 reruns under lighter load: FireRed
+  `gen3_battle` in the METAL CLAW prompt (1 of 6), Silver `gen2_nav_puzzle` at Blackthorn
+  Gym (1 of 6). Cause not found; not proven unrelated. Upstream's `--standard` suite: same 11
+  failed groups as before the merge; 5 new failures also fail on clean v0.4.0 (Windows `/tmp`,
+  patch notes). `accessibility.event` fails upstream's event catalog gate, as before.
+  `gen2_region_proof_test` fails only from a path with spaces. Not heard; no owner test.
+- `POKEPORT_IMPORT_ONLY` with a current cache starts the game instead of quitting (old code
+  too): scripted imports need a timeout.
+- Driver runs: `gen2_menus` needs `POKEPORT_BOOT_CINEMA=1`; many drivers log speech only with
+  `POKEPORT_ACCESS_TRACE=1`. At most 3 games at once, hidden, closed when done (owner's
+  request, 2026-11-02: "when you're done with a test, close it").
 - `core.autocrlf false` keeps upstream's line endings.
 - Issues enabled on the fork at the owner's request (2026-10-31); the README
   points bug reports there and to the owner's Discord username.

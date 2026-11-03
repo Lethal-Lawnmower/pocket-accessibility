@@ -63,7 +63,7 @@ third-generation GBA games.
 > navigation, auto-walk and puzzle help for the Ice Path and Blackthorn Gym
 > boulders are in place and pass automated tests and scripted runs in all
 > three games. I have played Crystal from a new game to the first gym; Gold
-> and Silver have not been played by anyone yet. Expect rough edges.
+> and Silver have not been played by anyone yet. Expect mild inconveniences to moderate bugs.
 
 > [!IMPORTANT]
 > **FireRed: initial groundwork.** Menus, battles, navigation, auto-walk
