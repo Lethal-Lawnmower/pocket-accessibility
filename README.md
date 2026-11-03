@@ -75,6 +75,13 @@ third-generation GBA games.
 > three games. I have played Crystal from a new game to the first gym; Gold
 > and Silver have not been played by anyone yet. Expect mild inconveniences to moderate bugs.
 
+> [!TIP]
+> **The Farfetch'd in Ilex Forest (Gold, Silver, Crystal).** Auto-walk to it,
+> press A once, then auto-walk again without moving, and it keeps after the bird
+> by itself. It learns by trying each side, and the wrong side can send the bird
+> backwards, so this can take a while: 19 to 36 attempts in our test runs. It
+> gives up after 64. Press A through each "Kwaa!" message.
+
 > [!IMPORTANT]
 > **FireRed: initial groundwork.** Menus, battles, navigation, auto-walk
 > and Strength puzzle help are in place and pass automated tests and

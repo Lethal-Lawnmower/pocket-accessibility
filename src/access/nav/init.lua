@@ -13,6 +13,7 @@
 
 local Speech = require("src.access.Speech")
 local AutoWalk = require("src.access.nav.AutoWalk")
+local Chase = require("src.access.nav.Chase")
 local WalkSpeed = require("src.access.nav.WalkSpeed")
 local WorldAdapter = require("src.access.nav.WorldAdapter")
 
@@ -124,6 +125,7 @@ local function ensure()
     return coordinator, adapter, game
   end
   if coordinator then pcall(coordinator.shutdown, coordinator) end
+  Chase.stop()
   AutoWalk.stop()
   local ok, err = pcall(build, game, adapter)
   if not ok then
@@ -139,6 +141,7 @@ function Nav.update()
   if not nav then return end
   nav:updateNavigation()
   AutoWalk.update(adapter.top(game))
+  Chase.update()
   WalkSpeed.update(game, AutoWalk.walking(), AutoWalk.turning())
 end
 
@@ -146,6 +149,11 @@ end
 function Nav.keypressed(key, _, isRepeat)
   local nav, adapter, game = ensure()
   if not nav or not router then return false end
+  -- any key stops a chase on the open map (its text stays the player's)
+  if Chase.active() and adapter.onMap(game) then
+    Chase.stop("Auto walk stopped")
+    return true
+  end
   -- any key stops auto-walk while it walks (not while paused for a battle)
   if AutoWalk.walking() then
     AutoWalk.stop("Auto walk stopped")
@@ -190,6 +198,11 @@ end
 function Nav.gamepadpressed(_, button)
   local nav, adapter, game = ensure()
   if not nav then return false end
+  if Chase.active() and adapter.onMap(game) then
+    Chase.stop("Auto walk stopped")
+    consumedButtons[button] = true
+    return true
+  end
   if AutoWalk.walking() and button ~= "leftstick" then
     AutoWalk.stop("Auto walk stopped")
     consumedButtons[button] = true

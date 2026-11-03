@@ -66,6 +66,10 @@ paths are unchanged.
 - **Q** reads weekday, 12-hour time with AM/PM (as the Pokégear prints it) and
   morning, day or night. **Shift+E** on the Unown puzzle reads the held piece.
   Renaming uses Gen 2's naming screen.
+- **Chase (decision 40):** walk to an object, talk to it; if it runs off, auto-walk again
+  keeps after it (`nav/Chase.lua`). `drivers/gen2_chase.lua`, harness pressing A in text:
+  the game set `EVENT_HERDED_FARFETCHD` in Crystal (33 presses), Gold (19), Silver (36);
+  counts vary with the sides tried. `tests/access/chase_test.lua` 9/9. Not heard.
 - **Strength puzzles (Ice Path B1F, Blackthorn Gym 2F):** targets come only
   from the stone table the world is polling. Holes are listed "Hole N" with
   their state ("empty; Boulder 3 can reach it; next push right", "filled").

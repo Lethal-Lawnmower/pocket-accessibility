@@ -34,6 +34,9 @@ local MAX_RESUMES_AT_CELL = 3
 local MAX_JOURNEY_LEGS = 32
 
 local walk = nil -- active walk, or nil
+-- Where the last walk to an object ended, for Chase: the player's cell and
+-- where the object stood.
+local lastArrival = nil
 
 local function hold(input, dir)
   input.sources = input.sources or {}
@@ -59,6 +62,10 @@ local function release(input, dir)
     input.state[dir] = false
   end
 end
+
+-- For Chase, which faces an object the way a walk faces an obstacle.
+AutoWalk.holdDirection = hold
+AutoWalk.releaseDirection = release
 
 function AutoWalk.active() return walk ~= nil end
 
@@ -152,7 +159,20 @@ end
 -- Starts walking to the coordinator's selected object.  Returns true when
 -- walking began; otherwise speaks why not.  `adapter` defaults to the running
 -- game's (WorldAdapter.current), Gen 1 when none is known.
-function AutoWalk.start(nav, game, adapter)
+local function noteArrival()
+  if walk.quiet or walk.targetType ~= "object" or type(walk.targetX) ~= "number" then return end
+  local player = walk.overworld.player
+  lastArrival = { id = walk.targetId, label = walk.label, map = walk.overworld.map,
+    x = player.cellX, y = player.cellY,
+    targetX = walk.targetX, targetY = walk.targetY }
+end
+
+-- opts (for Chase): goals replaces the selected object's cells; quiet says
+-- neither the start nor the arrival.
+function AutoWalk.start(nav, game, adapter, opts)
+  opts = opts or {}
+  local Chase = require("src.access.nav.Chase")
+  if not opts.quiet and Chase.active() then return Chase.stop("Auto walk stopped") end
   if walk then return AutoWalk.stop("Auto walk stopped") end
   adapter = adapter or WorldAdapter.current() or WorldAdapter.gen1
   local tooDark = type(nav.darkRefusal) == "function" and nav:darkRefusal()
@@ -160,11 +180,23 @@ function AutoWalk.start(nav, game, adapter)
     Speech.say(tooDark, { interrupt = true })
     return false
   end
+  if lastArrival and not opts.quiet then Chase.relink(nav, lastArrival.id, lastArrival.label) end
   local item, goals, interaction, _, overworld = nav:selectedRouteGoals()
   if not item then
     Speech.say(goals or "Select an object from the list", { interrupt = true })
     return false
   end
+  -- it ran off while the player stood beside it: keep after it
+  local seen = lastArrival
+  if not opts.quiet and seen and item.label == seen.label and seen.map == overworld.map
+     and seen.x == overworld.player.cellX and seen.y == overworld.player.cellY
+     and type(item.x) == "number" and type(item.y) == "number"
+     and math.abs(item.x - seen.targetX) + math.abs(item.y - seen.targetY) >= 2 then
+    lastArrival = nil
+    return Chase.start(nav, game, adapter, item, overworld)
+  end
+  lastArrival = nil
+  if opts.goals then goals = opts.goals end
   if type(goals) ~= "table" or #goals == 0 then
     Speech.say("No route to " .. tostring(item.label), { interrupt = true })
     return false
@@ -201,7 +233,9 @@ function AutoWalk.start(nav, game, adapter)
     end
   end
   if not result then
-    Speech.say(spokenReason(findErr or "no path", item.label), { interrupt = true })
+    if not opts.quiet then
+      Speech.say(spokenReason(findErr or "no path", item.label), { interrupt = true })
+    end
     return false
   end
   local player = overworld.player
@@ -219,6 +253,8 @@ function AutoWalk.start(nav, game, adapter)
     label = item.label,
     -- an object target is looked up again after a pause (refreshTarget)
     targetId = item.id, targetType = item.type,
+    targetX = item.x, targetY = item.y,
+    quiet = opts.quiet,
     -- the map a warp target leads to: reaching it is the arrival even when
     -- a fast game speed moved the player past the last step between two
     -- updates (several tiles per real frame at 200X)
@@ -251,14 +287,17 @@ function AutoWalk.start(nav, game, adapter)
     local hint = interaction and result.goal
       and interaction[tostring(result.goal.x) .. "," .. tostring(result.goal.y)]
     if hint then text = text .. ". " .. tostring(hint) end
-    AutoWalk.stop(text)
+    noteArrival()
+    AutoWalk.stop(not opts.quiet and text or nil)
     return true
   end
-  Speech.say("Walking to " .. tostring(item.label), { interrupt = true })
+  if not opts.quiet then Speech.say("Walking to " .. tostring(item.label), { interrupt = true }) end
   return true
 end
 
 local function arrivalText()
+  noteArrival()
+  if walk.quiet then return nil end
   -- a leg that ends where the player must act: an elevator's panel, thin
   -- ice to crack (Navigation:regionalNextLeg's stopAtGoal)
   if walk.stopText then return walk.stopText end
@@ -349,6 +388,7 @@ local function refreshTarget()
     if item.id == walk.targetId then present = true break end
   end
   if not present then return false end
+  if walk.quiet then return true end -- Chase chose this side: a battle must not change it
   local okGoals, item, goals, interaction = pcall(nav.selectedRouteGoals, nav)
   if okGoals and type(item) == "table" and item.id == walk.targetId
      and type(goals) == "table" and #goals > 0 then
@@ -667,6 +707,8 @@ end
 -- For scripted debugging: the active walk's plan (read-only use).
 function AutoWalk._state() return walk end
 
-function AutoWalk._resetForTests() walk = nil end
+function AutoWalk._lastArrival() return lastArrival end
+
+function AutoWalk._resetForTests() walk, lastArrival = nil, nil end
 
 return AutoWalk

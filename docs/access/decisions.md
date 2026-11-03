@@ -362,3 +362,13 @@ Scrap the current method we have." So: a standard Windows Forms window in the la
 over upstream's save logic, which runs windowless and unedited. Authorizes subagents
 for this work. Does not authorize a push. The owner tests the finished result.
 Refines #5: the logic carries over, upstream's interface does not face the player.
+
+## 40. Auto-walk chases what runs off, from live state only (2026-11-02)
+
+The owner asked for auto-walk to handle the Ilex Forest Farfetch'd "without any hard-coded
+assumptions". `src/access/nav/Chase.lua` knows no map, object or script. After a walk to an
+object, if the player stayed put and the object is now at least two cells away, the next
+auto-walk tries each side, watches where it goes, remembers each result and stops when no
+untried side is left. Game text stays the player's to advance. An object that changes id
+(Gold and Silver show one bird per place) is followed by name when exactly one has it.
+

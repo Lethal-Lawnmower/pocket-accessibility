@@ -30,6 +30,7 @@ and recorded in the topic file.
   failed groups as before the merge; 5 new failures also fail on clean v0.4.0 (Windows `/tmp`,
   patch notes). `accessibility.event` fails upstream's event catalog gate, as before.
   Pushed 2026-11-02 at the owner's request, before the owner's Crystal test, which the owner plans to play that night and the next day.
+  Owner's Crystal playthrough on the merged code (their report): reached the second gym, next the Ilex Forest Farfetch'd.
   `gen2_region_proof_test` fails only from a path with spaces. The new Gen 2 UI LAYOUT row was
   not reached by any driver. Not heard; no owner test.
 - `POKEPORT_IMPORT_ONLY` with a current cache starts the game instead of quitting (old code
@@ -45,6 +46,10 @@ and recorded in the topic file.
   `BattleState` about coarse flashes applies only when the animation player fails. Importer
   accepts original ROMs only, so Virtual Console's reduced flashing is not present. No game
   changes (decision 10); any reduced-flash option is the owner's decision.
+- **Chase (decision 40, 2026-11-02):** works by script in all three Gen 2 games, not heard; pushed at the
+  owner's request. Regressions run: `auto_walk_test`, `gen2_nav`, `gen3_nav`, Red `navigation` and
+  `autowalk_battle`. Owner's report, 2026-11-03: through Ilex Forest and on to Goldenrod in Crystal; did not
+  say how the chase itself went. README tells players the attempt counts.
 - `core.autocrlf false` keeps upstream's line endings.
 - Issues enabled on the fork at the owner's request (2026-10-31); the README
   points bug reports there and to the owner's Discord username.
