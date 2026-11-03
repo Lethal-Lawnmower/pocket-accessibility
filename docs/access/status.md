@@ -17,8 +17,9 @@ and recorded in the topic file.
   public fork `pocket-accessibility` under the owner's GitHub account).
 - Commits use the owner's GitHub username and noreply address (decision 13).
 - **Upstream v0.4.0, merged 2026-11-02** (`de56d2eb`, only `.gitignore` conflicted). Gold,
-  Silver and Crystal must be imported again (cache format v18); saves are kept (seen on test
-  profiles only). Checked on old and new code from the same starting saves, on disposable
+  Silver and Crystal must be imported again (cache format v18). On a disposable Crystal
+  profile the save files were byte-identical after the import, and a save from before the
+  merge continued on the new code (an early save with no party). Checked on old and new code from the same starting saves, on disposable
   profiles: 80 driver runs, then speech traces for the 28 that logged none, two rounds each.
   Every difference in speech traced to chance (battle rolls, genders, an elevator chosen
   through `pairs`, one FireRed elevator prompt that varies on both). Failures on both: Red
@@ -28,7 +29,8 @@ and recorded in the topic file.
   Gym (1 of 6). Cause not found; not proven unrelated. Upstream's `--standard` suite: same 11
   failed groups as before the merge; 5 new failures also fail on clean v0.4.0 (Windows `/tmp`,
   patch notes). `accessibility.event` fails upstream's event catalog gate, as before.
-  `gen2_region_proof_test` fails only from a path with spaces. Not heard; no owner test.
+  `gen2_region_proof_test` fails only from a path with spaces. The new Gen 2 UI LAYOUT row was
+  not reached by any driver. Not heard; no owner test.
 - `POKEPORT_IMPORT_ONLY` with a current cache starts the game instead of quitting (old code
   too): scripted imports need a timeout.
 - Driver runs: `gen2_menus` needs `POKEPORT_BOOT_CINEMA=1`; many drivers log speech only with
