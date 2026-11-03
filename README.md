@@ -1,5 +1,15 @@
 # Pocket Accessibility
 
+> [!WARNING]
+> **Seizure and flashing warning, in my own words.** This README was generated
+> by AI, with human bits added where needed, and this is one of them. Seizures,
+> epilepsy and disabilities can range widely. These older games had a lot of
+> flashing, weird colors and strobing. I cannot account for all types of
+> disabilities or scenarios.
+>
+> See also Nintendo's
+> [information about photosensitivity](https://en-americas-support.nintendo.com/app/answers/detail/a_id/59596).
+
 ## Currently Supported Games
 
 Pokémon Red, Blue, Yellow, Gold, Silver, Crystal and FireRed.

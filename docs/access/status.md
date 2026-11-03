@@ -29,6 +29,7 @@ and recorded in the topic file.
   Gym (1 of 6). Cause not found; not proven unrelated. Upstream's `--standard` suite: same 11
   failed groups as before the merge; 5 new failures also fail on clean v0.4.0 (Windows `/tmp`,
   patch notes). `accessibility.event` fails upstream's event catalog gate, as before.
+  Pushed 2026-11-02 at the owner's request, before the owner's Crystal test, which the owner plans to play that night and the next day.
   `gen2_region_proof_test` fails only from a path with spaces. The new Gen 2 UI LAYOUT row was
   not reached by any driver. Not heard; no owner test.
 - `POKEPORT_IMPORT_ONLY` with a current cache starts the game instead of quitting (old code
@@ -36,6 +37,14 @@ and recorded in the topic file.
 - Driver runs: `gen2_menus` needs `POKEPORT_BOOT_CINEMA=1`; many drivers log speech only with
   `POKEPORT_ACCESS_TRACE=1`. At most 3 games at once, hidden, closed when done (owner's
   request, 2026-11-02: "when you're done with a test, close it").
+- **Flashing warning (owner's words, 2026-11-02):** at the top of the README. Nintendo's public
+  position is a player warning (support article 59596); no public limit on flashing found. Source
+  read, not measured: BATTLE ANIMATION (Gen 1) and BATTLE SCENE (Gen 2, Gen 3) skip move
+  animations; ball animations stay in Gen 1, non-move animations stay in Gen 2, and the battle intro
+  transitions of all three generations have no check for the setting. The stale comment in Gen 1
+  `BattleState` about coarse flashes applies only when the animation player fails. Importer
+  accepts original ROMs only, so Virtual Console's reduced flashing is not present. No game
+  changes (decision 10); any reduced-flash option is the owner's decision.
 - `core.autocrlf false` keeps upstream's line endings.
 - Issues enabled on the fork at the owner's request (2026-10-31); the README
   points bug reports there and to the owner's Discord username.
