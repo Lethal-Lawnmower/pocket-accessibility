@@ -59,7 +59,7 @@ and recorded in the topic file.
 - **Switch trying (decision 41, 2026-11-03):** owner accepted in Crystal, same day: "Yep, it flipped." Gold and Silver
   unproven. Owner asked to push once the Elite Four were beaten, and reported that, 2026-11-03: "Stomp the
   Elite Four in about 30 seconds. We're done." First owner playthrough of Crystal, on v0.4.0.
-- **Filling holes (decision 41, 2026-11-03):** by script in all three Gen 2 games. Whether the owner used it was not said.
+- **Filling holes (decision 41, 2026-11-03):** owner accepted in Crystal, 2026-11-03, on Ice Path and Blackthorn Gym. Gold and Silver by script only.
 - `core.autocrlf false` keeps upstream's line endings.
 - Issues enabled on the fork at the owner's request (2026-10-31); the README
   points bug reports there and to the owner's Discord username.

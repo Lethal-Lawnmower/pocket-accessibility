@@ -85,7 +85,7 @@ paths are unchanged.
   46 pushes, Blackthorn 2F 22, then "All the holes are filled". With it off, `gen2_nav_puzzle` follows the
   hints as before. Pushes run at 1X and a walk to a pushing cell lets go during its last step: at any speed
   the game starts the next step in the tick it lands, and the player walked past the cell or into a hole.
-  Not heard. The harness gave a strong lead with a Repel.
+  The harness gave a strong lead with a Repel. Owner used it on Ice Path and Blackthorn Gym in Crystal, 2026-11-03.
 - **Switches (decision 41):** a target with no route flips signs that ask to be turned on or off,
   and learns from the map. `drivers/gen2_switches.lua` on a copy of the owner's Crystal save, switches
   1 and 3 on: Switch 1, Switch 2, Switch 1, then the warehouse (all three on). An earlier run without
