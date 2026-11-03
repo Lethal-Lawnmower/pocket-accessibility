@@ -2157,7 +2157,9 @@ function Accessibility:regionalNextLeg(navigation)
       return self:regionalTransitions(routeMapId)
     end,
     maxStates = 96, maxTransitions = 16,
-    maxSeconds = 0.5, maxRouteSeconds = 0.05,
+    -- Olivine Lighthouse, with sides reached only through drops, takes 0.7 to
+    -- 0.9 seconds from its first floor (measured 2026-11-03).
+    maxSeconds = 1.5, maxRouteSeconds = 0.05,
   })
   if not result then return nil, reason end
   if result.final then

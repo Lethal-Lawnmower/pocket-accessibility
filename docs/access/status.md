@@ -30,7 +30,7 @@ and recorded in the topic file.
   failed groups as before the merge; 5 new failures also fail on clean v0.4.0 (Windows `/tmp`,
   patch notes). `accessibility.event` fails upstream's event catalog gate, as before.
   Pushed 2026-11-02 at the owner's request, before the owner's Crystal test, which the owner plans to play that night and the next day.
-  Owner's Crystal playthrough on the merged code (their report): reached the second gym, next the Ilex Forest Farfetch'd.
+  Owner's Crystal playthrough on the merged code (their report, 2026-11-03): through the fourth gym and its invisible floors "with no issues".
   `gen2_region_proof_test` fails only from a path with spaces. The new Gen 2 UI LAYOUT row was
   not reached by any driver. Not heard; no owner test.
 - `POKEPORT_IMPORT_ONLY` with a current cache starts the game instead of quitting (old code
@@ -50,6 +50,9 @@ and recorded in the topic file.
   owner's request. Regressions run: `auto_walk_test`, `gen2_nav`, `gen3_nav`, Red `navigation` and
   `autowalk_battle`. Owner accepted in Crystal, 2026-11-03: "Autowalk did do the chase", through Ilex Forest and
   on to Goldenrod. Gold and Silver by script only. README tells players the attempt counts.
+- **Lost dialogue (2026-11-03):** Prism refuses some lines as invalid UTF-8 (`gold-silver-crystal.md`).
+  `Speech.say` now retries in ASCII. Owner heard Jasmine's lost line after the fix, 2026-11-03: "It
+  works. Perfect." Silent driver runs cannot catch this kind of failure. Other lost lines not rechecked.
 - `core.autocrlf false` keeps upstream's line endings.
 - Issues enabled on the fork at the owner's request (2026-10-31); the README
   points bug reports there and to the owner's Discord username.

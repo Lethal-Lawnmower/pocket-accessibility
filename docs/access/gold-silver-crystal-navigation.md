@@ -179,6 +179,5 @@ auto-walk; `AGENTS.md` now requires `drivers/isolated.lua`).
 stone tables (the player walks there and acts); Cianwood Gym's boulders
 have no push hints; the Goldenrod Underground switches, Vermilion Gym's
 trash cans and the Ruins chamber statues stay "Signpost N" (their scripts
-name nothing); Area journeys through the Olivine Lighthouse exceed the 0.5
-second planning budget; single-map auto-walk does not take same-map pads
+name nothing); single-map auto-walk does not take same-map pads
 (Saffron Gym), as in Gen 1.

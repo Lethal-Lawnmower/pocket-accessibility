@@ -1037,9 +1037,9 @@ function Navigation:regionalDestinationName(mapId)
   return tostring(mapId)
 end
 
--- The Area category (decision 25) on Gen 2 maps: item balls the game would
--- still show on the other maps of the current building or zone (maps sharing
--- the first two words of their id), named by item and map.
+-- The Area category (decision 25) on Gen 2 maps: each other map of the current
+-- building or zone (maps sharing the first two words of their id), and the item
+-- balls the game would still show on it, named by item and map.
 function Navigation:areaBrowse(world)
   local data = self.game and self.game.data
   local maps = data and data.gen2Maps or {}
@@ -1059,6 +1059,20 @@ function Navigation:areaBrowse(world)
   for _, mapId in ipairs(members) do
     if mapId ~= here then
       local mapName = self:regionalDestinationName(mapId)
+      -- the map itself stays a target with no items left on it, aimed at
+      -- through a warp whose four sides are all on the map (a journey's goals
+      -- are the cells around its target, and one off the map refuses the route)
+      local width, height = (maps[mapId].width or 0) * 2, (maps[mapId].height or 0) * 2
+      for _, warp in ipairs(maps[mapId].warps or {}) do
+        if warp.x > 0 and warp.y > 0 and warp.x < width - 1 and warp.y < height - 1 then
+          items[#items + 1] = {
+            id = "area:" .. mapId, type = "area", category = "area",
+            label = tostring(mapName), description = tostring(mapName),
+            mapId = mapId, x = warp.x, y = warp.y,
+          }
+          break
+        end
+      end
       for _, object in ipairs(maps[mapId].objects or {}) do
         local ball = type(object.itemball) == "table" and object.itemball or nil
         if ball and self:regionalObjectVisible(object) then

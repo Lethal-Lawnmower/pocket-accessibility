@@ -140,7 +140,7 @@ Gen 2 navigation and the cross-edition audit are in
   "Rival", "Turned back again", "<name> is gone", "No route to ... from
   here". Should auto-walk smash rocks the way it uses Cut and Surf? Should
   push hints cover boulders outside the stone tables (Cianwood Gym)? Raise
-  the planning budget for long Area journeys (Olivine Lighthouse)?
+  the planning budget for long Area journeys (done 2026-11-03, see Olivine Lighthouse floors)?
 - Navigation defaults (agent recommendations): map name is the humanised
   id plus Crystal's entry sign when it differs; hidden items are not listed
   (as in Gen 1); field obstacles are listed with what they still need; item
@@ -185,3 +185,46 @@ Gen 2 navigation and the cross-edition audit are in
 - The slot machine's lucky odds are never used (`opts.lucky` is never passed).
 - From source only: `Game2:useFieldItem`'s TM branch opens the party
   without the TM check, so rows show HP instead of able.
+
+## Early Tin Tower and Suicune (Crystal)
+
+Owner's play, 2026-11-03: walked into Tin Tower with four badges and fought Suicune at level
+40, no Clear Bell. Source read (pret `maps/EcruteakTinTowerEntrance.asm`, `TinTower1F.asm`, and
+the extracted scripts): the entrance only blocks once the Radio Tower is cleared, and before
+that the sage says to go through with the Fog Badge; Tin Tower 1F's first scene is the battle.
+So the cartridge's scripts allow it; not run on hardware. The fight happens once. Not explained:
+the save has the entrance's scene at 1, which the scripts read here set only with the Clear Bell.
+
+## Olivine Lighthouse floors (Crystal)
+
+Owner's play, 2026-11-03: could not navigate up from the floors, and used the 5F Rare Candy
+in the object list to move around. Checked on a copy of the owner's save, by asking for a route
+from each warp cell on each floor (routes started, only partly walked): each floor is split
+into separate sides. The usual climb reaches 5F's side with the Rare Candy and TM Swagger, where
+6F says "No route". 6F's side comes from 4F's "Drop to Olivine Lighthouse 3F, entrance 2 of 2",
+then 3F to 4F entrance 2, then 4F to 5F entrance 2. This is the game's layout, not a block.
+Same-map routes cannot see through a drop. Fixed 2026-11-03 at the owner's request, nothing
+lighthouse-specific: the shared journey planning limit went from 0.5 to 1.5 seconds (planning
+measured 0.7 to 0.9), which applies to every generation, and Gen 2's Area list now names each
+other map of the building or zone, so a floor stays a target with its items gone. Manual play
+is unchanged. `drivers/gen2_lighthouse.lua` walked 1F to 6F, the wrong side of 5F to 6F, 6F to
+1F and 3F to 5F in Crystal, Gold and Silver, drops included, by script. Not heard. A floor with
+two sides is aimed at through one warp, so its arrival side is whichever that warp is on.
+
+## Unread lines at the lighthouse (owner report, 2026-11-03, open)
+
+The owner heard lines missing when talking to Jasmine and Amphy on Olivine Lighthouse 6F. Replayed
+on a copy of the save with Jasmine's first speech restored and A pressed at three speeds: every
+page and scrolled line reached `Speech.say` in order. So the loss, if it is ours, is after that
+point or in another state (after the medicine). Not reproduced; nothing heard by an agent.
+Second report, 2026-11-03, Jasmine in Olivine Gym after the badge ("Um… I don't know how to say
+this, but good luck…"). Replayed on a copy of the save with the owner's options, A held 2, 6 and
+15 frames: both lines reached `Speech.say`, in order, valid UTF-8, no failure logged. In these
+scripted runs `logicSpeed` read 1, so the owner's game speed was not reproduced. Owner, same day: hears only "I don't know how to say this", nothing after. Forced game speeds 1, 2, 4,
+8 and 30, tap and hold: "but good luck…" still reached `Speech.say` on the second press, so game speed
+alone is not the cause in scripted runs. Owner's real game with `POKEPORT_ACCESS_TRACE=1`: the line
+was sent and Prism refused it, `[warn] [access] speech failed: Invalid UTF-8`, though the logged
+bytes are valid and end in U+2026. "Um… I don't know how to say this," passed. Scripted runs set
+`POKEPORT_ACCESS_SILENT`, which returns before Prism, so they could not see this. Fix in
+`Speech.say`: a line refused that way is said again in ASCII; the cause inside Prism is unknown.
+
