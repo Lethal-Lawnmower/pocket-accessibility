@@ -40,6 +40,7 @@ local maps = dofile(dir .. "/maps.lua")
 local tilesets = dofile(dir .. "/tilesets.lua")
 local items = readable(dir .. "/items.lua") and dofile(dir .. "/items.lua") or {}
 local scripts = readable(dir .. "/scripts.lua") and dofile(dir .. "/scripts.lua") or {}
+local texts = readable(dir .. "/text.lua") and dofile(dir .. "/text.lua") or {}
 local initial = readable(dir .. "/initial_events.lua") and dofile(dir .. "/initial_events.lua") or {}
 local constants = readable(dir .. "/constants.lua") and dofile(dir .. "/constants.lua") or {}
 local sprites = readable(dir .. "/sprites.lua") and dofile(dir .. "/sprites.lua") or {}
@@ -88,7 +89,7 @@ local function world(mapId, px, py, opts)
   local events = Events.new()
   for _, flag in ipairs(initial.flags or {}) do events:set(flag, true) end
   local w = {
-    map = map, maps = maps, tilesets = tilesets, scripts = scripts, events = events,
+    map = map, maps = maps, tilesets = tilesets, scripts = scripts, text = texts, events = events,
     constants = constants,
     player = { cellX = px, cellY = py, facing = "down", moving = false },
     npcs = {}, cmdQueue = CmdQueue.new(), party = opts.party or {},
@@ -497,6 +498,24 @@ do -- named from the game's own data rather than the sheet or "Signpost N"
   byLabel, _, all = labelsOn("CELADON_MANSION_1F")
   check(byLabel and byLabel["Meowth"] and not byLabel["Growlithe"],
     "Celadon Mansion 1F: the Meowth drawn with GROWLITHE's sheet: " .. tostring(all))
+  -- signs named from their own words: every one on every map, printed for review
+  local named = {}
+  for mapId in pairs(maps) do
+    local okLabels, labels = pcall(labelsOn, mapId)
+    if okLabels and type(labels) == "table" then
+      for label in pairs(labels) do
+        if label == "Locked Door" or label:find("^Switch ") or label:find(" Slot$") then
+          named[#named + 1] = mapId .. " = " .. label
+        end
+      end
+    end
+  end
+  table.sort(named)
+  print("signs named from their words: " .. table.concat(named, "; "))
+  byLabel = labelsOn("TEAM_ROCKET_BASE_B3F")
+  check(byLabel and byLabel["Locked Door"], "Team Rocket Base B3F: the password door is a Locked Door")
+  byLabel = labelsOn("GOLDENROD_UNDERGROUND_SWITCH_ROOM_ENTRANCES")
+  check(byLabel and byLabel["Switch 1"], "Goldenrod Underground: switches say their label")
   byLabel, _, all = labelsOn("VIRIDIAN_GYM")
   check(byLabel and byLabel["Gym Statue"], "Viridian Gym: the statues are Gym Statue: " .. tostring(all))
   byLabel, _, all = labelsOn("GOLDENROD_GAME_CORNER")

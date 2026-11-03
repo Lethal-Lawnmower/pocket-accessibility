@@ -67,6 +67,43 @@ local SCRIPT_BRANCHES = {
 -- The role a sign's script names, read from the extracted scripts (never
 -- run): the script itself and the branches it can take, two levels deep.  The
 -- elevator car's panel (the `elevator` command) is the "Floor Panel" (Gen 1: "Floor panel").
+-- What a sign is from its own words, when no standard script names it.  A
+-- script that changes the map and mentions a door is a door to open; a sign
+-- saying what it is labeled, or what slot it is, is that.  Read from the
+-- extracted text (never run), the same two levels deep.
+local function signRoleFromText(world, key)
+  local scripts = type(world) == "table" and world.scripts or nil
+  local texts = type(world) == "table" and world.text or nil
+  if type(scripts) ~= "table" or type(texts) ~= "table" or type(key) ~= "string" then return nil end
+  local seen, words, changesMap = {}, {}, false
+  local function walk(scriptKey, depth)
+    if depth > 2 or type(scriptKey) ~= "string" or seen[scriptKey] then return end
+    seen[scriptKey] = true
+    local list = scripts[scriptKey]
+    if type(list) ~= "table" then return end
+    for _, cmd in ipairs(list) do
+      if type(cmd) == "table" then
+        if cmd.op == "changeblock" then changesMap = true end
+        if cmd.op == "writetext" and type(texts[cmd.text]) == "string" then
+          words[#words + 1] = texts[cmd.text]
+        end
+        if SCRIPT_BRANCHES[cmd.op] then walk(cmd.script, depth + 1) end
+      end
+    end
+  end
+  walk(key, 0)
+  local said = table.concat(words, " "):gsub("%s+", " ")
+  if changesMap and said:lower():find("%f[%a]door%f[%A]") then return "Locked door" end
+  local function titled(name)
+    return (name:lower():gsub("(%a)(%a*)", function(a, b) return a:upper() .. b end))
+  end
+  local labeled = said:match("labeled ([%u%d ]-[%u%d])%.")
+  if labeled then return titled(labeled) end
+  local slot = said:match("the ([%u ]-[%u]) slot")
+  if slot then return titled(slot) .. " Slot" end
+  return nil
+end
+
 local function signRole(world, key)
   local scripts = type(world) == "table" and world.scripts or nil
   if type(scripts) ~= "table" or type(key) ~= "string" then return nil end
@@ -167,7 +204,7 @@ local function projectSigns(def, world, map)
       signs[#signs + 1] = {
         x = nearest.x, y = nearest.y,
         name = event.accessibilityLabel or tile or signRole(world, key)
-          or ("Signpost " .. first.index),
+          or signRoleFromText(world, key) or ("Signpost " .. first.index),
         accessibilityId = event.accessibilityId
           or ("bg_event:" .. tostring(def.id) .. ":" .. first.index),
         requiredFacing = SIGN_FACING[first.kind],

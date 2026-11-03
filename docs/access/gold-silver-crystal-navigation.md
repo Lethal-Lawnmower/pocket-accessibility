@@ -177,7 +177,6 @@ auto-walk; `AGENTS.md` now requires `drivers/isolated.lua`).
 
 **Audit gaps:** auto-walk does not smash rocks or push boulders outside the
 stone tables (the player walks there and acts); Cianwood Gym's boulders
-have no push hints; the Goldenrod Underground switches, Vermilion Gym's
-trash cans and the Ruins chamber statues stay "Signpost N" (their scripts
-name nothing); single-map auto-walk does not take same-map pads
+have no push hints; Vermilion Gym's trash cans and the Ruins chamber statues
+stay "Signpost N" (their scripts name nothing); single-map auto-walk does not take same-map pads
 (Saffron Gym), as in Gen 1.

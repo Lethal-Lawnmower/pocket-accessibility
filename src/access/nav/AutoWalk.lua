@@ -180,7 +180,8 @@ function AutoWalk.start(nav, game, adapter, opts)
     Speech.say(tooDark, { interrupt = true })
     return false
   end
-  if lastArrival and not opts.quiet then Chase.relink(nav, lastArrival.id, lastArrival.label) end
+  local followed = lastArrival and not opts.quiet
+    and Chase.relink(nav, lastArrival.id, lastArrival.label) or nil
   local item, goals, interaction, _, overworld = nav:selectedRouteGoals()
   if not item then
     Speech.say(goals or "Select an object from the list", { interrupt = true })
@@ -188,7 +189,9 @@ function AutoWalk.start(nav, game, adapter, opts)
   end
   -- it ran off while the player stood beside it: keep after it
   local seen = lastArrival
-  if not opts.quiet and seen and item.label == seen.label and seen.map == overworld.map
+  -- (the same object, or the one that took over its name when its id left the
+  -- list: another object that merely shares a name, like a second Rocket, is not)
+  if not opts.quiet and seen and item.id == followed and seen.map == overworld.map
      and seen.x == overworld.player.cellX and seen.y == overworld.player.cellY
      and type(item.x) == "number" and type(item.y) == "number"
      and math.abs(item.x - seen.targetX) + math.abs(item.y - seen.targetY) >= 2 then

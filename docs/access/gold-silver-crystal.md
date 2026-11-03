@@ -228,3 +228,35 @@ bytes are valid and end in U+2026. "Um… I don't know how to say this," passed.
 `POKEPORT_ACCESS_SILENT`, which returns before Prism, so they could not see this. Fix in
 `Speech.say`: a line refused that way is said again in ASCII; the cause inside Prism is unknown.
 
+## Team Rocket Base (owner report, 2026-11-03, open)
+
+The owner had "slight trouble" navigating here; the place and message are not known yet. On a copy
+of a save from before the base (state not the owner's): routes exist from B1F's entrance to B2F, but
+B3F and two items have "No route" from there. A scripted walk toward B2F kept being interrupted and
+resumed, and had not arrived after 16000 frames, at (5,4). Cause not established.
+On a copy of the owner's save at B1F's entrance, 2026-11-03 (strong test lead, game speed 8): the walk
+reached B2F with no interruption. Most targets route. The floor target "Team Rocket Base B3F" and the
+Ultra Ball say "No route" from there, though other B3F items route: a floor target is aimed at through
+one warp, which may be on a side not open yet.
+
+Second save, 2026-11-03, B2F with both passwords. The owner was unsure what to do next. B3F's password
+door ("Signpost 1") has "No route" from the east side; its side is reached through B2F. Walked by
+script on a copy: B3F entrance 4, B2F entrance 2, B3F entrance 1, Signpost 1, A: "The door opened!".
+Order per pret's `TeamRocketBaseB3F.asm` and `B2F.asm`: door, Executive, Murkrow (listed "Pokémon")
+gives HAIL GIOVANNI, B2F's locked door ("Signpost 1" there), Electrodes. Only the door was run here.
+Owner: "very clunky for a first-time user". Fixed the routing, 2026-11-03: Gen 2 now sets
+`autoWalkJourneys`, as FireRed does, so auto-walk to a target on this map with no route here goes
+through other maps. Script on a copy: from B3F's east side, select Signpost 1, one auto-walk reached the
+door through B2F; A opened it. `gen2_nav`, `gen2_nav_more` and unit suites still pass. Not heard. For
+comparison, Pokémon Access (source read: `a-star.lua`, `gb.lua`, `pokemon.lua`; game files searched
+for the base): paths within the current map only, spoken, no auto-walk, signposts as "signpost N".
+Owner: Signpost for these was "very, very, very confusing". Named from the scripts' own text, 2026-11-03
+(`WorldSnapshot.signRoleFromText`): a script that changes the map and mentions a door is "Locked Door",
+"labeled X" is X, "the X slot" is "X Slot". `gen2_nav_cart_test` sweep on each game: Switch 1 to 3, Card
+Key Slot, and Rocket Base doors. Relies on English text. Owner tried the build and asked to push, 2026-11-03: "I think
+that's as good as we're gonna get it."
+
+Chase bug found in this check and fixed: it compared names, so walking from one Rocket to another
+started a chase. It now needs the same object, or the old id gone and one object with that name.
+Gold's chase rerun after the fix.
+

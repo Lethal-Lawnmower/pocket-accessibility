@@ -249,6 +249,10 @@ function Navigation:stepInteraction(_world, step)
     hint = "Use " .. move .. " facing " .. step.direction }
 end
 
+-- Auto-walk tries a journey through other maps when a target on this map has
+-- no route here (Team Rocket Base B3F's password door, reached through B2F).
+Navigation.autoWalkJourneys = true
+
 -- Auto-walk's last cell of a walk to a carpet warp (a doormat or gate mat):
 -- it fires only while its direction is held (Permissions.carpetDirection).
 function Navigation:warpPressDirection(world, x, y)
