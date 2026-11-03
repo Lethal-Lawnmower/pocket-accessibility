@@ -18,7 +18,7 @@ return function(game)
   table.sort(keys)
   local step = tonumber(os.getenv("TEXT_STEP")) or 1
   local function wordsOf(text)
-    local cleaned = text:gsub("{[^}]*}", " "):gsub("%-%s*[\n\f\r]%s*", ""):gsub("%A+", " "):lower()
+    local cleaned = text:gsub("{[^}]*}", " "):gsub("%-%s*%c%s*", ""):gsub("%A+", " "):lower()
     local list = {}
     for word in cleaned:gmatch("%a+") do
       if #word > 1 then list[#list + 1] = word end
@@ -26,6 +26,23 @@ return function(game)
     return list
   end
   local shown, missing, stuck = 0, 0, 0
+  -- what was lost is tried again with time around it, a lone box as in play; only what
+  -- is lost again counts
+  local retry = {}
+  local function retried(key)
+    local text = world.text[key]
+    L.settle(60, true, 30)
+    L.heard()
+    local closed = false
+    world:showText(text, function() closed = true end)
+    U.wait(45)
+    for _ = 1, 60 do
+      if closed then break end
+      L.tap("a", 25)
+    end
+    U.wait(30)
+    return L.heard()
+  end
   for index = 1, #keys, step do
     local key = keys[index]
     local text = world.text[key]
@@ -36,6 +53,9 @@ return function(game)
       U.log("ERROR", version, key, tostring(why))
     else
       shown = shown + 1
+      -- a player reads before pressing; a box of one word can open and close between
+      -- two of the layer's polls under the harness's speed otherwise
+      U.wait(4)
       local frames = 0
       while not closed and frames < 1500 do
         L.tap("a", 3)
@@ -47,17 +67,33 @@ return function(game)
         while game.stack:top() do game.stack:pop() end
       end
       U.wait(2)
-      local heard = " " .. L.heard():gsub("%A+", " "):lower() .. " "
+      -- a word split across lines may be kept with its hyphen or joined: compare runs of
+      -- letters with the gaps gone, so neither reading counts as lost
+      local heard = L.heard():gsub("%A+", ""):lower()
       local lost = {}
       for _, word in ipairs(wordsOf(text)) do
-        if not heard:find(" " .. word .. " ", 1, true) then lost[#lost + 1] = word end
+        if not heard:find(word, 1, true) then lost[#lost + 1] = word end
       end
       if #lost > 0 then
-        missing = missing + 1
-        U.log("MISSING", version, key, table.concat(lost, " "):sub(1, 80), "| box:", (text:sub(1, 90):gsub("%c", "/")))
+        retry[#retry + 1] = { key = key, words = lost }
       end
     end
   end
-  U.log("SWEEP", version, "texts", #keys, "shown", shown, "with lost words", missing, "stuck", stuck)
+  local firstPass = #retry
+  for _, entry in ipairs(retry) do
+    local text = world.text[entry.key]
+    local raw = retried(entry.key)
+    local heard = raw:gsub("%A+", ""):lower()
+    local lost = {}
+    for _, word in ipairs(wordsOf(text)) do
+      if not heard:find(word, 1, true) then lost[#lost + 1] = word end
+    end
+    U.log("RETRY", version, entry.key, "first lost", table.concat(entry.words, " "):sub(1, 40), "now lost", table.concat(lost, " "):sub(1, 40), "heard", raw:sub(1, 80))
+    if #lost > 0 then
+      missing = missing + 1
+      U.log("MISSING", version, entry.key, table.concat(lost, " "):sub(1, 80), "| box:", (text:sub(1, 90):gsub("%c", "/")))
+    end
+  end
+  U.log("SWEEP", version, "texts", #keys, "shown", shown, "lost at harness speed", firstPass, "lost with time around it", missing, "stuck", stuck)
   U.log("DONE")
 end

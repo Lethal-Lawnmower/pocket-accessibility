@@ -118,8 +118,14 @@ return function(game)
     for _, warp in ipairs(maps[mapId].warps or {}) do cells[#cells + 1] = { x = warp.x, y = warp.y } end
     if #cells == 0 then cells[1] = { x = 2, y = 2 } end
     local first = cells[1]
-    -- a map's scene can walk the player for a while, or send them away
+    -- no scene plays on arrival: past the map's last one, so a rival's walk or a
+    -- quiz neither sends the player away nor holds the sweep
     game.world.mapScenes = game.world.mapScenes or {}
+    local lastScene = 0
+    for id in pairs(maps[mapId].sceneScripts or {}) do
+      if type(id) == "number" and id > lastScene then lastScene = id end
+    end
+    game.world.mapScenes[mapId] = lastScene + 1
     L.teleport(mapId, first.x, first.y, "down")
     L.settle(200, true, 10)
     game.world.flashUsed = true
@@ -144,7 +150,10 @@ return function(game)
     local world = stood and nav:worldForCommand()
     if not world then
       totals.notStood = totals.notStood + 1
-      U.log("NOSTAND", version, mapId, "at", L.where())
+      local native = game.world
+      U.log("NOSTAND", version, mapId, "at", L.where(), "script", tostring(native:scriptRunning()), "box", tostring(native.textbox ~= nil),
+        "move", tostring(native.moveState ~= nil), "setup", tostring(native.mapSetup ~= nil), "top", tostring(game.stack:top() ~= nil),
+        "phase", tostring(game.phase), "forced", tostring(require("src.access.nav.WorldAdapter").gen2.transitioning(native)))
     else
       totals.maps = totals.maps + 1
       local items = L.browse("all")

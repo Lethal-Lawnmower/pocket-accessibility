@@ -474,6 +474,92 @@ local function holeTargets(puzzle)
   return holes
 end
 
+-- The cells anything can get to on this map, with every field move and no one in the
+-- way: from where the player stands, each warp and each connection.  What no one can
+-- ever get to is not a target: a window on the far side of a wall, the shelf behind a
+-- counter, a connection the map data keeps for the view while the way is a gatehouse.
+local function allWarpCells(map)
+  local cells = {}
+  for _, warp in ipairs(type(map.def) == "table" and map.def.warps or {}) do
+    if Permissions.isWarpCollision(map:cellCollision(warp.x, warp.y)) then
+      cells[#cells + 1] = { x = warp.x, y = warp.y }
+    end
+  end
+  return cells
+end
+
+function Navigation:everReachableCells(world, exceptDirection)
+  local map, player = world.map, world.player
+  local warps = allWarpCells(map)
+  local bare = { map = map, native = { npcAt = function() return nil end },
+    player = { cellX = player.cellX, cellY = player.cellY, surfing = false }, npcs = {}, entities = {} }
+  local goals = {}
+  for _, cell in ipairs(warps) do goals[#goals + 1] = cell end
+  if #goals == 0 then goals[1] = { x = player.cellX, y = player.cellY } end
+  local options = self:routeOptionsFor(bare, goals, 3)
+  local seen, queue, head = {}, {}, 1
+  local function start(x, y)
+    local key = cellKey(x, y)
+    if not seen[key] then
+      seen[key] = true
+      queue[#queue + 1] = { x = x, y = y }
+    end
+  end
+  start(player.cellX, player.cellY)
+  for _, cell in ipairs(warps) do start(cell.x, cell.y) end
+  local mapId = self:currentMapIdOf(world)
+  for _, transition in ipairs(self:regionalTransitions(mapId)) do
+    if transition.kind == "connection" and transition.direction ~= exceptDirection then
+      start(transition.x, transition.y)
+    end
+  end
+  while queue[head] do
+    local cell = queue[head]
+    head = head + 1
+    for _, edge in ipairs(options.neighbors(cell.x, cell.y)) do start(edge.x, edge.y) end
+  end
+  return seen
+end
+
+-- Takes the targets no one can ever reach out of the list.  A target whose cells depend
+-- on a move the party lacks (no cells at all) stays, with its "Needs".
+function Navigation:dropUnreachableTargets(world, snapshot)
+  local mapId = self:currentMapIdOf(world)
+  local reach = nil
+  local function reached(goals)
+    reach = reach or self:everReachableCells(world)
+    for _, goal in ipairs(goals) do
+      if reach[cellKey(goal.x, goal.y)] then return true end
+    end
+    return false
+  end
+  local kept = {}
+  for _, item in ipairs(snapshot.browse or {}) do
+    local keep = true
+    local neighbour = item.type == "connection" and item.direction
+      and type(world.map.def) == "table" and (world.map.def.connections or {})[item.direction]
+    if neighbour and self:regionalMap(self:regionalMapDef(neighbour.mapId)) then
+      -- a cell on that edge the rest of the map leads to (from that edge alone, it
+      -- would only lead back to itself)
+      local fromElsewhere = self:everReachableCells(world, item.direction)
+      keep = false
+      for _, transition in ipairs(self:regionalTransitions(mapId)) do
+        if transition.kind == "connection" and transition.direction == item.direction
+           and fromElsewhere[cellKey(transition.x, transition.y)] then
+          keep = true
+          break
+        end
+      end
+    elseif item.semanticKind == "standard_interaction" or item.semanticKind == "headbutt_tree"
+        or item.semanticKind == "waterfall" then
+      local goals = self:interactionGoals(world, item)
+      keep = type(goals) ~= "table" or #goals == 0 or reached(goals)
+    end
+    if keep then kept[#kept + 1] = item end
+  end
+  snapshot.browse = kept
+end
+
 function Navigation:captureWorld(filter)
   local world, reason = self:worldForCommand()
   if not world then return nil, reason end
@@ -501,8 +587,30 @@ function Navigation:captureWorld(filter)
   })
   if snapshot and (filter or self.browseFilter) == "area" then
     snapshot.browse = self:areaBrowse(world)
+  elseif snapshot then
+    self:dropUnreachableTargets(world, snapshot)
   end
   return snapshot, snapshotError
+end
+
+-- A floor as a target ("Olivine Lighthouse 6F") is reached by getting onto it, by any
+-- way in: aimed at one warp, a floor was refused whenever that one warp was behind
+-- something (Route 5's underground entrance, behind the officer).
+function Navigation:selectedRouteGoals()
+  local item, goals, interaction, instruction, overworld = Shared.selectedRouteGoals(self)
+  if type(item) == "table" and item.wholeMap then
+    local map = self:regionalMap(self:regionalMapDef(item.mapId))
+    if map then
+      local cells = {}
+      for y = 0, map.heightCells - 1 do
+        for x = 0, map.widthCells - 1 do
+          if map:isWalkableCell(x, y) or map:warpAt(x, y) then cells[#cells + 1] = { x = x, y = y } end
+        end
+      end
+      if #cells > 0 then goals = cells end
+    end
+  end
+  return item, goals, interaction, instruction, overworld
 end
 
 function Navigation:readCollisionTiles()
@@ -1223,7 +1331,7 @@ function Navigation:areaBrowse(world)
           items[#items + 1] = {
             id = "area:" .. mapId, type = "area", category = "area",
             label = tostring(mapName), description = tostring(mapName),
-            mapId = mapId, x = warp.x, y = warp.y,
+            mapId = mapId, x = warp.x, y = warp.y, wholeMap = true,
           }
           break
         end

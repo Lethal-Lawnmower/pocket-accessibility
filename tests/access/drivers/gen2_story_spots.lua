@@ -95,6 +95,8 @@ return function(game)
       if mon.moves and mon.moves[1] then mon.moves[1].pp = 60 end
     end
     game.save.repelSteps = 9999
+    -- what using Flash leaves set: dark floors are gated by it on purpose (decision 37)
+    if game.world then game.world.flashUsed = true end
   end
 
   -- Scenes that hold the world in a loop an A press never leaves: Crystal's
