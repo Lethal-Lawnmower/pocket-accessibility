@@ -205,6 +205,44 @@ return function(game)
       tostring(save.flags.EVENT_2ND_LOCK_OPENED))
   end)
 
+  -- Area floors and items: each target from the area's first floor, walking the journey
+  case("areas", function()
+    save.inventory.CARD_KEY = 1
+    save.flashLit = true
+    for _, area in ipairs({ "SILPH_CO_1F", "ROCKET_HIDEOUT_B1F", "MT_MOON_1F", "POKEMON_TOWER_1F", "POKEMON_MANSION_1F",
+        "SEAFOAM_ISLANDS_1F", "VICTORY_ROAD_1F", "SAFARI_ZONE_CENTER", "SS_ANNE_1F", "DIGLETTS_CAVE_ROUTE_2", "ROCK_TUNNEL_1F" }) do
+      local warp = game.data.maps[area].warps[1]
+      teleport(area, warp.x, warp.y)
+      local coordinator = nav()
+      coordinator.browseFilter = "area"
+      local snap = coordinator:captureWorld("area")
+      local targets = {}
+      for _, item in ipairs(snap and snap.browse or {}) do targets[#targets + 1] = item end
+      U.log("RESULT", "areas", area, #targets, "targets")
+      local arrived = 0
+      for _, target in ipairs(targets) do
+        teleport(area, warp.x, warp.y)
+        save.flashLit = true
+        coordinator = nav()
+        coordinator.browseFilter, coordinator.browseSelectionId = "area", target.id
+        heard()
+        AutoWalk.start(coordinator, game)
+        for frame = 1, 30000 do
+          if not AutoWalk.active() then break end
+          if frame % 900 == 0 then heal() end
+          if game.stack:top() ~= game.overworld and frame % 8 == 0 then U.tap(game, "a") end
+          U.wait(1)
+        end
+        local stuck = AutoWalk.active()
+        if stuck then AutoWalk.stop() end
+        local text = heard()
+        if text:find("Arrived", 1, true) then arrived = arrived + 1
+        else U.log("RESULT", "areas", area, tostring(target.label), stuck and "TIMED OUT" or "", text:sub(-140), "| at", where()) end
+      end
+      U.log("RESULT", "areas", area, arrived, "of", #targets, "arrived")
+    end
+  end)
+
   -- Cut and Surf on a walk
   case("cut", function()
     -- Vermilion Gym's door is behind a Cut tree

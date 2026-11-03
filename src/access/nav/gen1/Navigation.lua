@@ -557,19 +557,68 @@ end
 
 -- ---------------------------------------------------------------- journeys
 
-function Navigation:regionalStaticWorld(mapId, start)
-  local world = Shared.regionalStaticWorld(self, mapId, start)
-  if not world then return nil end
-  local live = Shared.worldForCommand(self)
-  if live and live.partyKnows then
-    world.partyKnows = function(_, moveId) return live:partyKnows(moveId) end
+-- The Area category: the shared list of item balls, plus each other floor of the area
+-- itself, aimed at through a warp whose four sides are all on that floor (a journey's goals
+-- are the cells around its target).
+function Navigation:areaBrowse(world)
+  local items = Shared.areaBrowse(self, world)
+  local maps = self.game.data.maps
+  local here = self:currentMapIdOf(world)
+  local key = type(here) == "string" and here:match("^([A-Z0-9]+_[A-Z0-9]+)") or nil
+  if not key then return items end
+  local members = {}
+  for mapId, def in pairs(maps) do
+    if type(mapId) == "string" and mapId ~= here and type(def) == "table" and type(def.warps) == "table"
+       and mapId:match("^([A-Z0-9]+_[A-Z0-9]+)") == key then
+      members[#members + 1] = mapId
+    end
   end
+  table.sort(members)
+  local floors = {}
+  for _, mapId in ipairs(members) do
+    local def = maps[mapId]
+    local width, height = (def.width or 0) * 2, (def.height or 0) * 2
+    for _, warp in ipairs(def.warps) do
+      -- stairs or a door, not a pad that throws the walk around
+      if warp.destMap ~= mapId and warp.x > 0 and warp.y > 0 and warp.x < width - 1 and warp.y < height - 1 then
+        local name = tostring(self:regionalDestinationName(mapId))
+        floors[#floors + 1] = { id = "area:" .. mapId, type = "area", category = "area", label = name,
+          description = name, mapId = mapId, x = warp.x, y = warp.y }
+        break
+      end
+    end
+  end
+  for _, item in ipairs(items) do floors[#floors + 1] = item end
+  return floors
+end
+
+-- One plan asks for the same floors over and over: built once per plan (Map.new parses
+-- the whole floor, and the budget ran out on Pokemon Tower and the Mansion).
+function Navigation:regionalStaticWorld(mapId, start)
+  local cache = self.regionalWorlds
+  local world = cache and cache[mapId]
+  if not world then
+    world = Shared.regionalStaticWorld(self, mapId, start)
+    if not world then return nil end
+    local live = Shared.worldForCommand(self)
+    if live and live.partyKnows then
+      world.partyKnows = function(_, moveId) return live:partyKnows(moveId) end
+    end
+    if cache then cache[mapId] = world end
+  end
+  world.player.cellX, world.player.cellY = start.x, start.y
   return world
 end
 
--- The same route rules as a walked route, floor holes included, on a planned floor.
-function Navigation:regionalDryRoute(mapId, start, goals, useLive, maxSeconds)
+-- Every cell a player can walk to from `start` on a floor, by the rules of a walked route
+-- (floor holes and warps stop the walk: they can be walked onto, not across).  One flood
+-- answers all of a floor's transitions: a route per transition ran out of time on
+-- Pokemon Tower, the Mansion and Victory Road.
+function Navigation:regionalFlood(mapId, start, useLive)
   local policy = self.regionalPolicy or 1
+  local key = table.concat({ mapId, start.x, start.y, policy, useLive and "live" or "plan" }, ":")
+  local floods = self.regionalFloods
+  if floods and floods[key] then return floods[key] end
   local live = Shared.worldForCommand(self)
   local world
   if useLive and live and self:currentMapIdOf(live) == mapId
@@ -580,18 +629,55 @@ function Navigation:regionalDryRoute(mapId, start, goals, useLive, maxSeconds)
   end
   if not world then return nil end
   self.plannedWorld = world ~= live and world or nil
-  local ok, options = pcall(self.worldRouteRequest, self, goals, policy)
+  local ok, options = pcall(self.worldRouteRequest, self, { { x = -1, y = -1 } }, policy)
   self.plannedWorld = nil
   if not ok or not options then return nil end
-  options.maxSeconds = maxSeconds or options.maxSeconds
-  return Pathfinder.find(options)
+  local width, height = options.bounds.width, options.bounds.height
+  local stops = {}
+  for _, cell in ipairs(options.blockedCells or {}) do
+    if cell.x and cell.y then stops[cell.y * width + cell.x] = true end
+  end
+  local first = start.y * width + start.x
+  local cost, queue, head = { [first] = 0 }, { first }, 1
+  while queue[head] do
+    local at = queue[head]
+    head = head + 1
+    local x, y = at % width, math.floor(at / width)
+    for _, edge in ipairs(options.neighbors(x, y)) do
+      if edge.x >= 0 and edge.y >= 0 and edge.x < width and edge.y < height then
+        local to = edge.y * width + edge.x
+        if not cost[to] and options.canTraverse(x, y, edge.x, edge.y, edge.direction, nil, edge) then
+          cost[to] = cost[at] + 1
+          if not stops[to] then queue[#queue + 1] = to end
+        end
+      end
+    end
+  end
+  local flood = { cost = cost, width = width }
+  if floods then floods[key] = flood end
+  return flood
+end
+
+-- The journey planner only wants to know whether, and how far.
+function Navigation:regionalDryRoute(mapId, start, goals, useLive)
+  local flood = self:regionalFlood(mapId, start, useLive)
+  if not flood then return nil end
+  local best
+  for _, goal in ipairs(goals or {}) do
+    local cost = goal.x >= 0 and goal.y >= 0 and goal.x < flood.width and flood.cost[goal.y * flood.width + goal.x]
+    if cost and (not best or cost < best) then best = cost end
+  end
+  return best and { cost = best } or nil
 end
 
 -- Holes are ways down too: on the Mansion's 3F they are the only way into the sealed part of
 -- 1F.  Walked to only when the search finds no way without them is not promised: the
 -- search takes the shortest.
 function Navigation:regionalTransitions(mapId)
+  local cached = self.regionalLinks and self.regionalLinks[mapId]
+  if cached then return cached end
   local result = Shared.regionalTransitions(self, mapId)
+  if self.regionalLinks then self.regionalLinks[mapId] = result end
   local def = self.game.data.maps[mapId]
   local traversal = def and TraversalSemantics.forMap(mapId, def)
   for _, warp in ipairs(traversal and traversal.specialWarps or {}) do
@@ -605,14 +691,28 @@ end
 
 -- Walking first; then what the party can do, as a walked route does.
 function Navigation:regionalNextLeg(navigation)
+  self.regionalWorlds, self.regionalLinks, self.regionalFloods = {}, {}, {}
   self.regionalPolicy = 1
-  local leg, reason = Shared.regionalNextLeg(self, navigation)
-  if not leg and reason ~= "regional search timed out" then
+  local ok, leg, reason = pcall(Shared.regionalNextLeg, self, navigation)
+  if ok and not leg and reason ~= "regional search timed out" then
     self.regionalPolicy = 2
-    local second, why = Shared.regionalNextLeg(self, navigation)
-    if second then leg, reason = second, nil else reason = why or reason end
+    local okSecond, second, why = pcall(Shared.regionalNextLeg, self, navigation)
+    if okSecond and second then leg, reason = second, nil
+    elseif okSecond then reason = why or reason end
   end
-  self.regionalPolicy = nil
+  self.regionalPolicy, self.regionalWorlds, self.regionalLinks, self.regionalFloods = nil, nil, nil, nil
+  if not ok then return nil, "no regional path" end
+  -- an Area target is aimed at through the cells around it: never one that moves the player
+  -- (Silph Co. 8F's pads threw a walk back and forth for ever)
+  if leg and leg.final then
+    local world = Shared.worldForCommand(self)
+    local _, noStand = self:avoidedCells(world)
+    local kept = {}
+    for _, goal in ipairs(leg.goals or {}) do
+      if not noStand[goal.x .. "," .. goal.y] then kept[#kept + 1] = goal end
+    end
+    if #kept > 0 then leg.goals = kept end
+  end
   return leg, reason
 end
 

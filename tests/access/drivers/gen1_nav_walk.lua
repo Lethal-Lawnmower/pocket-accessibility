@@ -34,6 +34,7 @@ return function(game)
   save.repelSteps = 99999
   save.options.accessAutoWalkBoulders = false -- plain walks here; gen1_puzzles.lua does the puzzles
   game.speedOverride = 4
+  save.options.accessAutoWalkSpeed = tonumber(os.getenv("WALK_SPEED")) -- AUTO-WALK SPEED
 
   local said = {}
   local say = Speech.say

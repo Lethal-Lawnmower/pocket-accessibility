@@ -32,6 +32,7 @@ local PUSH_FRAMES = 60
 -- the player back there (Ecruteak's Tin Tower sages stop every walk north
 -- and step the player back; auto-walk resumed into them for ever).
 local MAX_RESUMES_AT_CELL = 3
+local MAX_RESUMES_IN_A_WALK = 8
 local MAX_JOURNEY_LEGS = 32
 
 local walk = nil -- active walk, or nil
@@ -308,6 +309,20 @@ function AutoWalk.start(nav, game, adapter, opts)
       Speech.say("Walking to " .. tostring(item.label), { interrupt = true })
       if stepOffAndBack() then return true end
     end
+    -- the journey's way on is the stairs or mat underfoot (just came through them): a mat
+    -- wants its press, stairs a step off and back on; this is not "here" yet
+    if journey and not final then
+      local press = type(nav.warpPressDirection) == "function"
+        and select(2, pcall(nav.warpPressDirection, nav, overworld, player.cellX, player.cellY)) or nil
+      if type(press) == "string" then
+        walk.pushDir, walk.pushFrames = press, 0
+      elseif not stepOffAndBack() then
+        AutoWalk.stop("Could not go through, auto walk stopped")
+        return false
+      end
+      Speech.say("Walking to " .. tostring(item.label), { interrupt = true })
+      return true
+    end
     -- standing on an exit mat that fires when pressed (just came in, and want out again)
     if walk.targetMapId and type(nav.warpPressDirection) == "function" then
       local okPress, press = pcall(nav.warpPressDirection, nav, overworld, player.cellX, player.cellY)
@@ -534,7 +549,10 @@ function AutoWalk.update(top)
     local key = tostring(player.cellX) .. "," .. tostring(player.cellY)
     walk.resumesAt = walk.resumesAt or {}
     walk.resumesAt[key] = (walk.resumesAt[key] or 0) + 1
-    if walk.resumesAt[key] >= MAX_RESUMES_AT_CELL then
+    -- (a guard can also turn the player back to a different cell each time, Route 18's gate)
+    walk.resumesTotal = (walk.resumesTotal or 0) + 1
+    if walk.resumesAt[key] >= MAX_RESUMES_AT_CELL or (not walk.journey and not walk.battleSeen
+        and walk.resumesTotal >= MAX_RESUMES_IN_A_WALK) then
       return AutoWalk.stop("Turned back again, auto walk stopped")
     end
     return resume()
@@ -693,6 +711,9 @@ function AutoWalk.update(top)
   if walk.quiet and (step == walk.steps[#walk.steps] or step == walk.steps[#walk.steps - 1]) then
     walk.turning = true
   end
+  -- A ledge hop at 1X too: at a fast speed the direction still held on landing hops the
+  -- next ledge in the same frame (Route 4's steps, past the turn, with no way back up).
+  if step.kind == "ledge" then walk.turning = true end
   if action then
     if player.facing ~= step.direction then
       -- Turn to face the obstacle.  The held direction lasts a whole frame
@@ -769,9 +790,10 @@ function AutoWalk.stepped(x, y)
   for _, s in ipairs(walk.steps) do
     if s.fromX == x and s.fromY == y then
       -- a field move on this step starts with an A press: stop here and let
-      -- the update face the obstacle and press
-      if type(walk.nav.stepInteraction) == "function"
-         and walk.nav:stepInteraction(walk.overworld, s) then
+      -- the update face the obstacle and press.  A ledge's hop is left to the update as
+      -- well, which takes it at 1X.
+      if s.kind == "ledge" or (type(walk.nav.stepInteraction) == "function"
+         and walk.nav:stepInteraction(walk.overworld, s)) then
         release(walk.input, walk.held)
         walk.held = nil
         steered()
