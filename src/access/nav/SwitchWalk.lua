@@ -99,6 +99,23 @@ local function knownWayOn(from)
   return nil
 end
 
+-- The first switch of the known flips from one state to another, or nil.
+local function wayTo(from, goal)
+  local queue, seen, head = { { state = from } }, { [from] = true }, 1
+  while queue[head] do
+    local node = queue[head]
+    head = head + 1
+    for switch, to in pairs(run.tried[node.state] or {}) do
+      if to ~= "blocked" and not seen[to] then
+        seen[to] = true
+        if to == goal then return node.first or switch end
+        queue[#queue + 1] = { state = to, first = node.first or switch }
+      end
+    end
+  end
+  return nil
+end
+
 local function walkToSign(pick, from)
   run.sign, run.from, run.lastLabel = pick, from, pick.label
   run.phase = "walking"
@@ -154,13 +171,21 @@ local function finishHiddenPress()
   run.phase = "choose"
 end
 
-local function choose()
+local choose
+function choose()
   local AutoWalk = autoWalk()
   local ok, item, goals = pcall(run.nav.selectedRouteGoals, run.nav)
   if not (ok and type(item) == "table" and item.id == run.id) then
     return SwitchWalk.stop(tostring(run.label) .. " is gone, auto walk stopped")
   end
-  if AutoWalk.routeExists(run.nav, goals) then
+  -- a way here, or through other floors (Pokemon Mansion's switch changes every floor)
+  local open = item.type ~= "area" and AutoWalk.routeExists(run.nav, goals)
+  if not open and run.nav.autoWalkJourneys then
+    local leg = run.nav:regionalNextLeg({ targetMapId = item.mapId or run.nav:currentMapIdOf(run.overworld),
+      targetGoals = goals })
+    open = leg ~= nil and (item.type == "area" or not leg.final)
+  end
+  if open then
     local nav, game, adapter = run.nav, run.game, run.adapter
     run = nil
     return AutoWalk.start(nav, game, adapter)
@@ -170,8 +195,21 @@ local function choose()
     return SwitchWalk.stop("Still trying switches after many flips, auto walk stopped")
   end
   local state = floorState(run.map)
+  run.startState = run.startState or state
   run.tried[state] = run.tried[state] or {}
   local signs = run.nav:switchSigns(run.overworld)
+  if run.restoring then
+    -- nothing opened a way: the floor goes back as the player left it
+    local label = state ~= run.startState and wayTo(state, run.startState)
+    local back
+    for _, sign in ipairs(signs) do
+      if sign.label == label then back = sign end
+    end
+    if not back then
+      return SwitchWalk.stop("No switch opens a way to " .. tostring(run.label) .. ", auto walk stopped")
+    end
+    return walkToSign(back, state)
+  end
   local pick, byLabel, again = nil, {}, nil
   for _, sign in ipairs(signs) do
     byLabel[sign.label] = sign
@@ -191,7 +229,8 @@ local function choose()
     local label = knownWayOn(state)
     pick = label and byLabel[label]
     if not pick then
-      return SwitchWalk.stop("No switch opens a way to " .. tostring(run.label) .. ", auto walk stopped")
+      run.restoring = true
+      return choose()
     end
   end
   walkToSign(pick, state)

@@ -68,6 +68,18 @@ function BoulderWalk.tryStart(nav, game, adapter, item, goals, overworld)
   return begin(nav, game, adapter, item, overworld, plan, needs, stone)
 end
 
+-- An Area target with no way there yet: the floor's puzzle may open one (Seafoam's
+-- currents, Victory Road's barriers), so do the floor, then try the journey again.
+function BoulderWalk.tryArea(nav, game, adapter, item, overworld)
+  if type(nav.boulderOpening) ~= "function" then return false end
+  if not require("src.access.Settings").autoWalkBoulders(game) then return false end
+  local plan, reason, needs, stone = nav:boulderOpening(overworld, {})
+  if not (stone and (plan or reason == "searching")) then return false end
+  begin(nav, game, adapter, item, overworld, plan, needs, true)
+  if run then run.thenWalk = true end
+  return true
+end
+
 -- Auto-walk to a boulder or a hole on a floor of holes still to fill does the whole
 -- floor.  With AUTO-WALK PUZZLES off it stays a walk to the hint's pushing cell.
 function BoulderWalk.tryStone(nav, game, adapter, item, overworld)
@@ -94,7 +106,7 @@ local function choose()
   if not present and not run.stone then
     return BoulderWalk.stop(tostring(run.label) .. " is gone, auto walk stopped")
   end
-  local plan, reason = run.nav:boulderOpening(run.overworld, present and goals or {})
+  local plan, reason = run.nav:boulderOpening(run.overworld, present and goals or {}, run.stone)
   if reason == "searching" then
     run.searching = (run.searching or 0) + 1
     if run.searching > SEARCH_FRAMES then
@@ -105,7 +117,9 @@ local function choose()
   run.searching = nil
   if not plan then
     local nav, game, adapter, stone, pushes = run.nav, run.game, run.adapter, run.stone, run.pushes
+    local thenWalk = run.thenWalk
     run = nil
+    if thenWalk then return autoWalk().start(nav, game, adapter) end
     if stone and (reason == "open" or (reason == "finished" and pushes > 0)) then
       Speech.say("The boulders are all in place", { interrupt = true })
       return

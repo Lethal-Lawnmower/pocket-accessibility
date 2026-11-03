@@ -36,8 +36,15 @@ return function(game)
     if start then
       L.teleport(floor.id, start[1], start[2], "up")
     else
-      L.teleport(floor.id, floor.x, floor.y, "down")
-      L.hold("down", 2)
+      -- beside the first warp, whichever side is floor (holding a direction walked off
+      -- the Tanoby Key room's exit mat, and teleporting onto a warp's own cell fires it)
+      local cx, cy = floor.x, floor.y
+      local view = World.plannedView(game, game.data.maps[floor.id])
+      for _, d in ipairs({ { 0, -1 }, { 0, 1 }, { -1, 0 }, { 1, 0 } }) do
+        local x, y = floor.x + d[1], floor.y + d[2]
+        if view:isWalkableCell(x, y) and not view:warpAt(x, y) then cx, cy = x, y break end
+      end
+      L.teleport(floor.id, cx, cy, "down")
     end
     L.settle(120, true)
     local target

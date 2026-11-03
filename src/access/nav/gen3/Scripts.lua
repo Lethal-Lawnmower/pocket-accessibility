@@ -109,12 +109,14 @@ local SPECIAL_ROLES = {
   { "ShowBerryCrushRankings", "Records" }, { "ShowDodrioBerryPickingRecords", "Records" },
   { "GetHeracrossSizeRecordInfo", "Size Record" }, { "GetMagikarpSizeRecordInfo", "Size Record" },
   { "AnimateTeleporterHousing", "Teleporter" },
+  { "PlaySlotMachine", "Slot Machine" },
 }
 
 -- The role a sign's script names, or nil.  Returns role, kind.
 function Scripts.signRole(key)
   if not Scripts.get(key) then return nil end
-  local s = Scripts.reach(key)
+  -- deep enough for Cinnabar Gym's quiz machines, which branch before they ask
+  local s = Scripts.reach(key, 8)
   for _, row in ipairs(SPECIAL_ROLES) do
     if s.specials[row[1]] then return row[2], (row[2]:lower():gsub(" ", "_")) end
   end
@@ -123,6 +125,8 @@ function Scripts.signRole(key)
     if yesNo and s.ops.trainerbattle then return "Quiz Machine", "quiz_machine" end
     if yesNo and (s.ops.setflag or s.ops.clearflag) then return "Secret Switch", "secret_switch" end
     if s.ops.playfanfare and not yesNo then return "Card Key Door", "card_key_door" end
+    -- pressed with no question, and something opens: the Game Corner's poster
+    if not yesNo and s.ops.setflag and not s.ops.trainerbattle then return "Hidden Switch", "hidden_switch" end
   end
   return nil
 end

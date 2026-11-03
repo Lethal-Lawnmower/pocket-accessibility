@@ -222,6 +222,11 @@ function AutoWalk.start(nav, game, adapter, opts)
     journey = { targetMapId = item.mapId, targetGoals = goals }
     local leg, legErr = nav:regionalNextLeg(journey)
     if not leg then
+      -- this floor's own puzzle may be what closes the way
+      if not opts.quiet then
+        if require("src.access.nav.BoulderWalk").tryArea(nav, game, adapter, item, overworld) then return true end
+        if require("src.access.nav.SwitchWalk").tryStart(nav, game, adapter, item, overworld) then return true end
+      end
       Speech.say(spokenReason(legErr or "no regional path", item.label), { interrupt = true })
       return false
     end
