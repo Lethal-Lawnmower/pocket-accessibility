@@ -30,6 +30,7 @@ return function(game)
   U.log("RESULT", "started", tostring(SwitchWalk.active()), L.heard():sub(1, 100))
   local started = os.time()
   local presses, lastFlips, nopes, frames = 0, 0, 0, 0
+  local restart = os.getenv("GEN3_SURGE_RESTART") == "1"
   for frame = 1, 90000 do
     frames = frame
     if not SwitchWalk.active() and not AutoWalk.active() then break end
@@ -40,6 +41,18 @@ return function(game)
       local heard = L.heard()
       U.log("RESULT", "press", state.flips, tostring(state.sign and state.sign.label), "anchor",
         tostring(state.anchor and state.anchor.label), heard:sub(-90))
+      -- GEN3_SURGE_RESTART: stopped once the first lock is open, and asked again: the
+      -- search then starts from that state, with no memory of what opened it
+      if restart and state.phase == "choose" and nav:floorMarks(state.overworld) ~= "" then
+        restart = false
+        U.log("RESULT", "first lock open, stopping and asking again at", L.where())
+        SwitchWalk.stop()
+        L.heard()
+        AutoWalk.start(nav, game, L.adapter())
+        state = SwitchWalk._state()
+        lastFlips = 0
+        U.log("RESULT", "restarted", tostring(SwitchWalk.active()), L.heard():sub(1, 100))
+      end
     end
     if not L.battleStep() and frame % 15 == 0 and not (state and state.phase == "flipping") and L.messageOpen() then
       L.tap("a", 6)

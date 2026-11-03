@@ -60,7 +60,9 @@ function SwitchWalk.tryStart(nav, game, adapter, item, overworld)
   end
   if #signs == 0 then return false end
   run = { nav = nav, game = game, adapter = adapter, overworld = overworld, map = overworld.map,
-    id = item.id, label = item.label, flips = 0, phase = "choose", tried = {}, complete = {}, hidden = hidden }
+    id = item.id, label = item.label, flips = 0, phase = "choose", tried = {}, complete = {}, hidden = hidden,
+    item = item, homeMap = type(nav.currentMapIdOf) == "function" and nav:currentMapIdOf(overworld) or nil,
+    filter = nav.browseFilter, selection = nav.browseSelectionId }
   Speech.say((hidden and "Searching for switches to reach " or "Trying switches to reach ") .. tostring(item.label),
     { interrupt = true })
   return true
@@ -171,23 +173,50 @@ local function finishHiddenPress()
   run.phase = "choose"
 end
 
+-- None on this floor opens the way; one on another floor of the area may (Pokemon
+-- Mansion).  True when the walk there has begun.
+local function travelToSwitch(item, goals)
+  local AutoWalk = autoWalk()
+  if (run.remoteTries or 0) >= 3 or type(run.nav.remoteSwitch) ~= "function" then return false end
+  local remote = run.nav:remoteSwitch(item, goals, run.overworld)
+  if not remote then return false end
+  run.remoteTries = (run.remoteTries or 0) + 1
+  run.remote, run.phase, run.travelGoals = remote, "travel", goals
+  Speech.say("Going to a switch on another floor", { interrupt = true })
+  if AutoWalk.start(run.nav, run.game, run.adapter, { goals = remote.goals, quiet = true,
+      journeyTo = { targetMapId = remote.mapId, targetGoals = remote.goals } }) then
+    return true
+  end
+  run.remote, run.phase = nil, "choose"
+  return false
+end
+
 local choose
 function choose()
   local AutoWalk = autoWalk()
   local ok, item, goals = pcall(run.nav.selectedRouteGoals, run.nav)
-  if not (ok and type(item) == "table" and item.id == run.id) then
+  local away = false
+  if run.travelGoals and not (ok and type(item) == "table" and item.id == run.id) then
+    -- on another floor, where the object list no longer has the target
+    item, goals, away = run.item, run.travelGoals, true
+  elseif not (ok and type(item) == "table" and item.id == run.id) then
     return SwitchWalk.stop(tostring(run.label) .. " is gone, auto walk stopped")
   end
   -- a way here, or through other floors (Pokemon Mansion's switch changes every floor)
-  local open = item.type ~= "area" and AutoWalk.routeExists(run.nav, goals)
+  local home = item.mapId or run.homeMap or run.nav:currentMapIdOf(run.overworld)
+  local here = run.nav:currentMapIdOf(run.overworld)
+  local open = item.type ~= "area" and here == home and AutoWalk.routeExists(run.nav, goals)
   if not open and run.nav.autoWalkJourneys then
-    local leg = run.nav:regionalNextLeg({ targetMapId = item.mapId or run.nav:currentMapIdOf(run.overworld),
-      targetGoals = goals })
-    open = leg ~= nil and (item.type == "area" or not leg.final)
+    local leg = run.nav:regionalNextLeg({ targetMapId = home, targetGoals = goals })
+    open = leg ~= nil and (item.type == "area" or here ~= home or not leg.final)
   end
   if open then
     local nav, game, adapter = run.nav, run.game, run.adapter
     run = nil
+    if away then
+      return AutoWalk.start(nav, game, adapter, { goals = goals, label = item.label,
+        journeyTo = { targetMapId = home, targetGoals = goals } })
+    end
     return AutoWalk.start(nav, game, adapter)
   end
   if run.hidden then return chooseHidden() end
@@ -206,6 +235,12 @@ function choose()
       if sign.label == label then back = sign end
     end
     if not back then
+      -- back as it was, which may be the state a switch elsewhere needs to start from
+      run.restoring = nil
+      if state == run.startState and not run.remoteFromStart then
+        run.remoteFromStart = true
+        if travelToSwitch(item, goals) then return end
+      end
       return SwitchWalk.stop("No switch opens a way to " .. tostring(run.label) .. ", auto walk stopped")
     end
     return walkToSign(back, state)
@@ -229,6 +264,7 @@ function choose()
     local label = knownWayOn(state)
     pick = label and byLabel[label]
     if not pick then
+      if travelToSwitch(item, goals) then return end
       run.restoring = true
       return choose()
     end
@@ -268,6 +304,23 @@ function SwitchWalk.update()
     return
   end
   if not onMap then return end
+  if run.phase == "travel" then
+    -- the walk to a switch on another floor has ended: this floor is now the one to watch
+    local remote, player = run.remote, run.overworld.player
+    run.remote, run.map = nil, run.overworld.map
+    -- the map change cleared the selection: the target stays the one asked for
+    run.nav.browseFilter, run.nav.browseSelectionId = run.filter, run.selection
+    local there = false
+    for _, goal in ipairs(remote.goals) do
+      if goal.x == player.cellX and goal.y == player.cellY then there = true end
+    end
+    if not there then return SwitchWalk.stop("Could not reach the switch, auto walk stopped") end
+    local state = floorState(run.map)
+    run.startState, run.complete, run.lastLabel = state, {}, nil
+    run.tried[state] = run.tried[state] or {}
+    run.sign, run.from, run.phase = remote, state, "face"
+    return
+  end
   if run.overworld.map ~= run.map then
     return SwitchWalk.stop("Left the map, auto walk stopped")
   end

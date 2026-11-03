@@ -356,6 +356,74 @@ do
     and not Puzzle.elevationsMismatch(3, 15), "elevation rule: 0 and 15 match anything")
 end
 
+-- ------------------------------------------------------------ opening a way
+-- A boulder in the only corridor, no switch or hole on the floor (the Warden's House,
+-- Mt. Ember): the first push that opens the way, and none when nothing could.
+do
+  local nav = navFor()
+  local floor = mapDef("FR_TEST_OPENING", {
+    "#########",
+    "#.......#",
+    "###.#.###",
+    "#.......#",
+    "#########",
+  })
+  local function boulderAt(x, y, id)
+    return { cellX = x, cellY = y, graphicsId = 97, currentElevation = 3, localId = id,
+      def = { graphicsId = 97, index = id } }
+  end
+  local world = worldOn(floor, 1, 1, { boulderAt(3, 1, 1) })
+  local plan, why = Puzzle.planOpening(world, { { x = 7, y = 1 } }, nav:routeOptionsFor(nav:withoutBoulders(world),
+    { { x = 7, y = 1 } }, 2).neighbors)
+  check(plan ~= nil and plan.direction == "right" and plan.standX == 2,
+    "a boulder pushed along the corridor clears the side way round it: " .. tostring(why))
+  local side = worldOn(floor, 2, 1, { boulderAt(3, 2, 1) })
+  local free, freeWhy = Puzzle.planOpening(side, { { x = 7, y = 1 } }, nav:routeOptionsFor(nav:withoutBoulders(side),
+    { { x = 7, y = 1 } }, 2).neighbors)
+  eq(freeWhy, "open", "nothing to push when the way is free")
+  check(free == nil, "and no plan")
+  local room = mapDef("FR_TEST_OPENING2", {
+    "#######",
+    "#.....#",
+    "#.....#",
+    "###.###",
+    "#.....#",
+    "#######",
+  })
+  local blocked = worldOn(room, 1, 1, { boulderAt(3, 3, 1), boulderAt(3, 2, 2) })
+  local goals = { { x = 1, y = 4 } }
+  local first = Puzzle.planOpening(blocked, goals, nav:routeOptionsFor(nav:withoutBoulders(blocked), goals, 2).neighbors)
+  check(first == nil, "a boulder pushed into the only gap cannot be got past: no plan")
+  local aside = worldOn(room, 1, 2, { boulderAt(3, 2, 1) })
+  local g = { { x = 3, y = 3 } }
+  local opened = Puzzle.planOpening(aside, g, nav:routeOptionsFor(nav:withoutBoulders(aside), g, 2).neighbors)
+  check(opened ~= nil and opened.standY == 2 and (opened.direction == "left" or opened.direction == "right"),
+    "pushing the boulder along the row opens the gap")
+  -- with goals, boulderOpening says "open" once a route exists, not "all in place"
+  local plain = worldOn(room, 1, 1, {})
+  local _, reason, _, stone = nav:boulderOpening(plain, { { x = 3, y = 3 } })
+  eq(reason, "open", "with a free way the walk goes on")
+  check(stone == false, "aiming at a target is not a floor to finish")
+  -- a walk asked for the floor itself ignores what the selection's cells are
+  local _, wholeReason, _, wholeStone = nav:boulderOpening(plain, { { x = 3, y = 3 } }, true)
+  eq(wholeReason, "finished", "no boulders left on a floor being finished")
+  check(wholeStone == true, "that walk stays a floor walk")
+end
+
+-- The Area list has the floors themselves; being on one is the arrival.
+do
+  local nav = navFor()
+  maps.FR_TEST_TOWER_1F = mapDef("FR_TEST_TOWER_1F", { "###", "#.#", "###" })
+  maps.FR_TEST_TOWER_2F = mapDef("FR_TEST_TOWER_2F", { "###", "#.#", "###" })
+  local world = worldOn(maps.FR_TEST_TOWER_1F, 1, 1)
+  nav.currentMapIdOf = function() return "FR_TEST_TOWER_1F" end
+  local items = nav:areaBrowse(world)
+  local entry
+  for _, item in ipairs(items) do if item.mapId == "FR_TEST_TOWER_2F" then entry = item end end
+  check(entry ~= nil and entry.floorEntry == true, "the other floor is an Area target")
+  maps.FR_TEST_TOWER_1F, maps.FR_TEST_TOWER_2F = nil, nil
+end
+
 -- ------------------------------------------------------------ item balls
 do
   local hall = mapDef("FR_TEST_HALL", { "#######", "#.....#", "###.###", "#.....#", "#######" })

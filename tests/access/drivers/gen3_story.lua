@@ -25,6 +25,8 @@ return function(game)
     mon.moves = { FieldMoves.MOVES.ROCK_SMASH, FieldMoves.MOVES.WATERFALL, FieldMoves.MOVES.FLASH }
     mon.pp, mon.maxPp = { 30, 30, 30 }, { 30, 30, 30 }
   end
+  L.giveItem(359, 1) -- the Silph Scope: Pokemon Tower's ghosts cannot be fought without it
+  L.setVar(0x4020, 60000) -- a long Repel: the walks, not wild battles, are under test
   game.options.firered = game.options.firered or {}
   game.options.firered.accessAutoWalkSpeed = 8
   local maps = game.data.maps
@@ -145,7 +147,37 @@ return function(game)
     U.log("RESULT", "areas", #keys, "floor entries listed", floorsListed, "journeys planned", planned, "refused", refused)
   end
 
+  -- Stand where a walk ended (its words say which way to face) and press A.
+  local function press(said)
+    local dir = said:match("[Ff]ace (%a+)")
+    if dir then L.hold(dir, 2) end
+    L.tap("a", 10)
+    L.settle(3000, true)
+  end
+
   if part("B") then
+    -- The Game Corner: the Rocket at the poster, the poster's switch, the stairs
+    arrive("FR_CELADON_CITY_GAME_CORNER")
+    local rocket = L.find(function(item) return item.label == "Rocket" and item.x == 11 end, "npcs")
+    if rocket then
+      L.select(rocket, "npcs")
+      L.heard()
+      AutoWalk.start(L.nav(), game, L.adapter())
+      run()
+      press(L.heard())
+      U.log("RESULT", "Game Corner Rocket", L.where(), "still there", tostring(L.find(function(item)
+        return item.label == "Rocket" and item.x == 11 end, "npcs") ~= nil))
+    end
+    if walk("Game Corner to the poster", "signposts", "Hidden Switch", nil) then
+      local item = L.findLabel("Hidden Switch", "signposts")
+      U.log("RESULT", "poster", item and item.description or "gone")
+      L.hold("up", 2)
+      L.tap("a", 10)
+      L.settle(1200, true)
+      walk("Game Corner to the stairs", "warps", "Rocket Hideout", "FR_ROCKET_HIDEOUT_B1F")
+    end
+    arrive("FR_CINNABAR_ISLAND_GYM")
+    walk("Cinnabar Gym to a Quiz Machine", "signposts", "Quiz Machine", nil)
     L.setFlag(677, true) -- the Lift Key, as gen3_nav_gaps sets it
     -- Rocket Hideout, by Area and by warps
     arrive("FR_ROCKET_HIDEOUT_B1F")
@@ -169,6 +201,11 @@ return function(game)
     walk("Silph 3F to 11F", "area", "Silph Co%.? 11F$", nil)
     -- Pokemon Tower
     arrive("FR_POKEMON_TOWER_1F")
+    do
+      -- guided navigation gives the same journey in words
+      local item = L.findLabel("Tower 7F$", "area")
+      U.log("RESULT", "guided Tower 1F to 7F:", item and L.guide(item, "area"):sub(1, 160) or "not listed")
+    end
     walk("Tower 1F to 7F", "area", "Tower 7F$", nil)
     -- Mansion
     arrive("FR_POKEMON_MANSION_1F")
@@ -199,6 +236,79 @@ return function(game)
     walk("Victory Road 2F to 3F", "area", "Road 3F$", "FR_VICTORY_ROAD_3F")
     walk("Victory Road back to 2F", "area", "Road 2F$", nil)
     walk("Victory Road 2F exit", "warps", "Route 23", nil)
+  end
+
+  if part("N") then
+    arrive("FR_POKEMON_MANSION_1F")
+    walk("Mansion 1F to B1F", "area", "Mansion B1F$", "FR_POKEMON_MANSION_B1F")
+    arrive("FR_MT_EMBER_EXTERIOR")
+    walk("Mt. Ember to the Fire Stone", "objects", "Fire Stone", nil)
+    arrive("FR_VICTORY_ROAD_3F")
+    walk("Standing on its warp, back to 2F", "area", "Road 2F$", "FR_VICTORY_ROAD_2F")
+  end
+
+  if part("M") then
+    -- what the switch search sees in Pokemon Mansion
+    local Scripts = require("src.access.nav.gen3.Scripts")
+    arrive("FR_POKEMON_MANSION_1F")
+    local n = L.nav()
+    local world = n:worldForCommand()
+    local target = { mapId = "FR_POKEMON_MANSION_B1F", goals = { { x = 0, y = 0 }, anywhere = true } }
+    target.anywhere = true
+    local allowed = n:journeyMaps("FR_POKEMON_MANSION_1F", "FR_POKEMON_MANSION_B1F")
+    for _, id in ipairs({ "FR_POKEMON_MANSION_1F", "FR_POKEMON_MANSION_2F", "FR_POKEMON_MANSION_3F", "FR_POKEMON_MANSION_B1F" }) do
+      for _, event in ipairs(maps[id].bgEvents or {}) do
+        if select(2, Scripts.signRole(event.scriptKey)) == "secret_switch" then
+          local flags = {}
+          for flag in pairs(Scripts.reach(event.scriptKey, 8).flagsSet) do flags[#flags + 1] = flag end
+          local view = World.loadedView(game, maps[id])
+          local cells = {}
+          for _, d in ipairs({ { 0, 1 }, { 0, -1 }, { 1, 0 }, { -1, 0 } }) do
+            local x, y = event.x + d[1], event.y + d[2]
+            if view:isWalkableCell(x, y) and not view:warpAt(x, y) then cells[#cells + 1] = { x = x, y = y } end
+          end
+          local start = { mapId = "FR_POKEMON_MANSION_1F", x = world.player.cellX, y = world.player.cellY }
+          local there, why = n:journeySearch(start, { mapId = id, goals = cells }, 2, allowed, nil, true)
+          local supposed = {}
+          for _, flag in ipairs(flags) do supposed[flag] = true end
+          local results = {}
+          for _, state in ipairs({ true, false }) do
+            for _, flag in ipairs(flags) do supposed[flag] = state end
+            World.supposedFlags, n.journeySupposing = supposed, true
+            local on, onWhy = n:journeySearch({ mapId = id, x = cells[1].x, y = cells[1].y }, target, 2, allowed, nil, true)
+            World.supposedFlags, n.journeySupposing = nil, nil
+            results[#results + 1] = tostring(state) .. "=" .. tostring(on and on.cost) .. "/" .. tostring(onWhy)
+          end
+          U.log("RESULT", id, event.x .. "," .. event.y, "flags", table.concat(flags, " "), "cells", #cells,
+            "reach", tostring(there and there.cost), tostring(why), "onward", table.concat(results, " "))
+        end
+      end
+    end
+  end
+
+  if part("E") then
+    -- boulders standing in the way, on floors with no switch or hole
+    arrive("FR_FUCHSIA_CITY_WARDENS_HOUSE")
+    walk("Warden's House to the Rare Candy", "objects", "Rare Candy", nil)
+    arrive("FR_MT_EMBER_EXTERIOR")
+    walk("Mt. Ember to the Fire Stone", "objects", "Fire Stone", nil)
+    arrive("FR_MT_EMBER_EXTERIOR")
+    walk("Mt. Ember to the Summit Path", "warps", "Summit Path 1F", "FR_MT_EMBER_SUMMIT_PATH_1F")
+    arrive("FR_MT_EMBER_RUBY_PATH_B2F")
+    walk("Ruby Path B2F to B3F", "warps", "Ruby Path B3F", "FR_MT_EMBER_RUBY_PATH_B3F")
+    arrive("FR_SIX_ISLAND_RUIN_VALLEY")
+    walk("Ruin Valley to the Sun Stone", "objects", "Sun Stone", nil)
+    arrive("FR_SIX_ISLAND_RUIN_VALLEY")
+    walk("Ruin Valley to the Full Restore", "objects", "Full Restore", nil)
+    arrive("FR_SIX_ISLAND_RUIN_VALLEY")
+    walk("Ruin Valley to the HP Up", "objects", "HP Up", nil)
+    arrive("FR_SEVEN_ISLAND_SEVAULT_CANYON")
+    walk("Sevault Canyon to the King's Rock", "objects", "King's Rock", nil)
+    -- Seafoam with its boulders still to drop: the currents run strong until they are
+    for flag = 70, 77 do L.setFlag(flag, true) end
+    arrive("FR_SEAFOAM_ISLANDS_1F")
+    walk("Seafoam, strong currents, 1F to B4F", "area", "Islands B4F$", nil)
+    for flag = 70, 77 do L.setFlag(flag, false) end
   end
 
   if part("D") then

@@ -721,7 +721,8 @@ function Puzzle.planOpening(world, goals, neighbors, budget)
   local queue, head = { { positions = positions, taken = taken, region = region, g = 0 } }, 1
   local visited = { [key(positions, rep)] = true }
   local maxExpanded = budget.maxExpanded or 20000
-  local deadline = os.clock() + (budget.maxSeconds or 0.5)
+  -- (asked once per target: a large floor like Mt. Ember's slope takes a second or two)
+  local deadline = os.clock() + (budget.maxSeconds or 2)
   while queue[head] do
     local node = queue[head]
     head = head + 1

@@ -411,7 +411,12 @@ local function lazyFlags()
   local Space = loaded("src.core.game3.scripting.space")
   local Flags = loaded("src.core.game3.scripting.flags")
   if not (Space and Space.store and Flags) then return nil, nil end
-  local function flag(id) return call(Flags.getFlag, Space.store, nil, id) == true end
+  local function flag(id)
+    -- a planned "what if this switch were flipped" (Navigation:remoteSwitch)
+    local supposed = World.supposedFlags and World.supposedFlags[id]
+    if supposed ~= nil then return supposed end
+    return call(Flags.getFlag, Space.store, nil, id) == true
+  end
   local function var(id) return tonumber(call(Flags.getVar, Space.store, nil, id)) or 0 end
   return flag, var
 end

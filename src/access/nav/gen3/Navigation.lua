@@ -282,9 +282,8 @@ end
 
 -- The same world with the boulders off the floor, for the route graph planOpening asks.
 function Navigation:withoutBoulders(world)
-  local copy = {}
-  for key, value in pairs(world) do copy[key] = value end
-  copy.npcs = {}
+  -- (the live world is a facade: its fields come through its metatable)
+  local copy = setmetatable({ npcs = {} }, { __index = world })
   for _, actor in ipairs(world.npcs or {}) do
     if not Terrain.isBoulder(actor) then copy.npcs[#copy.npcs + 1] = actor end
   end
@@ -698,6 +697,11 @@ function Navigation:dropUnservable(world, snapshot)
     if item.type == "connection" then
       local goals = self:connectionGoals(world, item, true)
       drop = type(goals) == "table" and #goals == 0
+      -- a map with nothing on it, only drawn past the edge (Saffron's surroundings)
+      local dest = self:regionalMapDef(item.destinationMapId)
+      if dest and #(dest.warps or {}) == 0 and #(dest.objects or {}) == 0 and #(dest.bgEvents or {}) == 0 then
+        drop = true
+      end
     elseif item.type == "warp" then
       local room = rooms[cellKey(item.x, item.y)]
       drop = room ~= nil and not room[cellKey(player.cellX, player.cellY)]
@@ -1289,6 +1293,10 @@ end
 -- Auto-walk tries a journey through other maps when a target on this map
 -- has no route here, as guided navigation does (advancePendingRoute).
 Navigation.autoWalkJourneys = true
+Navigation.stepOffWarpTargets = true
+-- a warp that lands on the same map (Saffron Gym's pads) moves the player off the route
+-- without a new map: the journey is planned again from there, not the old leg's cell
+Navigation.replanJourneyOffRoute = true
 
 function Navigation:worldRouteRequest(goals, policy)
   local world, reason = self:worldForCommand()
@@ -1460,7 +1468,7 @@ local CONNECTION_STEP = { north = "up", south = "down", west = "left", east = "r
 -- water without Surf, or across a directional wall).
 function Navigation:regionalTransitions(mapId)
   local def = self:regionalMapDef(mapId)
-  local live = World.liveView(self.game)
+  local live = not self.journeySupposing and World.liveView(self.game)
   local view = (live and live.id == mapId) and live or World.plannedView(self.game, def)
   if not (def and view) then return {} end
   local result = {}
@@ -1635,12 +1643,17 @@ end
 -- by cell.  nil when the map cannot be planned.
 function Navigation:journeyMap(mapId, policy, target, live, special)
   local world
-  if live and self:currentMapIdOf(live) == mapId then
+  if live and not self.journeySupposing and self:currentMapIdOf(live) == mapId then
     world = live
   else
     world = self:regionalStaticWorld(mapId, { x = 0, y = 0 })
   end
   if not world then return nil end
+  -- planning past boulders: "others" on the floors ahead, where the player will meet
+  -- them with the puzzle at hand; "all" also here (journeyOpeningGoals)
+  if self.journeyBoulderFree == "all" or (self.journeyBoulderFree and world ~= live) then
+    world = self:withoutBoulders(world)
+  end
   local byCell, goals = {}, {}
   for _, transition in ipairs(self:regionalTransitions(mapId)) do
     local key = cellKey(transition.x, transition.y)
@@ -1788,9 +1801,82 @@ function Navigation:journeyMaps(fromMapId, targetMapId)
   if not key or areaKeyOf(fromMapId) ~= key then return nil end
   local allowed = { [fromMapId] = true }
   for mapId in pairs(self.game and self.game.data and self.game.data.maps or {}) do
-    if type(mapId) == "string" and areaKeyOf(mapId) == key then allowed[mapId] = true end
+    if type(mapId) == "string" then
+      local mapKey = areaKeyOf(mapId)
+      -- the town around an island's buildings is on the way between them
+      if mapKey == key or (mapKey and key:sub(1, #mapKey + 1) == mapKey .. "_") then allowed[mapId] = true end
+    end
   end
   return allowed
+end
+
+-- A Secret Switch anywhere in the target's area that would open a way (Pokemon Mansion:
+-- one flag, one switch per floor, and the way to the basement only from the third floor's
+-- side).  The flags a switch's script changes are supposed flipped, and the journey from
+-- the switch to the target planned with the floors as they would then load.  Returns
+-- { mapId, label, x, y, goals, cost } for the cheapest, or nil.
+function Navigation:remoteSwitch(item, goals, world)
+  local here = self:currentMapIdOf(world)
+  local targetMap = item.mapId or here
+  local allowed = self:journeyMaps(here, targetMap)
+  if not allowed then return nil end
+  local start = { mapId = here, x = world.player.cellX, y = world.player.cellY }
+  local target = { mapId = targetMap, goals = goals, anywhere = goals.anywhere }
+  local best
+  for mapId in pairs(allowed) do
+    local def = self:regionalMapDef(mapId)
+    for _, event in ipairs(def and def.bgEvents or {}) do
+      if event.type == "sign" and type(event.x) == "number"
+         and select(2, Scripts.signRole(event.scriptKey)) == "secret_switch" then
+        local view = World.loadedView(self.game, def)
+        -- the sides its script answers from (bg event kind: 1 up, 2 down, 3 right, 4 left)
+        local cells = {}
+        for kind, d in pairs({ { 0, -1 }, { 0, 1 }, { 1, 0 }, { -1, 0 } }) do
+          local x, y = event.x - d[1], event.y - d[2]
+          local side = tonumber(event.kind) or 0
+          if (side == 0 or side == kind) and view and view:isWalkableCell(x, y) and not view:warpAt(x, y) then
+            cells[#cells + 1] = { x = x, y = y }
+          end
+        end
+        local toSwitch = #cells > 0 and self:journeySearch(start, { mapId = mapId, goals = cells }, 2, allowed, nil, true)
+        if toSwitch then
+          local supposed = {}
+          for flag in pairs(Scripts.reach(event.scriptKey, 8).flagsSet) do supposed[flag] = not flagSet(flag) end
+          World.supposedFlags, self.journeySupposing = supposed, true
+          local ok, onward = pcall(self.journeySearch, self, { mapId = mapId, x = cells[1].x, y = cells[1].y },
+            target, 2, allowed, nil, true)
+          World.supposedFlags, self.journeySupposing = nil, nil
+          if ok and onward then
+            local cost = toSwitch.cost + onward.cost
+            if not best or cost < best.cost then
+              best = { mapId = mapId, label = "Secret Switch " .. event.x .. "," .. event.y,
+                x = event.x, y = event.y, goals = cells, cost = cost }
+            end
+          end
+        end
+      end
+    end
+  end
+  return best
+end
+
+-- The warp on this floor a journey needs, if only boulders here keep it from the player.
+function Navigation:journeyOpeningGoals(item, world)
+  local goals = select(2, self:selectedRouteGoals())
+  local mapId = self:currentMapIdOf(world)
+  local targetMap = item.mapId or mapId
+  if type(goals) ~= "table" or #goals == 0 then return nil end
+  self.journeyBoulderFree = "all"
+  local ok, result = pcall(self.journeySearch, self,
+    { mapId = mapId, x = world.player.cellX, y = world.player.cellY },
+    { mapId = targetMap, goals = goals, anywhere = goals.anywhere }, 2, self:journeyMaps(mapId, targetMap), nil, true)
+  self.journeyBoulderFree = nil
+  if not (ok and result) then return nil end
+  -- no warp in between: the target itself, on this floor
+  if result.final then return mapId == targetMap and not goals.anywhere and goals or nil end
+  local transition = result.firstTransition
+  if not transition then return nil end
+  return { { x = transition.x, y = transition.y } }
 end
 
 -- What a journey that is possible only with everything (policy 3) still
@@ -1831,8 +1917,14 @@ function Navigation:regionalNextLeg(navigation)
   local result, reason
   -- a journey that can be walked is walked: an elevator's menu and a fall
   -- that cannot be undone come only when nothing else gets there
-  for _, try in ipairs({ { 1, false }, { 2, false }, { 2, true } }) do
-    result, reason = self:journeySearch(start, target, try[1], allowed, nil, try[2])
+  -- last, past boulders: on floors ahead, then here too (a way out and back onto this
+  -- floor, Mt. Ember's Fire Stone); the floors' puzzles open them when the walk gets there
+  for _, try in ipairs({ { 1, false }, { 2, false }, { 2, true }, { 2, true, "others" }, { 2, true, "all" } }) do
+    self.journeyBoulderFree = try[3]
+    local ok
+    ok, result, reason = pcall(self.journeySearch, self, start, target, try[1], allowed, nil, try[2])
+    self.journeyBoulderFree = nil
+    if not ok then error(result) end
     if result or reason ~= "no regional path" then break end
   end
   if not result then

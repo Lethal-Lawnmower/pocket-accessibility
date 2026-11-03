@@ -109,7 +109,6 @@ local SPECIAL_ROLES = {
   { "ShowBerryCrushRankings", "Records" }, { "ShowDodrioBerryPickingRecords", "Records" },
   { "GetHeracrossSizeRecordInfo", "Size Record" }, { "GetMagikarpSizeRecordInfo", "Size Record" },
   { "AnimateTeleporterHousing", "Teleporter" },
-  { "PlaySlotMachine", "Slot Machine" },
 }
 
 -- The role a sign's script names, or nil.  Returns role, kind.
@@ -120,6 +119,10 @@ function Scripts.signRole(key)
   for _, row in ipairs(SPECIAL_ROLES) do
     if s.specials[row[1]] then return row[2], (row[2]:lower():gsub(" ", "_")) end
   end
+  -- signs whose text is a script command, not a loaded word
+  if s.ops.playslotmachine then return "Slot Machine", "slot_machine" end
+  if s.ops.braillemessage then return "Braille", "braille" end
+  if s.ops.checkmoney and s.ops.additem then return "Vending Machine", "vending_machine" end
   if s.ops.setmetatile then
     local yesNo = s.stds[5] == true
     if yesNo and s.ops.trainerbattle then return "Quiz Machine", "quiz_machine" end
