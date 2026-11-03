@@ -107,6 +107,8 @@ function Navigation:isCardKeyMap(mapId)
 end
 
 function Navigation:isClosedCardKeyDoorCell(world, x, y)
+  -- the list still shows the lift gates, under their own name (captureWorld)
+  if self.listingDoors then return Shared.isClosedCardKeyDoorCell(self, world, x, y) end
   return self:isCardKeyMap(self:currentMapIdOf(world)) and Shared.isClosedCardKeyDoorCell(self, world, x, y)
 end
 
@@ -255,8 +257,15 @@ function Navigation:connectionCrossable(world, item)
   return false
 end
 
+function Navigation:cellOnMap(world, x, y)
+  return x >= 0 and y >= 0 and x < world.map.widthCells and y < world.map.heightCells
+end
+
 function Navigation:captureWorld(filter)
-  local snapshot, reason = Shared.captureWorld(self, filter)
+  self.listingDoors = true
+  local ok, snapshot, reason = pcall(Shared.captureWorld, self, filter)
+  self.listingDoors = nil
+  if not ok then error(snapshot, 0) end
   if not snapshot then return snapshot, reason end
   local world = Shared.worldForCommand(self)
   local mapId = world and self:currentMapIdOf(world)
@@ -265,7 +274,10 @@ function Navigation:captureWorld(filter)
   local kept, pads = {}, 0
   for _, item in ipairs(snapshot.browse or {}) do
     local keep = true
-    if item.type == "warp" and item.destinationMapId == mapId then
+    -- upstream's data places the Safari rest houses' PCs outside those rooms
+    if item.synthetic and item.x and not self:cellOnMap(world, item.x, item.y) then
+      keep = false
+    elseif item.type == "warp" and item.destinationMapId == mapId then
       -- pads on one floor (Saffron Gym's maze): a number, and where each one lands
       pads = pads + 1
       local label = "Teleport pad " .. pads
@@ -480,6 +492,8 @@ function Navigation:boulderOpening(world, goals)
     local ok, steps, why = pcall(BoulderPlan.opening, world, goals, avoid, noStand, ledgeFor(self, world), { maxSeconds = 1.5 })
     if ok and steps and #steps > 0 then return keep(steps, "open"), nil, needs, false end
     if ok and why == "open" then return nil, "open", needs, targets ~= nil, #unsolved end
+    -- the floor is done and its target is across a wall: no push will change that
+    if targets and #unsolved == 0 then return nil, "open", needs, true, 0 end
     return nil, nil, needs, targets ~= nil
   end
   if targets then
@@ -670,13 +684,55 @@ function Navigation:regionalDryRoute(mapId, start, goals, useLive)
   return best and { cost = best } or nil
 end
 
+-- A building's exit leads back to wherever the player came in from, which a plan cannot read
+-- from the game unless the player is in that building now: it would use the outdoor map they are on
+-- today, and a gate on Route 11 "led" to Vermilion City (a walk then wandered out of town to
+-- reach a door behind a tree).  On a planned floor it goes to each map with a door into it.
+function Navigation:withRealExits(mapId, transitions)
+  local data = self.game.data
+  local def = data.maps[mapId]
+  local live = Shared.worldForCommand(self)
+  local rewrites = require("src.world.FieldDefaults").field(data, "lastMapRewrites")
+  if not def or (live and self:currentMapIdOf(live) == mapId) or (rewrites and rewrites[mapId]) then return transitions end
+  if not self.inboundMaps then
+    self.inboundMaps = {}
+    for otherId, other in pairs(data.maps) do
+      if type(other) == "table" and type(other.warps) == "table" then
+        for _, warp in ipairs(other.warps) do
+          if type(warp.destMap) == "string" and warp.destMap ~= "LAST_MAP" and warp.destMap ~= otherId then
+            local list = self.inboundMaps[warp.destMap] or {}
+            self.inboundMaps[warp.destMap] = list
+            list[otherId] = true
+          end
+        end
+      end
+    end
+  end
+  local result = {}
+  for _, transition in ipairs(transitions) do
+    local warp = transition.kind == "warp" and transition.index and def.warps[transition.index]
+    if warp and warp.destMap == "LAST_MAP" then
+      for otherId in pairs(self.inboundMaps[mapId] or {}) do
+        local arrival = data.maps[otherId].warps[warp.destWarp]
+        if arrival then
+          result[#result + 1] = { kind = "warp", index = transition.index, x = transition.x, y = transition.y,
+            destMap = otherId, destX = arrival.x, destY = arrival.y }
+        end
+      end
+    else
+      result[#result + 1] = transition
+    end
+  end
+  return result
+end
+
 -- Holes are ways down too: on the Mansion's 3F they are the only way into the sealed part of
 -- 1F.  Walked to only when the search finds no way without them is not promised: the
 -- search takes the shortest.
 function Navigation:regionalTransitions(mapId)
   local cached = self.regionalLinks and self.regionalLinks[mapId]
   if cached then return cached end
-  local result = Shared.regionalTransitions(self, mapId)
+  local result = self:withRealExits(mapId, Shared.regionalTransitions(self, mapId))
   if self.regionalLinks then self.regionalLinks[mapId] = result end
   local def = self.game.data.maps[mapId]
   local traversal = def and TraversalSemantics.forMap(mapId, def)

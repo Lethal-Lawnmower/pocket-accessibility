@@ -252,6 +252,47 @@ return function(game)
     if not item then U.log("FAIL", "cut", "no gym door", list("warps")) return end
     U.log("RESULT", "cut", "=>", walk(item), "| at", where())
   end)
+  -- the same door with no Surf in the party: the tree in the way is the only way
+  case("cutonly", function()
+    mon.moves = { mon.moves[1], { id = "CUT", pp = 30 } }
+    local warp = game.data.maps.VERMILION_CITY.warps[1]
+    teleport("VERMILION_CITY", warp.x, warp.y + 1)
+    local item = find("warps", "Vermilion Gym")
+    if not item then U.log("FAIL", "cutonly", "no gym door") return end
+    U.log("RESULT", "cutonly", "=>", walk(item), "| at", where())
+    mon.moves = { mon.moves[1], { id = "CUT", pp = 30 }, { id = "SURF", pp = 15 }, { id = "STRENGTH", pp = 15 } }
+  end)
+  -- nobody knows the move, or the setting is off
+  case("needs", function()
+    mon.moves = { mon.moves[1] }
+    local warp = game.data.maps.WARDENS_HOUSE.warps[1]
+    teleport("WARDENS_HOUSE", warp.x, warp.y)
+    U.log("RESULT", "needs", "no Strength =>", walk(find("objects", "Rare Candy")))
+    warp = game.data.maps.VERMILION_CITY.warps[1]
+    teleport("VERMILION_CITY", warp.x, warp.y + 1)
+    U.log("RESULT", "needs", "no Cut or Surf =>", walk(find("warps", "Vermilion Gym")))
+    mon.moves = { mon.moves[1], { id = "CUT", pp = 30 }, { id = "SURF", pp = 15 }, { id = "STRENGTH", pp = 15 } }
+    save.options.accessAutoWalkBoulders = false
+    warp = game.data.maps.WARDENS_HOUSE.warps[1]
+    teleport("WARDENS_HOUSE", warp.x, warp.y)
+    U.log("RESULT", "needs", "setting off, boulder =>", walk(find("objects", "Rare Candy")))
+    U.log("RESULT", "needs", "setting off, list", list("objects"))
+    save.flags.EVENT_1ST_LOCK_OPENED, save.flags.EVENT_2ND_LOCK_OPENED = nil, nil
+    warp = game.data.maps.VERMILION_GYM.warps[1]
+    teleport("VERMILION_GYM", warp.x, warp.y - 1)
+    U.log("RESULT", "needs", "setting off, Surge =>", walk(find("npcs", "Surge")))
+    save.options.accessAutoWalkBoulders = nil
+  end)
+  case("labels", function()
+    for _, mapId in ipairs({ "ROCKET_HIDEOUT_B1F", "ROCKET_HIDEOUT_B2F", "SILPH_CO_5F", "SAFFRON_GYM", "CINNABAR_GYM", "VERMILION_GYM" }) do
+      local warp = game.data.maps[mapId].warps[1]
+      teleport(mapId, warp.x, warp.y)
+      U.log("RESULT", "labels", mapId, list("all"):sub(1, 700))
+    end
+    local warp = game.data.maps.CINNABAR_GYM.warps[1]
+    teleport("CINNABAR_GYM", warp.x, warp.y)
+    U.log("RESULT", "labels", "Blaine =>", walk(find("npcs", "Blaine")))
+  end)
   case("surf", function()
     teleport("PALLET_TOWN", 5, 16)
     local item = find("connections", "South")
