@@ -15,6 +15,7 @@ local Speech = require("src.access.Speech")
 local AutoWalk = require("src.access.nav.AutoWalk")
 local Chase = require("src.access.nav.Chase")
 local BoulderWalk = require("src.access.nav.BoulderWalk")
+local SwitchWalk = require("src.access.nav.SwitchWalk")
 local WalkSpeed = require("src.access.nav.WalkSpeed")
 local WorldAdapter = require("src.access.nav.WorldAdapter")
 
@@ -128,6 +129,7 @@ local function ensure()
   if coordinator then pcall(coordinator.shutdown, coordinator) end
   Chase.stop()
   BoulderWalk.stop()
+  SwitchWalk.stop()
   AutoWalk.stop()
   local ok, err = pcall(build, game, adapter)
   if not ok then
@@ -145,7 +147,9 @@ function Nav.update()
   AutoWalk.update(adapter.top(game))
   Chase.update()
   BoulderWalk.update()
-  WalkSpeed.update(game, AutoWalk.walking(), AutoWalk.turning())
+  SwitchWalk.update()
+  local pushing = BoulderWalk.pushing()
+  WalkSpeed.update(game, AutoWalk.walking() or pushing, AutoWalk.turning() or pushing)
 end
 
 -- Returns true when the key was an accessibility command (consumed).
@@ -159,6 +163,10 @@ function Nav.keypressed(key, _, isRepeat)
   end
   if BoulderWalk.active() and adapter.onMap(game) then
     BoulderWalk.stop("Auto walk stopped")
+    return true
+  end
+  if SwitchWalk.active() and adapter.onMap(game) then
+    SwitchWalk.stop("Auto walk stopped")
     return true
   end
   -- any key stops auto-walk while it walks (not while paused for a battle)
@@ -212,6 +220,11 @@ function Nav.gamepadpressed(_, button)
   end
   if BoulderWalk.active() and adapter.onMap(game) then
     BoulderWalk.stop("Auto walk stopped")
+    consumedButtons[button] = true
+    return true
+  end
+  if SwitchWalk.active() and adapter.onMap(game) then
+    SwitchWalk.stop("Auto walk stopped")
     consumedButtons[button] = true
     return true
   end

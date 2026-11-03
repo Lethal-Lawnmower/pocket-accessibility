@@ -175,6 +175,8 @@ function AutoWalk.start(nav, game, adapter, opts)
   if not opts.quiet and Chase.active() then return Chase.stop("Auto walk stopped") end
   local Boulders = require("src.access.nav.BoulderWalk")
   if not opts.quiet and Boulders.active() then return Boulders.stop("Auto walk stopped") end
+  local Switches = require("src.access.nav.SwitchWalk")
+  if not opts.quiet and Switches.active() then return Switches.stop("Auto walk stopped") end
   if walk then return AutoWalk.stop("Auto walk stopped") end
   adapter = adapter or WorldAdapter.current() or WorldAdapter.gen1
   local tooDark = type(nav.darkRefusal) == "function" and nav:darkRefusal()
@@ -185,9 +187,16 @@ function AutoWalk.start(nav, game, adapter, opts)
   local followed = lastArrival and not opts.quiet
     and Chase.relink(nav, lastArrival.id, lastArrival.label) or nil
   local item, goals, interaction, _, overworld = nav:selectedRouteGoals()
+  -- a walk to given cells does not need the selection: a hole just filled has left it
+  if not item and opts.goals then
+    item, overworld = { id = "cells", label = "", type = "cells" }, nav:worldForCommand()
+  end
   if not item then
     Speech.say(goals or "Select an object from the list", { interrupt = true })
     return false
+  end
+  if not opts.quiet and require("src.access.nav.BoulderWalk").tryStone(nav, game, adapter, item, overworld) then
+    return true
   end
   -- it ran off while the player stood beside it: keep after it
   local seen = lastArrival
@@ -241,6 +250,9 @@ function AutoWalk.start(nav, game, adapter, opts)
     if not opts.quiet and not journey then
       local BoulderWalk = require("src.access.nav.BoulderWalk")
       if BoulderWalk.tryStart(nav, game, adapter, item, goals, overworld) then return true end
+      if require("src.access.nav.SwitchWalk").tryStart(nav, game, adapter, item, overworld) then
+        return true
+      end
     end
     if not opts.quiet then
       Speech.say(spokenReason(findErr or "no path", item.label), { interrupt = true })
@@ -302,6 +314,11 @@ function AutoWalk.start(nav, game, adapter, opts)
   end
   if not opts.quiet then Speech.say("Walking to " .. tostring(item.label), { interrupt = true }) end
   return true
+end
+
+-- Whether a route to these cells exists right now (SwitchWalk).
+function AutoWalk.routeExists(nav, goals)
+  return (findRoute(nav, goals)) ~= nil
 end
 
 local function arrivalText()
@@ -387,6 +404,7 @@ end
 -- "Cannot reach Gentleman").  Takes the target's cells again from where it
 -- is now.  False when it is no longer on the map.
 local function refreshTarget()
+  if walk.quiet then return true end -- Chase and BoulderWalk chose these cells
   if walk.journey or walk.targetType ~= "object" or not walk.targetId then return true end
   local nav = walk.nav
   if type(nav.captureWorld) ~= "function" then return true end
@@ -397,7 +415,6 @@ local function refreshTarget()
     if item.id == walk.targetId then present = true break end
   end
   if not present then return false end
-  if walk.quiet then return true end -- Chase chose this side: a battle must not change it
   local okGoals, item, goals, interaction = pcall(nav.selectedRouteGoals, nav)
   if okGoals and type(item) == "table" and item.id == walk.targetId
      and type(goals) == "table" and #goals > 0 then
@@ -547,6 +564,15 @@ function AutoWalk.update(top)
     walk.still = walk.still + 1
     if walk.still > STUCK_FRAMES then return AutoWalk.stop("Blocked, auto walk stopped") end
   end
+  -- A walk that must end exactly on its goal lets go as soon as the last step is under
+  -- way: the step finishes by itself, and the game starts the next one in the tick it
+  -- lands, while the direction is held (past the pushing cell on Blackthorn 2F, for ever).
+  local lastStep = walk.steps[#walk.steps]
+  if walk.quiet and player.moving and lastStep and walk.held
+     and ((x == lastStep.fromX and y == lastStep.fromY) or (x == lastStep.x and y == lastStep.y)) then
+    release(walk.input, walk.held)
+    walk.held = nil
+  end
   if player.moving then return end -- keep the held direction mid-step
   if walk.pushDir then
     -- mid-journey on the way onto the next map: some warps (doors, some
@@ -603,7 +629,13 @@ function AutoWalk.update(top)
   local nav = walk.nav
   local action = type(nav.stepInteraction) == "function"
     and nav:stepInteraction(overworld, step) or nil
+  -- A walk that must end exactly on its goal (BoulderWalk's pushing cell, Chase's
+  -- side) takes its last steps at 1X: at a fast speed one held direction carried
+  -- the player two cells, past the goal and back for ever (Blackthorn 2F).
   walk.turning = nil
+  if walk.quiet and (step == walk.steps[#walk.steps] or step == walk.steps[#walk.steps - 1]) then
+    walk.turning = true
+  end
   if action then
     if player.facing ~= step.direction then
       -- Turn to face the obstacle.  The held direction lasts a whole frame

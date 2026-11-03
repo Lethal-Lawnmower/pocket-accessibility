@@ -435,7 +435,7 @@ do
       if item.type == "warp" and cell.x == 0 and cell.y == 0 then resolved = item end
     end
   end
-  eq(resolved and resolved.label, "Route 29", "0xFF warp resolved through the backup warp")
+  eq(resolved and resolved.label, "Route 29, entrance 1 of 2", "0xFF warp resolved through the backup warp")
   local dest, warpNumber = nav:regionalResolveWarp(extra.warps[1])
   eq(dest, "ROUTE_29", "cross-map planner resolves the 0xFF warp the same way")
   eq(warpNumber, 1, "and its arrival warp")

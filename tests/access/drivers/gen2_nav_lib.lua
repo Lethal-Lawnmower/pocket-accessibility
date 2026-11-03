@@ -188,6 +188,8 @@ function L.new(game)
   -- filled.  `floor` = { id, x, y }; `onFrame` runs during each walk (a
   -- caller's healing).  Returns pushes, holes left (nil when unreadable).
   function self.solveStoneFloor(floor, onFrame)
+    -- follows the hints by hand, as with AUTO-WALK PUZZLES off
+    game.options.accessAutoWalkBoulders = false
     local function boulderAt(id)
       for _, npc in ipairs(game.world.npcs or {}) do
         if npc.id == id then return npc end

@@ -378,7 +378,16 @@ The owner asked for an automatic gym puzzle solver in auto-walk and, after heari
 said "Yes, build it." When a target has no route, Gen 2 auto-walk searches the floor for pushes
 that open one (`Puzzle.planOpening`), walks to each pushing cell, answers the game's Strength
 question and pushes (`nav/BoulderWalk.lua`). Nothing names a map. Manual play is unchanged, and
-AUTO-WALK BOULDERS in the Accessibility page (default on) turns it off. Stone-table floors
-(Ice Path B1F, Blackthorn Gym 2F) keep their hints; a boulder dropped through a hole is not
-searched this way. FireRed has its own Strength code and is not covered.
+AUTO-WALK PUZZLES in the Accessibility page (default on) turns it off. FireRed has its own
+Strength code and is not covered.
+
+Stone-table floors, same day: "auto-pushing, honestly. For those who don't want it, they can turn it
+off ... manuals should be able to do it as well, if they have the proper guidance." With the setting
+on, auto-walk to a boulder or a hole fills the whole floor (`BoulderWalk.tryStone`); with it off, the
+hints work as before.
+
+Same day, the owner on Goldenrod Underground: "I don't mind having the Pathfinder auto do it." So a
+target with no route also tries switches (`nav/SwitchWalk.lua`): signs whose text asks to turn them on
+or off are flipped, and each result is watched from the map itself, with no switch table. Same
+setting, renamed AUTO-WALK PUZZLES.
 

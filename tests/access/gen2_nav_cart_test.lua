@@ -522,6 +522,21 @@ do -- named from the game's own data rather than the sheet or "Signpost N"
     local _, reason = Puzzle.planOpening(gym, { { x = 4, y = 15 } }, { maxSeconds = 5 })
     eq(reason, "open", "Cianwood Gym: no push where the way is open")
   end
+  -- switches: only the signs that ask to be turned on or off, on every map
+  do
+    local found = {}
+    for mapId in pairs(maps) do
+      local okMap, n = pcall(function() return nav(game(world(mapId, 0, 0))) end)
+      if okMap and n then
+        local okSigns, signs = pcall(n.switchSigns, n, world(mapId, 0, 0))
+        if okSigns and #signs > 0 then found[#found + 1] = mapId .. "=" .. #signs end
+      end
+    end
+    table.sort(found)
+    print("maps with switches: " .. table.concat(found, "; "))
+    eq(table.concat(found, "; "), "GOLDENROD_UNDERGROUND_SWITCH_ROOM_ENTRANCES=4",
+      "switches are only in Goldenrod Underground's switch room")
+  end
   byLabel = labelsOn("TEAM_ROCKET_BASE_B3F")
   check(byLabel and byLabel["Locked Door"], "Team Rocket Base B3F: the password door is a Locked Door")
   byLabel = labelsOn("GOLDENROD_UNDERGROUND_SWITCH_ROOM_ENTRANCES")

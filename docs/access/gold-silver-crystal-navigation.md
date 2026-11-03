@@ -75,6 +75,23 @@ paths are unchanged.
   Gold and Silver, 3 pushes, with trainer battles; no Strength says so; setting off says "No route".
   By script, with a strong lead. Owner accepted in Crystal's Cianwood Gym, 2026-11-03. A search can be wrong about a floor's script, for
   example a floor whose boulders are meant to stay.
+- **Warps apart (2026-11-03):** the owner found only "a way out" in Tohjo Falls. Its two exits to Route 27
+  were merged as one target. Gen 2 now keeps non-adjacent warps to one map apart ("entrance 1 of 2"). On a copy
+  of the owner's save, by script: falls entrance 1, then exit 2, across Surf and Waterfall to Route 27's east
+  side. A journey to Route 26 from the west side still says "No route": journeys plan on foot. Allowing field
+  moves there was tried and undone, because it walked into the falls and back out. Not heard.
+- **Filling holes (decision 41):** with AUTO-WALK PUZZLES on, auto-walk to a boulder or hole on a
+  stone floor fills it: `drivers/gen2_stone_auto.lua`, by script in all three games, Ice Path B1F 42 to
+  46 pushes, Blackthorn 2F 22, then "All the holes are filled". With it off, `gen2_nav_puzzle` follows the
+  hints as before. Pushes run at 1X and a walk to a pushing cell lets go during its last step: at any speed
+  the game starts the next step in the tick it lands, and the player walked past the cell or into a hole.
+  Not heard. The harness gave a strong lead with a Repel.
+- **Switches (decision 41):** a target with no route flips signs that ask to be turned on or off,
+  and learns from the map. `drivers/gen2_switches.lua` on a copy of the owner's Crystal save, switches
+  1 and 3 on: Switch 1, Switch 2, Switch 1, then the warehouse (all three on). An earlier run without
+  the rule against flipping straight back took 27 flips. `gen2_nav_cart_test`: only that room has such
+  signs, in Crystal. Gold and Silver not shown: their teleported runs lack the story state and refuse.
+  All switches off at the start was not run from a story save. Owner accepted in Crystal, 2026-11-03.
 - **Strength puzzles (Ice Path B1F, Blackthorn Gym 2F):** targets come only
   from the stone table the world is polling. Holes are listed "Hole N" with
   their state ("empty; Boulder 3 can reach it; next push right", "filled").

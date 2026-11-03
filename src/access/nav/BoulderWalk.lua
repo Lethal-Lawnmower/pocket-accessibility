@@ -3,13 +3,13 @@
 -- walk to each pushing cell, switch Strength on the way the player does (A at
 -- a boulder, then YES) and push, planning again after every push.  The plan is
 -- a search over the floor (Navigation:boulderOpening), with nothing about any
--- map written here.  AUTO-WALK BOULDERS in the Accessibility page turns it off.
+-- map written here.  AUTO-WALK PUZZLES in the Accessibility page turns it off.
 
 local Speech = require("src.access.Speech")
 
 local BoulderWalk = {}
 
-local MAX_PUSHES = 40
+local MAX_PUSHES = 120
 local PUSH_FRAMES = 150
 local PROMPT_FRAMES = 1500
 local PROMPT_GAP = 30
@@ -17,6 +17,13 @@ local PROMPT_GAP = 30
 local run = nil
 
 function BoulderWalk.active() return run ~= nil end
+
+-- Facing and pushing run at 1X (WalkSpeed): at a fast speed the held direction lasts
+-- many game ticks, and after the boulder moves the player would step after it, on a
+-- floor of holes right into one.
+function BoulderWalk.pushing()
+  return run ~= nil and (run.phase == "face" or run.phase == "pushing")
+end
 
 local function autoWalk() return require("src.access.nav.AutoWalk") end
 
@@ -35,22 +42,39 @@ function BoulderWalk.stop(reason)
   return true
 end
 
--- Starts when boulders are the only thing in the way.  False leaves the caller's
--- "No route" to be said.
-function BoulderWalk.tryStart(nav, game, adapter, item, goals, overworld)
-  if type(nav.boulderOpening) ~= "function" or type(goals) ~= "table" then return false end
-  if not require("src.access.Settings").autoWalkBoulders(game) then return false end
-  local plan, _, needs = nav:boulderOpening(overworld, goals)
-  if not plan then return false end
+local function begin(nav, game, adapter, item, overworld, plan, needs, stone)
   -- "Use Strength from the party menu" is what this does itself
   if needs and needs ~= "" and not needs:find("party menu", 1, true) then
     Speech.say("Boulders block the way. " .. needs:gsub(";%s*$", ""), { interrupt = true })
     return true
   end
   run = { nav = nav, game = game, adapter = adapter, overworld = overworld, map = overworld.map,
-    id = item.id, label = item.label, pushes = 0, phase = "choose" }
-  Speech.say("Pushing boulders to reach " .. tostring(item.label), { interrupt = true })
+    id = item.id, label = item.label, pushes = 0, phase = "choose", stone = stone }
+  Speech.say(stone and "Pushing boulders into the holes"
+    or ("Pushing boulders to reach " .. tostring(item.label)), { interrupt = true })
   return true
+end
+
+-- Starts when boulders are the only thing in the way.  False leaves the caller's
+-- "No route" to be said.
+function BoulderWalk.tryStart(nav, game, adapter, item, goals, overworld)
+  if type(nav.boulderOpening) ~= "function" or type(goals) ~= "table" then return false end
+  if not require("src.access.Settings").autoWalkBoulders(game) then return false end
+  local plan, _, needs, stone = nav:boulderOpening(overworld, goals)
+  if not plan then return false end
+  return begin(nav, game, adapter, item, overworld, plan, needs, stone)
+end
+
+-- Auto-walk to a boulder or a hole on a floor of holes still to fill does the whole
+-- floor.  With AUTO-WALK PUZZLES off it stays a walk to the hint's pushing cell.
+function BoulderWalk.tryStone(nav, game, adapter, item, overworld)
+  if type(nav.boulderOpening) ~= "function" then return false end
+  local label = tostring(item.label)
+  if not (label:find("^Boulder %d") or label:find("^Hole %d")) then return false end
+  if not require("src.access.Settings").autoWalkBoulders(game) then return false end
+  local plan, _, needs, stone = nav:boulderOpening(overworld, {})
+  if not (plan and stone) then return false end
+  return begin(nav, game, adapter, item, overworld, plan, needs, true)
 end
 
 local function press()
@@ -61,13 +85,19 @@ end
 
 local function choose()
   local ok, item, goals = pcall(run.nav.selectedRouteGoals, run.nav)
-  if not (ok and type(item) == "table" and item.id == run.id) then
+  local present = ok and type(item) == "table" and item.id == run.id
+  -- a boulder chosen as the target leaves the list when it falls
+  if not present and not run.stone then
     return BoulderWalk.stop(tostring(run.label) .. " is gone, auto walk stopped")
   end
-  local plan, reason = run.nav:boulderOpening(run.overworld, goals)
+  local plan, reason = run.nav:boulderOpening(run.overworld, present and goals or {})
   if not plan then
-    local nav, game, adapter = run.nav, run.game, run.adapter
+    local nav, game, adapter, stone = run.nav, run.game, run.adapter, run.stone
     run = nil
+    if reason == "open" and stone then
+      Speech.say("All the holes are filled", { interrupt = true })
+      return
+    end
     if reason == "open" then return autoWalk().start(nav, game, adapter) end
     Speech.say("Could not find a way to push the boulders, auto walk stopped", { interrupt = true })
     return
@@ -112,7 +142,17 @@ function BoulderWalk.update()
     end
     return
   end
-  if not onMap then return end
+  if not onMap then
+    -- "The boulder fell through" waits for A; a battle stays the player's
+    if run.phase == "settling" then
+      run.frames = run.frames + 1
+      local top = run.adapter.top and run.adapter.top(run.game)
+      if run.frames % PROMPT_GAP == 0 and not (type(top) == "table" and top.isBattle) then
+        press()
+      end
+    end
+    return
+  end
   if run.overworld.map ~= run.map then
     return BoulderWalk.stop("Left the map, auto walk stopped")
   end

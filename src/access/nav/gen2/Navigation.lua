@@ -249,17 +249,62 @@ function Navigation:stepInteraction(_world, step)
     hint = "Use " .. move .. " facing " .. step.direction }
 end
 
--- Auto-walk's boulder pushing (BoulderWalk.lua): the first push that opens a way
--- to `goals`, and what still stands between the player and using Strength.  Not
--- on the stone-table floors, whose boulders fall through holes and have hints.
+-- Auto-walk's boulder pushing (BoulderWalk.lua): the next push, and what still
+-- stands between the player and using Strength.  On a stone-table floor it is the
+-- next push of filling its holes, with stone = true and reason "open" once they are
+-- full; on any other floor, the first push that opens a way to `goals`.
 function Navigation:boulderOpening(world, goals)
   local map = world and world.map
   local mapId = map and (map.id or (type(map.def) == "table" and map.def.id))
+  local needs = Puzzle.RULES.strengthPrefix(self.game, world)
   local okTargets, targets = pcall(Puzzle.targetsFor, mapId, world)
-  if okTargets and targets then return nil end
+  if okTargets and targets then
+    local unsolved = false
+    for _, target in ipairs(targets) do
+      if not target.solved then unsolved = true end
+    end
+    if not unsolved then return nil, "open", needs, true end
+    local okPlan, plan, reason = pcall(Puzzle.planFloor, world, targets, { maxSeconds = 1.5 })
+    if not okPlan then return nil, nil, needs, true end
+    return plan, reason, needs, true
+  end
   local ok, plan, reason = pcall(Puzzle.planOpening, world, goals)
   if not ok then return nil end
-  return plan, reason, Puzzle.RULES.strengthPrefix(self.game, world)
+  return plan, reason, needs, false
+end
+
+-- Auto-walk's switch trying (SwitchWalk.lua): the signs on this floor whose own
+-- words ask to turn them on or off, each with the cells to stand on.  Read from
+-- the extracted scripts, never run.
+function Navigation:switchSigns(world)
+  local map = world and world.map
+  local def = map and (map.def or map)
+  local scripts = world and world.scripts
+  local texts = world and world.text
+  local signs = {}
+  if not (def and type(scripts) == "table" and type(texts) == "table") then return signs end
+  for _, event in ipairs(def.bgEvents or {}) do
+    local list = event.scriptKey and scripts[event.scriptKey]
+    local label, toggles
+    for _, cmd in ipairs(type(list) == "table" and list or {}) do
+      local said = type(cmd) == "table" and cmd.op == "writetext" and texts[cmd.text]
+      if type(said) == "string" then
+        said = said:gsub("%s+", " ")
+        label = label or said:match("labeled ([%u%d ]-[%u%d])%.")
+        if said:find("Turn it", 1, true) then toggles = true end
+      end
+    end
+    if label and toggles then
+      local goals = {}
+      for _, d in ipairs({ { 0, 1 }, { 0, -1 }, { -1, 0 }, { 1, 0 } }) do
+        local x, y = event.x + d[1], event.y + d[2]
+        local ok, inside = pcall(map.inBounds, map, x, y)
+        if ok and inside and map:isWalkableCell(x, y) then goals[#goals + 1] = { x = x, y = y } end
+      end
+      if #goals > 0 then signs[#signs + 1] = { label = label, x = event.x, y = event.y, goals = goals } end
+    end
+  end
+  return signs
 end
 
 -- Auto-walk tries a journey through other maps when a target on this map has
