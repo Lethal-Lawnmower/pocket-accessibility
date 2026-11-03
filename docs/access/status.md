@@ -46,10 +46,10 @@ and recorded in the topic file.
   `BattleState` about coarse flashes applies only when the animation player fails. Importer
   accepts original ROMs only, so Virtual Console's reduced flashing is not present. No game
   changes (decision 10); any reduced-flash option is the owner's decision.
-- **Chase (decision 40, 2026-11-02):** works by script in all three Gen 2 games, not heard; pushed at the
+- **Chase (decision 40, 2026-11-02):** works in Crystal in the owner's play, by script in Gold and Silver; pushed at the
   owner's request. Regressions run: `auto_walk_test`, `gen2_nav`, `gen3_nav`, Red `navigation` and
-  `autowalk_battle`. Owner's report, 2026-11-03: through Ilex Forest and on to Goldenrod in Crystal; did not
-  say how the chase itself went. README tells players the attempt counts.
+  `autowalk_battle`. Owner accepted in Crystal, 2026-11-03: "Autowalk did do the chase", through Ilex Forest and
+  on to Goldenrod. Gold and Silver by script only. README tells players the attempt counts.
 - `core.autocrlf false` keeps upstream's line endings.
 - Issues enabled on the fork at the owner's request (2026-10-31); the README
   points bug reports there and to the owner's Discord username.
