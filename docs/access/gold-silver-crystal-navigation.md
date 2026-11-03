@@ -73,7 +73,7 @@ paths are unchanged.
 - **Boulders in the way (decision 41):** a target with no route tries pushes that open one.
   `drivers/gen2_boulders.lua`: from Cianwood Gym's door, one auto-walk reached Chuck in Crystal,
   Gold and Silver, 3 pushes, with trainer battles; no Strength says so; setting off says "No route".
-  By script, with a strong lead. Not heard. A search can be wrong about a floor's script, for
+  By script, with a strong lead. Owner accepted in Crystal's Cianwood Gym, 2026-11-03. A search can be wrong about a floor's script, for
   example a floor whose boulders are meant to stay.
 - **Strength puzzles (Ice Path B1F, Blackthorn Gym 2F):** targets come only
   from the stone table the world is polling. Holes are listed "Hole N" with
