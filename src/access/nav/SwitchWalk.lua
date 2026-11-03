@@ -4,12 +4,19 @@
 -- floor's collision grid, each switch tried from each state is remembered, and
 -- the walk ends as soon as a route to the target opens.  Nothing here names a
 -- map.  AUTO-WALK PUZZLES in the Accessibility page turns it off.
+--
+-- Hidden switches (Vermilion Gym's trash cans) are the same walk with one change: a
+-- press can do nothing visible, and the answer can be re-rolled, so nothing tried stays
+-- ruled out.  The floor's tiles say when a press did something.  From there the nearest
+-- switches go first, because the game hides the second next to the first.  This learns
+-- by trying and does not read which ones hold the answer.
 
 local Speech = require("src.access.Speech")
 
 local SwitchWalk = {}
 
 local MAX_FLIPS = 48
+local MAX_SEARCHES = 200
 local PROMPT_FRAMES = 1500
 local PROMPT_GAP = 30
 local CALM_FRAMES = 20
@@ -47,10 +54,15 @@ function SwitchWalk.tryStart(nav, game, adapter, item, overworld)
   if type(nav.switchSigns) ~= "function" then return false end
   if not require("src.access.Settings").autoWalkBoulders(game) then return false end
   local signs = nav:switchSigns(overworld)
+  local hidden = false
+  if #signs == 0 and type(nav.hiddenSwitchSigns) == "function" then
+    signs, hidden = nav:hiddenSwitchSigns(overworld), true
+  end
   if #signs == 0 then return false end
   run = { nav = nav, game = game, adapter = adapter, overworld = overworld, map = overworld.map,
-    id = item.id, label = item.label, flips = 0, phase = "choose", tried = {}, complete = {} }
-  Speech.say("Trying switches to reach " .. tostring(item.label), { interrupt = true })
+    id = item.id, label = item.label, flips = 0, phase = "choose", tried = {}, complete = {}, hidden = hidden }
+  Speech.say((hidden and "Searching for switches to reach " or "Trying switches to reach ") .. tostring(item.label),
+    { interrupt = true })
   return true
 end
 
@@ -87,6 +99,61 @@ local function knownWayOn(from)
   return nil
 end
 
+local function walkToSign(pick, from)
+  run.sign, run.from, run.lastLabel = pick, from, pick.label
+  run.phase = "walking"
+  local player = run.overworld.player
+  for _, goal in ipairs(pick.goals) do
+    if goal.x == player.cellX and goal.y == player.cellY then
+      run.phase = "face"
+      return
+    end
+  end
+  autoWalk().start(run.nav, run.game, run.adapter, { goals = pick.goals, quiet = true })
+end
+
+-- The nearest switch not tried since the floor last changed, measured from the switch
+-- that changed it, or from the player before any has.
+local function nearestUntried()
+  local AutoWalk = autoWalk()
+  local player = run.overworld.player
+  local fromX = run.anchor and run.anchor.x or player.cellX
+  local fromY = run.anchor and run.anchor.y or player.cellY
+  local best, bestDistance = nil, math.huge
+  for _, sign in ipairs(run.nav:hiddenSwitchSigns(run.overworld)) do
+    local distance = math.abs(sign.x - fromX) + math.abs(sign.y - fromY)
+    if not run.tried[sign.label] and distance < bestDistance and AutoWalk.routeExists(run.nav, sign.goals) then
+      best, bestDistance = sign, distance
+    end
+  end
+  return best
+end
+
+local function chooseHidden()
+  if run.flips >= MAX_SEARCHES then
+    return SwitchWalk.stop("Still searching after many tries, auto walk stopped")
+  end
+  local pick = nearestUntried()
+  if not pick then
+    run.tried = {}
+    pick = nearestUntried()
+  end
+  if not pick then
+    return SwitchWalk.stop("No switch opens a way to " .. tostring(run.label) .. ", auto walk stopped")
+  end
+  walkToSign(pick, run.nav:floorMarks(run.overworld))
+end
+
+local function finishHiddenPress()
+  run.flips = run.flips + 1
+  local marks = run.nav:floorMarks(run.overworld)
+  if marks ~= run.from then
+    run.tried, run.anchor = {}, run.sign
+  end
+  run.tried[run.sign.label] = true
+  run.phase = "choose"
+end
+
 local function choose()
   local AutoWalk = autoWalk()
   local ok, item, goals = pcall(run.nav.selectedRouteGoals, run.nav)
@@ -98,6 +165,7 @@ local function choose()
     run = nil
     return AutoWalk.start(nav, game, adapter)
   end
+  if run.hidden then return chooseHidden() end
   if run.flips >= MAX_FLIPS then
     return SwitchWalk.stop("Still trying switches after many flips, auto walk stopped")
   end
@@ -126,16 +194,7 @@ local function choose()
       return SwitchWalk.stop("No switch opens a way to " .. tostring(run.label) .. ", auto walk stopped")
     end
   end
-  run.sign, run.from, run.lastLabel = pick, state, pick.label
-  run.phase = "walking"
-  local player = run.overworld.player
-  for _, goal in ipairs(pick.goals) do
-    if goal.x == player.cellX and goal.y == player.cellY then
-      run.phase = "face"
-      return
-    end
-  end
-  AutoWalk.start(run.nav, run.game, run.adapter, { goals = pick.goals, quiet = true })
+  walkToSign(pick, state)
 end
 
 -- Per frame, after AutoWalk.update.
@@ -158,6 +217,7 @@ function SwitchWalk.update()
     if onMap then
       run.calm = run.calm + 1
       if run.calm >= CALM_FRAMES then
+        if run.hidden then return finishHiddenPress() end
         run.flips = run.flips + 1
         run.tried[run.from][run.sign.label] = floorState(run.map)
         run.phase = "choose"
@@ -180,7 +240,8 @@ function SwitchWalk.update()
     for _, goal in ipairs(sign.goals) do
       if goal.x == player.cellX and goal.y == player.cellY then return end
     end
-    run.tried[run.from][sign.label] = "blocked"
+    if run.hidden then run.tried[sign.label] = true
+    else run.tried[run.from][sign.label] = "blocked" end
     run.phase = "choose"
     return
   end

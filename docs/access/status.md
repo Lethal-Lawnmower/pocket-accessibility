@@ -149,6 +149,8 @@ and recorded in the topic file.
   `firered-leafgreen-navigation.md`. Pushed at the owner's request before an owner test. Not heard.
 - **Mods window (decision 42, 2026-11-03):** built and tested by script. The owner installed mods on the real profile and played Crystal
   with Music2-HGSS; speech still works by ear. Details and what is not done in `launcher.md`.
+- **Vermilion Gym (2026-11-03):** auto-walk searches the trash cans in FireRed, by script only; see
+  `firered-leafgreen-navigation.md`. Not in Gen 1 or Crystal.
 - **LeafGreen:** deferred by the owner (decision 30); no clean dump on this
   PC yet. FireRed's whole UI first, with Pokémon Access as a behaviour
   reference.

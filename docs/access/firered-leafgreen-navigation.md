@@ -168,6 +168,22 @@ Whole-map audit (`gen3_nav_sweep`, 418 maps, 0 bad labels) plus new runs:
 Boulder floors with no pressure switch or hole (Mt. Ember, Warden's House) have no auto-pushing; Gen 2's
 search for an opening is not in Gen 3. Not run: anything by ear.
 
+## Vermilion Gym's trash cans (2026-11-03, by script; not heard)
+
+Auto-walk to Lt. Surge, or anything else behind the door, with AUTO-WALK PUZZLES on, says "Searching for
+switches to reach Lt. Surge" and presses cans until a route opens, then walks on. Any key stops it. The game
+picks a first can, then a second next to it, and picks again after a wrong second can.
+
+- **How it knows a press did something:** the tiles scripts have drawn on the floor changed
+  (`Navigation:floorMarks`). The first lock and a reset change no collision, so `SwitchWalk`'s usual state won't do.
+- **Order:** nearest to the last can that changed the floor, which puts the second can's neighbours first.
+  Everything tried is forgotten at each change, because a reset re-rolls.
+- **Facing:** the cans' script ends at once when the player faces up, so the cell below a can is never used.
+
+`gen3_surge`, three runs on a fresh profile with a level 90 party: 26, 11 and 41 presses, about 2.4, 1.6 and 3.5
+minutes of game time counting gym battles; each arrived at Lt. Surge. Every game line came through, such as "The
+first electric lock opened!". Red, Blue, Yellow, Gold, Silver and Crystal do not have this.
+
 ## Known gaps
 
 - Load scripts not read: see the verification table for the count. The

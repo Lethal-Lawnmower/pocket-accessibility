@@ -392,6 +392,11 @@ hole does the floor there too, using its own plan (`Navigation:boulderOpening`),
 tried like Goldenrod's. Non-adjacent warps to one map stay apart in Gen 2 and 3. Signs with no other name
 are "Sign: " and the start of their own text, in Gen 2 and 3.
 
+FireRed, same day ("the same thing, kind of what we did for the far-fetched thing with Lieutenant Surge
+puzzle"): a target with no route on a floor of trash cans searches them (`SwitchWalk`, hidden switches). It
+learns by trying, like the Farfetch'd, and does not read the game's hidden answer. Reading it would take two
+presses instead of about ten to forty; say so if that is preferred.
+
 Same day, the owner on Goldenrod Underground: "I don't mind having the Pathfinder auto do it." So a
 target with no route also tries switches (`nav/SwitchWalk.lua`): signs whose text asks to turn them on
 or off are flipped, and each result is watched from the map itself, with no switch table. Same

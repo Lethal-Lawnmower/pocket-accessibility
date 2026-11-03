@@ -268,21 +268,52 @@ end
 
 -- Auto-walk's switch trying (SwitchWalk.lua): the Secret Switches on this floor,
 -- each with the cells to stand on (the role comes from their scripts, Scripts.signRole).
-function Navigation:switchSigns(world)
+local function labelledSigns(self, world, label)
   local signs = {}
   local ok, snapshot = pcall(self.captureWorld, self, "signposts")
   if not (ok and type(snapshot) == "table") then return signs end
   for _, item in ipairs(snapshot.browse or {}) do
-    if item.label == "Secret Switch" then
+    if item.label == label then
       local goals = self:interactionGoals(world, item)
       if type(goals) == "table" and #goals > 0 then
         local cell = (item.interactionCells or {})[1] or item
-        signs[#signs + 1] = { label = "Secret Switch " .. tostring(cell.x) .. "," .. tostring(cell.y),
+        signs[#signs + 1] = { label = label .. " " .. tostring(cell.x) .. "," .. tostring(cell.y),
           x = cell.x, y = cell.y, goals = goals }
       end
     end
   end
   return signs
+end
+
+function Navigation:switchSigns(world)
+  return labelledSigns(self, world, "Secret Switch")
+end
+
+-- The trash cans, for the same walk's hidden switches.  Their script ends at once when
+-- the player faces up, so the cell below a can is left out.
+function Navigation:hiddenSwitchSigns(world)
+  local signs = labelledSigns(self, world, "Trash Can")
+  for _, sign in ipairs(signs) do
+    local goals = {}
+    for _, goal in ipairs(sign.goals) do
+      if not (goal.x == sign.x and goal.y == sign.y + 1) then goals[#goals + 1] = goal end
+    end
+    sign.goals = goals
+  end
+  return signs
+end
+
+-- What scripts have drawn on this floor; a change means a press did something, even
+-- when nothing about walking changed.
+function Navigation:floorMarks(world)
+  local Field = loaded("src.core.game3.field")
+  local bucket = Field and Field.metatileOverrides and Field.metatileOverrides[world.map.id]
+  local parts = {}
+  for key, written in pairs(bucket or {}) do
+    parts[#parts + 1] = tostring(key) .. "=" .. tostring(written.metatile)
+  end
+  table.sort(parts)
+  return table.concat(parts, ",")
 end
 
 -- Cut trees are objects in FireRed, handled by the route graph.

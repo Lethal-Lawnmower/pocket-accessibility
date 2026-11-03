@@ -350,10 +350,10 @@ eq(last(), "Options. ACCESSIBILITY, 2 OPTIONS, 1 of " .. #real.view, "real OPTIO
 real.view[1].activate(game2)
 local access = stackStates[2]
 SR.update(access)
-eq(last(), "ACCESSIBILITY. AUTO-WALK SPEED, GAME SPEED, 1 of 3", "ACCESSIBILITY page")
+eq(last(), "ACCESSIBILITY. AUTO-WALK SPEED, GAME SPEED, 1 of 4", "ACCESSIBILITY page")
 access.index = 2
 SR.update(access)
-eq(last(), "DIALOGUE SPEECH, PAGE BY PAGE, 2 of 3", "DIALOGUE SPEECH row")
+eq(last(), "DIALOGUE SPEECH, PAGE BY PAGE, 2 of 4", "DIALOGUE SPEECH row")
 access:cycle(access.view[2], 1)
 SR.update(access)
 eq(last(), "ALL AT ONCE", "value change through the screen's own cycle")

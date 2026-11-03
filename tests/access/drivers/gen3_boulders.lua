@@ -57,12 +57,8 @@ return function(game)
         if frame % 900 == 0 then L.heal() end
         local state = BoulderWalk._state()
         if state then pushes = state.pushes end
-        if frame % 15 == 0 and not (state and (state.phase == "strength" or state.phase == "settling"))
-           and not L.free() then
-          game.input.pressQueue[#game.input.pressQueue + 1] = "a"
-          game.input.state.a = true
-          U.wait(2)
-          game.input.state.a = false
+        if not L.battleStep() and frame % 15 == 0 and not (state and (state.phase == "strength" or state.phase == "settling")) and L.messageOpen() then
+          L.tap("a", 6)
         end
         U.wait(1)
       end

@@ -103,6 +103,8 @@ Accessibility page of the game's options. You still get the hints.
   Cianwood Gym. You need a Pokémon with Strength.
 - **Switches:** when a target has no route, it tries the switches, such as Goldenrod
   Underground's and Pokémon Mansion's, and watches what opens. This can take a while.
+- **Lt. Surge's trash cans (FireRed):** auto-walk to Lt. Surge, and it searches the cans until the door opens.
+  The game resets the locks after a wrong second can, so this took 11 to 41 presses in our test runs.
 - **The Farfetch'd in Ilex Forest (Gold, Silver, Crystal):** auto-walk to it, press A once,
   then auto-walk again without moving, and it keeps after the bird by itself. It learns by
   trying each side, and the wrong side can send the bird backwards, so this can take a
