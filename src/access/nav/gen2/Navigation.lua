@@ -249,6 +249,19 @@ function Navigation:stepInteraction(_world, step)
     hint = "Use " .. move .. " facing " .. step.direction }
 end
 
+-- Auto-walk's boulder pushing (BoulderWalk.lua): the first push that opens a way
+-- to `goals`, and what still stands between the player and using Strength.  Not
+-- on the stone-table floors, whose boulders fall through holes and have hints.
+function Navigation:boulderOpening(world, goals)
+  local map = world and world.map
+  local mapId = map and (map.id or (type(map.def) == "table" and map.def.id))
+  local okTargets, targets = pcall(Puzzle.targetsFor, mapId, world)
+  if okTargets and targets then return nil end
+  local ok, plan, reason = pcall(Puzzle.planOpening, world, goals)
+  if not ok then return nil end
+  return plan, reason, Puzzle.RULES.strengthPrefix(self.game, world)
+end
+
 -- Auto-walk tries a journey through other maps when a target on this map has
 -- no route here (Team Rocket Base B3F's password door, reached through B2F).
 Navigation.autoWalkJourneys = true

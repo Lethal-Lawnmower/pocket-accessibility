@@ -512,6 +512,16 @@ do -- named from the game's own data rather than the sheet or "Signpost N"
   end
   table.sort(named)
   print("signs named from their words: " .. table.concat(named, "; "))
+  -- boulders: the search opens the way to Chuck from his gym's door, and asks for
+  -- nothing where the way is already open
+  do
+    local Puzzle = require("src.access.nav.gen2.PuzzleAssistance")
+    local gym = world("CIANWOOD_GYM", 4, 16)
+    local plan = Puzzle.planOpening(gym, { { x = 4, y = 2 } }, { maxSeconds = 5 })
+    check(plan and plan.pushes and plan.pushes > 0, "Cianwood Gym: pushes open the way to Chuck")
+    local _, reason = Puzzle.planOpening(gym, { { x = 4, y = 15 } }, { maxSeconds = 5 })
+    eq(reason, "open", "Cianwood Gym: no push where the way is open")
+  end
   byLabel = labelsOn("TEAM_ROCKET_BASE_B3F")
   check(byLabel and byLabel["Locked Door"], "Team Rocket Base B3F: the password door is a Locked Door")
   byLabel = labelsOn("GOLDENROD_UNDERGROUND_SWITCH_ROOM_ENTRANCES")

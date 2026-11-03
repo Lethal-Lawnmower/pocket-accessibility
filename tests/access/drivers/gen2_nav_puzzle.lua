@@ -14,6 +14,10 @@ return function(game)
   L.giveParty("FERALIGATR", 60, { "STRENGTH", "SURF", "CUT", "WATERFALL" },
     { "ZEPHYR", "HIVE", "PLAIN", "FOG", "STORM", "MINERAL", "GLACIER", "RISING" })
 
+  -- wild battles would use up the lead's moves over a long floor, and a lead with no
+  -- PP left never ends one (the Silver timeout of the v0.4.0 merge check)
+  game.save.repelSteps = 60000
+
   local floors = {
     { id = "ICE_PATH_B1F", x = 3, y = 14 },
     { id = "BLACKTHORN_GYM_2F", x = 2, y = 7 },

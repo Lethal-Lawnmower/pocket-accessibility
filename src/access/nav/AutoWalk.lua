@@ -173,6 +173,8 @@ function AutoWalk.start(nav, game, adapter, opts)
   opts = opts or {}
   local Chase = require("src.access.nav.Chase")
   if not opts.quiet and Chase.active() then return Chase.stop("Auto walk stopped") end
+  local Boulders = require("src.access.nav.BoulderWalk")
+  if not opts.quiet and Boulders.active() then return Boulders.stop("Auto walk stopped") end
   if walk then return AutoWalk.stop("Auto walk stopped") end
   adapter = adapter or WorldAdapter.current() or WorldAdapter.gen1
   local tooDark = type(nav.darkRefusal) == "function" and nav:darkRefusal()
@@ -236,6 +238,10 @@ function AutoWalk.start(nav, game, adapter, opts)
     end
   end
   if not result then
+    if not opts.quiet and not journey then
+      local BoulderWalk = require("src.access.nav.BoulderWalk")
+      if BoulderWalk.tryStart(nav, game, adapter, item, goals, overworld) then return true end
+    end
     if not opts.quiet then
       Speech.say(spokenReason(findErr or "no path", item.label), { interrupt = true })
     end

@@ -70,6 +70,11 @@ paths are unchanged.
   keeps after it (`nav/Chase.lua`). `drivers/gen2_chase.lua`, harness pressing A in text:
   the game set `EVENT_HERDED_FARFETCHD` in Crystal (33 presses), Gold (19), Silver (36);
   counts vary with the sides tried. `tests/access/chase_test.lua` 9/9. Owner accepted in Crystal, 2026-11-03; Gold and Silver not played.
+- **Boulders in the way (decision 41):** a target with no route tries pushes that open one.
+  `drivers/gen2_boulders.lua`: from Cianwood Gym's door, one auto-walk reached Chuck in Crystal,
+  Gold and Silver, 3 pushes, with trainer battles; no Strength says so; setting off says "No route".
+  By script, with a strong lead. Not heard. A search can be wrong about a floor's script, for
+  example a floor whose boulders are meant to stay.
 - **Strength puzzles (Ice Path B1F, Blackthorn Gym 2F):** targets come only
   from the stone table the world is polling. Holes are listed "Hole N" with
   their state ("empty; Boulder 3 can reach it; next push right", "filled").
@@ -175,8 +180,6 @@ follower (identical to its baseline once the window was isolated: unisolated run
 failed at random because the game window took real keystrokes, which stop
 auto-walk; `AGENTS.md` now requires `drivers/isolated.lua`).
 
-**Audit gaps:** auto-walk does not smash rocks or push boulders outside the
-stone tables (the player walks there and acts); Cianwood Gym's boulders
-have no push hints; Vermilion Gym's trash cans and the Ruins chamber statues
+**Audit gaps:** auto-walk does not smash rocks (the player walks there and acts); Vermilion Gym's trash cans and the Ruins chamber statues
 stay "Signpost N" (their scripts name nothing); single-map auto-walk does not take same-map pads
 (Saffron Gym), as in Gen 1.

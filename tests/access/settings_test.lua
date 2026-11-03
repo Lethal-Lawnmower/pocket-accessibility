@@ -113,7 +113,7 @@ local pushed = {}
 game2.stack = { push = function(_, s) pushed[#pushed + 1] = s end }
 local menu2 = Gen2Options.new(game2, { options = game2.options })
 eq(menu2.view[1].label, "ACCESSIBILITY", "Gen 2 top level gets the page first")
-eq(menu2.view[1].value(), "2 OPTIONS", "Gen 2 group row value")
+eq(menu2.view[1].value(), "3 OPTIONS", "Gen 2 group row value")
 menu2.view[1].activate(game2)
 local page2 = pushed[1]
 check(page2 and getmetatable(page2) == Gen2Options, "Gen 2 page is the game's own OPTION screen")

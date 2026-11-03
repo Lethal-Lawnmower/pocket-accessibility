@@ -53,6 +53,9 @@ and recorded in the topic file.
 - **Lost dialogue (2026-11-03):** Prism refuses some lines as invalid UTF-8 (`gold-silver-crystal.md`).
   `Speech.say` now retries in ASCII. Owner heard Jasmine's lost line after the fix, 2026-11-03: "It
   works. Perfect." Silent driver runs cannot catch this kind of failure. Other lost lines not rechecked.
+- **Boulder pushing (decision 41, 2026-11-03):** by script in all three Gen 2 games. Owner, same day: "Gym completed"
+  and asked to push; whether auto-walk did the pushes was not said. Earlier Silver `gen2_nav_puzzle` timeout: a Crystal rerun stopped at a lead with no PP
+  in a wild battle, which fits it; the driver now keeps a Repel.
 - `core.autocrlf false` keeps upstream's line endings.
 - Issues enabled on the fork at the owner's request (2026-10-31); the README
   points bug reports there and to the owner's Discord username.

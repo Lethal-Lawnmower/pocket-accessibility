@@ -68,6 +68,11 @@ function Settings.autoWalkSpeed(game)
   return GameSpeed.clamp(value)
 end
 
+-- Auto-walk pushes boulders when they are all that stands in the way (Gen 2).
+function Settings.autoWalkBoulders(game)
+  return options(game).accessAutoWalkBoulders ~= false
+end
+
 function Settings.dialogueWhole(game)
   return options(game).accessDialogue == "whole"
 end
@@ -87,7 +92,7 @@ local function stepAutoWalkSpeed(game, dir)
 end
 
 function Settings.rows()
-  return {
+  local rows = {
     { id = "accessAutoWalkSpeed", label = "AUTO-WALK SPEED",
       value = function(g)
         local speed = Settings.autoWalkSpeed(g)
@@ -104,6 +109,16 @@ function Settings.rows()
         return true
       end },
   }
+  if GameVersion.generation() == 2 then
+    rows[#rows + 1] = { id = "accessAutoWalkBoulders", label = "AUTO-WALK BOULDERS",
+      value = function(g) return Settings.autoWalkBoulders(g) and "ON" or "OFF" end,
+      step = function(g)
+        local o = options(g)
+        o.accessAutoWalkBoulders = o.accessAutoWalkBoulders == false and true or false
+        return true
+      end }
+  end
+  return rows
 end
 
 local installed = {}

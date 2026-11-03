@@ -372,3 +372,13 @@ auto-walk tries each side, watches where it goes, remembers each result and stop
 untried side is left. Game text stays the player's to advance. An object that changes id
 (Gold and Silver show one bird per place) is followed by name when exactly one has it.
 
+## 41. Auto-walk pushes boulders, optionally (2026-11-03)
+
+The owner asked for an automatic gym puzzle solver in auto-walk and, after hearing the plan,
+said "Yes, build it." When a target has no route, Gen 2 auto-walk searches the floor for pushes
+that open one (`Puzzle.planOpening`), walks to each pushing cell, answers the game's Strength
+question and pushes (`nav/BoulderWalk.lua`). Nothing names a map. Manual play is unchanged, and
+AUTO-WALK BOULDERS in the Accessibility page (default on) turns it off. Stone-table floors
+(Ice Path B1F, Blackthorn Gym 2F) keep their hints; a boulder dropped through a hole is not
+searched this way. FireRed has its own Strength code and is not covered.
+

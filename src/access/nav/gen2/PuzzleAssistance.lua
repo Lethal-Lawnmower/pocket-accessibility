@@ -423,6 +423,81 @@ function Puzzle.planFloor(world, targets, budget)
   return nil
 end
 
+-- The first push of the shortest plan that opens a way from the player to any
+-- of `goals` (cells), on a floor with no stone table: { boulder, standX, standY,
+-- direction, pushes }.  Breadth first over pushes, by the same rules as
+-- planFloor.  Returns nil, "open" when no push is needed, nil, "budget" when the
+-- search ran out, and nil alone when no pushes open a way.
+function Puzzle.planOpening(world, goals, budget)
+  budget = budget or {}
+  local model = floorModel(world, {})
+  local map, width = model.map, model.width
+  local player = world.player
+  if not player then return nil end
+  local goalCell = {}
+  for _, goal in ipairs(goals or {}) do
+    local i = goal.y * width + goal.x
+    goalCell[i] = true
+    -- a goal may be a warp: reachable as a destination, though never stood on otherwise
+    model.standable[i] = model.land[i] or model.standable[i]
+  end
+  local function reaches(region)
+    for i in pairs(goalCell) do if region[i] then return true end end
+    return false
+  end
+  local startPositions, occupied = {}, {}
+  for i, b in ipairs(model.boulders) do
+    startPositions[i] = b.start
+    occupied[b.start] = true
+  end
+  local region, rep = playerRegion(model, player.cellX, player.cellY, occupied)
+  if reaches(region) then return nil, "open" end
+  if #model.boulders == 0 then return nil end
+  local queue, head = { { positions = startPositions, region = region, g = 0 } }, 1
+  local visited = { [stateKey(startPositions, rep)] = true }
+  local maxExpanded = budget.maxExpanded or 20000
+  local deadline = os.clock() + (budget.maxSeconds or 0.4)
+  while queue[head] do
+    local node = queue[head]
+    head = head + 1
+    if head > maxExpanded or os.clock() > deadline then return nil, "budget" end
+    local taken = {}
+    for _, pos in ipairs(node.positions) do taken[pos] = true end
+    for bi, b in ipairs(model.boulders) do
+      local pos = node.positions[bi]
+      local bx, by = pos % width, math.floor(pos / width)
+      for _, d in ipairs(DIRS) do
+        local si = (by - d[3]) * width + bx - d[2]
+        local lx, ly = bx + d[2], by + d[3]
+        local li = ly * width + lx
+        if node.region[si] and lx >= 0 and ly >= 0 and lx < width and ly < model.height
+           and model.land[li] and not model.fixed[li] and not taken[li]
+           and not model.warpCell[li] and map:objectStepPermitted(bx, by, d[1]) then
+          local push = node.first or { boulder = b, standX = bx - d[2], standY = by - d[3],
+            direction = d[1] }
+          local nextPositions, nextTaken = {}, {}
+          for i, p in ipairs(node.positions) do
+            nextPositions[i] = i == bi and li or p
+            nextTaken[nextPositions[i]] = true
+          end
+          local nextRegion, nextRep = playerRegion(model, bx - d[2], by - d[3], nextTaken)
+          if reaches(nextRegion) then
+            push.pushes = node.g + 1
+            return push
+          end
+          local key = stateKey(nextPositions, nextRep)
+          if not visited[key] then
+            visited[key] = true
+            queue[#queue + 1] = { positions = nextPositions, region = nextRegion,
+              g = node.g + 1, first = push }
+          end
+        end
+      end
+    end
+  end
+  return nil
+end
+
 local CACHE = setmetatable({}, { __mode = "k" })
 
 local function signature(game, world, targets, prefix)
