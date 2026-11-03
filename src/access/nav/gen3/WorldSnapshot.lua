@@ -266,13 +266,20 @@ function Snapshot.projectSigns(view, def, player)
       grouped[i] = true
       local members, head = { first }, 1
       local key = first.event.scriptKey
+      local firstRole = key and Scripts.signRole(key)
       while key ~= nil and head <= #members do
         local current = members[head]
         head = head + 1
         for j, other in ipairs(listed) do
-          if not grouped[j] and other.event.scriptKey == key and other.kind == first.kind
-             and math.abs(other.event.x - current.event.x)
-               + math.abs(other.event.y - current.event.y) == 1 then
+          local near = math.abs(other.event.x - current.event.x)
+            + math.abs(other.event.y - current.event.y) == 1
+          local sameScript = other.event.scriptKey == key
+          -- one elevator panel, wherever its signs stand (Celadon's car has a second,
+          -- on a wall no one can stand below); the two cells of one quiz machine, each
+          -- with its own script
+          local together = (sameScript and (near or firstRole == "Floor Panel"))
+            or (near and firstRole == "Quiz Machine" and Scripts.signRole(other.event.scriptKey) == firstRole)
+          if not grouped[j] and together and other.kind == first.kind then
             grouped[j] = true
             members[#members + 1] = other
           end
@@ -338,7 +345,10 @@ local function worldProxy(world, opts)
   local projected = { map = mapProxy(world.map, world, opts) }
   local list = {}
   for _, actor in ipairs(world.npcs or {}) do
-    if type(actor) == "table" and not actor.invisible then
+    -- a tree or a rock placed past the map's edge shows from the map next door: a
+    -- thing to see there, nothing to walk to here
+    if type(actor) == "table" and not actor.invisible
+       and world.map:inBounds(actor.cellX, actor.cellY) then
       list[#list + 1] = projectActor(actor, opts)
     end
   end

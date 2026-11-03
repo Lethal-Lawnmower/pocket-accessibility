@@ -193,7 +193,7 @@ function AutoWalk.start(nav, game, adapter, opts)
   local item, goals, interaction, _, overworld = nav:selectedRouteGoals()
   -- a walk to given cells does not need the selection: a hole just filled has left it
   if not item and opts.goals then
-    item, overworld = { id = "cells", label = "", type = "cells" }, nav:worldForCommand()
+    item, overworld = { id = "cells", label = opts.label or "", type = "cells" }, nav:worldForCommand()
   end
   if not item then
     Speech.say(goals or "Select an object from the list", { interrupt = true })
@@ -215,6 +215,8 @@ function AutoWalk.start(nav, game, adapter, opts)
   end
   lastArrival = nil
   if opts.goals then goals = opts.goals end
+  -- a walk to given cells on another floor (SwitchWalk's way to a switch up there)
+  local presetJourney = opts.journeyTo
   if type(goals) ~= "table" or #goals == 0 then
     Speech.say("No route to " .. tostring(item.label), { interrupt = true })
     return false
@@ -222,10 +224,25 @@ function AutoWalk.start(nav, game, adapter, opts)
   -- an Area target is on another map: walk the cross-map journey leg by
   -- leg (Navigation:regionalNextLeg), re-planning on every new map
   local journey, final, stopText, danceLeg = nil, true, nil, nil
-  if item.type == "area" then
+  if presetJourney then
+    local leg = nav:regionalNextLeg(presetJourney)
+    if not leg then return false end
+    journey, goals = presetJourney, leg.goals
+    final = leg.final == true or leg.stopAtGoal == true
+    stopText = leg.stopAtGoal and leg.stopText or nil
+    danceLeg = leg
+  end
+  if item.type == "area" and not opts.goals then
     journey = { targetMapId = item.mapId, targetGoals = goals }
     local leg, legErr = nav:regionalNextLeg(journey)
     if not leg then
+      -- this floor's own puzzle may be what closes the way
+      if not opts.quiet then
+        local Boulders = require("src.access.nav.BoulderWalk")
+        if Boulders.tryJourney(nav, game, adapter, item, overworld) then return true end
+        if Boulders.tryArea(nav, game, adapter, item, overworld) then return true end
+        if require("src.access.nav.SwitchWalk").tryStart(nav, game, adapter, item, overworld) then return true end
+      end
       Speech.say(spokenReason(legErr or "no regional path", item.label), { interrupt = true })
       return false
     end
@@ -237,7 +254,7 @@ function AutoWalk.start(nav, game, adapter, opts)
   -- A target on this map with no way here may have one through other maps
   -- (Seafoam's floors): the coordinator that says so (FireRed) walks it as
   -- a journey, the same answer guided navigation gives.
-  if not result and not journey and nav.autoWalkJourneys and type(nav.currentMapIdOf) == "function" then
+  if not result and not journey and not opts.goals and nav.autoWalkJourneys and type(nav.currentMapIdOf) == "function" then
     local attempt = { targetMapId = nav:currentMapIdOf(overworld), targetGoals = goals }
     local leg, legErr = nav:regionalNextLeg(attempt)
     if leg and not leg.final then
@@ -254,6 +271,7 @@ function AutoWalk.start(nav, game, adapter, opts)
     if not opts.quiet and not journey then
       local BoulderWalk = require("src.access.nav.BoulderWalk")
       if BoulderWalk.tryStart(nav, game, adapter, item, goals, overworld) then return true end
+      if BoulderWalk.tryJourney(nav, game, adapter, item, overworld) then return true end
       if require("src.access.nav.SwitchWalk").tryStart(nav, game, adapter, item, overworld) then
         return true
       end
@@ -287,7 +305,8 @@ function AutoWalk.start(nav, game, adapter, opts)
     -- a fast game speed moved the player past the last step between two
     -- updates (several tiles per real frame at 200X)
     -- (a walk that ends at a panel is not going through that warp)
-    targetMapId = not stopText and item.type == "warp" and item.destinationMapId or nil,
+    targetMapId = not stopText and (opts.targetMapId
+      or (not opts.goals and item.type == "warp" and item.destinationMapId)) or nil,
     interaction = interaction,
     nav = nav,
     goals = goals,
@@ -313,7 +332,7 @@ function AutoWalk.start(nav, game, adapter, opts)
     end
     -- the journey's way on is the stairs or mat underfoot (just came through them): a mat
     -- wants its press, stairs a step off and back on; this is not "here" yet
-    if journey and not final then
+    if journey and not final and not opts.quiet then
       local press = type(nav.warpPressDirection) == "function"
         and select(2, pcall(nav.warpPressDirection, nav, overworld, player.cellX, player.cellY)) or nil
       if type(press) == "string" then
@@ -335,7 +354,7 @@ function AutoWalk.start(nav, game, adapter, opts)
       end
     end
     -- standing on a door or stair the player just came out of: it fires on stepping back on
-    if walk.targetMapId and nav.stepBackOntoWarps and stepOffAndBack() then
+    if walk.targetMapId and (nav.stepBackOntoWarps or nav.stepOffWarpTargets) and stepOffAndBack() then
       walk.steppedBack = true
       if not opts.quiet then Speech.say("Walking to " .. tostring(item.label), { interrupt = true }) end
       return true
@@ -459,6 +478,24 @@ local function refreshTarget()
   return true
 end
 
+-- The walk ends and this floor's puzzle takes over, when it has one that helps.
+local function journeyPuzzle()
+  local nav, game, adapter, overworld = walk.nav, walk.game, walk.adapter, walk.overworld
+  local item = nav:selectedRouteGoals()
+  if type(item) ~= "table" then return false end
+  local saved = walk
+  release(walk.input, walk.held)
+  walk = nil
+  local Boulders = require("src.access.nav.BoulderWalk")
+  if Boulders.tryJourney(nav, game, adapter, item, overworld)
+     or Boulders.tryArea(nav, game, adapter, item, overworld)
+     or require("src.access.nav.SwitchWalk").tryStart(nav, game, adapter, item, overworld) then
+    return true
+  end
+  walk = saved
+  return false
+end
+
 -- Recomputes the route from where the player now stands to the target.
 local function resume(quiet)
   if not refreshTarget() then
@@ -473,6 +510,8 @@ local function resume(quiet)
       walk.retryIn = RESUME_RETRY_FRAMES
       return
     end
+    -- a floor of a journey closed by boulders or switches: its puzzle comes first
+    if walk.journey and not walk.quiet and journeyPuzzle() then return end
     return AutoWalk.stop("Cannot reach " .. tostring(walk.label) .. ", auto walk stopped")
   end
   walk.retryIn = nil
@@ -507,6 +546,7 @@ local function nextLeg()
   if tooDark then return AutoWalk.stop(tooDark) end
   local leg, err = walk.nav:regionalNextLeg(walk.journey)
   if not leg then
+    if not walk.quiet and journeyPuzzle() then return end
     return AutoWalk.stop("No route from here to " .. tostring(walk.label) .. ", auto walk stopped")
   end
   walk.map, walk.goals, walk.final = walk.overworld.map, leg.goals, leg.final == true or leg.stopAtGoal == true
@@ -531,6 +571,8 @@ local function landedOnThisMap(x, y)
   if not walk.targetMapId or walk.targetMapId ~= mapId or walk.journey then return false end
   return math.abs(x - walk.lastX) + math.abs(y - walk.lastY) > 1
 end
+
+local function nav_replans(nav) return nav.replanJourneyOffRoute == true end
 
 -- Per frame, after upstream's update.  `top` is the top screen.
 function AutoWalk.update(top)
@@ -703,6 +745,7 @@ function AutoWalk.update(top)
       end
       return AutoWalk.stop(arrivalText())
     end
+    if walk.journey and nav_replans(walk.nav) then return nextLeg() end
     -- pushed off the route (a spinner, a current, a scripted step): plan again
     -- from here, quietly, a few times per walk
     walk.reroutes = (walk.reroutes or 0) + 1

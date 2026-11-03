@@ -644,6 +644,124 @@ function Puzzle.followPlan(plan, world, boulders)
   return nil
 end
 
+-- The floor's boulders, on a floor with or without switches and holes.
+function Puzzle.bouldersOf(world)
+  local boulders = {}
+  for _, entity in ipairs(world and world.npcs or {}) do
+    if isBoulder(entity) and not entity.invisible then boulders[#boulders + 1] = entity end
+  end
+  table.sort(boulders, function(a, b)
+    local ia = tonumber(a.def and a.def.index) or tonumber(a.localId) or 0
+    local ib = tonumber(b.def and b.def.index) or tonumber(b.localId) or 0
+    return ia < ib
+  end)
+  return boulders
+end
+
+-- The first push of the shortest plan that opens a way from the player to any of
+-- `goals` (cells), whatever else the floor holds: Mt. Ember, the Warden's House, or a
+-- boulder standing in a corridor of a switch floor.  Breadth first over pushes.
+-- `neighbors(x, y)` is the route graph with the boulders taken out (ledges, Surf and
+-- doors count, as they do for the walk that follows); a boulder never lands on a warp
+-- or a hole here.  Returns the push { boulder, standX, standY, direction, pushes },
+-- nil and "open" when no push is needed, nil and "budget" when the search ran out,
+-- nil alone when no pushes open a way.
+function Puzzle.planOpening(world, goals, neighbors, budget)
+  budget = budget or {}
+  local boulders = Puzzle.bouldersOf(world)
+  local model = floorModel(world, {}, boulders)
+  local width, height = model.width, model.height
+  local player = world.player
+  local goalCell = {}
+  for _, goal in ipairs(goals or {}) do goalCell[goal.y * width + goal.x] = true end
+  -- the route graph per cell, asked once
+  local edges = {}
+  local function edgesOf(i)
+    local list = edges[i]
+    if not list then
+      list = {}
+      for _, edge in ipairs(neighbors(i % width, math.floor(i / width))) do
+        list[#list + 1] = edge.y * width + edge.x
+      end
+      edges[i] = list
+    end
+    return list
+  end
+  local function flood(cell, taken)
+    local seen, queue, head, rep, found = { [cell] = true }, { cell }, 1, cell, goalCell[cell] == true
+    while queue[head] do
+      local nexts = edgesOf(queue[head])
+      head = head + 1
+      for k = 1, #nexts do
+        local ni = nexts[k]
+        if not seen[ni] and not taken[ni] then
+          seen[ni] = true
+          queue[#queue + 1] = ni
+          if ni < rep then rep = ni end
+          if goalCell[ni] then found = true end
+        end
+      end
+    end
+    return seen, rep, found
+  end
+  local start = player.cellY * width + player.cellX
+  local positions, taken = {}, {}
+  for i, b in ipairs(model.boulders) do
+    positions[i] = b.start
+    taken[b.start] = true
+  end
+  local region, rep, found = flood(start, taken)
+  if found then return nil, "open" end
+  if #positions == 0 then return nil end
+  local function key(cells, r)
+    local parts = { r }
+    for i, cell in ipairs(cells) do parts[i + 1] = cell end
+    return table.concat(parts, ",")
+  end
+  local queue, head = { { positions = positions, taken = taken, region = region, g = 0 } }, 1
+  local visited = { [key(positions, rep)] = true }
+  local maxExpanded = budget.maxExpanded or 20000
+  -- (asked once per target: a large floor like Mt. Ember's slope takes a second or two)
+  local deadline = os.clock() + (budget.maxSeconds or 2)
+  while queue[head] do
+    local node = queue[head]
+    head = head + 1
+    if head > maxExpanded or os.clock() > deadline then return nil, "budget" end
+    for bi, b in ipairs(model.boulders) do
+      local pos = node.positions[bi]
+      local bx, by = pos % width, math.floor(pos / width)
+      for _, d in ipairs(DIRS) do
+        local sx, sy = bx - d[2], by - d[3]
+        local lx, ly = bx + d[2], by + d[3]
+        local si, li = sy * width + sx, ly * width + lx
+        if node.region[si] and model.standable[si] and lx >= 0 and ly >= 0 and lx < width and ly < height
+           and model.land[li] and not model.hole[li] and not model.fixed[li] and not node.taken[li]
+           and model.pressDir[si] ~= d[1] and model.canStep(sx, sy, d[1], bx, by)
+           and model.canStep(bx, by, d[1], lx, ly) then
+          local push = node.first or { boulder = b, standX = sx, standY = sy, direction = d[1] }
+          local nextPositions, nextTaken = {}, {}
+          for i, cell in ipairs(node.positions) do
+            nextPositions[i] = i == bi and li or cell
+            nextTaken[nextPositions[i]] = true
+          end
+          local nextRegion, nextRep, nextFound = flood(si, nextTaken)
+          if nextFound then
+            return { boulder = push.boulder, standX = push.standX, standY = push.standY,
+              direction = push.direction, pushes = node.g + 1 }
+          end
+          local k = key(nextPositions, nextRep)
+          if not visited[k] then
+            visited[k] = true
+            queue[#queue + 1] = { positions = nextPositions, taken = nextTaken, region = nextRegion,
+              g = node.g + 1, first = push }
+          end
+        end
+      end
+    end
+  end
+  return nil
+end
+
 local CACHE = setmetatable({}, { __mode = "k" })
 -- Per map view: the last whole plan found (followed push by push while the
 -- boulders stand where it has them), and a search still running.

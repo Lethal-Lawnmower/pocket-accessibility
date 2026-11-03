@@ -114,15 +114,22 @@ local SPECIAL_ROLES = {
 -- The role a sign's script names, or nil.  Returns role, kind.
 function Scripts.signRole(key)
   if not Scripts.get(key) then return nil end
-  local s = Scripts.reach(key)
+  -- deep enough for Cinnabar Gym's quiz machines, which branch before they ask
+  local s = Scripts.reach(key, 8)
   for _, row in ipairs(SPECIAL_ROLES) do
     if s.specials[row[1]] then return row[2], (row[2]:lower():gsub(" ", "_")) end
   end
+  -- signs whose text is a script command, not a loaded word
+  if s.ops.playslotmachine then return "Slot Machine", "slot_machine" end
+  if s.ops.braillemessage then return "Braille", "braille" end
+  if s.ops.checkmoney and s.ops.additem then return "Vending Machine", "vending_machine" end
   if s.ops.setmetatile then
     local yesNo = s.stds[5] == true
     if yesNo and s.ops.trainerbattle then return "Quiz Machine", "quiz_machine" end
     if yesNo and (s.ops.setflag or s.ops.clearflag) then return "Secret Switch", "secret_switch" end
     if s.ops.playfanfare and not yesNo then return "Card Key Door", "card_key_door" end
+    -- pressed with no question, and something opens: the Game Corner's poster
+    if not yesNo and s.ops.setflag and not s.ops.trainerbattle then return "Hidden Switch", "hidden_switch" end
   end
   return nil
 end
