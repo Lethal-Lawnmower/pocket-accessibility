@@ -30,6 +30,7 @@ function Navigation.new(game, opts)
 end
 
 Navigation.autoWalkJourneys = true
+Navigation.separateWarps = true
 -- A door or stair fires when stepped onto, not while standing on it after coming through.
 Navigation.stepBackOntoWarps = true
 
