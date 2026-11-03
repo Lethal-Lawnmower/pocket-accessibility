@@ -88,6 +88,9 @@ inconveniences to moderate bugs.
   and starts a game.
 - **Save editor:** a standard Windows window, opened from the launcher with Edit save,
   with tabs for party, boxes, items, trainer, map, Pokédex and events.
+- **Mods:** the launcher's Mods window lists the community mod index, installs mods and turns them
+  on or off per game. Mods are not endorsed or tested by this project, and accessibility may break,
+  so use them at your own risk.
 
 ### Puzzles
 

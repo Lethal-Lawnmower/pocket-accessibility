@@ -2,7 +2,7 @@ namespace PocketLauncher;
 
 /// <summary>
 /// The launcher window: a list of the six games with whether each is
-/// imported, and Play, Edit save, Import ROM, Credits and Exit.  Only standard controls
+/// imported, and Play, Edit save, Mods, Import ROM, Credits and Exit.  Only standard controls
 /// with explicit accessible names, laid out in a table so the tab order is
 /// the reading order: games list, buttons, the required upstream credit.
 /// Results the player must hear (import done, errors) come as message boxes,
@@ -20,6 +20,7 @@ internal sealed class MainForm : Form
     private readonly ListBox gamesList = new();
     private readonly Button playButton = new();
     private readonly Button editButton = new();
+    private readonly Button modsButton = new();
     private readonly Button importButton = new();
     private readonly Button creditsButton = new();
     private readonly Button exitButton = new();
@@ -52,13 +53,14 @@ internal sealed class MainForm : Form
 
         ConfigureButton(playButton, "&Play", async () => await PlaySelectedAsync());
         ConfigureButton(editButton, "&Edit save", () => { EditSelected(); return Task.CompletedTask; });
+        ConfigureButton(modsButton, "&Mods...", () => { OpenMods(); return Task.CompletedTask; });
         ConfigureButton(importButton, "&Import ROM...", async () => await ImportAsync());
         ConfigureButton(creditsButton, "&Credits", () => { using var credits = new CreditsForm(); credits.ShowDialog(this); return Task.CompletedTask; });
         ConfigureButton(exitButton, "E&xit", () => { Close(); return Task.CompletedTask; });
         AcceptButton = playButton; // Enter on the list plays the selected game
 
         var buttons = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, WrapContents = false };
-        buttons.Controls.AddRange([playButton, editButton, importButton, creditsButton, exitButton]);
+        buttons.Controls.AddRange([playButton, editButton, modsButton, importButton, creditsButton, exitButton]);
 
         var credit = new Label { Text = UpstreamCredit, AutoSize = true, MaximumSize = new Size(480, 0) };
 
@@ -155,7 +157,7 @@ internal sealed class MainForm : Form
                 ? "The game folder was not found. Start the launcher from inside the Pocket Accessibility folder, or set POCKET_GAME_DIR."
                 : "LÖVE 11.5 was not found. Install it from love2d.org, or set POCKET_LOVE to love.exe.";
             status.Text = missing;
-            playButton.Enabled = editButton.Enabled = importButton.Enabled = false;
+            playButton.Enabled = editButton.Enabled = modsButton.Enabled = importButton.Enabled = false;
             ShowMessage(missing, MessageBoxIcon.Error);
             return false;
         }
@@ -193,6 +195,16 @@ internal sealed class MainForm : Form
         if (SelectedImportedGame() is not Game game) return;
         using var editor = new SaveEditorForm(paths, game);
         editor.ShowDialog(this);
+        gamesList.Focus();
+    }
+
+    /// <summary>The Mods window for the selected game, after the first-time warning.</summary>
+    private void OpenMods()
+    {
+        if (busy || SelectedGame is not Game game) return;
+        if (!ModsForm.ConfirmWarning(this, paths)) return;
+        using var mods = new ModsForm(paths, game);
+        mods.ShowDialog(this);
         gamesList.Focus();
     }
 
@@ -273,7 +285,7 @@ internal sealed class MainForm : Form
     {
         busy = true;
         status.Text = message;
-        playButton.Enabled = editButton.Enabled = importButton.Enabled = false;
+        playButton.Enabled = editButton.Enabled = modsButton.Enabled = importButton.Enabled = false;
         try
         {
             await work();
@@ -285,7 +297,7 @@ internal sealed class MainForm : Form
         finally
         {
             busy = false;
-            playButton.Enabled = editButton.Enabled = importButton.Enabled = true;
+            playButton.Enabled = editButton.Enabled = modsButton.Enabled = importButton.Enabled = true;
         }
     }
 

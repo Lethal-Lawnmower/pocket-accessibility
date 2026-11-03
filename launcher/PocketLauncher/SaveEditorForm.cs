@@ -11,7 +11,7 @@ namespace PocketLauncher;
 internal sealed class SaveEditorForm : Form
 {
     private readonly Game game;
-    private readonly SaveBackendClient backend;
+    private readonly BackendClient backend;
     private readonly TabControl tabs = new() { Dock = DockStyle.Fill, AccessibleName = "Pages" };
     private readonly Button saveButton = new();
     private readonly Button undoButton = new();
@@ -32,7 +32,7 @@ internal sealed class SaveEditorForm : Form
     public SaveEditorForm(GamePaths paths, Game game)
     {
         this.game = game;
-        backend = new SaveBackendClient(paths);
+        backend = new BackendClient(paths, paths.SaveBackendDir, "save editor");
         Text = $"Loading the {game.Name} save";
         AutoScaleMode = AutoScaleMode.Dpi;
         StartPosition = FormStartPosition.CenterParent;

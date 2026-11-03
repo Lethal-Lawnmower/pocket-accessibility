@@ -6,13 +6,15 @@ using System.Text.Json.Nodes;
 namespace PocketLauncher;
 
 /// <summary>
-/// Talks to launcher/SaveBackend, a windowless LÖVE program holding upstream's
-/// save-editor logic: one JSON request per line on its stdin, one answer per line
+/// Talks to a windowless LÖVE program holding upstream's logic (launcher/SaveBackend,
+/// launcher/ModBackend): one JSON request per line on its stdin, one answer per line
 /// on its stdout.  Requests run strictly one at a time in the order sent, so a
 /// field's edit always lands before a Save pressed right after it.
-/// docs/access/save-editor.md holds the protocol.
+/// docs/access/save-editor.md holds the save editor's protocol.
 /// </summary>
-internal sealed class SaveBackendClient(GamePaths paths) : IDisposable
+/// <param name="backendDir">The backend's folder, null if it was not found.</param>
+/// <param name="displayName">What the backend is called in error messages.</param>
+internal sealed class BackendClient(GamePaths paths, string? backendDir, string displayName) : IDisposable
 {
     private const string ResponsePrefix = "@@PA ";
     private Process? process;
@@ -25,9 +27,9 @@ internal sealed class SaveBackendClient(GamePaths paths) : IDisposable
 
     public async Task StartAsync()
     {
-        if (paths.LoveExe == null || paths.GameDir == null || paths.SaveBackendDir == null)
+        if (paths.LoveExe == null || paths.GameDir == null || backendDir == null)
         {
-            throw new InvalidOperationException("The save editor's files were not found.");
+            throw new InvalidOperationException($"The {displayName}'s files were not found.");
         }
         string love = ConsoleLove(paths.LoveExe);
         if (!File.Exists(love)) throw new InvalidOperationException($"{love} was not found.");
@@ -35,19 +37,19 @@ internal sealed class SaveBackendClient(GamePaths paths) : IDisposable
         {
             UseShellExecute = false,
             CreateNoWindow = true,
-            WorkingDirectory = paths.SaveBackendDir,
+            WorkingDirectory = backendDir,
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             StandardInputEncoding = new UTF8Encoding(false),
             StandardOutputEncoding = new UTF8Encoding(false),
         };
-        info.ArgumentList.Add(paths.SaveBackendDir);
+        info.ArgumentList.Add(backendDir);
         info.Environment["POCKET_GAME_DIR"] = paths.GameDir;
         // upstream's self-updater and our game layer have no place here
         info.Environment["POKEPORT_PORTMASTER_MANAGED"] = "1";
         info.Environment["POKEPORT_ACCESS"] = "0";
-        process = Process.Start(info) ?? throw new InvalidOperationException("The save editor did not start.");
+        process = Process.Start(info) ?? throw new InvalidOperationException($"The {displayName} did not start.");
         // stderr is upstream's logging; it must be drained or the program blocks
         process.ErrorDataReceived += (_, _) => { };
         process.BeginErrorReadLine();
@@ -59,7 +61,7 @@ internal sealed class SaveBackendClient(GamePaths paths) : IDisposable
         while (true)
         {
             string? line = await process!.StandardOutput.ReadLineAsync();
-            if (line == null) throw new InvalidOperationException("The save editor stopped unexpectedly.");
+            if (line == null) throw new InvalidOperationException($"The {displayName} stopped unexpectedly.");
             if (line.StartsWith(ResponsePrefix, StringComparison.Ordinal))
             {
                 return JsonNode.Parse(line[ResponsePrefix.Length..])!.AsObject();

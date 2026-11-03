@@ -20,6 +20,7 @@
   <ItemGroup>
     <None Include="..\ReadyCheck\*.lua" CopyToOutputDirectory="PreserveNewest" LinkBase="ReadyCheck" />
     <None Include="..\SaveBackend\**\*.lua" CopyToOutputDirectory="PreserveNewest" LinkBase="SaveBackend" />
+    <None Include="..\ModBackend\**\*.lua" CopyToOutputDirectory="PreserveNewest" LinkBase="ModBackend" />
   </ItemGroup>
 
 </Project>

@@ -26,6 +26,20 @@ internal sealed record GamePaths(string? LoveExe, string? GameDir, string SaveDi
         }
     }
 
+    /// <summary>The windowless mod backend (launcher/ModBackend), found the same way as the save backend.</summary>
+    public string? ModBackendDir
+    {
+        get
+        {
+            string[] candidates =
+            [
+                Path.Combine(AppContext.BaseDirectory, "ModBackend"),
+                GameDir == null ? "" : Path.Combine(GameDir, "launcher", "ModBackend"),
+            ];
+            return candidates.FirstOrDefault(dir => dir != "" && File.Exists(Path.Combine(dir, "main.lua")));
+        }
+    }
+
     /// <summary>The windowless save backend (launcher/SaveBackend), found the same way.</summary>
     public string? SaveBackendDir
     {

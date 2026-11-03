@@ -147,6 +147,8 @@ and recorded in the topic file.
   all merges speaks the intro, title, start menu, bag and dialogue.
 - **Audit (2026-11-03):** whole-map audit and fixes, by script; results in
   `firered-leafgreen-navigation.md`. Pushed at the owner's request before an owner test. Not heard.
+- **Mods window (decision 42, 2026-11-03):** built and tested by script. The owner installed mods on the real profile and played Crystal
+  with Music2-HGSS; speech still works by ear. Details and what is not done in `launcher.md`.
 - **LeafGreen:** deferred by the owner (decision 30); no clean dump on this
   PC yet. FireRed's whole UI first, with Pokémon Access as a behaviour
   reference.

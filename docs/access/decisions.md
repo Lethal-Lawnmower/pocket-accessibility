@@ -36,7 +36,8 @@ controls, also used for setup: game list, Play, Import ROM, Edit save,
 Settings, Credits. Agent recommendation: C# Windows Forms on .NET 10. It shows
 upstream's required credit (Term 1).
 Out of scope unless the owner decides otherwise: cover art, labels, mascots,
-themes, animations, online panel, mod browser, update checker, per-generation rooms.
+themes, animations, online panel, update checker, per-generation rooms. The mod browser was
+on this list until decision 42.
 
 ## 5. Save editor carries over from upstream (2026-10-31)
 
@@ -396,3 +397,20 @@ target with no route also tries switches (`nav/SwitchWalk.lua`): signs whose tex
 or off are flipped, and each result is watched from the map itself, with no switch table. Same
 setting, renamed AUTO-WALK PUZZLES.
 
+## 42. A Mods window in the launcher, with a warning (2026-11-03)
+
+The owner: "mods. I know we can't use their launcher, but can we use their existing mod index/mod
+tools?", then "Start it, please. We should be fine. Just have an initial Windows pop-up. Something
+along the lines of mods are not endorsed or tested. Accessibility may break, so use at your own
+risk." This reverses "mod browser" being out of scope in decision 4.
+
+The index, its cache, compatibility warnings, manifest checks and enable-state are upstream's code
+(`src/mods/ModIndex`, `Manifest`, `ModTargets`, `src/core/SaveData`), which License Term 2 does not
+list. The installer is new (`ModInstaller.cs`); `src/mods/LauncherMods.lua` is on that list and was
+not read or used. No mod is bundled. Installing a mod does not make us its distributor; each mod
+keeps its author's license. Details in `launcher.md`.
+
+Same day, the owner: "I remember seeing some Generation 3 mods way more than what's on this index",
+asking to try other indexes and zip files. Both added. Only the official index is built in. Others are
+added by the player, with a warning, because the official index scans releases and keeps a blocklist and
+others may not. We do not ship or recommend a list of third-party indexes.
