@@ -57,6 +57,27 @@ return function(game)
       L.select(target, "all")
       L.heard()
       AutoWalk.start(L.nav(), game, L.adapter())
+      -- a floor's first warp may open on a part with no boulder in reach (Seafoam B2F):
+      -- try beside its other warps
+      local tries = 1
+      local warps = game.data.maps[floor.id].warps or {}
+      while not BoulderWalk.active() and tries < #warps do
+        AutoWalk.stop()
+        tries = tries + 1
+        local other, view = warps[tries], World.plannedView(game, game.data.maps[floor.id])
+        for _, d in ipairs({ { 0, -1 }, { 0, 1 }, { -1, 0 }, { 1, 0 } }) do
+          local x, y = other.x + d[1], other.y + d[2]
+          if view:isWalkableCell(x, y) and not view:warpAt(x, y) then
+            L.teleport(floor.id, x, y, "down")
+            break
+          end
+        end
+        L.settle(120, true)
+        for _, item in ipairs(L.browse("all")) do
+          if tostring(item.label):find("^Boulder %d") then L.select(item, "all") break end
+        end
+        AutoWalk.start(L.nav(), game, L.adapter())
+      end
       local started = tostring(BoulderWalk.active())
       local pushes = 0
       for frame = 1, 25000 do

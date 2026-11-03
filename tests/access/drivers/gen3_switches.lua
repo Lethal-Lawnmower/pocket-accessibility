@@ -8,6 +8,7 @@ return function(game)
   local SwitchWalk = require("src.access.nav.SwitchWalk")
   if not L.boot() then return end
   L.giveParty(9, 90, { "SURF", "STRENGTH", "CUT" }, { "SURF", "STRENGTH", "CUT", "FLASH" })
+  L.setVar(0x4020, 60000) -- a long Repel: the switches, not wild battles, are under test
   for _, floor in ipairs({ "FR_POKEMON_MANSION_1F", "FR_POKEMON_MANSION_2F", "FR_POKEMON_MANSION_3F", "FR_POKEMON_MANSION_B1F" }) do
     local warp = game.data.maps[floor].warps[1]
     L.heal()

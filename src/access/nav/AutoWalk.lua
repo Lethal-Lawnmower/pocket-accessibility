@@ -298,7 +298,8 @@ function AutoWalk.start(nav, game, adapter, opts)
     -- a fast game speed moved the player past the last step between two
     -- updates (several tiles per real frame at 200X)
     -- (a walk that ends at a panel is not going through that warp)
-    targetMapId = not stopText and not opts.goals and item.type == "warp" and item.destinationMapId or nil,
+    targetMapId = not stopText and (opts.targetMapId
+      or (not opts.goals and item.type == "warp" and item.destinationMapId)) or nil,
     interaction = interaction,
     nav = nav,
     goals = goals,

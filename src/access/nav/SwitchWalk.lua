@@ -196,8 +196,8 @@ function choose()
   local AutoWalk = autoWalk()
   local ok, item, goals = pcall(run.nav.selectedRouteGoals, run.nav)
   local away = false
-  if run.travelGoals and not (ok and type(item) == "table" and item.id == run.id) then
-    -- on another floor, where the object list no longer has the target
+  if run.travelGoals and run.item.type ~= "area" and run.nav:currentMapIdOf(run.overworld) ~= run.homeMap then
+    -- on another floor: this list's entries mean something else here, even by the same id
     item, goals, away = run.item, run.travelGoals, true
   elseif not (ok and type(item) == "table" and item.id == run.id) then
     return SwitchWalk.stop(tostring(run.label) .. " is gone, auto walk stopped")
@@ -215,6 +215,7 @@ function choose()
     run = nil
     if away then
       return AutoWalk.start(nav, game, adapter, { goals = goals, label = item.label,
+        targetMapId = item.type == "warp" and item.destinationMapId or nil,
         journeyTo = { targetMapId = home, targetGoals = goals } })
     end
     return AutoWalk.start(nav, game, adapter)
@@ -309,7 +310,9 @@ function SwitchWalk.update()
     local remote, player = run.remote, run.overworld.player
     run.remote, run.map = nil, run.overworld.map
     -- the map change cleared the selection: the target stays the one asked for
-    run.nav.browseFilter, run.nav.browseSelectionId = run.filter, run.selection
+    if run.item.type == "area" then
+      run.nav.browseFilter, run.nav.browseSelectionId = run.filter, run.selection
+    end
     local there = false
     for _, goal in ipairs(remote.goals) do
       if goal.x == player.cellX and goal.y == player.cellY then there = true end

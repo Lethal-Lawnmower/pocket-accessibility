@@ -60,6 +60,8 @@ and a third `WorldAdapter` entry: the Gen 2 pattern.
   on one map. Area target cells are worked out on the starting floor, so
   the final leg keeps only those inside the target floor (the shared
   planner does the same now).
+- **Area floors:** each other floor of the area is a target ("Pokémon Tower 7F"); arriving on it by any way in
+  is the arrival.
 - **Journey legs that are not a walk** (only when walking and the party's
   field moves get nowhere, so a walkable journey never stops at a menu or
   drops through a floor):
@@ -165,8 +167,63 @@ Whole-map audit (`gen3_nav_sweep`, 418 maps, 0 bad labels) plus new runs:
 | Secret Switches (`gen3_switches`) | Mansion 3F Iron (1 flip), B1F TM 22 (2), TM 14 (1), Secret Key (3). 1F, from beside the door: "No switch opens a way", 3 flips, which can leave a switch flipped |
 | Owner's save (Cerulean) | Routes and refusals read as expected on a copy |
 
-Boulder floors with no pressure switch or hole (Mt. Ember, Warden's House) have no auto-pushing; Gen 2's
-search for an opening is not in Gen 3. Not run: anything by ear.
+Not run: anything by ear. The boulder and switch rows above are superseded by the next section.
+
+## Story pass against Crystal, 2026-11-03 (by script, run in game; not heard)
+
+The owner asked that nothing Crystal got be missing in FireRed. Teleports, party, flags, a Repel and the
+Silph Scope come from the harness; every walk is one auto-walk from the list. Drivers: `gen3_story`
+(parts A to E, N, M), `gen3_reach_sweep`, `gen3_dump`, plus the reruns named below.
+
+| Crystal feature | FireRed | Evidence |
+|---|---|---|
+| Boulder auto-push | Passed | `gen3_boulders`: Seafoam 1F 8, B1F 1, B2F 3, B3F 1; Victory Road 1F 19, 2F 25, 3F 34; Tanoby Key 32 (all seven, the rumble line in the trace). Harness fix only: both earlier stops were its battle handling and its start cell |
+| Hole filling | Passed | Seafoam floors above: boulders dropped, "all in place" |
+| Secret switches | Fixed | Mansion 1F no longer ends at "No switch": goes to 3F's switch, flips it, drops, reaches B1F. Floor put back when nothing opens. `gen3_switches`: Carbos 5 flips, Protein 1, B1F warp 4, east exit 4, Iron 1, TM 22 2, TM 14 1, Secret Key 3 |
+| Target blocked only by boulders (`planOpening`) | Fixed | Ported. Warden's House Rare Candy, Ruby Path B2F to B3F, Mt. Ember to Summit Path 1F, Ruin Valley Sun Stone, Full Restore, HP Up, Sevault Canyon King's Rock |
+| Warps kept separate | Passed | Audit above; lists read again here (Silph 3F "entrance 1 of 2"). 3 pairs stay merged, not revisited |
+| Signs named | Fixed | Plain "Signpost N": 42 to 0. Slot Machine, Braille, Vending Machine, Hidden Switch (Game Corner poster), Quiz Machine |
+| Door and panel names in hideouts | Passed, one fixed | Card Key Door and Floor Panel listed; the Game Corner's poster was "Sign: Hey!"; Celadon's panel was listed twice, once on a wall no one can stand below |
+| Routes across floors, Area floor entries | Fixed | Area had items only. Now 271 floor entries in 65 areas; being on the floor is the arrival. 241 of 278 planned from each area's first floor; the 37 refused are the Mt. Ember and League rooms behind story doors, buildings closed by people in a new game, unconnected tunnels, harness failures on Tanoby's water |
+| Journeys through puzzle floors | Fixed | Victory Road 2F to 3F by Area from the west side: floor solved, then walked on. Seafoam 1F to B4F, calm and with strong currents. Victory Road 2F to its Route 23 exit; Indigo Plateau not walked. A journey stopped by boulders opens them and plans again |
+| Text boxes read | Passed in trace | `gen3_walkthrough` speech, plus trainers' lines and Pokémon Tower's text in `gen3_story`. Silent runs cannot show refused speech |
+
+Story places, one walk each, all arrived: Game Corner Rocket, poster (Hidden Switch), stairs to the Hideout;
+Hideout B1F to B4F by spinners; Silph 1F to 5F and 3F to 11F by pads with the Card Key; Pokémon Tower 1F to 7F
+(Silph Scope, rival, Marowak); Mansion 1F to B1F; Saffron Gym to Sabrina (fixed), Viridian to Giovanni, Fuchsia
+to Koga, Celadon to Erika, Cerulean to Misty, Pewter to Brock, Vermilion to Lt. Surge. Cinnabar: "No route to
+Blaine" until the quiz gates open, which is the player's to do; walking to a Quiz Machine works. Sevii: every
+listed target checked from the entrance on Mt. Ember, Icefall Cave, Rocket Warehouse, Lost Cave, Dotted Hole,
+Pattern Bush, Altering Cave, Tanoby Key, Trainer Tower, Berry Forest. No full playthrough was run, and the
+harness skips every scene between these places.
+
+Bugs fixed and their causes:
+
+- **Boulders with no switch or hole:** Gen 3's `boulderOpening` ignored its goals. `Puzzle.planOpening` searches
+  pushes over the route graph with the boulders taken out, so ledges, Rock Smash and Surf count.
+- **Puzzle end stopped the walk:** a target with no route ended at "all in place". It now walks on.
+- **Saffron Gym:** "Cannot reach Sabrina". A pad lands on the same map, so the old leg's cell was asked for from
+  the new room. The journey now plans again (`replanJourneyOffRoute`, set by FireRed only).
+- **Mansion:** one flag, one switch a floor, and the way to the basement only from 3F. `remoteSwitch` supposes
+  the flag flipped and plans from each switch, so a walk goes to the right floor first. Without it the Secret
+  Key, which the story needs, was unreachable by one walk.
+- **Quiet walks with an Area target selected** said "No route" and could leave the floor: fixed in `AutoWalk.start`.
+- **Standing on the warp a walk wants** said "is here". It now presses or steps off and back (FireRed only).
+- **Listed but unreachable (1936 listed, 151 with no cell any route enters, to 1876 and 78):** objects placed past
+  the map's edge, connections no cell can cross, connections to a map with nothing on it, cable club doors behind
+  the counter. The 78 left are behind boulders, gates or the Mansion's flag (walks above), two Dojo signs behind
+  the gift balls, Saffron's empty map.
+- **Island buildings:** a journey between two buildings of one island could not cross the town.
+
+Vermilion Gym with the first lock already open (`gen3_surge`, `GEN3_SURGE_RESTART=1`): stopped after the lock
+opened and asked again, 20 presses, arrived at Lt. Surge.
+
+Regressions on the final code unless noted: `gen3_nav` 15/15, `gen3_nav_more` 13/13, `gen3_nav_gaps` 38/38,
+`gen3_nav_puzzle` 5/5, `gen3_nav_sweep` 7/7, `npc_category`, `dark_maps` clean; unit suites pass (`gen3_nav_test`
+167, `auto_walk_test` 63) except `gen2_menus_test` 121/122, whose fix is uncommitted on main. The last two small
+fixes (target memory on another floor) came after the first of those runs; `gen3_switches` and `gen3_story` N ran on them.
+The running sweep has no FireRed lane: its ROM folder holds no FireRed dump. These runs used the imported cache of
+an earlier disposable profile. Gen 1 and Gen 2 drivers were not rerun here; shared code changes are listed in the branch.
 
 ## Vermilion Gym's trash cans (2026-11-03, by script; not heard)
 
@@ -186,6 +243,11 @@ first electric lock opened!". Red, Blue, Yellow, Gold, Silver and Crystal do not
 
 ## Known gaps
 
+- Mt. Ember's Fire Stone: "No route" from the entrance. Its room looks to need a boulder moved through a space
+  a rock fills until smashed, and the search counts rocks as fixed for boulders. Optional item; not solved.
+- `remoteSwitch` looks one flip ahead, and the walk can win battles on the way before it knows the next flip.
+- A journey past boulders walks on hopefully; a floor with no solution ends with "No route" there, not at the start.
+- 3 merged exits from the audit were not looked at again.
 - Load scripts not read: see the verification table for the count. The
   specials among them cannot be read without running them (Vermilion's trash
   cans, Trainer Tower, Icefall's remembered cracks); those floors are right

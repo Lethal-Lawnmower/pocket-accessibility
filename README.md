@@ -81,8 +81,8 @@ inconveniences to moderate bugs.
   objects), spoken directions, and auto-walk to whatever you select, on keyboard
   or controller. Battles pause it, and it carries on afterwards.
 - **Across floors:** in Gold, Silver, Crystal and FireRed, if a target has no route on your
-  floor, auto-walk looks for one through other floors. The Area category lists items on
-  other floors, and in Gold, Silver and Crystal the floors too. Some long routes, like
+  floor, auto-walk looks for one through other floors. The Area category lists items and floors of
+  the same building or cave. Some long routes, like
   Ice Path, still time out.
 - **Launcher:** a standard Windows program that lists the games, imports your ROMs
   and starts a game.

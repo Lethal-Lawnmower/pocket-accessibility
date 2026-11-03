@@ -151,6 +151,9 @@ and recorded in the topic file.
   with Music2-HGSS; speech still works by ear. Details and what is not done in `launcher.md`.
 - **Vermilion Gym (2026-11-03):** auto-walk searches the trash cans in FireRed, by script only; see
   `firered-leafgreen-navigation.md`. Not in Gen 1 or Crystal.
+- **Story pass against Crystal (2026-11-03):** boulders opening a way, Area floors, journeys through puzzles,
+  Mansion's switches across floors, Saffron's pads, sign names. Run in game by script, not heard, not a full
+  playthrough; table in `firered-leafgreen-navigation.md`.
 - **LeafGreen:** deferred by the owner (decision 30); no clean dump on this
   PC yet. FireRed's whole UI first, with Pokémon Access as a behaviour
   reference.
