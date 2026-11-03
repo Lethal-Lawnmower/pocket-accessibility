@@ -221,6 +221,8 @@ and recorded in the topic file.
   done (Yellow: Pikachu follower, covered elevator prompt; a door
   regression fixed; `yellow.md`). Old tests pass except the two known gaps.
   Details: `navigation.md`.
+- **Red, Blue, Yellow parity and whole-map audit (2026-11-03):** Crystal's puzzles built for Gen 1 and
+  every target on every map walked by script: `navigation.md`. Not heard, no owner test.
 - **Next:** walking cues (no upstream event),
   Chaos Cut as an optional mod (decision 21); the owner's playtest.
 

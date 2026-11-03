@@ -42,7 +42,7 @@ local function floorState(map)
   local parts = {}
   for y = 0, map.heightCells - 1 do
     for x = 0, map.widthCells - 1 do
-      local read = map.cellCollision or map.coll
+      local read = map.cellCollision or map.coll or map.cellTile
       parts[#parts + 1] = tostring(read(map, x, y))
     end
   end

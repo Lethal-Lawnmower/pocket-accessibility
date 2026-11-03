@@ -33,6 +33,34 @@ local VICTORY_ROAD = {
   },
 }
 
+-- Seafoam Islands' boulder holes on this floor, from the game's own field data (the shape
+-- OverworldState:seafoamHolesFor reads): { x, y, boulderEvent, hideObject }.
+function PuzzleAssistance.seafoamHoles(game, mapId)
+  local result = {}
+  local field = game and game.data and game.data.field
+  for owner, floor in pairs(type(field) == "table" and field.seafoam or {}) do
+    if owner == mapId then
+      for _, hole in ipairs(floor.holes or {}) do result[#result + 1] = hole end
+    end
+    if floor.pluggedByHolesOn and floor.pluggedByHolesOn.map == mapId then
+      for _, hole in ipairs(floor.pluggedByHolesOn.holes or {}) do result[#result + 1] = hole end
+    end
+  end
+  table.sort(result, function(a, b) return a.x < b.x end)
+  return result
+end
+
+local function seafoamTargets(game, mapId)
+  local holes = PuzzleAssistance.seafoamHoles(game, mapId)
+  if #holes == 0 then return nil end
+  local targets = {}
+  for index, hole in ipairs(holes) do
+    targets[index] = { x = hole.x, y = hole.y, flag = hole.boulderEvent, hole = true, listed = true,
+      label = "Hole " .. index, boulder = tonumber(tostring(hole.hideObject):match("(%d+)$")) or index }
+  end
+  return targets
+end
+
 function PuzzleAssistance.enabled(game)
   return not (game and game.save and game.save.options
               and game.save.options.puzzleAssistance == false)
@@ -195,11 +223,13 @@ end
 -- of this module -- the Sokoban search over boulder position plus the player's
 -- reachable region is generation-neutral and stays shared.
 PuzzleAssistance.RULES = {
-  targets = function(mapId) return VICTORY_ROAD[mapId] end,
+  targets = function(mapId, _, game) return VICTORY_ROAD[mapId] or seafoamTargets(game, mapId) end,
   isBoulder = isBoulder,
   boulderNumber = boulderNumber,
   canMove = Collision.canMove,
 }
+
+PuzzleAssistance.strengthPrefix = strengthPrefix
 
 function PuzzleAssistance.describe(game, overworld, rules)
   rules = rules or PuzzleAssistance.RULES
@@ -289,13 +319,14 @@ function PuzzleAssistance.describe(game, overworld, rules)
       x = target.x, y = target.y, label = target.label, state = state,
       hole = target.hole == true,
     }
-    if not target.hole then
+    if not target.hole or target.listed then
       result.objects[#result.objects + 1] = {
         id = "victory_road_switch:" .. mapId .. ":" .. tostring(index),
         label = target.label, x = target.x, y = target.y,
         interaction = "pressure_switch", semanticKind = "pressure_switch",
         stateText = state,
-        routeInstruction = "Push a boulder onto this pressure switch",
+        routeInstruction = target.hole and "Push a boulder into this hole"
+          or "Push a boulder onto this pressure switch",
       }
     end
   end

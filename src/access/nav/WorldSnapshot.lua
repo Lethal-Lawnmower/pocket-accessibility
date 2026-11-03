@@ -787,7 +787,10 @@ function WorldSnapshot.browse(overworld, opts)
       -- Gen 2 and 3 also keep apart any warps that are not side by side: Tohjo Falls
       -- has two exits to Route 27, on opposite sides of its waterfall, and merged they
       -- read as one "Route 27: here" with no way on (FireRed: Rock Tunnel, Power Plant).
-      if (tonumber(opts.generation) or 1) >= 2 or distinctInternalTransitions(mapId, destId) then
+      -- So does the Gen 1 coordinator (opts.separateWarps): Pewter Museum's two doors,
+      -- the S.S. Anne's cabins.
+      if (tonumber(opts.generation) or 1) >= 2 or opts.separateWarps
+         or distinctInternalTransitions(mapId, destId) then
         local clusters = internalTargets[baseTarget] or {}
         internalTargets[baseTarget] = clusters
         for _, candidate in ipairs(clusters) do

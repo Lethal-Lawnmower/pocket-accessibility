@@ -25,12 +25,16 @@ local AutoWalk = {}
 
 local SOURCE = "access_autowalk"
 local STUCK_FRAMES = 90
+local REROUTE_FRAMES = 45
 local MAX_REROUTES = 8
 local PUSH_FRAMES = 60
 -- Resuming from the same cell this many times means the game keeps turning
 -- the player back there (Ecruteak's Tin Tower sages stop every walk north
 -- and step the player back; auto-walk resumed into them for ever).
 local MAX_RESUMES_AT_CELL = 3
+local MAX_RESUMES_IN_A_WALK = 8
+local RESUME_RETRIES = 8
+local RESUME_RETRY_FRAMES = 20
 local MAX_JOURNEY_LEGS = 32
 
 local walk = nil -- active walk, or nil
@@ -255,7 +259,10 @@ function AutoWalk.start(nav, game, adapter, opts)
       end
     end
     if not opts.quiet then
-      Speech.say(spokenReason(findErr or "no path", item.label), { interrupt = true })
+      -- a coordinator may name what is missing ("Needs Surf")
+      local needs = type(nav.routeNeeds) == "function" and nav:routeNeeds(goals) or nil
+      Speech.say(needs and (tostring(item.label) .. ": " .. needs)
+        or spokenReason(findErr or "no path", item.label), { interrupt = true })
     end
     return false
   end
@@ -303,6 +310,35 @@ function AutoWalk.start(nav, game, adapter, opts)
     if walk.danceAtGoal then
       Speech.say("Walking to " .. tostring(item.label), { interrupt = true })
       if stepOffAndBack() then return true end
+    end
+    -- the journey's way on is the stairs or mat underfoot (just came through them): a mat
+    -- wants its press, stairs a step off and back on; this is not "here" yet
+    if journey and not final then
+      local press = type(nav.warpPressDirection) == "function"
+        and select(2, pcall(nav.warpPressDirection, nav, overworld, player.cellX, player.cellY)) or nil
+      if type(press) == "string" then
+        walk.pushDir, walk.pushFrames = press, 0
+      elseif not stepOffAndBack() then
+        AutoWalk.stop("Could not go through, auto walk stopped")
+        return false
+      end
+      Speech.say("Walking to " .. tostring(item.label), { interrupt = true })
+      return true
+    end
+    -- standing on an exit mat that fires when pressed (just came in, and want out again)
+    if walk.targetMapId and type(nav.warpPressDirection) == "function" then
+      local okPress, press = pcall(nav.warpPressDirection, nav, overworld, player.cellX, player.cellY)
+      if okPress and press then
+        walk.pushDir, walk.pushFrames = press, 0
+        if not opts.quiet then Speech.say("Walking to " .. tostring(item.label), { interrupt = true }) end
+        return true
+      end
+    end
+    -- standing on a door or stair the player just came out of: it fires on stepping back on
+    if walk.targetMapId and nav.stepBackOntoWarps and stepOffAndBack() then
+      walk.steppedBack = true
+      if not opts.quiet then Speech.say("Walking to " .. tostring(item.label), { interrupt = true }) end
+      return true
     end
     local text = tostring(item.label) .. " is here"
     local hint = interaction and result.goal
@@ -430,8 +466,16 @@ local function resume(quiet)
   end
   local result = findRoute(walk.nav, walk.goals)
   if not result then
+    -- after a scene someone can still be walking off through the only way (the Cerulean
+    -- rival, Silph Co.'s): give it a moment before giving up
+    if walk.paused and (walk.resumeRetries or 0) < RESUME_RETRIES then
+      walk.resumeRetries = (walk.resumeRetries or 0) + 1
+      walk.retryIn = RESUME_RETRY_FRAMES
+      return
+    end
     return AutoWalk.stop("Cannot reach " .. tostring(walk.label) .. ", auto walk stopped")
   end
+  walk.retryIn = nil
   local player = walk.overworld.player
   walk.steps, walk.goal = result.steps, result.goal or walk.goal
   walk.paused, walk.expectBattle, walk.battleSeen = nil, nil, nil
@@ -475,6 +519,19 @@ local function nextLeg()
   return resume(true)
 end
 
+local function nav_stepsBack(state)
+  return state.nav.stepBackOntoWarps == true and not state.steppedBack
+end
+
+-- A walk to a pad on this same map (Saffron Gym, Silph Co.) has arrived when the player
+-- jumps: the map never changes, and it used to re-plan from the far side of the wall.
+local function landedOnThisMap(x, y)
+  local map = walk.overworld.map
+  local mapId = map.id or (map.def and map.def.id)
+  if not walk.targetMapId or walk.targetMapId ~= mapId or walk.journey then return false end
+  return math.abs(x - walk.lastX) + math.abs(y - walk.lastY) > 1
+end
+
 -- Per frame, after upstream's update.  `top` is the top screen.
 function AutoWalk.update(top)
   if not walk then return end
@@ -484,6 +541,7 @@ function AutoWalk.update(top)
     if not onMap(top) or transitioning() or overworld.map == walk.map then return end
     return nextLeg()
   end
+  if walk.teleported and onMap(top) and not transitioning() then return AutoWalk.stop(arrivalText()) end
   if walk.paused then
     local stack = package.loaded["src.core.StateStack"]
     if battleOnStack(stack) or battleTop(top) then walk.battleSeen = true end
@@ -496,12 +554,20 @@ function AutoWalk.update(top)
       return AutoWalk.stop("Auto walk stopped")
     end
     if walk.expectBattle and not walk.battleSeen then return end -- trainer still walking over
+    if walk.retryIn then
+      walk.retryIn = walk.retryIn - 1
+      if walk.retryIn > 0 then return end
+      return resume()
+    end
     -- battles, card-key door messages and other game-caused screens: carry
     -- on, unless the game keeps sending the player back to the same cell
     local key = tostring(player.cellX) .. "," .. tostring(player.cellY)
     walk.resumesAt = walk.resumesAt or {}
     walk.resumesAt[key] = (walk.resumesAt[key] or 0) + 1
-    if walk.resumesAt[key] >= MAX_RESUMES_AT_CELL then
+    -- (a guard can also turn the player back to a different cell each time, Route 18's gate)
+    walk.resumesTotal = (walk.resumesTotal or 0) + 1
+    if walk.resumesAt[key] >= MAX_RESUMES_AT_CELL or (not walk.journey and not walk.battleSeen
+        and walk.resumesTotal >= MAX_RESUMES_IN_A_WALK) then
       return AutoWalk.stop("Turned back again, auto walk stopped")
     end
     return resume()
@@ -528,7 +594,11 @@ function AutoWalk.update(top)
     -- screen opening on the destination cell is the arrival (or, mid-journey,
     -- the way onto the next map)
     local last = walk.steps[#walk.steps]
-    if last and player.cellX == last.x and player.cellY == last.y then
+    -- ...unless it is the game's text, which can turn the player back (Route 16's gate
+    -- guard on a player with no Bicycle): that pauses, as anywhere else
+    local TextBox = package.loaded["src.render.TextBox"]
+    local isText = TextBox and type(top) == "table" and getmetatable(top) == TextBox
+    if last and player.cellX == last.x and player.cellY == last.y and not (isText and walk.targetMapId) then
       if walk.journey and not walk.final then
         release(walk.input, walk.held)
         walk.held, walk.awaitingMap = nil, true
@@ -549,19 +619,34 @@ function AutoWalk.update(top)
   if transitioning() then
     release(walk.input, walk.held)
     walk.held = nil
+    if not walk.teleported then
+      -- a pad's jump shows up here first, seen from where the walk last stood
+      walk.teleported = landedOnThisMap(player.cellX, player.cellY)
+    end
     walk.lastX, walk.lastY, walk.still = player.cellX, player.cellY, 0
     return
   end
+  if walk.teleported then return AutoWalk.stop(arrivalText()) end
   if walk.tapA then
     -- release the one-frame A press used on a card-key door or field move
     walk.input.state.a = false
     walk.tapA = nil
   end
   local x, y = player.cellX, player.cellY
+  if landedOnThisMap(x, y) then return AutoWalk.stop(arrivalText()) end
   if x ~= walk.lastX or y ~= walk.lastY then
     walk.lastX, walk.lastY, walk.still = x, y, 0
   elseif not player.moving then
     walk.still = walk.still + 1
+    -- someone wandered into the way: plan around them if there is a way round
+    if walk.still == REROUTE_FRAMES and walk.pushDir == nil and not walk.tapA then
+      local around = findRoute(walk.nav, walk.goals)
+      if around and #around.steps > 0 then
+        walk.steps, walk.goal = around.steps, around.goal or walk.goal
+        release(walk.input, walk.held)
+        walk.held = nil
+      end
+    end
     if walk.still > STUCK_FRAMES then return AutoWalk.stop("Blocked, auto walk stopped") end
   end
   -- A walk that must end exactly on its goal lets go as soon as the last step is under
@@ -611,6 +696,11 @@ function AutoWalk.update(top)
         walk.pushDir, walk.pushFrames = press, 0
         return
       end
+      -- a step from one warp tile onto another does not fire it (Gen 1's standing-on-warp bit)
+      if walk.targetMapId and nav_stepsBack(walk) and stepOffAndBack() then
+        walk.steppedBack = true
+        return
+      end
       return AutoWalk.stop(arrivalText())
     end
     -- pushed off the route (a spinner, a current, a scripted step): plan again
@@ -636,6 +726,9 @@ function AutoWalk.update(top)
   if walk.quiet and (step == walk.steps[#walk.steps] or step == walk.steps[#walk.steps - 1]) then
     walk.turning = true
   end
+  -- A ledge hop at 1X too: at a fast speed the direction still held on landing hops the
+  -- next ledge in the same frame (Route 4's steps, past the turn, with no way back up).
+  if step.kind == "ledge" then walk.turning = true end
   if action then
     if player.facing ~= step.direction then
       -- Turn to face the obstacle.  The held direction lasts a whole frame
@@ -655,10 +748,17 @@ function AutoWalk.update(top)
       return AutoWalk.stop(tostring(action.failText) .. ". " .. tostring(action.hint))
     end
     walk.fieldMoveAt = key
+    walk.still = 0
+    -- Gen 1 has no A press for field moves: the coordinator calls what the party menu calls
+    if action.use then
+      if not action.use() then
+        return AutoWalk.stop(tostring(action.failText) .. ". " .. tostring(action.hint))
+      end
+      return
+    end
     table.insert(walk.input.pressQueue, "a")
     walk.input.state.a = true
     walk.tapA = true
-    walk.still = 0
     return
   end
   -- a closed card-key door opens when faced and A is pressed (Gen 1 Silph
@@ -705,9 +805,10 @@ function AutoWalk.stepped(x, y)
   for _, s in ipairs(walk.steps) do
     if s.fromX == x and s.fromY == y then
       -- a field move on this step starts with an A press: stop here and let
-      -- the update face the obstacle and press
-      if type(walk.nav.stepInteraction) == "function"
-         and walk.nav:stepInteraction(walk.overworld, s) then
+      -- the update face the obstacle and press.  A ledge's hop is left to the update as
+      -- well, which takes it at 1X.
+      if s.kind == "ledge" or (type(walk.nav.stepInteraction) == "function"
+         and walk.nav:stepInteraction(walk.overworld, s)) then
         release(walk.input, walk.held)
         walk.held = nil
         steered()
@@ -743,6 +844,17 @@ function AutoWalk.stepped(x, y)
   release(walk.input, walk.held)
   walk.held = nil
   steered()
+end
+
+-- Called from upstream's map.entered event, inside the game's step.  At a fast speed a
+-- whole door transition fits between two updates, and a direction still held on landing
+-- takes the stairs straight back (Celadon Mart, Silph Co.; the walk then said "Arrived"
+-- on the floor it started from).  A pad on one floor counts as arrival here too.
+function AutoWalk.mapEntered(mapId)
+  if not walk then return end
+  release(walk.input, walk.held)
+  walk.held = nil
+  if walk.targetMapId and walk.targetMapId == mapId and not walk.journey then walk.teleported = true end
 end
 
 -- For scripted debugging: the active walk's plan (read-only use).

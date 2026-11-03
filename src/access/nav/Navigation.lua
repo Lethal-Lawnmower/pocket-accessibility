@@ -896,6 +896,7 @@ function Accessibility:captureWorld(filter)
     rivalName = self.game.save and self.game.save.player
                 and self.game.save.player.rival,
     edition = self.game.save and self.game.save.version,
+    separateWarps = self.separateWarps,
     specialTraversal = traversal,
     interactiveObjects = self:interactiveBrowseObjects(overworld, puzzle),
     objectOverrides = puzzle.objectOverrides,

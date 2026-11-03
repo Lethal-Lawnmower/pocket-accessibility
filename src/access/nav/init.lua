@@ -102,6 +102,9 @@ local function build(game, adapter)
     pcall(Runtime.events.on, Runtime.events, "world.stepped", function(payload)
       if type(payload) == "table" then AutoWalk.stepped(payload.x, payload.y) end
     end)
+    pcall(Runtime.events.on, Runtime.events, "map.entered", function(payload)
+      if type(payload) == "table" then AutoWalk.mapEntered(payload.mapId or payload.id) end
+    end)
   end
 end
 

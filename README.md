@@ -80,10 +80,10 @@ inconveniences to moderate bugs.
 - **Navigation:** a list of what is on the map (warps, connections, signs, people,
   objects), spoken directions, and auto-walk to whatever you select, on keyboard
   or controller. Battles pause it, and it carries on afterwards.
-- **Across floors:** in Gold, Silver, Crystal and FireRed, if a target has no route on your
-  floor, auto-walk looks for one through other floors. The Area category lists items on
-  other floors, and in Gold, Silver and Crystal the floors too. Some long routes, like
-  Ice Path, still time out.
+- **Across floors:** if a target has no route on your floor, auto-walk looks for one through
+  other floors. The Area category lists items on other floors, and in Red, Blue, Yellow, Gold,
+  Silver and Crystal the floors too. Some long routes, like Ice Path, still time out. A journey does
+  not do a puzzle on the way: on Victory Road and in Pokémon Mansion, do the floor's switch first.
 - **Launcher:** a standard Windows program that lists the games, imports your ROMs
   and starts a game.
 - **Save editor:** a standard Windows window, opened from the launcher with Edit save,
@@ -94,17 +94,24 @@ inconveniences to moderate bugs.
 
 ### Puzzles
 
-With AUTO-WALK PUZZLES on, which is the default in Gold, Silver, Crystal and FireRed,
-auto-walk can do these for you. For those who want to solve them, turn it off in the
-Accessibility page of the game's options. You still get the hints.
+With AUTO-WALK PUZZLES on, which is the default in every supported game, auto-walk can do
+these for you. For those who want to solve them, turn it off in the Accessibility page of the
+game's options. You still get the hints.
 
 - **Boulders:** auto-walk to a boulder, hole or pressure switch on a floor like Ice Path
-  B1F or Blackthorn Gym, or to a target only boulders are blocking, like Chuck in
-  Cianwood Gym. You need a Pokémon with Strength.
+  B1F, Blackthorn Gym, Seafoam Islands or Victory Road, or to a target only boulders are
+  blocking, like Chuck in Cianwood Gym or the Rare Candy in the Warden's House. You need a Pokémon
+  with Strength. Each Seafoam floor has its own boulders, and those on the lower floors fall from
+  above, so do the floors from the top.
 - **Switches:** when a target has no route, it tries the switches, such as Goldenrod
-  Underground's and Pokémon Mansion's, and watches what opens. This can take a while.
-- **Lt. Surge's trash cans (FireRed):** auto-walk to Lt. Surge, and it searches the cans until the door opens.
-  The game resets the locks after a wrong second can, so this took 11 to 41 presses in our test runs.
+  Underground's and Pokémon Mansion's, and watches what opens. This can take a while. Cinnabar
+  Gym's quiz machines are yours to answer: auto-walk says when a target is behind their doors.
+- **Lt. Surge's trash cans (Red, Blue, Yellow, FireRed):** auto-walk to Lt. Surge, and it searches the
+  cans until the door opens. The game resets the locks after a wrong second can, so this took 11 to
+  41 presses in our FireRed test runs. In Red, Blue and Yellow it took 7, 10 and about 70 presses in three test runs.
+- **Cut and Surf on a walk (Red, Blue, Yellow):** these games have no prompt for them, only the party
+  menu, so auto-walk uses them for you when the route needs them and the party can. Press A through
+  the game's text.
 - **The Farfetch'd in Ilex Forest (Gold, Silver, Crystal):** auto-walk to it, press A once,
   then auto-walk again without moving, and it keeps after the bird by itself. It learns by
   trying each side, and the wrong side can send the bird backwards, so this can take a
