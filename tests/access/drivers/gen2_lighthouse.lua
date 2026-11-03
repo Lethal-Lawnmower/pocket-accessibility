@@ -6,11 +6,8 @@ return function(game)
   local L = dofile("tests/access/drivers/gen2_nav_lib.lua").new(game)
   local U, AutoWalk = L.U, L.AutoWalk
   L.settle(2000, true)
-  L.giveParty("FERALIGATR", 90, { "SURF", "STRENGTH", "CUT", "WATERFALL" }, { "ZEPHYR", "HIVE", "PLAIN", "FOG" })
-  game.save.repelSteps = 60000
+  L.strongParty()
   local function journey(map, x, y, label)
-    -- a fresh lead for each walk: trainers on the way use up its moves
-    L.giveParty("FERALIGATR", 90, { "SURF", "STRENGTH", "CUT", "WATERFALL" }, { "ZEPHYR", "HIVE", "PLAIN", "FOG" })
     L.teleport(map, x, y, "up")
     while game.stack:top() do game.stack:pop() end
     U.wait(20)
@@ -22,16 +19,7 @@ return function(game)
     L.select(target, "area")
     L.heard()
     AutoWalk.start(L.nav(), game, L.adapter())
-    for frame = 1, 30000 do
-      if not AutoWalk.active() then break end
-      if frame % 15 == 0 and (game.stack:top() ~= nil or not game.world:acceptsMenuInput()) then
-        game.input.pressQueue[#game.input.pressQueue + 1] = "a"
-        game.input.state.a = true
-        U.wait(2)
-        game.input.state.a = false
-      end
-      U.wait(1)
-    end
+    L.runWalk(30000)
     if AutoWalk.active() then AutoWalk.stop() U.log("FAIL", "still walking to", label) end
     local ended = L.where()
     local spoken = L.heard()

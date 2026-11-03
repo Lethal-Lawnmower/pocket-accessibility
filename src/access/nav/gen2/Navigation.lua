@@ -23,6 +23,7 @@ local Shared = require("src.access.nav.Navigation")
 local Snapshot = require("src.access.nav.gen2.WorldSnapshot")
 local Terrain = require("src.access.nav.gen2.TerrainSemantics")
 local Puzzle = require("src.access.nav.gen2.PuzzleAssistance")
+local Journey = require("src.access.nav.gen2.Journey")
 local WorldAdapter = require("src.access.nav.WorldAdapter")
 local Pathfinder = require("src.access.nav.Pathfinder")
 local Permissions = require("src.world.gen2.Permissions")
@@ -696,6 +697,11 @@ function Navigation:routeOptionsFor(world, goals, policy)
     local d = DELTA[direction]
     local x, y = fromX + d[1], fromY + d[2]
     if not permitted(fromX, fromY, direction) then return nil end
+    -- arriving on a door, stair or cave cell the game walks the player down off it,
+    -- whatever is held (World:step); a plan cannot leave one any other way (a journey
+    -- went out of Tohjo Falls' door sideways, across the water)
+    local forced = Permissions.doorForcedDirection(map:cellCollision(fromX, fromY))
+    if forced and forced ~= direction then return nil end
     if not passable(x, y, goalSet[cellKey(x, y)] == true) then
       local facings = Permissions.ledgeFacings(map:cellCollision(fromX, fromY))
       if not (facings and facings[direction]) then return nil end
@@ -1097,6 +1103,93 @@ function Navigation:regionalDestinationName(mapId)
     nil, (saveNames(self.game)))
   if ok and type(name) == "string" and name ~= "" then return name end
   return tostring(mapId)
+end
+
+-- The maps of one building or zone (decision 25), plus the map the player is on;
+-- nil when the two are not in one area.
+function Navigation:journeyAreaMaps(fromMapId, targetMapId)
+  local function areaKey(mapId)
+    return type(mapId) == "string" and mapId:match("^([A-Z0-9]+_[A-Z0-9]+)") or nil
+  end
+  local key = areaKey(targetMapId)
+  if not key or areaKey(fromMapId) ~= key then return nil end
+  local allowed = { [fromMapId] = true }
+  local data = self.game and self.game.data
+  for mapId in pairs(data and data.gen2Maps or {}) do
+    if areaKey(mapId) == key then allowed[mapId] = true end
+  end
+  return allowed
+end
+
+-- What a journey possible only with everything still needs ("Needs Surf").
+function Navigation:journeyRequirement(result)
+  local needed = {}
+  for _, leg in ipairs(result and result.legs or {}) do
+    local entry = result.maps[leg.mapId]
+    if entry then
+      for key, value in pairs(self:routeRequirements(entry.world, { steps = leg.steps })) do
+        if value then needed[key] = true end
+      end
+    end
+  end
+  if next(needed) == nil then return nil end
+  return Shared.requirementPhrase(needed)
+end
+
+-- The next leg of a journey, in the shared contract ({ final, goals, nextMapId,
+-- appendInstructions }, or nil and a reason).  A walk inside the building comes before
+-- one that leaves it, and a walk before a field move; a goal only a move the party lacks
+-- could reach says so.  Connections say which way to step off (`edgeDirection`).
+function Navigation:regionalNextLeg(navigation)
+  local live = self:worldForCommand()
+  if not live then return nil, "Not on a map" end
+  local mapId = self:currentMapIdOf(live)
+  local start = { mapId = mapId, x = live.player.cellX, y = live.player.cellY }
+  local target = { mapId = navigation.targetMapId, goals = navigation.targetGoals }
+  if type(target.mapId) ~= "string" or type(target.goals) ~= "table" or #target.goals == 0 then
+    return nil, "no regional path"
+  end
+  local area = self:journeyAreaMaps(mapId, target.mapId)
+  local tries = {}
+  if area then tries = { { 1, area }, { 2, area } } end
+  tries[#tries + 1] = { 1, nil }
+  tries[#tries + 1] = { 2, nil }
+  -- CPU time, not frames: the whole of Johto and Kanto takes about a second
+  local deadline = os.clock() + 2.0
+  local result, reason
+  for _, try in ipairs(tries) do
+    result, reason = Journey.search(self, start, target, try[1], try[2], deadline)
+    if result or reason ~= "no regional path" then break end
+  end
+  if not result then
+    if reason == "no regional path" then
+      local everything = Journey.search(self, start, target, 3, nil, os.clock() + 1.0)
+      local needs = everything and self:journeyRequirement(everything)
+      if needs then return nil, needs end
+    end
+    return nil, reason
+  end
+  if result.final then
+    -- an Area target's cells may lie outside this map's bounds
+    local goals = {}
+    for _, goal in ipairs(navigation.targetGoals) do
+      if live.map:inBounds(goal.x, goal.y) then goals[#goals + 1] = goal end
+    end
+    return { final = true, goals = #goals > 0 and goals or navigation.targetGoals,
+      appendInstructions = navigation.targetAppendInstructions }
+  end
+  local transition = result.firstTransition
+  local destinationName = self:regionalDestinationName(transition.destMap)
+  local instruction = transition.kind == "connection"
+    and ("Continue " .. transition.direction .. " to " .. destinationName)
+    or ("Continue to " .. destinationName)
+  return {
+    final = false,
+    goals = { { x = transition.x, y = transition.y } },
+    nextMapId = transition.destMap,
+    edgeDirection = transition.kind == "connection" and CONNECTION_STEP[transition.direction] or nil,
+    appendInstructions = function(parts) parts[#parts + 1] = instruction end,
+  }
 end
 
 -- The Area category (decision 25) on Gen 2 maps: each other map of the current

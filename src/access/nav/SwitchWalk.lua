@@ -60,7 +60,7 @@ function SwitchWalk.tryStart(nav, game, adapter, item, overworld)
   end
   if #signs == 0 then return false end
   run = { nav = nav, game = game, adapter = adapter, overworld = overworld, map = overworld.map,
-    id = item.id, label = item.label, flips = 0, phase = "choose", tried = {}, complete = {}, hidden = hidden }
+    id = item.id, label = item.label, flips = 0, phase = "choose", tried = {}, complete = {}, uses = {}, hidden = hidden }
   Speech.say((hidden and "Searching for switches to reach " or "Trying switches to reach ") .. tostring(item.label),
     { interrupt = true })
   return true
@@ -175,17 +175,20 @@ local function choose()
   local pick, byLabel, again = nil, {}, nil
   for _, sign in ipairs(signs) do
     byLabel[sign.label] = sign
-    if not pick and run.tried[state][sign.label] == nil then
+    if run.tried[state][sign.label] == nil then
       if not AutoWalk.routeExists(run.nav, sign.goals) then
         run.tried[state][sign.label] = "blocked"
       elseif sign.label == run.lastLabel then
         again = sign -- flipping it straight back is the last thing to try here
-      else
+      elseif not pick or (run.uses[sign.label] or 0) < (run.uses[pick.label] or 0) then
+        -- the one flipped least so far: from all off, Goldenrod's room took 23 flips
+        -- going in list order and takes 3 this way
         pick = sign
       end
     end
   end
   pick = pick or again
+  if pick then run.uses[pick.label] = (run.uses[pick.label] or 0) + 1 end
   if not pick then
     run.complete[state] = true
     local label = knownWayOn(state)

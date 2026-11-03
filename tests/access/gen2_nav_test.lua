@@ -773,5 +773,84 @@ do -- the shared journey's last leg keeps only target cells inside the map
   eq(leg and #leg.goals, 1, "a goal cell outside this map (worked out on a bigger one) is dropped")
 end
 
+-- ------------------------------------------------------------ signs named from their text
+do
+  local world = {
+    scripts = {
+      route = { { op = "jumptext", text = "t1" } },
+      town = { { op = "jumptext", text = "t2" } },
+      trash = { { op = "jumptext", text = "t3" } },
+      state = { { op = "opentext" }, { op = "iftrue", script = "after" },
+        { op = "writetext", text = "t4" } },
+      after = { { op = "writetext", text = "t5" } },
+    },
+    text = {
+      t1 = "ROUTE 31\nVIOLET CITY -\nCHERRYGROVE CITY{DONE}",
+      t2 = "DIGLETT'S CAVE\nA long way down{DONE}",
+      t3 = "Nope! Nothing here\nbut trash.{DONE}",
+      t4 = "It's the radio trans-\nmitter sending out\nthe signal.{DONE}",
+      t5 = "It has stopped.{DONE}",
+    },
+  }
+  local function name(key)
+    local signs = Snapshot2.projectSigns({ id = "M", bgEvents = { { kind = 0, x = 1, y = 1, scriptKey = key } } }, world)
+    return signs[1].name
+  end
+  eq(name("route"), "Sign: Route 31, Violet City, Cherrygrove City", "a jumptext sign is named by its capital lines")
+  eq(name("town"), "Sign: Diglett's Cave", "capital lines only, in ordinary case")
+  eq(name("trash"), "Trash Can", "a can that only says trash is a trash can")
+  eq(name("state"), "Sign: It's the radio transmitter sending out the signal.", "the sign's own text first, rejoined across a line break")
+end
+
+-- ------------------------------------------------------------ one-pass journeys
+do
+  local Journey = require("src.access.nav.gen2.Journey")
+  -- A: a corridor with a warp to B, and a connection on its east edge to C
+  local function floor(width, warps)
+    return {
+      warpAt = function(_, x, y) return warps[x .. "," .. y] end,
+      cellCollision = function(_, x, y) return warps[x .. "," .. y] and 0x71 or 0x00 end,
+      inBounds = function(_, x, y) return x >= 0 and y == 0 and x < width end,
+      widthCells = width, heightCells = 1,
+    }
+  end
+  local maps = { A = floor(5, { ["0,0"] = true }), B = floor(3, { ["2,0"] = true }), C = floor(3, {}) }
+  local transitions = {
+    A = { { kind = "warp", x = 0, y = 0, destMap = "B", destX = 2, destY = 0 },
+          { kind = "connection", direction = "east", x = 4, y = 0, destMap = "C", destX = 0, destY = 0 } },
+    B = { { kind = "warp", x = 2, y = 0, destMap = "A", destX = 0, destY = 0 } },
+    C = {},
+  }
+  local nav = {
+    worldForCommand = function() return nil end,
+    currentMapIdOf = function() return nil end,
+    regionalStaticWorld = function(_, mapId) return { map = maps[mapId], id = mapId } end,
+    regionalTransitions = function(_, mapId) return transitions[mapId] end,
+    routeOptionsFor = function(_, world)
+      return { neighbors = function(x, y)
+        local result = {}
+        for _, step in ipairs({ { 1, "right" }, { -1, "left" } }) do
+          if world.map:inBounds(x + step[1], y) then
+            result[#result + 1] = { x = x + step[1], y = y, direction = step[2] }
+          end
+        end
+        return result
+      end }
+    end,
+  }
+  local deadline = os.clock() + 5
+  local here = Journey.search(nav, { mapId = "A", x = 2, y = 0 }, { mapId = "A", goals = { { x = 3, y = 0 } } }, 1, nil, deadline)
+  check(here and here.final, "a target on this map needs no transition")
+  local warped = Journey.search(nav, { mapId = "A", x = 2, y = 0 }, { mapId = "B", goals = { { x = 0, y = 0 } } }, 1, nil, deadline)
+  eq(warped and warped.firstTransition and warped.firstTransition.kind, "warp", "across a warp")
+  check(warped and not warped.final, "that is not a final leg")
+  local edge = Journey.search(nav, { mapId = "A", x = 2, y = 0 }, { mapId = "C", goals = { { x = 2, y = 0 } } }, 1, nil, deadline)
+  eq(edge and edge.firstTransition and edge.firstTransition.kind, "connection", "across a connection")
+  local fenced = Journey.search(nav, { mapId = "A", x = 2, y = 0 }, { mapId = "C", goals = { { x = 2, y = 0 } } }, 1, { A = true }, deadline)
+  check(fenced == nil, "maps outside the allowed set are not crossed")
+  local _, why = Journey.search(nav, { mapId = "A", x = 2, y = 0 }, { mapId = "C", goals = { { x = 9, y = 9 } } }, 1, nil, deadline)
+  eq(why, "no regional path", "an unreachable goal says so")
+end
+
 Speech.shutdown()
 T.finish("gen2 navigation")

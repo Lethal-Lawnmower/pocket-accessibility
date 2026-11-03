@@ -144,6 +144,9 @@ return function(game)
     if step.lastScene then game.world.mapScenes[step.map] = lastScene(step.map) end
     L.teleport(step.map, x, y, step.facing or "down")
     L.settle(600, true)
+    -- a teleport onto a warp the game fires at once (Ruins of Alph's chamber doors)
+    -- leaves the map: stand beside the entrance
+    if L.pos() ~= step.map then L.teleport(step.map, x, y + 1, step.facing or "down") L.settle(600, true) end
     -- a teleport onto a staircase or door skips the game's step off it, so
     -- the world counts as mid-transition until the player moves (Radio
     -- Tower 2F's stairs sit at 0,0): stand beside the entrance instead
