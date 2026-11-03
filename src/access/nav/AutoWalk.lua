@@ -25,6 +25,7 @@ local AutoWalk = {}
 
 local SOURCE = "access_autowalk"
 local STUCK_FRAMES = 90
+local REROUTE_FRAMES = 45
 local MAX_REROUTES = 8
 local PUSH_FRAMES = 60
 -- Resuming from the same cell this many times means the game keeps turning
@@ -307,6 +308,21 @@ function AutoWalk.start(nav, game, adapter, opts)
       Speech.say("Walking to " .. tostring(item.label), { interrupt = true })
       if stepOffAndBack() then return true end
     end
+    -- standing on an exit mat that fires when pressed (just came in, and want out again)
+    if walk.targetMapId and type(nav.warpPressDirection) == "function" then
+      local okPress, press = pcall(nav.warpPressDirection, nav, overworld, player.cellX, player.cellY)
+      if okPress and press then
+        walk.pushDir, walk.pushFrames = press, 0
+        if not opts.quiet then Speech.say("Walking to " .. tostring(item.label), { interrupt = true }) end
+        return true
+      end
+    end
+    -- standing on a door or stair the player just came out of: it fires on stepping back on
+    if walk.targetMapId and nav.stepBackOntoWarps and stepOffAndBack() then
+      walk.steppedBack = true
+      if not opts.quiet then Speech.say("Walking to " .. tostring(item.label), { interrupt = true }) end
+      return true
+    end
     local text = tostring(item.label) .. " is here"
     local hint = interaction and result.goal
       and interaction[tostring(result.goal.x) .. "," .. tostring(result.goal.y)]
@@ -478,6 +494,19 @@ local function nextLeg()
   return resume(true)
 end
 
+local function nav_stepsBack(state)
+  return state.nav.stepBackOntoWarps == true and not state.steppedBack
+end
+
+-- A walk to a pad on this same map (Saffron Gym, Silph Co.) has arrived when the player
+-- jumps: the map never changes, and it used to re-plan from the far side of the wall.
+local function landedOnThisMap(x, y)
+  local map = walk.overworld.map
+  local mapId = map.id or (map.def and map.def.id)
+  if not walk.targetMapId or walk.targetMapId ~= mapId or walk.journey then return false end
+  return math.abs(x - walk.lastX) + math.abs(y - walk.lastY) > 1
+end
+
 -- Per frame, after upstream's update.  `top` is the top screen.
 function AutoWalk.update(top)
   if not walk then return end
@@ -552,19 +581,34 @@ function AutoWalk.update(top)
   if transitioning() then
     release(walk.input, walk.held)
     walk.held = nil
+    if not walk.teleported then
+      -- a pad's jump shows up here first, seen from where the walk last stood
+      walk.teleported = landedOnThisMap(player.cellX, player.cellY)
+    end
     walk.lastX, walk.lastY, walk.still = player.cellX, player.cellY, 0
     return
   end
+  if walk.teleported then return AutoWalk.stop(arrivalText()) end
   if walk.tapA then
     -- release the one-frame A press used on a card-key door or field move
     walk.input.state.a = false
     walk.tapA = nil
   end
   local x, y = player.cellX, player.cellY
+  if landedOnThisMap(x, y) then return AutoWalk.stop(arrivalText()) end
   if x ~= walk.lastX or y ~= walk.lastY then
     walk.lastX, walk.lastY, walk.still = x, y, 0
   elseif not player.moving then
     walk.still = walk.still + 1
+    -- someone wandered into the way: plan around them if there is a way round
+    if walk.still == REROUTE_FRAMES and walk.pushDir == nil and not walk.tapA then
+      local around = findRoute(walk.nav, walk.goals)
+      if around and #around.steps > 0 then
+        walk.steps, walk.goal = around.steps, around.goal or walk.goal
+        release(walk.input, walk.held)
+        walk.held = nil
+      end
+    end
     if walk.still > STUCK_FRAMES then return AutoWalk.stop("Blocked, auto walk stopped") end
   end
   -- A walk that must end exactly on its goal lets go as soon as the last step is under
@@ -612,6 +656,11 @@ function AutoWalk.update(top)
       end
       if press and walk.targetMapId then
         walk.pushDir, walk.pushFrames = press, 0
+        return
+      end
+      -- a step from one warp tile onto another does not fire it (Gen 1's standing-on-warp bit)
+      if walk.targetMapId and nav_stepsBack(walk) and stepOffAndBack() then
+        walk.steppedBack = true
         return
       end
       return AutoWalk.stop(arrivalText())

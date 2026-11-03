@@ -30,6 +30,8 @@ function Navigation.new(game, opts)
 end
 
 Navigation.autoWalkJourneys = true
+-- A door or stair fires when stepped onto, not while standing on it after coming through.
+Navigation.stepBackOntoWarps = true
 
 function Navigation:currentMapIdOf(world)
   local map = type(world) == "table" and world.map or nil
@@ -83,9 +85,51 @@ function Navigation:worldForCommand()
   return Shared.worldForCommand(self)
 end
 
+-- Only the tree's own tile can be faced for Cut: a tree block also holds fence and path
+-- cells, where the game says "nothing to cut" (OverworldState:useCutFieldMove).  Routes
+-- through those cells stopped on Pewter's, Viridian's and Route 2's walls.
+function Navigation:isCuttableCell(world, x, y)
+  if not Shared.isCuttableCell(self, world, x, y) then return false end
+  local tileset = world.map.def and world.map.def.tileset
+  local tile = world.map:cellTile(x, y)
+  return (tileset == "OVERWORLD" and tile == 0x3d) or (tileset == "GYM" and tile == 0x50)
+end
+
+-- The doors on field.cardKeyDoors' own map list open with the Card Key.  The same table
+-- holds Rocket Hideout's lift gates, which open when their guards are beaten: with the
+-- key in the bag, a route went through one and pressed A at it three times.
+function Navigation:isCardKeyMap(mapId)
+  local card = self.game.data.field.cardKeyDoors
+  for _, candidate in ipairs(card and card.maps or {}) do
+    if candidate == mapId then return true end
+  end
+  return false
+end
+
+function Navigation:isClosedCardKeyDoorCell(world, x, y)
+  return self:isCardKeyMap(self:currentMapIdOf(world)) and Shared.isClosedCardKeyDoorCell(self, world, x, y)
+end
+
+function Navigation:tilesetHasWater(map)
+  local tileset = map.def and map.def.tileset
+  for _, candidate in ipairs(self.game.data.field.waterTilesets or {}) do
+    if candidate == tileset then return true end
+  end
+  return false
+end
+
 function Navigation:worldRouteRequest(goals, policy)
   local options, world = Shared.worldRouteRequest(self, goals, policy)
   if not options then return options, world end
+  -- A tile number that means water on a coast is a counter or a wall indoors, and Surf is
+  -- refused there (IsNextTileShoreOrWater); a route took the Museum's wall as a lake.
+  if not self:tilesetHasWater(world.map) then
+    local canTraverse, map = options.canTraverse, world.map
+    options.canTraverse = function(fromX, fromY, toX, toY, direction, cost, edge)
+      if map:isWaterCell(toX, toY) and not map:isWalkableCell(toX, toY) then return false end
+      return canTraverse(fromX, fromY, toX, toY, direction, cost, edge)
+    end
+  end
   local goalSet = {}
   for _, goal in ipairs(goals) do goalSet[goal.x .. "," .. goal.y] = true end
   for index, hole in ipairs(self:holeCells(self:currentMapIdOf(world))) do
@@ -218,10 +262,19 @@ function Navigation:captureWorld(filter)
   local mapId = world and self:currentMapIdOf(world)
   local def = mapId and self.game.data.maps[mapId]
   if not def then return snapshot, reason end
-  local kept = {}
+  local kept, pads = {}, 0
   for _, item in ipairs(snapshot.browse or {}) do
     local keep = true
-    if item.type == "signpost" and tostring(item.label):match("^Signpost %d") then
+    if item.type == "warp" and item.destinationMapId == mapId then
+      -- pads on one floor (Saffron Gym's maze): a number, and where each one lands
+      pads = pads + 1
+      local label = "Teleport pad " .. pads
+      local dest = def.warps and item.destinationWarp and def.warps[item.destinationWarp]
+      local landing = dest and self.worldSnapshot.formatRelative(item.x, item.y, dest.x, dest.y)
+      item.description = label .. tostring(item.description or ""):sub(#item.label + 1)
+        .. (landing and ("; lands " .. landing .. " from it") or "")
+      item.label = label
+    elseif item.type == "signpost" and tostring(item.label):match("^Signpost %d") then
       local who = self.game.save and self.game.save.player or {}
       local name = Navigation.signNameFrom(self:signWords(mapId, def, item.textId),
         { player = who.name, rival = who.rival })
@@ -232,6 +285,12 @@ function Navigation:captureWorld(filter)
     elseif item.type == "connection" then
       local ok, crossable = pcall(self.connectionCrossable, self, world, item)
       keep = not ok or crossable
+    elseif item.semanticKind == "card_key_door" and not self:isCardKeyMap(mapId) then
+      item.label, item.requirement, item.interaction = "Lift gate", nil, "inspect"
+      item.stateText = "closed until this floor's guards are beaten"
+      item.routeInstruction = "Closed passage; beat this floor's guards"
+      item.description = "Lift gate"
+        .. (item.relativeText and (": " .. item.relativeText) or "") .. "; " .. item.stateText
     end
     if keep then kept[#kept + 1] = item end
   end
@@ -248,7 +307,9 @@ function Navigation:stepInteraction(world, step)
   if not step then return nil end
   local map, player = world.map, world.player
   if player.surfing then return nil end
-  if map:isWaterCell(step.x, step.y) and not map:isWaterCell(step.fromX, step.fromY) then
+  -- the tile number of water is a plain floor tile in some indoor tilesets
+  if map:isWaterCell(step.x, step.y) and not map:isWalkableCell(step.x, step.y)
+     and not map:isWaterCell(step.fromX, step.fromY) then
     return { move = "Surf", failText = "Could not use Surf, auto walk stopped",
       hint = "Use Surf facing " .. step.direction,
       use = function()
@@ -278,6 +339,20 @@ end
 function Navigation:routeNeeds(goals)
   local phrase = self:routeRequirement(goals)
   if phrase and phrase ~= "Cannot reach yet" then return phrase end
+  return nil
+end
+
+-- Exit mats and stair tiles at a map's edge fire only while pressed outward; a walk that
+-- reached one sideways said "Arrived" and stayed in the room.  The direction is the
+-- game's own check (Warp.extraCheck).
+function Navigation:warpPressDirection(world, x, y)
+  local map = world.map
+  if not map:warpAtCell(x, y) or map:isWarpTileCell(x, y) then return nil end
+  local Warp = require("src.world.Warp")
+  local carpets = self.game.data.field.warpCarpets
+  for _, dir in ipairs({ "down", "up", "left", "right" }) do
+    if Warp.extraCheck(map, carpets, x, y, dir) then return dir end
+  end
   return nil
 end
 
