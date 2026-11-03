@@ -53,6 +53,32 @@ Speech.start({ backend = failing })
 check(Speech.say("x") == false, "backend failure returns false")
 Speech.shutdown()
 
+-- A line Prism refuses as invalid UTF-8 is spoken again in plain ASCII.
+local refusing = fakeBackend()
+local realSay = refusing.say
+function refusing:say(text, interrupt)
+  if text:find("[\128-\255]") then return false, "Invalid UTF-8" end
+  return realSay(self, text, interrupt)
+end
+Speech.start({ backend = refusing })
+check(Speech.say("but good luck…", { interrupt = true }), "refused line still reports spoken")
+eq(refusing.spoken[1].text, "but good luck...", "refused line is said in ASCII")
+eq(refusing.spoken[1].interrupt, true, "the retry keeps the interrupt flag")
+check(Speech.say("POKéMON\255"), "stray bytes are dropped on the retry")
+eq(refusing.spoken[2].text, "POKeMON", "accents become plain letters")
+check(Speech.say("…\255") == true, "punctuation-only text is still said")
+check(Speech.say("\255") == false, "nothing left to say fails quietly")
+Speech.shutdown()
+
+-- Other failures are not retried.
+local broken = fakeBackend()
+local brokenCalls = 0
+function broken:say() brokenCalls = brokenCalls + 1 return false, "boom" end
+Speech.start({ backend = broken })
+Speech.say("a…")
+eq(brokenCalls, 1, "only an encoding refusal is retried")
+Speech.shutdown()
+
 -- Access.install announces readiness once and closes speech on a real quit.
 local quitResult = nil
 love.quit = function() return quitResult end

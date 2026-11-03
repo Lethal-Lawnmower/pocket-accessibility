@@ -52,6 +52,20 @@ function Speech.status()
   return status
 end
 
+-- Prism refuses some text as invalid UTF-8, even when the bytes check out:
+-- "but good luck…" was refused in Crystal while "Um… I don't know" was not
+-- (2026-11-03; the cause inside Prism is not known).  A refused line is
+-- spoken again in plain ASCII rather than lost.
+local ASCII_FOR = { ["…"] = "...", ["é"] = "e", ["É"] = "E", ["№"] = "number ",
+  ["♂"] = " male", ["♀"] = " female", ["’"] = "'", ["“"] = '"', ["”"] = '"' }
+
+local function plainAscii(text)
+  for symbol, plain in pairs(ASCII_FOR) do
+    text = text:gsub(symbol, plain)
+  end
+  return (text:gsub("[\128-\255]", ""))
+end
+
 -- Returns true when the text was handed to the backend.  Empty text is a
 -- caller bug worth seeing in the log, not something to speak.
 function Speech.say(text, opts)
@@ -66,6 +80,13 @@ function Speech.say(text, opts)
   if trace then Logger.info("[access] say%s: %s", interrupt and "!" or "", text) end
   if silent then return true end
   local ok, err = backend:say(text, interrupt)
+  if not ok and tostring(err):find("UTF", 1, true) then
+    local plain = plainAscii(text)
+    if plain ~= text and not plain:match("^%s*$") then
+      Logger.warn("[access] speech refused as invalid UTF-8, spoken as ASCII: %s", plain)
+      ok, err = backend:say(plain, interrupt)
+    end
+  end
   if not ok then Logger.warn("[access] speech failed: %s", tostring(err)) end
   return ok
 end
