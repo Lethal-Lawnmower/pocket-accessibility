@@ -33,6 +33,8 @@ local PUSH_FRAMES = 60
 -- and step the player back; auto-walk resumed into them for ever).
 local MAX_RESUMES_AT_CELL = 3
 local MAX_RESUMES_IN_A_WALK = 8
+local RESUME_RETRIES = 8
+local RESUME_RETRY_FRAMES = 20
 local MAX_JOURNEY_LEGS = 32
 
 local walk = nil -- active walk, or nil
@@ -464,8 +466,16 @@ local function resume(quiet)
   end
   local result = findRoute(walk.nav, walk.goals)
   if not result then
+    -- after a scene someone can still be walking off through the only way (the Cerulean
+    -- rival, Silph Co.'s): give it a moment before giving up
+    if walk.paused and (walk.resumeRetries or 0) < RESUME_RETRIES then
+      walk.resumeRetries = (walk.resumeRetries or 0) + 1
+      walk.retryIn = RESUME_RETRY_FRAMES
+      return
+    end
     return AutoWalk.stop("Cannot reach " .. tostring(walk.label) .. ", auto walk stopped")
   end
+  walk.retryIn = nil
   local player = walk.overworld.player
   walk.steps, walk.goal = result.steps, result.goal or walk.goal
   walk.paused, walk.expectBattle, walk.battleSeen = nil, nil, nil
@@ -544,6 +554,11 @@ function AutoWalk.update(top)
       return AutoWalk.stop("Auto walk stopped")
     end
     if walk.expectBattle and not walk.battleSeen then return end -- trainer still walking over
+    if walk.retryIn then
+      walk.retryIn = walk.retryIn - 1
+      if walk.retryIn > 0 then return end
+      return resume()
+    end
     -- battles, card-key door messages and other game-caused screens: carry
     -- on, unless the game keeps sending the player back to the same cell
     local key = tostring(player.cellX) .. "," .. tostring(player.cellY)

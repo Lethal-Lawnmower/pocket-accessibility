@@ -148,6 +148,8 @@ return function(game)
                   if now.id == item.id then present = true break end
                 end
                 if not present then goto nextItem end
+                -- the Hall of Fame ends the game and goes back to the title
+                if toMapId == "HALL_OF_FAME" then goto nextItem end
                 heard()
                 totals.walks = totals.walks + 1
                 AutoWalk.start(coordinator, game)
