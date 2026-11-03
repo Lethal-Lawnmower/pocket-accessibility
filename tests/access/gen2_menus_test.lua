@@ -346,7 +346,7 @@ local game2 = { data = {}, save = {}, options = {},
 local real = OptionsMenu.new(game2, { options = game2.options })
 stackStates[1] = real
 SR.update(real)
-eq(last(), "Options. ACCESSIBILITY, 2 OPTIONS, 1 of " .. #real.view, "real OPTION screen entry")
+eq(last(), "Options. ACCESSIBILITY, 3 OPTIONS, 1 of " .. #real.view, "real OPTION screen entry")
 real.view[1].activate(game2)
 local access = stackStates[2]
 SR.update(access)
