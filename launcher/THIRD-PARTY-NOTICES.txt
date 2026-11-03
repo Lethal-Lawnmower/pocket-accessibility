@@ -1,0 +1,39 @@
+Third-party notices for Pocket Accessibility's packaged Windows folder
+
+Each license text named here is in the licenses folder of the package.
+
+Pokemon Gen 1 Recompilation Project
+  Based on the Pokemon Gen 1 Recompilation Project by BOIS CLUB GAMES, LLC
+  (https://github.com/bryanthaboi/gen1recomp). GNU GPL version 3 with Section 7 terms.
+  Text: Pocket-Accessibility-LICENSE.txt. Its proprietary launcher (Term 2) is not included.
+
+LÖVE 11.5 (folder love)
+  Unmodified. zlib license; the libraries it ships are covered in the same file.
+  Source: https://love2d.org. Text: LOVE-license.txt.
+
+Prism 0.17.3 (game\local-deps\prism\prism.dll)
+  Unmodified release build. Mozilla Public License 2.0. Source: https://github.com/ethindp/prism.
+  Components and their licenses: Prism\NOTICE and the folder Prism\LICENSES.
+
+Plain Pixel Font (assets\fonts\plainpixel)
+  "Plain Pixel Font" by Douglas Vautour (Burpy Fresh), https://burpyfresh.itch.io.
+  Version 0.009, unmodified. CC-BY 4.0. Text: CC-BY-4.0.txt. Notice: asset-notices.
+
+libretro common-overlays (assets\skins\tv_crt, gb_anim, gba_purple)
+  From https://github.com/libretro/common-overlays. CC-BY 4.0. Text: CC-BY-4.0.txt.
+  The notices in asset-notices say what was changed, if anything.
+
+Free Controller & Keyboard Prompts (assets\touch)
+  By Nicolae Berbece / Those Awesome Guys, https://thoseawesomeguys.com/prompts/.
+  Public domain under CC0. Text: CC0-1.0.txt. Notice: asset-notices.
+
+Lucide (assets\game3\lock.svg, lock8.png)
+  The lock icon, https://github.com/lucide-icons/lucide. ISC license. Text: Lucide-LICENSE.txt.
+  Notice: asset-notices.
+
+AnimaEngine (src\import\gen5)
+  Copyright (c) 2026 AnimaEngine contributors. MIT license. Text: AnimaEngine-LICENSE.txt.
+
+.NET (inside PocketLauncher.exe, only in a self-contained build)
+  Copyright (c) .NET Foundation and Contributors. MIT license, as published with the runtime
+  packs the build uses. Texts: dotNET-LICENSE.txt and dotNET-THIRD-PARTY-NOTICES.txt.

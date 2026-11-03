@@ -37,8 +37,10 @@ running screen reader first, then system voices.
 Search order (`PrismBackend.candidates`):
 
 1. `POKEPORT_PRISM_DLL`, an explicit path.
-2. Beside the program (packaged build).
-3. The source folder, then `local-deps/prism/` (source checkout).
+2. The folder holding the game folder, then the game folder.
+3. `local-deps/prism/` under each of those. The packaged folder and a source checkout both use `game\local-deps\prism`.
+
+The launcher's "speech library was not found" warning checks the same places (`GamePaths.HasPrism`).
 
 `local-deps/` is git-ignored, so binaries are never committed. For a source
 checkout, copy `prism.dll` from the Prism release's `dynamic/release/bin/`
@@ -50,8 +52,9 @@ ship it; only `prism.dll` is used.
 ## Version
 
 Developing against Prism 0.17.3 (MPL-2.0, Windows x64), from the old
-project's local copy. Prism 0.18.3 exists (GitHub, checked 2026-10-31).
-Upgrade and re-verify the C declarations before the first packaged build.
+project's local copy. The packaged folder ships this build: its DLL is byte-identical to the Prism
+0.17.3 Windows x64 release, whose `NOTICE` and `LICENSES` are shipped with it. Prism 0.18.3 exists (GitHub, checked
+2026-10-31). Moving to it, and re-verifying the C declarations, is left for after the first package.
 The declarations in `PrismBackend.lua` are copied from 0.17.3's `prism.h`.
 
 ## Verification (2026-10-31)

@@ -72,7 +72,7 @@ and recorded in the topic file.
 
 - **State:** done. Prism through LuaJIT FFI, one hook in `main.lua`. Heard by
   the owner through NVDA on 2026-10-31. Details: `speech.md`.
-- **Later:** move to Prism 0.18.3 and re-check the declarations before packaging.
+- **Later:** move to Prism 0.18.3 and re-check the declarations, after the first package.
 
 ## Menus and text
 
@@ -163,16 +163,14 @@ and recorded in the topic file.
   try found the stale-import fallback (fixed with the game's own ready
   check), then judged it "Looks good" and approved the push (2026-11-01).
   Details: `launcher.md`.
-- **Next:** the owner tries it; Edit save, Settings; packaging (closing the
-  routes back to upstream's launcher, layout, save folder).
+- **Packaged folder (2026-11-03):** `launcher/package_release.py` builds it, and every route to upstream's launcher is
+  closed. Tested by script only, not heard, not published. Open for the owner: `launcher.md`, "Packaged release".
+- **Next:** the owner tries the package; Settings.
 
 ## Before any packaged release
 
-- Our own launcher (decision 4). Upstream's self-updater off, upstream's
-  launcher files excluded (`architecture.md`).
-- Upstream License Term 1 also requires the credit in the app's credits,
-  about or title screen and in our launcher.
-- Decide on upstream's Discord rich presence.
+- Done by script (`launcher.md`, "Packaged release"): our own launcher, upstream's updater off, upstream's launcher files out, Term 1 credit.
+- Owner decisions still open: self-contained or runtime-required .NET; upstream's Discord rich presence; release approval (decision 19).
 
 ## Gold, Silver and Crystal
 

@@ -55,7 +55,7 @@ internal sealed class MainForm : Form
         ConfigureButton(editButton, "&Edit save", () => { EditSelected(); return Task.CompletedTask; });
         ConfigureButton(modsButton, "&Mods...", () => { OpenMods(); return Task.CompletedTask; });
         ConfigureButton(importButton, "&Import ROM...", async () => await ImportAsync());
-        ConfigureButton(creditsButton, "&Credits", () => { using var credits = new CreditsForm(); credits.ShowDialog(this); return Task.CompletedTask; });
+        ConfigureButton(creditsButton, "&Credits", () => { using var credits = new CreditsForm(paths); credits.ShowDialog(this); return Task.CompletedTask; });
         ConfigureButton(exitButton, "E&xit", () => { Close(); return Task.CompletedTask; });
         AcceptButton = playButton; // Enter on the list plays the selected game
 
@@ -165,7 +165,7 @@ internal sealed class MainForm : Form
         await RefreshGamesAsync();
         if (!paths.HasPrism)
         {
-            ShowMessage("The speech library was not found (local-deps\\prism\\prism.dll in the game folder). " +
+            ShowMessage("The speech library was not found (prism.dll, normally local-deps\\prism in the game folder). " +
                         "The games will start, but nothing will be spoken until Prism is installed.",
                         MessageBoxIcon.Warning);
         }
@@ -211,13 +211,14 @@ internal sealed class MainForm : Form
     private async Task PlaySelectedAsync()
     {
         if (SelectedImportedGame() is not Game game) return;
+        string? refusal = null;
         await RunBusyAsync($"Playing {game.Name}.", async () =>
         {
             // Out of the way while the game runs; back with focus on the list after.
             WindowState = FormWindowState.Minimized;
             try
             {
-                await runner.PlayAsync(game);
+                refusal = await runner.PlayAsync(game);
             }
             finally
             {
@@ -227,6 +228,7 @@ internal sealed class MainForm : Form
         });
         status.Text = "Ready.";
         await RefreshGamesAsync(game);
+        if (refusal != null) ShowMessage(refusal, MessageBoxIcon.Warning);
         gamesList.Focus();
     }
 
