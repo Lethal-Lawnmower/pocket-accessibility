@@ -2176,7 +2176,7 @@ function Accessibility:regionalNextLeg(navigation)
       end
       return open
     end,
-    maxStates = 96, maxTransitions = 16,
+    maxStates = 400, maxTransitions = 16, -- (Pokémon Tower 2F spent 96 on Lavender Town's houses)
     -- Olivine Lighthouse, with sides reached only through drops, takes 0.7 to
     -- 0.9 seconds from its first floor (measured 2026-11-03).
     maxSeconds = 1.5, maxRouteSeconds = 0.05,
