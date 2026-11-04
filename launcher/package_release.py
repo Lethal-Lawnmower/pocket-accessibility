@@ -241,6 +241,8 @@ Game Freak or The Pokémon Company. You supply your own cartridge dumps; no game
 To play: unzip this folder anywhere, open PocketLauncher.exe, choose Import ROM to import
 your cartridge dump, then Play. {"Nothing else needs installing." if self_contained else "This build needs the .NET 10 Desktop Runtime for Windows x64 from Microsoft."}
 
+Feedback, help and bug reports: https://discord.gg/8NNev6PsB6
+
 Saves and imported data are kept in %APPDATA%\\LOVE\\pokemon-love2d, not in this folder,
 so deleting or replacing this folder does not touch them.
 

@@ -8,7 +8,7 @@ Pocket Accessibility aims to cover the gaps and weird issues that the original [
 
 If you don't know Pokémon Access, it's a set of scripts by nuive that make the Pokémon games playable with a screen reader through the VBA-ReRecording emulator. It grew out of the Pokécrystal Access Project, which did the same for Crystal.
 
-**Early days:** expect mild inconveniences to moderate bugs.
+**Early days:** expect mild inconveniences to moderate bugs. For feedback, help and bug reports, join the [Discord server](https://discord.gg/8NNev6PsB6).
 
 > [!WARNING]
 > **Seizure and flashing warning, in my own words.** This README was generated
@@ -34,7 +34,7 @@ Playing through every game myself isn't realistic, so here's how far I've gotten
 - **LeafGreen:** not played, but it shares FireRed's code.
 - **Ruby and Sapphire:** not played. These are new, so expect more bugs.
 
-All of them have been through automated tests and scripted runs. If you run into a problem, open an issue here or reach out to me on Discord (`lethal_lawnmower`).
+All of them have been through automated tests and scripted runs. If you run into a problem, open an issue here or post in the [Discord server](https://discord.gg/8NNev6PsB6).
 
 ## What It Does
 
@@ -113,7 +113,7 @@ playable for people who couldn't play them independently before.
 
 In my personal opinion, about 80 to 90% of the navigation ideas came from my Red playthrough in August 2026, and the remaining 10 to 20% came from my latest Crystal playthrough. My main interest is Crystal from the second generation and most of the third-generation GBA games.
 
-Things are bound to change, and I'm more than willing to listen to and adapt to community feedback. At the end of the day, this isn't meant to be my project, but something the community can add to and build on. If something doesn't work, please open an issue on this repository or reach out to me on Discord (`lethal_lawnmower`).
+Things are bound to change, and I'm more than willing to listen to and adapt to community feedback. At the end of the day, this isn't meant to be my project, but something the community can add to and build on. If something doesn't work, please open an issue on this repository or post in the [Discord server](https://discord.gg/8NNev6PsB6).
 
 ## Credit
 
