@@ -69,8 +69,8 @@ third-generation GBA games.
 
 ## What It Does
 
-- **Speech:** menus, dialogue, the Pokémon screens and battles all go through [Prism](https://github.com/ethindp/prism), so it works with your screen reader without any extra setup. Gone are the days of hunting down the right NVDA DLL or `Tolk.dll`. F7 turns on the accessibility command keys, and F8 is help.
-- **Navigation:** a list of what's on the map, like warps, signs, people and objects. You can get spoken directions to whatever you pick, on keyboard or controller, or auto-walk there on a controller. Battles pause the walk, and it carries on afterwards.
+- **Speech:** menus, dialogue, the Pokémon screens and battles all go through [Prism](https://github.com/ethindp/prism), so it works with your screen reader without any extra setup. Gone are the days of hunting down the right NVDA DLL or `Tolk.dll`. F7 turns on the navigation keys, and F8 is help.
+- **Navigation:** a list of what's on the map, like warps, signs, people and objects. You can get spoken directions or auto-walk to whatever you pick, on keyboard or controller. Battles pause the walk, and it carries on afterwards.
 - **Other floors:** if there's no route on your floor, auto-walk looks through the other floors. The Area category lists the items and floors of the building or cave you're in. Some places still say there's no route. When an item is what's blocking you, it tells you to pick it up.
 - **Launcher:** a standard Windows program that lists the games, imports your ROMs and starts a game.
 - **Save editor:** opened from the launcher with Edit save, with tabs for party, boxes, items, trainer, map, Pokédex and events.
@@ -90,21 +90,32 @@ With AUTO-WALK PUZZLES on, which is the default, auto-walk can do these for you.
 
 Not everything is covered. If auto-walk says there's no route, the way may really be closed by the story.
 
-## Running from source (Windows)
+## Getting Started
 
-You supply your own ROM. No game data is included.
+There's no packaged release yet, so for now you run it from source on Windows. You supply your own ROMs. No game data is included.
 
 1. Install [LÖVE 11.5](https://love2d.org/).
-2. Download a [Prism](https://github.com/ethindp/prism/releases) Windows x64
-   release and copy `prism.dll` into `local-deps/prism/` in this folder.
-3. Install the .NET 10 SDK and build the launcher:
-   `dotnet build launcher/PocketLauncher -c Release`.
-4. Run `launcher/PocketLauncher/bin/Release/net10.0-windows/PocketLauncher.exe`, use Import
-   ROM for your game, then Play. See [the launcher notes](docs/access/launcher.md).
+2. Download a [Prism](https://github.com/ethindp/prism/releases) Windows x64 release and copy `prism.dll` into `local-deps/prism/` in this folder.
+3. Install the .NET 10 SDK and build the launcher: `dotnet build launcher/PocketLauncher -c Release`.
+4. Run `launcher/PocketLauncher/bin/Release/net10.0-windows/PocketLauncher.exe`, use Import ROM for your game, then Play.
 
-Without the launcher, choose the game with `POKEPORT_GAME` (`red`, `blue`, `yellow`, `gold`,
-`silver`, `crystal` or `firered`), for example in PowerShell:
-`$env:POKEPORT_GAME = 'red'; & 'C:\Program Files\LOVE\love.exe' .`
+## Controls
+
+The game's own controls are arrow keys or WASD to move, Z or Enter for A, X or Backspace for B, Escape for Start and Tab for Select. You can rebind them in the game's options.
+
+**On a keyboard,** press F7 to turn on the navigation keys, and F8 for help:
+
+- **J and L:** previous and next thing on the map.
+- **Shift J and Shift L:** change the category, like warps, signs or people.
+- **K:** spoken directions to what you picked. Press it again to stop.
+- **Shift K:** auto-walk there. Any key stops it.
+- **H and Shift H:** enemy health and your health.
+
+The navigation keys only work on the map, so they never get in the way of menus or battles.
+
+**On a controller,** hold the left trigger and use the D-pad: up and down change the category, and left and right move through it. Click the right stick for spoken directions, and the left stick to auto-walk. Click again to stop.
+
+Want another key? Ask, and I'll look at adding it.
 
 ## Credit
 

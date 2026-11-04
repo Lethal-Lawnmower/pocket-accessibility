@@ -81,11 +81,13 @@ CommandRouter.MAPPINGS = {
     j = A.PREVIOUS_MAP_ITEM,
     l = A.NEXT_MAP_ITEM,
     k = A.DESCRIBE_ROUTE_TO_ITEM,
+    h = A.READ_ENEMY_HEALTH,
   },
   shift = {
     j = A.PREVIOUS_ITEM_FILTER,
     l = A.NEXT_ITEM_FILTER,
     k = A.AUTO_WALK_TO_ITEM,
+    h = A.READ_PLAYER_HEALTH,
   },
 }
 

@@ -6,12 +6,14 @@ local expectedPlain = {
   j = "previous_map_item",
   l = "next_map_item",
   k = "describe_route_to_selected_item",
+  h = "read_enemy_health",
 }
 
 local expectedShift = {
   j = "previous_item_filter",
   l = "next_item_filter",
   k = "auto_walk_to_selected_item",
+  h = "read_player_health",
 }
 
 S.same(CommandRouter.MAPPINGS.plain, expectedPlain,
@@ -353,15 +355,21 @@ S.eq(contextual:blockedKeys({ screenId = "Bag" }), nil,
   "hotplug reconciliation does not suppress menu keyboard holds")
 S.check(not contextual:keypressed("t", { screenId = "Bag" }),
   "T is no longer a command (decision 46)")
-S.check(not contextual:keypressed("h", { screenId = "Battle" }),
-  "H is no longer a command (decision 46)")
+S.check(contextual:keypressed("h", { screenId = "Battle" }),
+  "battle health works during battle")
+for _, key in ipairs({ "j", "l", "k" }) do
+  S.check(not contextual:keypressed(key, { screenId = "Battle" }),
+    key .. " passes through to the battle")
+  S.check(not contextual:keypressed(key, { screenId = "Bag" }),
+    key .. " passes through to a menu")
+end
 S.check(not contextual:gamepadpressed("rightstick", { screenId = "Bag" }),
   "controller route button is not stolen from a menu")
 S.check(not contextual:gamepadpressed("leftshoulder", { screenId = "Bag" }),
   "controller category button is not stolen from a menu")
 S.check(not contextual:gamepadaxis("triggerleft", 0.8, { screenId = "Bag" }),
   "controller entity trigger passes through in a menu")
-S.same(contextualCalls, {},
+S.same(contextualCalls, { "read_enemy_health" },
   "off-map navigation never reaches the accessibility command handler")
 onMap = true
 S.eq((contextual:blockedKeys() or {}).w, nil,

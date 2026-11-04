@@ -69,6 +69,63 @@ return function(game)
   check(not key("0", true), "Shift+0 is free")
   check(not key("p"), "P is free")
   check(heard() == "", "the free keys say nothing")
-  key("f7")
+
+  -- On a menu and in a battle the navigation keys belong to the game (decision 46); H still answers.
+  local tap = isGen1 and function(button) U.tap(game, button) U.wait(10) end or function(button) L.tap(button, 10) end
+  local function offMap() return Nav.coordinator():worldForCommand() == nil end
+  local function keysOff(where)
+    for _, chord in ipairs({ { "j" }, { "l" }, { "k" }, { "j", true }, { "l", true }, { "k", true } }) do
+      local name = (chord[2] and "Shift+" or "") .. chord[1]
+      check(not key(chord[1], chord[2]), name .. " passes through on " .. where)
+    end
+    check(not AutoWalk.active(), "no walk started on " .. where)
+  end
+  tap("start")
+  U.wait(30)
+  check(offMap(), "the start menu is open")
+  keysOff("the start menu")
+  tap("b")
+  U.wait(30)
+  for _ = 1, 60 do if not offMap() then break end tap("b") end
+
+  local inBattle
+  if isGen3 then
+    L.giveParty(9, 50, { "SURF", "STRENGTH", "CUT" })
+    local Runtime = require("src.core.game3.runtime")
+    local Battle = require("src.core.game3.battle")
+    require("src.core.game3.battle_bridge").startWild(Runtime._mod, game, { species = 19, level = 3 }, { fade = false })
+    inBattle = function() return Battle.isActive() end
+  elseif isGen1 then
+    local BattleState = require("src.battle.BattleState")
+    game.save.party = { require("src.pokemon.Pokemon").new(game.data, "SQUIRTLE", 12) }
+    local battle = BattleState.newWild(game, "PIDGEY", 3)
+    game.overworld:pushBattle(battle)
+    inBattle = function() return game.stack:top() == battle end
+  else
+    local Mon = require("src.battle.gen2.Mon")
+    game.save.party = { Mon.new(game.data, "CYNDAQUIL", 10) }
+    game.world:startBattle({ wild = Mon.new(game.data, "SENTRET", 5) })
+    local BattleState = require("src.ui.gen2.BattleState")
+    inBattle = function() return getmetatable(game.stack:top()) == BattleState end
+  end
+  for _ = 1, 900 do if inBattle() then break end U.wait(1) end
+  check(inBattle(), "a battle is on screen")
+  -- through the opening lines to the battle's own menu, with both sides out
+  said = {}
+  for _ = 1, 80 do
+    if table.concat(said, " "):find("FIGHT", 1, true) then break end
+    U.wait(30)
+    if not table.concat(said, " "):find("FIGHT", 1, true) then tap("a") end
+  end
+  check(table.concat(said, " "):find("FIGHT", 1, true) ~= nil, "the battle menu is up")
+  U.wait(30)
+  keysOff("a battle")
+  said = {}
+  check(key("h") == true, "H is a command in a battle")
+  local enemy = heard()
+  check(key("h", true) == true, "Shift+H is a command in a battle")
+  local mine = heard()
+  check(enemy:lower():find("health", 1, true) ~= nil or enemy:find("HP", 1, true) ~= nil, "H says enemy health: " .. enemy:sub(1, 120))
+  check(mine:lower():find("health", 1, true) ~= nil or mine:find("HP", 1, true) ~= nil, "Shift+H says player health: " .. mine:sub(1, 120))
   U.log("DONE")
 end

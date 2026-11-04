@@ -456,3 +456,6 @@ Same day: "might as well remove any other keybinds we don't use, like T, to read
 controller. If they want them added, they can request them." So the keyboard's accessibility keys are now F7, F8, J, L, Shift J, Shift L, K and Shift K, and WASD moves in command mode.
 Removed from the keyboard: T, M, Q, Y, Shift Y, H, Shift H, E, Shift E, and the sonar keys D, G, R, V, F, C and their Shift forms. The code behind them stays for now (tests use it); no key reaches it.
 Consequences: no on-demand battle health (the battle menu's lines still say it), no key for the time in Gen 2 and Hoenn (the Pokégear and wall clock screens remain), no Shift E for the held Unown piece.
+
+Same day: "health can stay. The health commands can stay. And ... make sure that the navigation keys are not activated in a menu slash and or battle, because in battles, they can be
+context dependent for battle stuff." H and Shift H are back, and work anywhere F7 is on. J, L, K and their Shift forms pass through to the game off the map (`access_keys` checks it).

@@ -1,7 +1,7 @@
 # Navigation
 
-**Keys, 2026-11-04 (decision 46):** the keyboard's commands are now only F7, F8, J, L, Shift J, Shift L, K and Shift K, the same set as the controller. Mentions below and in
-other topic files of T, M, Q, Y, H, E, sonar keys, P or renaming describe keys that no longer exist. The code behind most of them remains, reached only by tests.
+**Keys, 2026-11-04 (decision 46):** the keyboard's commands are now only F7, F8, H, Shift H, J, L, Shift J, Shift L, K and Shift K: the controller's set and battle health. Off the map J, L and K belong to the game. Mentions below and in
+other topic files of T, M, Q, Y, E, sonar keys, P or renaming describe keys that no longer exist. The code behind most of them remains, reached only by tests.
 
 Getting around the overworld: object list, pathfinding, camera ("sonar"),
 terrain and footstep cues, puzzle help. Reused from the old project under
