@@ -841,7 +841,7 @@ function AutoWalk.update(top)
   end
   -- A ledge hop at 1X too: at a fast speed the direction still held on landing hops the
   -- next ledge in the same frame (Route 4's steps, past the turn, with no way back up).
-  if step.kind == "ledge" then walk.turning = true end
+  if step.kind == "ledge" then walk.turning, walk.hopping = true, true end
   if action then
     if player.facing ~= step.direction then
       -- Turn to face the obstacle.  The held direction lasts a whole frame
@@ -917,6 +917,9 @@ function AutoWalk.stepped(x, y)
   if not walk or walk.paused or walk.awaitingMap or walk.pushDir or walk.tapA then return end
   if walk.overworld.map ~= walk.map then return end
   leftTheCell(x, y)
+  -- landed: a walk that keeps its direction held does not pass the update's step code again,
+  -- and stayed at 1X for the rest of the route
+  if walk.hopping then walk.turning, walk.hopping = nil, nil end
   for _, s in ipairs(walk.steps) do
     if s.fromX == x and s.fromY == y then
       -- a field move on this step starts with an A press: stop here and let

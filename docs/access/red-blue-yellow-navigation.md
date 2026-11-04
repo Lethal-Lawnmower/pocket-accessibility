@@ -136,5 +136,10 @@ Whole-map walks after the fixes, Red only: 1656 of 1679 ended as they should, ag
 gates and test setup (Elite Four doors, locked Cinnabar doors, thirsty guards, ticket and Safari). Blue and Yellow's whole-map walks
 ran only before these fixes (1651 of 1679, 1669 of 1698). Their other navigation drivers ran after them: no failures, no crashes.
 
+A ledge left auto-walk at 1X for the rest of a route when its direction stayed held, until a battle or a stop: found 2026-11-04 by
+`gen3_nav`, whose 200X check passed only when a wild battle happened. Fixed in `AutoWalk` (landing ends the hop's 1X). `gen3_nav` then 3 of 3 on LeafGreen,
+`gen2_nav` passes on Crystal. Not checked on a Gen 1 route: `gen1_nav_walk` with `WALK_MAPS=ROUTE_4` alone wrote nothing in 560 seconds, on old and new code alike,
+though Route 4 passes within the whole run; not investigated.
+
 A wild battle on the way to the water left "Could not use Surf" on the second ask (FireRed `gen3_nav_gaps`, one run in the rerun):
 a battle now clears that memory. Waterfall part then passed 6 of 6.

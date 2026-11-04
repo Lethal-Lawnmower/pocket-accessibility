@@ -426,3 +426,11 @@ The owner, after playing Crystal: "basically everything that I did in Crystal, b
 rest of the games. So we don't have people, actually, it doesn't work in XYZ." And: "I didn't mean actual upstream bugs."
 Upstream bugs stay unpatched (hard rule). Extends decision 41 to Red, Blue, Yellow and FireRed. Packaging and the release were
 set aside by the owner the same day ("keep that all to the side"): that branch is not merged. Agents' results are by script, not owner acceptance.
+
+## 44. LeafGreen, Ruby, Sapphire and Emerald (2026-11-04)
+
+The owner: "Okay, I've got Leaf Green and the rest of the Generation 3 games in my downloads. Let's add support for Ruby,
+Sapphire, Emerald / Leaf Green." Ends decision 30's deferral of LeafGreen and starts the later games of decision 29. Subagents are
+allowed by decision 29. Same boundaries: Pokémon Access is a behaviour reference only, Prism only, no upstream game fixes, no push without approval.
+
+Asked to work on the README later ("We can do that after"): making it read more human, in chunks. Not started.

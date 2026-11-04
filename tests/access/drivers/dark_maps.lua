@@ -6,7 +6,7 @@
 --   ISOLATED_DRIVER=tests/access/drivers/dark_maps.lua
 return function(game)
   local version = os.getenv("POKEPORT_VERSION") or "red"
-  local isGen3 = version == "firered"
+  local isGen3 = version == "firered" or version == "leafgreen"
   local L = dofile(isGen3 and "tests/access/drivers/gen3_nav_lib.lua"
     or "tests/access/drivers/gen2_nav_lib.lua").new(game)
   local U = L.U
