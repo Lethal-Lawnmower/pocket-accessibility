@@ -54,10 +54,29 @@ draws and drives FireRed's module, `boot` names the boot objects.
 | Town map, Fly | "Town map" or "FLY to where?", place, "you are here" | Place once the cursor stops; "can fly" |
 | Evolution, egg | FireRed's presenter in Emerald; Ruby's egg scene through its printer | |
 | Map name popup | The name, queued, through the shared overlay (Emerald, Ruby windows) | |
+| Pokénav menus (main, CONDITION, search) | "POKéNAV", "A rematch is nearby" when the blue light blinks, row, position, description | Row, position, description; "There are no RIBBON winners", "No TRAINERS are registered" |
+| Pokénav map | "HOENN MAP", zoom level, place with landmarks, "you are here", help bar | Place once the cursor stops; "no place" where the window is empty; zoom level. S.S. Tidal position in Ruby and Sapphire |
+| Condition graph (party, search) | "CONDITION, PARTY" or the search category, name, gender, level, box or IN PARTY and rank (search), position, the five conditions and sheen as numbers, marks | Next Pokémon; CANCEL; marking box with each symbol's state, OK, CANCEL |
+| Condition search results | Category, name, gender, level, rank, position, help bar | Row |
+| Match Call (Emerald) | "MATCH CALL", registered, battles, trainer, place, "wants a rematch", position, help bar | Row; CALL, CHECK, CANCEL; Check page (strategy, Pokémon, introduction); the call through its printer, page by page; "That TRAINER is close by"; tutorial opening |
+| Incoming call (Emerald) | "POKéNAV call" (the icon, our words), each page | |
+| Trainer's Eyes (Ruby, Sapphire) | "TRAINER'S EYES", registered, battles, trainer, place, "wants a rematch", position, help bar | Row; detail (strategy, Pokémon, introduction), next trainer |
+| Ribbons | "RIBBONS", name, gender, level, count, position | Row; summary: next Pokémon, count; each ribbon's description with position, gift ribbons included |
 
 Labels our words stand for, because the screen draws them as images: Pokédex
 bar and START menu, search row names, Ruby's trainer card labels, Ruby's summary
-page titles, Ruby's pocket names, contest categories on the moves page.
+page titles, Ruby's pocket names, contest categories on the moves page, and in
+the Pokénav (`gen3/HoennPokenav.lua`): menu rows, left headers, graph axes,
+sparkles (the sheen number stands for them), marking symbols, gender signs,
+rematch marker, blue light, call icon, and Ruby and Sapphire's help bars (read
+off the images; only map, Trainer's Eyes, search graph, markings are said).
+
+Known gaps in the Pokénav: the map's city picture is not described; the map
+says nothing about which places can be flown to. Emerald's graph, list and map
+read fields once the screen's own animation allows, so entry speech starts as
+the fade ends. A real step-triggered incoming call, the tutorial reached from
+its script, and gift ribbon text in a real save were not run: the driver opens
+the same window, shell and fields directly.
 
 ## Battle
 
