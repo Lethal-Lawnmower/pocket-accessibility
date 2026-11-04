@@ -29,7 +29,7 @@ internal static class GameCatalog
         new("firered", "Pokémon FireRed", "firered",
             ["41cb23d8dccc8ebd7c649cd8fbb58eeace6e2fdc", "dd5945db9b930750cb39d00c84da8571feebf417"]),
         new("leafgreen", "Pokémon LeafGreen", "leafgreen",
-            ["574fa542ffebb14be69902d1d36f1ec0a4afd71e", "7862c67bdecbe21d1d69ce082ce34327e1c6ed5e"], Speaks: false),
+            ["574fa542ffebb14be69902d1d36f1ec0a4afd71e", "7862c67bdecbe21d1d69ce082ce34327e1c6ed5e"]),
         new("ruby", "Pokémon Ruby", "ruby",
             ["f28b6ffc97847e94a6c21a63cacf633ee5c8df1e", "610b96a9c9a7d03d2bafb655e7560ccff1a6d894",
              "5b64eacf892920518db4ec664e62a086dd5f5bc8"], Speaks: false),

@@ -921,7 +921,7 @@ end
 -- Q: FireRed has no real-time clock (pret's FRLG has none; RTC is Ruby,
 -- Sapphire and Emerald).
 function Navigation:readGameTime()
-  return self:announceManual({ "FireRed has no clock" })
+  return self:announceManual({ "This game has no clock" })
 end
 
 -- ------------------------------------------------------------ battle (H)
