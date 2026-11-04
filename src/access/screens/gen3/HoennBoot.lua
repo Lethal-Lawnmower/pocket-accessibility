@@ -71,6 +71,42 @@ local function continuePanel(menu)
   return H.join(parts)
 end
 
+-- rs/mystery_events.lua, the screen the Ruby and Sapphire main menu runs in
+-- its own `events` field: printer, list of `rows`, a news page, LOADING window.
+function Boot.eventsPoll(ev, memo, game)
+  local parts = {}
+  if ev.printer and ev.state ~= "list" then
+    parts[#parts + 1] = H.printerSay(ev.printer, memo, game)
+  end
+  if ev.loading and not memo.loading then parts[#parts + 1] = say(rom("gSystemText_LoadingEvent")) end
+  memo.loading = ev.loading
+  if ev.state == "list" and type(ev.rows) == "table" then
+    if memo.eventState ~= "list" or memo.eventCursor ~= ev.cursor then
+      memo.eventCursor = ev.cursor
+      local row = ev.rows[ev.cursor]
+      parts[#parts + 1] = row and H.join({ say(row.label), position(ev.cursor, #ev.rows) }) or nil
+    end
+  elseif ev.state == "news_view" then
+    local row = ev:selected()
+    local news = row and row.news or {}
+    local body = news.bodyText or {}
+    if memo.eventState ~= "news_view" then
+      memo.newsScroll = ev.newsScroll or 0
+      local lines = { say(news.titleText) }
+      for i = 1, ev.NEWS_LINES or 8 do lines[#lines + 1] = say(body[i + memo.newsScroll]) end
+      parts[#parts + 1] = sentences(lines)
+    elseif ev.newsScroll ~= memo.newsScroll then
+      local down = ev.newsScroll > memo.newsScroll
+      memo.newsScroll = ev.newsScroll
+      parts[#parts + 1] = say(body[ev.newsScroll + (down and (ev.NEWS_LINES or 8) or 1)])
+    end
+  end
+  memo.eventState = ev.state
+  local text = sentences(parts)
+  if not text then return nil end
+  return text, true
+end
+
 -- main_menu_rse.lua, rs/main_menu.lua: `items`, 1-based `cursor`, `state`.
 -- Error pages are printers (`errorPrinter` in Emerald, `printer` in Ruby).
 Boot.mainMenu = {
@@ -78,6 +114,7 @@ Boot.mainMenu = {
   poll = function(state, memo, entering)
     local menu = state.key
     if entering then memo.fresh = true end
+    if menu.events then return Boot.eventsPoll(menu.events, memo, state.game) end
     local printer = menu.errorPrinter or menu.printer
     if printer then
       local text = H.printerSay(printer, memo, state.game)
@@ -158,6 +195,22 @@ local function rtcInput(combo)
   return H.join(parts)
 end
 
+-- reset_rtc_screen: the two clocks beside the first prompt (`present`, the
+-- save's `lastBerryTreeUpdate`) and the field the arrow marks (a sprite, so
+-- our words; `selection` runs days, hours, minutes, seconds, CONFIRM).
+local function rtcClock(label, t)
+  if type(t) ~= "table" then return nil end
+  return H.join({ say(rom(label)), string.format("day %d, %d:%02d:%02d", t.days or 0, t.hours or 0, t.minutes or 0, t.seconds or 0) }, " ")
+end
+
+local function rtcSelected(combo)
+  local input = combo.input
+  if type(input) ~= "table" then return nil end
+  local name = RTC_FIELDS[combo.selection or 0]
+  if name then return name .. " " .. tostring(input[name]) end
+  return "CONFIRM"
+end
+
 Boot.combo = {
   matches = Common.matcher("hoenn_combo"),
   poll = function(state, memo)
@@ -190,10 +243,18 @@ Boot.combo = {
       memo.yn = combo.yesNo.cursor
       parts[#parts + 1] = H.yesNo((combo.yesNo.cursor or 0) + 1)
     end
+    if combo.prompt and combo.present and not memo.clocks then
+      memo.clocks = true
+      parts[#parts + 1] = rtcClock("gText_PresentTime", combo.present)
+      parts[#parts + 1] = rtcClock("gText_PreviousTime", combo.save and combo.save.lastBerryTreeUpdate)
+    end
     local time = rtcInput(combo)
     if time and (memo.time ~= time or memo.selection ~= combo.selection) then
+      if memo.time == nil then parts[#parts + 1] = time end
       memo.time, memo.selection = time, combo.selection
-      parts[#parts + 1] = time
+      parts[#parts + 1] = rtcSelected(combo)
+    elseif not time then
+      memo.time = nil
     end
     local text = sentences(parts)
     if not text then return nil end
