@@ -30,7 +30,8 @@ Topic files are created when work on that area starts, not before:
 `gold-silver-crystal.md`, navigation and the edition audit in
 `gold-silver-crystal-navigation.md`; FireRed and LeafGreen in
 `firered-leafgreen.md` and `firered-leafgreen-navigation.md`; Red, Blue and Yellow's navigation work
-in `red-blue-yellow-navigation.md`). About 300 lines each.
+in `red-blue-yellow-navigation.md`; Ruby, Sapphire and Emerald in `ruby-sapphire-emerald.md` and
+`ruby-sapphire-emerald-navigation.md`). About 300 lines each.
 
 ## Rules
 

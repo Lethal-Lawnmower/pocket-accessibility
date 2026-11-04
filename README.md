@@ -12,7 +12,7 @@
 
 ## Currently Supported Games
 
-Pokémon Red, Blue, Yellow, Gold, Silver, Crystal, FireRed and LeafGreen.
+Pokémon Red, Blue, Yellow, Gold, Silver, Crystal, FireRed, LeafGreen, Ruby, Sapphire and Emerald.
 
 In my personal opinion, these games are in a playable enough state to hopefully
 be completed. Playing through each game myself, one by one, would be unrealistic,
@@ -72,7 +72,7 @@ inconveniences to moderate bugs.
 | FireRed | Played to about the second gym | Automated tests and scripted runs |
 | LeafGreen | Not played | Automated tests and scripted runs; shares FireRed's code |
 | Blue, Yellow, Gold, Silver | Not played through | Automated tests and scripted runs; share most of their code with the games above |
-| Ruby, Sapphire, Emerald | Not supported yet | |
+| Ruby, Sapphire, Emerald | Not played | Automated tests and scripted runs only, new in November 2026; expect more bugs here |
 
 ## What It Does
 

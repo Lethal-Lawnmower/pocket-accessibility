@@ -159,7 +159,10 @@ and recorded in the topic file.
   fixes (`npc_category` and `dark_maps` treated only `firered` as Gen 3; `gen3_menus_more` needs `gen3_menus`'s save first). Dumps of 1.0 and 1.1,
   Ruby, Sapphire 1.0 to 1.2 and Emerald 1.0, checked by SHA-1, are in the private dumps folder beside the repository. 1.1 not run. Differences in the story, such as
   version-only Pokémon, were not walked.
-- **Ruby, Sapphire, Emerald (decision 44):** two agents working on their own branches: navigation, and screens. Unchanged code spoke dialogue and naming there.
+- **Ruby, Sapphire, Emerald (decision 44, 2026-11-04):** on branch `gen3-all`. Screens in `ruby-sapphire-emerald.md`, navigation in
+  `ruby-sapphire-emerald-navigation.md`. Run in game by script, silent; not heard, no playthrough: the harness sets party, badges and flags, teleports and skips
+  scenes. Agent reports, then one sweep of the merged code by the lead. Emerald's load scripts and the Wailmer barrier are honoured, so a new game's Lilycove is closed.
+  For the owner: Dewford Gym is not "dark" under decision 37, because Flash is refused there and its level falls as trainers lose; and the wording questions at the end of `ruby-sapphire-emerald.md`.
 
 ## Launcher
 

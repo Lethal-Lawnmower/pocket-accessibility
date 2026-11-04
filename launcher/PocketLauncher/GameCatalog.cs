@@ -32,11 +32,11 @@ internal static class GameCatalog
             ["574fa542ffebb14be69902d1d36f1ec0a4afd71e", "7862c67bdecbe21d1d69ce082ce34327e1c6ed5e"]),
         new("ruby", "Pokémon Ruby", "ruby",
             ["f28b6ffc97847e94a6c21a63cacf633ee5c8df1e", "610b96a9c9a7d03d2bafb655e7560ccff1a6d894",
-             "5b64eacf892920518db4ec664e62a086dd5f5bc8"], Speaks: false),
+             "5b64eacf892920518db4ec664e62a086dd5f5bc8"]),
         new("sapphire", "Pokémon Sapphire", "sapphire",
             ["3ccbbd45f8553c36463f13b938e833f652b793e4", "4722efb8cd45772ca32555b98fd3b9719f8e60a9",
-             "89b45fb172e6b55d51fc0e61989775187f6fe63c"], Speaks: false),
-        new("emerald", "Pokémon Emerald", "emerald", ["f3ae088181bf583e55daf962a92bb46f4f1d07b7"], Speaks: false),
+             "89b45fb172e6b55d51fc0e61989775187f6fe63c"]),
+        new("emerald", "Pokémon Emerald", "emerald", ["f3ae088181bf583e55daf962a92bb46f4f1d07b7"]),
     ];
 
     /// <summary>The game a cartridge dump belongs to, by its SHA-1, or null.</summary>
