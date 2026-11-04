@@ -1978,7 +1978,9 @@ function Accessibility:regionalStaticWorld(mapId, start)
   local save = self.game.save or {}
   local entities = { player }
   for _, object in ipairs(def.objects or {}) do
-    if object.ignorable ~= true and regionalObjectVisible(save, mapId, object) then
+    -- an item ball on a floor not yet reached can be picked up on the way
+    if object.ignorable ~= true and object.sprite ~= "SPRITE_POKE_BALL"
+       and regionalObjectVisible(save, mapId, object) then
       entities[#entities + 1] = {
         cellX = object.x, cellY = object.y, def = object,
       }
@@ -2143,7 +2145,18 @@ function Accessibility:regionalNextLeg(navigation)
   local overworld = self:worldForCommand()
   if not overworld then return nil, "Not on a map" end
   local mapId = currentMapId(overworld)
-  local result, reason = RegionalPathfinder.find({
+  -- The search sees the boulders where they are only on this floor, so a floor they close
+  -- looks open when reached by going out and back in, and the journey bounced between two
+  -- floors for ever (Seafoam B1F's first stairs).  It takes no way twice.
+  local taken = navigation.takenTransitions or {}
+  navigation.takenTransitions = taken
+  local crossing = navigation.lastTransition
+  if crossing and crossing.destMap == mapId then
+    taken[crossing.mapId .. ":" .. crossing.x .. "," .. crossing.y] = true
+    navigation.lastTransition = nil
+  end
+  local function search(useLive)
+    return RegionalPathfinder.find({
     start = {
       mapId = mapId, x = overworld.player.cellX, y = overworld.player.cellY,
     },
@@ -2152,17 +2165,32 @@ function Accessibility:regionalNextLeg(navigation)
     },
     route = function(routeMapId, start, goals, initial, budget)
       return self:regionalDryRoute(
-        routeMapId, start, goals, initial, budget)
+        routeMapId, start, goals, useLive and initial, budget)
     end,
     transitions = function(routeMapId)
-      return self:regionalTransitions(routeMapId)
+      local open = {}
+      for _, transition in ipairs(self:regionalTransitions(routeMapId)) do
+        if not taken[routeMapId .. ":" .. transition.x .. "," .. transition.y] then
+          open[#open + 1] = transition
+        end
+      end
+      return open
     end,
     maxStates = 96, maxTransitions = 16,
     -- Olivine Lighthouse, with sides reached only through drops, takes 0.7 to
     -- 0.9 seconds from its first floor (measured 2026-11-03).
     maxSeconds = 1.5, maxRouteSeconds = 0.05,
-  })
-  if not result then return nil, reason end
+    })
+  end
+  local result, reason = search(true)
+  if not result then
+    -- Someone or something in the only way on (Pokemon Tower 6F's Rare Candy): say so.
+    local around = type(self.routeNeeds) == "function" and search(false) or nil
+    local way = around and around.firstTransition
+    local needs = way and self:routeNeeds({ { x = way.x, y = way.y } })
+    if type(needs) == "string" and needs:find("^Blocked by") then return nil, needs end
+    return nil, reason
+  end
   if result.final then
     -- v0.3.98: an Area target's cells are worked out on the map the
     -- journey began on; a cell outside this (smaller) map makes the
@@ -2179,6 +2207,9 @@ function Accessibility:regionalNextLeg(navigation)
   end
   local transition = result.firstTransition
   if not transition then return nil, "no regional transition" end
+  navigation.lastTransition = {
+    mapId = mapId, x = transition.x, y = transition.y, destMap = transition.destMap,
+  }
   local destinationName = self:regionalDestinationName(transition.destMap)
   local instruction = transition.kind == "connection"
     and ("Continue " .. transition.direction .. " to " .. destinationName)

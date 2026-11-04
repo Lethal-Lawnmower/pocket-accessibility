@@ -227,14 +227,16 @@ return function(game)
         coordinator.browseFilter, coordinator.browseSelectionId = "area", target.id
         heard()
         AutoWalk.start(coordinator, game)
+        -- a floor's puzzle takes over from the walk, and starts it again when done
+        local function walking() return AutoWalk.active() or BoulderWalk.active() or SwitchWalk.active() end
         for frame = 1, 30000 do
-          if not AutoWalk.active() then break end
+          if not walking() then break end
           if frame % 900 == 0 then heal() end
           if game.stack:top() ~= game.overworld and frame % 8 == 0 then U.tap(game, "a") end
           U.wait(1)
         end
-        local stuck = AutoWalk.active()
-        if stuck then AutoWalk.stop() end
+        local stuck = walking()
+        if stuck then AutoWalk.stop() BoulderWalk.stop() SwitchWalk.stop() end
         local text = heard()
         if text:find("Arrived", 1, true) then arrived = arrived + 1
         else U.log("RESULT", "areas", area, tostring(target.label), stuck and "TIMED OUT" or "", text:sub(-140), "| at", where()) end

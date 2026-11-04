@@ -587,6 +587,7 @@ local function nextLeg()
   local leg, err = walk.nav:regionalNextLeg(walk.journey)
   if not leg then
     if not walk.quiet and journeyPuzzle() then return end
+    if err and not PLANNER_REASONS[err] then return AutoWalk.stop(tostring(err) .. ", auto walk stopped") end
     return AutoWalk.stop("No route from here to " .. tostring(walk.label) .. ", auto walk stopped")
   end
   walk.map, walk.goals, walk.final = walk.overworld.map, leg.goals, leg.final == true or leg.stopAtGoal == true
@@ -643,6 +644,12 @@ function AutoWalk.update(top)
       walk.retryIn = walk.retryIn - 1
       if walk.retryIn > 0 then return end
       return resume()
+    end
+    -- the walk's own Surf or Cut: not the game turning the player back, and "got on" has
+    -- said it (Route 12's walkway takes Surf many times, which used to end the walk)
+    if walk.ownFieldMove then
+      walk.ownFieldMove = nil
+      return resume(true)
     end
     -- battles, card-key door messages and other game-caused screens: carry
     -- on, unless the game keeps sending the player back to the same cell
@@ -849,6 +856,7 @@ function AutoWalk.update(top)
       return AutoWalk.stop(tostring(action.failText) .. ". " .. tostring(action.hint))
     end
     walk.fieldMoveAt = key
+    walk.ownFieldMove = true
     walk.still = 0
     -- Gen 1 has no A press for field moves: the coordinator calls what the party menu calls
     if action.use then
