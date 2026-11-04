@@ -7,7 +7,7 @@
 
 local Gen3 = { ordered = {} }
 
-for _, name in ipairs({ "HoennBoot", "HoennMenus", "HoennItems", "HoennSpecial", "HoennPokenav", "Dialogue", "Menus", "Items", "Special", "Battle" }) do
+for _, name in ipairs({ "HoennBoot", "HoennMenus", "HoennItems", "HoennSpecial", "HoennPokenav", "HoennContest", "Dialogue", "Menus", "Items", "Special", "Battle" }) do
   local mod = require("src.access.screens.gen3." .. name)
   for _, presenter in ipairs(mod.ordered or {}) do
     Gen3.ordered[#Gen3.ordered + 1] = presenter
