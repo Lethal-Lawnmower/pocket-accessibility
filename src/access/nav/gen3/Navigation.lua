@@ -1532,7 +1532,8 @@ function Navigation:routeOptionsFor(world, goals, policy)
   local occupied = occupancy(world)
   -- on the Mach Bike a journey plans cracked floors and slopes as floor; the walk on the
   -- floor itself works out the speed (machRoute, which asks with machStrict set)
-  local machFree = not self.machStrict and GameData.isHoenn() and self:onMachBike()
+  local hoenn = GameData.isHoenn()
+  local machFree = not self.machStrict and hoenn and self:onMachBike()
   local floorSwitches = {}
   for _, cell in ipairs(self:floorSwitchCells(world)) do floorSwitches[cellKey(cell.x, cell.y)] = true end
   local closedDoors = {}
@@ -1757,6 +1758,27 @@ function Navigation:routeOptionsFor(world, goals, policy)
     if map:warpKind(x, y) and (goalSet[cellKey(x, y)] or not map:standingWarp(x, y)) then
       return x, y, entryKind, entryInstruction
     end
+    -- A bridge (Hoenn's elevation 15 cells): they keep the elevation the player came on with
+    -- (Player.updateElevation), so what waits on the far side depends on the near side.  One
+    -- straight crossing is one move, to the first cell past it, refused when the far side's
+    -- elevation does not match the near side's.
+    if hoenn and not onWater and map:elevation(x, y) == 15 and not goalSet[cellKey(x, y)]
+       and fromElevation ~= 15 and not entry then
+      local bx, by, crossed = x, y, 0
+      while map:elevation(bx, by) == 15 do
+        local nx, ny = bx + d[1], by + d[2]
+        if not map:inBounds(nx, ny) or map:dirBlocked(bx, by, nx, ny, direction)
+           or blocker(nx, ny, fromElevation) then
+          return nil
+        end
+        if goalSet[cellKey(nx, ny)] and map:elevation(nx, ny) == 15 then return nx, ny end
+        bx, by, crossed = nx, ny, crossed + 1
+        if crossed > width + height then return nil end
+      end
+      if Puzzle.elevationsMismatch(fromElevation, map:elevation(bx, by)) then return nil end
+      if not landCell(bx, by) or map:warpKind(bx, by) and not goalSet[cellKey(bx, by)] then return nil end
+      return bx, by, nil, nil
+    end
     -- forced movement from the cell entered; a goal on a forced tile cannot
     -- be stopped on, only where the movement ends
     local fx, fy, kind, travelled = forcedChain(x, y, direction, onWater or toWater)
@@ -1816,6 +1838,32 @@ function Navigation:worldRouteRequest(goals, policy)
   return self:routeOptionsFor(world, goals, policy)
 end
 
+-- A bridge's crossing as the cell-by-cell steps auto-walk follows (AutoWalk: findRoute).
+function Navigation:expandRoute(result)
+  local steps = result and result.steps
+  if type(steps) ~= "table" then return result end
+  local expanded
+  for index, step in ipairs(steps) do
+    local dx, dy = step.x - step.fromX, step.y - step.fromY
+    local cells = math.abs(dx) + math.abs(dy)
+    if not step.kind and cells > 1 and (dx == 0 or dy == 0) then
+      if not expanded then
+        expanded = {}
+        for i = 1, index - 1 do expanded[i] = steps[i] end
+      end
+      local ux, uy = dx / cells, dy / cells
+      for i = 1, cells do
+        expanded[#expanded + 1] = { fromX = step.fromX + ux * (i - 1), fromY = step.fromY + uy * (i - 1),
+          x = step.fromX + ux * i, y = step.fromY + uy * i, direction = step.direction }
+      end
+    elseif expanded then
+      expanded[#expanded + 1] = step
+    end
+  end
+  if expanded then result.steps = expanded end
+  return result
+end
+
 -- Directions counted ("3 up"), special moves spoken whole; a card key door
 -- on the way is said once.
 function Navigation:routeNarration(world, result, routePolicy)
@@ -1839,7 +1887,11 @@ function Navigation:routeNarration(world, result, routePolicy)
       doors[cellKey(step.x, step.y)] = true
     end
     if step.kind then add(step.instruction or step.direction, false)
-    else add(step.direction, true) end
+    else
+      -- (a bridge's crossing is one move of several cells)
+      local cells = math.abs(step.x - step.fromX) + math.abs(step.y - step.fromY)
+      for _ = 1, math.max(cells, 1) do add(step.direction, true) end
+    end
   end
   local parts = {}
   for _, token in ipairs(tokens) do
@@ -2325,7 +2377,7 @@ function Navigation:journeySearch(start, target, policy, allowed, maxSeconds, sp
           and not map:standingWarp(node.x, node.y)
         -- cracked ice gives way under the player: no walking on from it
         if not node.arrived and (map:behavior(node.x, node.y) == Terrain.MB.CRACKED_ICE
-            or Terrain.isCrackedFloor(map:behavior(node.x, node.y))) then
+            or (Terrain.isCrackedFloor(map:behavior(node.x, node.y)) and policy < 3 and not self:onMachBike())) then
           fires = true
         end
         -- transitions: a warp fires on arrival by walking (or, for exit mats,

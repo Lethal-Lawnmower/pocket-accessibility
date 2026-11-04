@@ -1,5 +1,5 @@
 -- Which Gen 3 cartridge navigation is reading, and the constants that differ
--- between them (decisions 29 and 44).  Upstream already holds every table:
+-- between them (decision 29).  Upstream already holds every table:
 -- the profile (map prefix, family, badges) and the per-game constants (object
 -- graphics, specials, flags, map groups).  Nothing here is a second copy; a
 -- lookup that finds no game (unit tests, early boot) answers for FireRed,

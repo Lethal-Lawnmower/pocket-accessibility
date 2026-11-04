@@ -86,6 +86,8 @@ function L.new(game)
         elseif switches[key] then ch = "S"
         elseif dir then ch = ({ up = "^", down = "v", left = "<", right = ">" })[dir]
         elseif kind == "ice" then ch = "/"
+        elseif beh == Terrain.HOENN_MB.CRACKED_FLOOR then ch = "c"
+        elseif beh == Terrain.HOENN_MB.CRACKED_FLOOR_HOLE then ch = "h"
         elseif beh == Terrain.MB.THIN_ICE then ch = "t"
         elseif beh == Terrain.MB.CRACKED_ICE then ch = "x"
         elseif map:isWater(x, y) then ch = "~"

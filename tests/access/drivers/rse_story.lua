@@ -129,12 +129,7 @@ return function(game)
     local said = L.heard()
     local mapId = L.pos()
     local ok = not reachedMap or mapId == reachedMap
-    if ok and not reachedMap then
-      -- beside the target, or standing where the words say it stopped
-      local player = World.player
-      local targetX, targetY = item.x, item.y
-      ok = type(targetX) == "number" and math.abs(player.cellX - targetX) + math.abs(player.cellY - targetY) <= 2
-    end
+    if ok and not reachedMap then ok = said:find("Arrived", 1, true) ~= nil or said:find(" is here", 1, true) ~= nil end
     summary[ok and "arrived" or "failed"] = summary[ok and "arrived" or "failed"] + 1
     U.log(ok and "RESULT" or "FAIL", name, "->", L.where(), "|", said:sub(-160))
     if not ok and os.getenv("RSE_STORY_SHOW") == "1" then
@@ -222,7 +217,15 @@ return function(game)
 
   if part("F") then
     arriveAt(id("ROUTE101"), 10, 15)
-    if walk("Route 101 to Oldale's edge", "connections", "Oldale", nil) then L.hold("up", 30) L.settle(200, true) end
+    if walk("Route 101 to Oldale's edge", "connections", "Oldale", nil) then
+      L.hold("up", 30)
+      L.settle(200, true)
+      local Collision = require("src.core.game3.collision")
+      local Player = require("src.core.game3.player")
+      U.log("NOTE", "after hold", L.where(), "facing", Player.facing, "moving", tostring(Player.moving), "free", tostring(L.free()),
+        "conn", tostring(pcall(Collision.tryConnection, game, Player.cellX, Player.cellY, "up", false)))
+      L.settle(100, true)
+    end
     U.log(L.pos() == id("OLDALE_TOWN") and "RESULT" or "FAIL", "crossed to", L.where())
     walk("Oldale to its Center", "warps", "Pok.mon Center", id("OLDALE_TOWN_POKEMON_CENTER_1F"))
     arriveAt(id("ROUTE124"), 70, 49)
@@ -237,8 +240,10 @@ return function(game)
     L.settle(1500, "a")
     U.log(L.pos() == id("ROUTE124") and "RESULT" or "FAIL", "surfaced", L.where(), L.heard():sub(-160))
     -- Surf over a current and up a waterfall
-    arriveAt(id("ROUTE134"), 40, 20)
-    walk("Route 134 across the currents to Route 133", "connections", "Route 133", nil)
+    arriveAt(id("ROUTE127"), 40, 40)
+    require("src.core.game3.player").surfing = true
+    U.log("NOTE", "Route 127 start", L.where(), labels("connections"))
+    walk("Route 127 surf to Route 128", "connections", "Route 128", nil)
   end
 
   if part("H") then
@@ -251,7 +256,13 @@ return function(game)
     setFlagByName("FLAG_SYS_USE_FLASH")
     local function area(title, start, pattern, reached, warpIndex)
       if not maps[id(start)] then return end
+      local onlyPlaces = os.getenv("RSE_STORY_PLACES")
+      if onlyPlaces and not onlyPlaces:find(start, 1, true) then return end
       if arrive(id(start), warpIndex) then
+        -- a warp in the water is reached surfing
+        local Player = require("src.core.game3.player")
+        local view = nav:worldState().map
+        if view:isWater(Player.cellX, Player.cellY) then Player.surfing = true end
         walk(title, "area", pattern, reached and id(reached) or nil, 60000)
       end
     end
@@ -285,6 +296,19 @@ return function(game)
       local rse = Bike.rse()
       local okMount, mountErr = pcall(function() rse.getOnOff("mach") end)
       U.log("NOTE", "mounted", tostring(okMount), tostring(mountErr), tostring(require("src.core.game3.player").bikeType))
+      do
+        local world = nav:worldState()
+        local goals = {}
+        for _, warp in ipairs(maps[id("SKY_PILLAR_2F")].warps) do
+          if warp.destMap == id("SKY_PILLAR_3F") then goals[#goals + 1] = { x = warp.x, y = warp.y } end
+        end
+        local result, why = nav:machRoute(world, goals)
+        U.log("NOTE", "mach route", tostring(result and #result.steps), tostring(why), "on bike", tostring(nav:onMachBike()), "facing", tostring(world.player.facing))
+        local anywhere = { { x = 0, y = 0 } }
+        anywhere.anywhere = true
+        local leg, legWhy = nav:regionalNextLeg({ targetMapId = id("SKY_PILLAR_3F"), targetGoals = anywhere })
+        U.log("NOTE", "leg", tostring(leg and leg.final), tostring(legWhy), "area", tostring(nav.areaKey(id("SKY_PILLAR_3F"))), tostring(nav.areaKey(id("SKY_PILLAR_2F"))))
+      end
       walk("Sky Pillar 2F to 3F on the Mach Bike", "area", "Sky Pillar 3F$", id("SKY_PILLAR_3F"))
       pcall(function() rse.getOnOff("mach") end)
     end

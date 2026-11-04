@@ -111,7 +111,10 @@ local function findRoute(nav, goals)
     local options, err = nav:worldRouteRequest(goals, policy)
     if options then
       local result, findErr = Pathfinder.find(options)
-      if result and type(result.steps) == "table" then return result end
+      if result and type(result.steps) == "table" then
+        if type(nav.expandRoute) == "function" then nav:expandRoute(result) end
+        return result
+      end
       lastErr = findErr or lastErr
     else
       lastErr = err or lastErr
