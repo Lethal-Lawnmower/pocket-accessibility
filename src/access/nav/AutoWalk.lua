@@ -27,6 +27,7 @@ local SOURCE = "access_autowalk"
 local STUCK_FRAMES = 90
 local REROUTE_FRAMES = 45
 local MAX_REROUTES = 8
+local MAX_BLOCKED_TRIES = 3
 local PUSH_FRAMES = 60
 -- Resuming from the same cell this many times means the game keeps turning
 -- the player back there (Ecruteak's Tin Tower sages stop every walk north
@@ -65,6 +66,13 @@ local function release(input, dir)
   else
     input.state[dir] = false
   end
+end
+
+-- A leg whose warp lands on the same map (Saffron Gym's pads): the map never changes,
+-- so the walk has to notice the jump itself.
+local function landsOnSameMap(nav, overworld, leg)
+  return leg ~= nil and leg.nextMapId ~= nil and type(nav.currentMapIdOf) == "function"
+    and nav:currentMapIdOf(overworld) == leg.nextMapId
 end
 
 -- For Chase, which faces an object the way a walk faces an obstacle.
@@ -141,7 +149,9 @@ local function stepOffAndBack()
                        { "left", -1, 0, "right" }, { "right", 1, 0, "left" } }) do
     local nx, ny = x + d[2], y + d[3]
     local ok, walkable = pcall(map.isWalkableCell, map, nx, ny)
-    if ok and walkable then
+    -- stepping off onto another warp would leave the map on the wrong one
+    local okWarp, warp = pcall(map.warpAt, map, nx, ny)
+    if ok and walkable and not (okWarp and warp) then
       local plain = here == nil or tileAt(nx, ny) ~= here
       if not best or (walk.danceAtGoal and plain and not best.plain) then
         best = { nx = nx, ny = ny, off = d[1], back = d[4], plain = plain }
@@ -154,10 +164,22 @@ local function stepOffAndBack()
     { fromX = best.nx, fromY = best.ny, x = x, y = y, direction = best.back },
   }
   walk.dancing = walk.danceAtGoal == true
+  walk.steppingOff = true
   walk.lastX, walk.lastY, walk.still = x, y, 0
   if walk.danceText then Speech.say(walk.danceText, { interrupt = false }) end
   walk.danceAtGoal, walk.danceText = nil, nil
   return true
+end
+
+-- Off the cell, on the way back: the step off is done with.  Left in the list it sent
+-- the player off again from the same cell for ever, on a warp that needs its direction
+-- held to fire (Tohjo Falls' mats).
+local function leftTheCell(x, y)
+  local second = walk.steps[2]
+  if walk.steppingOff and second and second.fromX == x and second.fromY == y then
+    walk.steppingOff = nil
+    table.remove(walk.steps, 1)
+  end
 end
 
 -- Starts walking to the coordinator's selected object.  Returns true when
@@ -315,10 +337,24 @@ function AutoWalk.start(nav, game, adapter, opts)
     stopText = stopText,
     danceAtGoal = danceLeg and danceLeg.danceAtGoal or nil,
     danceText = danceLeg and danceLeg.danceText or nil,
+    -- the way off the map on a leg that ends at a connection (Gen 2)
+    edgeDir = danceLeg and danceLeg.edgeDirection or nil,
+    sameMapLeg = landsOnSameMap(nav, overworld, danceLeg),
     legs = 0,
     lastX = player.cellX, lastY = player.cellY,
     still = 0,
   }
+  if #result.steps == 0 and journey and not final then
+    -- standing on the way onto the next map: take it, not "is here"
+    Speech.say("Walking to " .. tostring(item.label), { interrupt = true })
+    if walk.edgeDir then
+      walk.pushDir, walk.pushFrames = walk.edgeDir, 0
+      return true
+    end
+    if stepOffAndBack() then return true end
+    AutoWalk.stop("No route to " .. tostring(item.label))
+    return false
+  end
   if #result.steps == 0 then
     -- already in place: still say which way to face (Yellow's Pikachu is
     -- usually right behind the player), as an arrival would
@@ -521,6 +557,10 @@ local function resume(quiet)
   walk.lastX, walk.lastY, walk.still = player.cellX, player.cellY, 0
   if #walk.steps == 0 then
     if walk.journey and not walk.final then
+      if walk.edgeDir then
+        walk.pushDir, walk.pushFrames = walk.edgeDir, 0
+        return
+      end
       -- standing on the warp this leg needs (a teleport pad lands you on a
       -- pad): pads fire on stepping onto them, so step off and back on
       if stepOffAndBack() then return end
@@ -554,6 +594,8 @@ local function nextLeg()
   if walk.stopText then walk.targetMapId = nil end
   walk.danceAtGoal, walk.danceText = leg.danceAtGoal or nil, leg.danceText or nil
   walk.dancing = nil
+  walk.edgeDir = leg.edgeDirection
+  walk.sameMapLeg = landsOnSameMap(walk.nav, walk.overworld, leg)
   walk.awaitingMap, walk.reroutes, walk.doorTries = nil, nil, nil
   walk.pushDir, walk.pushFrames = nil, nil
   return resume(true)
@@ -580,7 +622,8 @@ function AutoWalk.update(top)
   local overworld = walk.overworld
   local player = overworld.player
   if walk.awaitingMap then
-    if not onMap(top) or transitioning() or overworld.map == walk.map then return end
+    if not onMap(top) or transitioning() then return end
+    if overworld.map == walk.map and not walk.sameMapLeg then return end
     return nextLeg()
   end
   if walk.teleported and onMap(top) and not transitioning() then return AutoWalk.stop(arrivalText()) end
@@ -676,6 +719,7 @@ function AutoWalk.update(top)
   end
   local x, y = player.cellX, player.cellY
   if landedOnThisMap(x, y) then return AutoWalk.stop(arrivalText()) end
+  leftTheCell(x, y)
   if x ~= walk.lastX or y ~= walk.lastY then
     walk.lastX, walk.lastY, walk.still = x, y, 0
   elseif not player.moving then
@@ -689,7 +733,12 @@ function AutoWalk.update(top)
         walk.held = nil
       end
     end
-    if walk.still > STUCK_FRAMES then return AutoWalk.stop("Blocked, auto walk stopped") end
+    if walk.still > STUCK_FRAMES then
+      -- they stayed: try again from here, a few times per walk
+      walk.reroutes = (walk.reroutes or 0) + 1
+      if walk.reroutes > MAX_BLOCKED_TRIES then return AutoWalk.stop("Blocked, auto walk stopped") end
+      return resume(true)
+    end
   end
   -- A walk that must end exactly on its goal lets go as soon as the last step is under
   -- way: the step finishes by itself, and the game starts the next one in the tick it
@@ -701,6 +750,13 @@ function AutoWalk.update(top)
     walk.held = nil
   end
   if player.moving then return end -- keep the held direction mid-step
+  if walk.pushDir and walk.sameMapLeg then
+    local last = walk.steps[#walk.steps]
+    if not (last and last.x == x and last.y == y) then
+      walk.pushDir = nil
+      return nextLeg()
+    end
+  end
   if walk.pushDir then
     -- mid-journey on the way onto the next map: some warps (doors, some
     -- stairs) fire only while the player keeps pressing into them
@@ -731,7 +787,7 @@ function AutoWalk.update(top)
           walk.held = nil
           return
         end
-        walk.pushDir, walk.pushFrames = press or last.direction, 0
+        walk.pushDir, walk.pushFrames = walk.edgeDir or press or last.direction, 0
         return
       end
       if press and walk.targetMapId then
@@ -746,6 +802,8 @@ function AutoWalk.update(top)
       return AutoWalk.stop(arrivalText())
     end
     if walk.journey and nav_replans(walk.nav) then return nextLeg() end
+    -- the pad took the player across the map: on to the next leg
+    if walk.sameMapLeg then return nextLeg() end
     -- pushed off the route (a spinner, a current, a scripted step): plan again
     -- from here, quietly, a few times per walk
     walk.reroutes = (walk.reroutes or 0) + 1
@@ -845,6 +903,7 @@ end
 function AutoWalk.stepped(x, y)
   if not walk or walk.paused or walk.awaitingMap or walk.pushDir or walk.tapA then return end
   if walk.overworld.map ~= walk.map then return end
+  leftTheCell(x, y)
   for _, s in ipairs(walk.steps) do
     if s.fromX == x and s.fromY == y then
       -- a field move on this step starts with an A press: stop here and let
@@ -871,7 +930,7 @@ function AutoWalk.stepped(x, y)
   -- player keeps pressing into them after stepping on; letting go here
   -- stranded the player on the door.  A Gen 2 carpet wants its own direction.
   local last = walk.steps[#walk.steps]
-  if walk.targetMapId and not walk.dancing and not walk.danceAtGoal
+  if (walk.targetMapId or (walk.journey and not walk.final)) and not walk.dancing and not walk.danceAtGoal
      and last and last.x == x and last.y == y then
     local press = pressDirection(x, y)
     if press and walk.held ~= press then

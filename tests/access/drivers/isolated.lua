@@ -7,6 +7,8 @@
 --   POKEPORT_DRIVER=tests/access/drivers/isolated.lua
 --   ISOLATED_DRIVER=tests/access/drivers/yellow_follower.lua
 return function(game)
+  -- a log redirected to a file keeps its lines when the run is closed at a time limit
+  pcall(function() io.stdout:setvbuf("line") end)
   pcall(function() love.window.minimize() end)
   for _, callback in ipairs({ "keypressed", "keyreleased", "textinput", "gamepadpressed",
       "gamepadreleased", "gamepadaxis", "joystickpressed", "joystickreleased",

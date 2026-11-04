@@ -7,9 +7,7 @@ return function(game)
   local U, AutoWalk = L.U, L.AutoWalk
   local BoulderWalk = require("src.access.nav.BoulderWalk")
   L.settle(2000, true)
-  L.giveParty("FERALIGATR", 90, { "STRENGTH", "SURF", "CUT", "WATERFALL" },
-    { "ZEPHYR", "HIVE", "PLAIN", "FOG", "STORM", "MINERAL", "GLACIER", "RISING" })
-  game.save.repelSteps = 60000
+  L.strongParty()
   game.options.accessAutoWalkSpeed = 8
   local only = os.getenv("GEN2_PUZZLE_MAPS")
   for _, floor in ipairs({ { id = "ICE_PATH_B1F", x = 3, y = 14 }, { id = "BLACKTHORN_GYM_2F", x = 2, y = 7 } }) do
@@ -50,6 +48,19 @@ return function(game)
         U.log("RESULT", floor.id, "ended", L.where(), "pushes", pushes, spoken:sub(-70))
         if not spoken:find("The boulders are all in place", 1, true) then
           U.log("FAIL", floor.id, "floor not filled")
+        end
+        -- the way on: Ice Path's lower floors open only once the holes are filled
+        if floor.id == "ICE_PATH_B1F" then
+          local next = L.find(function(i) return i.label == "Ice Path B3F" end, "area")
+          if next then
+            L.select(next, "area")
+            L.heard()
+            AutoWalk.start(L.nav(), game, L.adapter())
+            L.runWalk(30000)
+            local trip = L.heard()
+            U.log("RESULT", floor.id, "journey to Ice Path B3F ended", L.where(), trip:sub(-70))
+            if not L.where():find("ICE_PATH_B3F", 1, true) then U.log("FAIL", "did not reach Ice Path B3F") end
+          end
         end
       end
     end

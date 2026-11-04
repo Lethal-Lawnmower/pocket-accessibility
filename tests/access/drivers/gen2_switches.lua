@@ -14,11 +14,14 @@ return function(game)
     L.settle(1000, false, 10)
   else
     L.settle(2000, true)
-    L.teleport("GOLDENROD_UNDERGROUND_SWITCH_ROOM_ENTRANCES", 0, 5, "down")
+    -- the way in: the room's warp from the Underground, as the data lists it
+    local entry
+    for _, warp in ipairs(game.data.gen2Maps.GOLDENROD_UNDERGROUND_SWITCH_ROOM_ENTRANCES.warps) do
+      if warp.destMap == "GOLDENROD_UNDERGROUND" then entry = entry or warp end
+    end
+    L.teleport("GOLDENROD_UNDERGROUND_SWITCH_ROOM_ENTRANCES", entry.x, entry.y + 1, "down")
   end
-  L.giveParty("FERALIGATR", 90, { "SURF", "STRENGTH", "CUT", "WATERFALL" },
-    { "ZEPHYR", "HIVE", "PLAIN", "FOG", "MINERAL", "STORM", "GLACIER" })
-  game.save.repelSteps = 60000
+  L.strongParty()
   game.speedOverride = 4
   U.log("RESULT", "at", L.where())
   local list = {}
@@ -51,14 +54,14 @@ return function(game)
       order[#order + 1] = state.sign.label
       U.log("RESULT", "flip", flips, state.sign.label, "now on", flags(), "player", L.where())
     end
-    if frame % 15 == 0 and not (state and state.phase == "flipping")
-       and (game.stack:top() ~= nil or not game.world:acceptsMenuInput()) then
-      game.input.pressQueue[#game.input.pressQueue + 1] = "a"
-      game.input.state.a = true
-      U.wait(2)
-      game.input.state.a = false
+    if not L.battleStep() then
+      if frame % 15 == 0 and not (state and state.phase == "flipping")
+         and (game.stack:top() ~= nil or not game.world:acceptsMenuInput()) then
+        L.tap("a", 1)
+      else
+        U.wait(1)
+      end
     end
-    U.wait(1)
   end
   if SwitchWalk.active() or AutoWalk.active() then
     SwitchWalk.stop() AutoWalk.stop()

@@ -106,6 +106,73 @@ function L.new(game)
     return mon
   end
 
+  -- Harness setup: a level 100 party with every field move and every Johto badge.
+  function self.strongParty()
+    local Mon = require("src.battle.gen2.Mon")
+    local function mon(species, moves)
+      local m = Mon.new(game.data, species, 100)
+      local list = {}
+      for i, id in ipairs(moves) do list[i] = { id = id, pp = 60 } end
+      m.moves = list
+      return m
+    end
+    game.save.party = {
+      mon("MEWTWO", { "ICE_BEAM", "SURF", "STRENGTH", "FLASH" }),
+      mon("FERALIGATR", { "CUT", "WHIRLPOOL", "WATERFALL", "ROCK_SMASH" }),
+      mon("SNORLAX", { "HEADBUTT", "EARTHQUAKE", "FLY", "STRENGTH" }),
+    }
+    game.save.player.badges = game.save.player.badges or {}
+    for _, badge in ipairs({ "ZEPHYR", "HIVE", "PLAIN", "FOG", "STORM", "MINERAL", "GLACIER", "RISING" }) do
+      game.save.player.badges[badge] = true
+    end
+    game.save.repelSteps = 60000
+    -- no "change POKEMON?" between a trainer's Pokemon, no animations, fast text
+    game.options.battleStyle, game.options.battleScene, game.options.textSpeed = "SET", false, "FAST"
+  end
+
+  -- One step of a battle, if one is up: A through it, every third press B, which backs
+  -- out of a party menu that A alone would stick in.  False when no battle is up.
+  function self.battleStep()
+    local stack = package.loaded["src.core.StateStack"]
+    local active = false
+    for _, state in ipairs(stack and stack.states or {}) do
+      if type(state) == "table" and state.isBattle then
+        active = true
+        local battle = state.battle
+        for _, m in ipairs({ type(battle) == "table" and battle.player or nil, game.save.party and game.save.party[1] or nil }) do
+          if type(m) == "table" then
+            if m.maxHp then m.hp = m.maxHp end
+            for _, move in ipairs(type(m.moves) == "table" and m.moves or {}) do
+              if type(move) == "table" and (move.pp or 0) < 5 then move.pp = 60 end
+            end
+          end
+        end
+      end
+    end
+    if not active then return false end
+    self.battleTaps = (self.battleTaps or 0) + 1
+    self.tap(self.battleTaps % 3 == 0 and "b" or "a", 6)
+    return true
+  end
+
+  -- Runs until auto-walk (and any walk it handed over to) stops: battles by the step
+  -- above, A in any other text.  `busy` is a further condition; `skipA(frame)` holds A.
+  function self.runWalk(limit, busy, skipA, onFrame)
+    for frame = 1, limit or 30000 do
+      if not AutoWalk.active() and not (busy and busy()) then return true end
+      if onFrame then onFrame(frame) end
+      if not self.battleStep() then
+        if frame % 15 == 0 and not (skipA and skipA())
+           and (game.stack:top() ~= nil or not game.world:acceptsMenuInput()) then
+          self.tap("a", 1)
+        else
+          U.wait(1)
+        end
+      end
+    end
+    return false
+  end
+
   function self.browse(filter)
     local nav = self.nav()
     if not nav then return {} end
@@ -151,12 +218,22 @@ function L.new(game)
     AutoWalk.start(nav, game, self.adapter())
     U.log("STEPS", self.steps())
     local positions, lastCell = {}, nil
+    -- a walk can hand over to boulder pushing or switch trying, which answer the
+    -- game's own Strength and switch questions
+    local Boulders = require("src.access.nav.BoulderWalk")
+    local Switches = require("src.access.nav.SwitchWalk")
     for _ = 1, opts.limit or 3000 do
-      if not AutoWalk.active() then break end
+      if not (AutoWalk.active() or Boulders.active() or Switches.active()) then break end
       local cell = self.where()
       if cell ~= lastCell then positions[#positions + 1] = cell lastCell = cell end
       if opts.onFrame then opts.onFrame() end
-      if not AutoWalk.walking() and game.stack:top() ~= nil and opts.answer then
+      local bPhase = Boulders.active() and Boulders._state().phase
+      local sPhase = Switches.active() and Switches._state().phase
+      if opts.answer and self.battleStep() then
+        -- a battle: the step pressed
+      elseif bPhase == "strength" or bPhase == "settling" or sPhase == "flipping" then
+        U.wait(1)
+      elseif not AutoWalk.walking() and game.stack:top() ~= nil and opts.answer then
         game.input.pressQueue[#game.input.pressQueue + 1] = opts.answer
         game.input.state[opts.answer] = true
         U.wait(2)
@@ -169,7 +246,12 @@ function L.new(game)
         U.wait(1)
       end
     end
-    if AutoWalk.active() then AutoWalk.stop() U.log("WARN", "walk still active at limit") end
+    if AutoWalk.active() or Boulders.active() or Switches.active() then
+      Boulders.stop()
+      Switches.stop()
+      AutoWalk.stop()
+      U.log("WARN", "walk still active at limit")
+    end
     if opts.trace then U.log("PATH", table.concat(positions, " ")) end
     return self.heard()
   end

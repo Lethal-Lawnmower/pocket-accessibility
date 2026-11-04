@@ -204,6 +204,11 @@ and recorded in the topic file.
 - **Owner playtest:** Crystal from a new game to the first gym, 2026-11-01:
   "It works perfectly in Crystal." More of Crystal, and Gold and Silver,
   during the week.
+- **Every edition, every map (2026-11-03, owner's request):** whatever works in Crystal proved in Gold and
+  Silver on their own maps, and whole-map sweeps (`gen2_nav_sweep`, `gen2_text_sweep`): journeys no longer time
+  out, Saffron's pads are walked, signs named, unusable targets not listed. Table and numbers in
+  `gold-silver-crystal-navigation.md`. By script; not heard. Gold and Silver not played.
+  Driver note: `gen2_story_spots` needs about 12 minutes per game.
 - **Open product questions:** listed in `gold-silver-crystal.md`.
 
 ## Open questions for the owner

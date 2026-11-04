@@ -71,6 +71,37 @@ local SCRIPT_BRANCHES = {
 -- script that changes the map and mentions a door is a door to open; a sign
 -- saying what it is labeled, or what slot it is, is that.  Read from the
 -- extracted text (never run), the same two levels deep.
+local function titleWords(name)
+  return (name:lower():gsub("(%a)([%a']*)", function(a, b) return a:upper() .. b end)
+    :gsub("Pok\195\169Mon", "Pok\195\169mon"))
+end
+
+-- The start of a sign's text, as a name.  A town or route sign's capital lines are its
+-- name ("ROUTE 31", "VIOLET CITY -"), kept and put in ordinary case so a screen reader
+-- does not spell them; otherwise the first sentence, rejoined across its line breaks,
+-- up to about 50 characters at a word.
+local function signOpening(text)
+  text = text:gsub("{PLAYER}", "Player"):gsub("{[^}]*}", " "):gsub("%c", "\n")
+  local caps = {}
+  for line in text:gmatch("[^\n]+") do
+    local trimmed = line:gsub("^%s+", ""):gsub("[%s%-]+$", "")
+    if trimmed:find("%a") and not trimmed:find("%l") then
+      caps[#caps + 1] = titleWords(trimmed)
+    elseif trimmed ~= "" then
+      break
+    end
+  end
+  if #caps > 0 then return (table.concat(caps, ", "):gsub("%.(%a)", ". %1")) end
+  local joined = text:gsub("%-%s*\n%s*", ""):gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
+  local sentence = joined:match("^(.-[%.!%?])%s") or joined
+  local ellipsis = sentence:find("\226\128\166", 1, true)
+  if ellipsis then sentence = sentence:sub(1, ellipsis + 2) end
+  if #sentence > 50 then
+    sentence = sentence:sub(1, 50):gsub("%s+%S*$", "")
+  end
+  return sentence
+end
+
 local function signRoleFromText(world, key)
   local scripts = type(world) == "table" and world.scripts or nil
   local texts = type(world) == "table" and world.text or nil
@@ -81,30 +112,32 @@ local function signRoleFromText(world, key)
     seen[scriptKey] = true
     local list = scripts[scriptKey]
     if type(list) ~= "table" then return end
+    -- what the sign says on its own way through comes first, then its branches: a
+    -- branch is usually a state the sign is not in yet
+    local branches = {}
     for _, cmd in ipairs(list) do
       if type(cmd) == "table" then
         if cmd.op == "changeblock" then changesMap = true end
-        if cmd.op == "writetext" and type(texts[cmd.text]) == "string" then
+        -- most signs are a single jumptext: "ROUTE 31 / VIOLET CITY"
+        if (cmd.op == "writetext" or cmd.op == "jumptext") and type(texts[cmd.text]) == "string" then
           words[#words + 1] = texts[cmd.text]
         end
-        if SCRIPT_BRANCHES[cmd.op] then walk(cmd.script, depth + 1) end
+        if SCRIPT_BRANCHES[cmd.op] then branches[#branches + 1] = cmd.script end
       end
     end
+    for _, branch in ipairs(branches) do walk(branch, depth + 1) end
   end
   walk(key, 0)
   local said = table.concat(words, " "):gsub("%s+", " ")
   if changesMap and said:lower():find("%f[%a]door%f[%A]") then return "Locked door" end
-  local function titled(name)
-    return (name:lower():gsub("(%a)(%a*)", function(a, b) return a:upper() .. b end))
-  end
   local labeled = said:match("labeled ([%u%d ]-[%u%d])%.")
-  if labeled then return titled(labeled) end
+  if labeled then return titleWords(labeled) end
   local slot = said:match("the ([%u ]-[%u]) slot")
-  if slot then return titled(slot) .. " Slot" end
+  if slot then return titleWords(slot) .. " Slot" end
+  if words[1] and words[1]:lower():find("%f[%a]trash%f[%A]") then return "Trash Can" end
   -- any other sign is named by the start of what it says
-  local first = words[1] and words[1]:gsub("{[^}]*}", " "):gsub("%c.*$", ""):gsub("%s+", " ")
-    :gsub("^%s+", ""):gsub("%s+$", "")
-  if first and first ~= "" then return "Sign: " .. first:sub(1, 48) end
+  local first = words[1] and signOpening(words[1])
+  if first and first ~= "" then return "Sign: " .. first end
   return nil
 end
 
