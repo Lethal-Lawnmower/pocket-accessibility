@@ -719,37 +719,6 @@ do
 end
 
 -- ------------------------------------------------------------ renaming
-do
-  local opened
-  package.loaded["src.ui.game3.naming"] = { open = function(opts) opened = opts return {} end }
-  local nav = navFor()
-  local item = { id = "object:FR_TEST:1", label = "Woman" }
-  nav.selectedBrowseItem = function() return item, nil, { mapId = "FR_TEST", locationName = "Test Town" } end
-  nav.captureWorld = function() return { mapId = "FR_TEST", locationName = "Test Town" } end
-  local spoken = {}
-  nav.announceManual = function(_, parts) spoken[#spoken + 1] = table.concat(parts, " ") return true end
-  local writes = 0
-  game.writeOptions = function() writes = writes + 1 end
-  check(nav:beginRename("object") == true, "Shift+K opens the naming screen")
-  eq(opened and opened.title, "Object name?", "the screen is titled for an object")
-  eq(opened and opened.initialText, "Woman", "it starts from the current label")
-  opened.onDone("Guide")
-  eq(game.options.firered.accessibilityNames.objects.FR_TEST[item.id], "Guide", "the name is kept per map and object")
-  eq(writes, 1, "options written")
-  eq(spoken[#spoken], "Names saved", "saving is confirmed")
-  nav:beginRename("map")
-  eq(opened.title, "Map name?", "Shift+M names the map")
-  opened.onDone("Home")
-  eq(game.options.firered.accessibilityNames.maps.FR_TEST, "Home", "the map name is kept")
-  nav:beginRename("map")
-  eq(opened.initialText, "Home", "renaming again starts from the given name")
-  opened.onDone("")
-  eq(game.options.firered.accessibilityNames.maps.FR_TEST, nil, "an empty name clears it")
-  eq(spoken[#spoken], "Name cleared", "clearing is confirmed")
-  package.loaded["src.ui.game3.naming"] = nil
-  game.writeOptions = nil
-end
-
 -- ------------------------------------------------------------ adapter
 do
   local Gen3 = WorldAdapter.gen3

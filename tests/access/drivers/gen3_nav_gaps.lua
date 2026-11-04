@@ -4,7 +4,7 @@
 --      only the elevator reaches (a real gate: "No route")
 --   B. an item ball that blocks the only way: auto-walk picks it up and
 --      walks on (the first such ball the scan finds on the cartridge)
---   C. renaming (Shift+K, Shift+M) through the game's naming screen
+--   C. M reads the game's own map name
 --   D. Icefall Cave ice and thin ice, E. Seafoam Islands currents,
 --   F. a Pokemon Mansion secret switch, G. a waterfall climbed with
 --      Waterfall
@@ -237,44 +237,9 @@ return function(game)
 
   -- ---------------------------------------------------------------- C
   if part("C") then
+    -- renaming was removed (decision 45): nothing opens a naming screen for the map
     L.teleport("FR_PALLET_TOWN", 6, 8, "down")
-    local Naming = require("src.ui.game3.naming")
-    local sign = L.find(function(item) return item.type == "signpost" or item.type == "sign" end, "all")
-      or L.browse("all")[1]
-    L.select(sign, "all")
-    L.command("rename_selected_item")
-    L.wait(10)
-    local st = Naming._state
-    L.check(Naming.isOpen() and st ~= nil, "Shift+K opens FireRed's naming screen")
-    if st then
-      U.log("NAMING", "title", tostring(st.title), "name", tostring(st.name), "max", tostring(st.maxLen))
-      L.check(st.title == "Object name?", "the naming screen's title says what is named")
-      Naming.close("Gate")
-      L.wait(10)
-      U.log("SAID", L.heard())
-      local renamed = L.find(function(item) return item.id == sign.id end, "all")
-      L.check(renamed and renamed.label == "Gate", "the object list uses the new name: " .. tostring(renamed and renamed.label))
-      local names = game.options.firered and game.options.firered.accessibilityNames
-      L.check(names and names.objects and names.objects.FR_PALLET_TOWN
-        and names.objects.FR_PALLET_TOWN[sign.id] == "Gate", "the name is kept in FireRed's options")
-    end
-    L.command("rename_map")
-    L.wait(10)
-    st = Naming._state
-    if st then
-      L.check(st.title == "Map name?", "Shift+M opens the naming screen for the map")
-      Naming.close("Home")
-      L.wait(10)
-      local spoken = L.command("read_map_name")
-      U.log("M", spoken)
-      L.check(spoken:find("Home", 1, true) ~= nil, "M reads the new map name: " .. spoken)
-      -- clear both again (an empty name)
-      L.command("rename_map") L.wait(5) Naming.close("") L.wait(5)
-      L.select(sign, "all") L.command("rename_selected_item") L.wait(5) Naming.close("") L.wait(5)
-      L.check(L.command("read_map_name"):find("Pallet Town", 1, true) ~= nil, "an empty name restores the game's name")
-    else
-      L.check(false, "Shift+M opens the naming screen")
-    end
+    L.check(L.command("read_map_name"):find("Pallet Town", 1, true) ~= nil, "M reads the game's own map name")
   end
 
   -- ---------------------------------------------------------------- D

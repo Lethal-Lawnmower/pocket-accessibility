@@ -35,16 +35,14 @@ CommandRouter.ACTIONS = {
   READ_PLAYER_POSITION = "read_player_position",
   READ_CAMERA_POSITION = "read_camera_position",
   PREVIOUS_MAP_ITEM = "previous_map_item",
-  CURRENT_MAP_ITEM = "current_map_item",
   NEXT_MAP_ITEM = "next_map_item",
   PREVIOUS_ITEM_FILTER = "previous_item_filter",
   NEXT_ITEM_FILTER = "next_item_filter",
   DESCRIBE_ROUTE_TO_ITEM = "describe_route_to_selected_item",
+  AUTO_WALK_TO_ITEM = "auto_walk_to_selected_item",
   READ_SCREEN_TEXT = "read_screen_text",
   READ_MAP_NAME = "read_map_name",
   READ_GAME_TIME = "read_game_time",
-  RENAME_SELECTED_ITEM = "rename_selected_item",
-  RENAME_MAP = "rename_map",
   READ_COLLISION_TILES = "read_collision_tiles",
   READ_TERRAIN = "read_terrain",
   MOVE_CAMERA_LEFT = "move_camera_left",
@@ -60,7 +58,6 @@ CommandRouter.ACTIONS = {
   TOGGLE_CAMERA_FOLLOW = "toggle_camera_follow",
   READ_ENEMY_HEALTH = "read_enemy_health",
   READ_PLAYER_HEALTH = "read_player_health",
-  CONFIGURE_ROM_HACK = "configure_rom_hack",
   READ_COMMAND_HELP = "read_command_help",
 }
 
@@ -82,9 +79,8 @@ CommandRouter.MAPPINGS = {
   plain = {
     y = A.READ_PLAYER_POSITION,
     j = A.PREVIOUS_MAP_ITEM,
-    k = A.CURRENT_MAP_ITEM,
+    k = A.DESCRIBE_ROUTE_TO_ITEM,
     l = A.NEXT_MAP_ITEM,
-    p = A.DESCRIBE_ROUTE_TO_ITEM,
     t = A.READ_SCREEN_TEXT,
     m = A.READ_MAP_NAME,
     q = A.READ_GAME_TIME,
@@ -101,8 +97,7 @@ CommandRouter.MAPPINGS = {
     y = A.READ_CAMERA_POSITION,
     j = A.PREVIOUS_ITEM_FILTER,
     l = A.NEXT_ITEM_FILTER,
-    k = A.RENAME_SELECTED_ITEM,
-    m = A.RENAME_MAP,
+    k = A.AUTO_WALK_TO_ITEM,
     d = A.MOVE_CAMERA_LEFT_THROUGH_WALLS,
     g = A.MOVE_CAMERA_RIGHT_THROUGH_WALLS,
     r = A.MOVE_CAMERA_UP_THROUGH_WALLS,
@@ -113,7 +108,6 @@ CommandRouter.MAPPINGS = {
     c = A.TOGGLE_CAMERA_FOLLOW,
     h = A.READ_PLAYER_HEALTH,
     e = A.READ_TERRAIN,
-    ["0"] = A.CONFIGURE_ROM_HACK,
   },
 }
 
@@ -138,7 +132,6 @@ local NON_NAVIGATION = {
   [A.READ_GAME_TIME] = true,
   [A.READ_ENEMY_HEALTH] = true,
   [A.READ_PLAYER_HEALTH] = true,
-  [A.CONFIGURE_ROM_HACK] = true,
   [A.READ_COMMAND_HELP] = true,
 }
 

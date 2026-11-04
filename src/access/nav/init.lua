@@ -90,7 +90,13 @@ local function build(game, adapter)
       return state ~= nil and state.isOverworld == true
         and coordinator:worldForCommand() ~= nil
     end,
-    onAction = function(actionId) return coordinator:handleCommand(actionId) end,
+    onAction = function(actionId)
+      -- Shift+K, the keyboard's left stick click
+      if actionId == CommandRouter.ACTIONS.AUTO_WALK_TO_ITEM then
+        return AutoWalk.start(coordinator, game, adapter)
+      end
+      return coordinator:handleCommand(actionId)
+    end,
     onStatus = function(actionId) return coordinator:handleCommandStatus(actionId) end,
   })
   -- a trainer walks over on the open map before any screen opens, so the
@@ -173,6 +179,7 @@ function Nav.keypressed(key, _, isRepeat)
   end
   if IceWalk.active() and adapter.onMap(game) then
     IceWalk.stop("Auto walk stopped")
+    return true
   end
   if SwitchWalk.active() and adapter.onMap(game) then
     SwitchWalk.stop("Auto walk stopped")

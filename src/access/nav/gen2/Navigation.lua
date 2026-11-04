@@ -576,7 +576,6 @@ function Navigation:captureWorld(filter)
   local snapshot, snapshotError = self.worldSnapshot.capture(world, {
     maps = data and data.gen2Maps,
     filter = filter or self.browseFilter,
-    customNames = self:customNames(),
     playerName = playerName, rivalName = rivalName, momName = momName,
     edition = save and save.version,
     -- species display names, for Pokemon objects named by their cry
@@ -653,9 +652,7 @@ function Navigation:announceLandmarkSign(world)
   local name = titleCase(sign.name)
   if type(name) ~= "string" or name == "" then return end
   local mapId = self:currentMapIdOf(world)
-  local names = self:customNames()
-  local location = self.worldSnapshot.locationName(world.map, mapId,
-    type(names.maps) == "table" and names.maps[mapId] or nil, (saveNames(self.game)))
+  local location = self.worldSnapshot.locationName(world.map, mapId, nil, (saveNames(self.game)))
   local function plain(text) return tostring(text or ""):lower():gsub("[^%w]", "") end
   if plain(location):find(plain(name), 1, true) then return end
   self:announce(name, { interrupt = false })
@@ -1358,59 +1355,6 @@ function Navigation:areaBrowse(world)
     end
   end
   return items
-end
-
--- ------------------------------------------------------------ renaming
-
--- Shift+K and Shift+M with Gen 2's own naming screen (src/ui/gen2/NamingScreen,
--- which takes an initial text and leaves popping to the caller).
-function Navigation:beginRename(kind)
-  local item, snapshot
-  if kind == "object" then
-    local reason
-    item, reason, snapshot = self:selectedBrowseItem(0)
-    if not item then return self:announceManual({ reason }) end
-  else
-    local reason
-    snapshot, reason = self:captureWorld("all")
-    if not snapshot then return self:announceManual({ reason }) end
-  end
-  local names = self:writableCustomNames()
-  if not names then return self:announceManual({ "Names could not be saved" }) end
-  local mapId = snapshot.mapId
-  local current
-  if kind == "map" then
-    current = names.maps[mapId] or snapshot.locationName
-  else
-    names.objects[mapId] = names.objects[mapId] or {}
-    current = names.objects[mapId][item.id] or item.label
-  end
-  local NamingScreen = require("src.ui.gen2.NamingScreen")
-  local game = self.game
-  local screen
-  local function close()
-    if game.stack and game.stack:top() == screen then game.stack:pop() end
-  end
-  screen = NamingScreen.new(game, {
-    type = "nickname",
-    prompt = kind == "map" and "MAP NAME?" or "OBJECT NAME?",
-    maxLength = 10,
-    initial = tostring(current or ""):sub(1, 10),
-    onDone = function(value)
-      close()
-      if kind == "map" then
-        names.maps[mapId] = value ~= "" and value or nil
-      else
-        names.objects[mapId][item.id] = value ~= "" and value or nil
-      end
-      if game.writeOptions then game:writeOptions() end
-      self:announceManual({ "Names saved" })
-    end,
-    onCancel = close,
-  })
-  screen.accessibilityTitle = kind == "map" and "Rename map" or "Rename selected item"
-  game.stack:push(screen)
-  return true
 end
 
 -- ------------------------------------------------------------ Unown puzzle

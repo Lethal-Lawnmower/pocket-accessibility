@@ -185,27 +185,6 @@ function Navigation:speakerNames()
   return found and names or nil
 end
 
--- Custom names live in game.options, which Game3:writeOptions persists;
--- game.save is replaced on every save.
-function Navigation:customNames()
-  local options = Gen3.options(self.game)
-  local names = options and options.accessibilityNames
-  return type(names) == "table" and names or { maps = {}, objects = {} }
-end
-
-function Navigation:writableCustomNames()
-  local options = Gen3.options(self.game)
-  if not options then return nil end
-  local names = options.accessibilityNames
-  if type(names) ~= "table" then
-    names = {}
-    options.accessibilityNames = names
-  end
-  if type(names.maps) ~= "table" then names.maps = {} end
-  if type(names.objects) ~= "table" then names.objects = {} end
-  return names
-end
-
 -- ------------------------------------------------------------ field moves
 
 local MOVE_LABEL = {
@@ -1222,7 +1201,6 @@ function Navigation:captureWorld(filter)
   local snapshot, snapshotError = self.worldSnapshot.capture(world, {
     maps = self.game and self.game.data and self.game.data.maps,
     filter = filter or self.browseFilter,
-    customNames = self:customNames(),
     playerName = playerName, rivalName = rivalName,
     interactiveObjects = self:interactiveBrowseObjects(world, puzzle),
     objectOverrides = overrides,
@@ -1336,11 +1314,8 @@ function Navigation:processWorldEvents(_state)
     if self:currentMapIdOf(world) ~= mapEvent.mapId then return end
     local navigation = self.activeNavigation
     if not mapEvent.gamePopup then
-      local names = self:customNames()
-      local mapNames = type(names.maps) == "table" and names.maps or {}
       local playerName, rivalName = self:names()
-      local location = Snapshot.locationName(world.map, mapEvent.mapId,
-        mapNames[mapEvent.mapId], playerName, rivalName)
+      local location = Snapshot.locationName(world.map, mapEvent.mapId, nil, playerName, rivalName)
       if navigation and navigation.awaitingMap then
         navigation.pendingLocation = location
       else
@@ -2093,9 +2068,7 @@ end
 
 function Navigation:regionalDestinationName(mapId)
   local playerName, rivalName = self:names()
-  local names = self:customNames()
-  local mapNames = type(names.maps) == "table" and names.maps or {}
-  return Snapshot.locationName({ id = mapId }, mapId, mapNames[mapId], playerName, rivalName)
+  return Snapshot.locationName({ id = mapId }, mapId, nil, playerName, rivalName)
 end
 
 -- ------------------------------------------------------------ journeys
@@ -2698,62 +2671,6 @@ function Navigation:areaBrowse(world)
     end
   end
   return items
-end
-
--- ------------------------------------------------------------ renaming
-
--- Shift+K and Shift+M, as Gen 2 does them, with FireRed's own naming
--- screen (src/ui/game3/naming.lua: Naming.open takes a title, a length,
--- an initial text and onDone, and closes itself).  The box-name keyboard
--- (letters, both cases, digits) suits names; the Gen 3 screen presenter
--- speaks its title.  Names are kept in game.options (customNames).
-Navigation.RENAME_MAX = 10
-
-function Navigation:beginRename(kind)
-  local item, snapshot, reason
-  if kind == "object" then
-    item, reason, snapshot = self:selectedBrowseItem(0)
-    if not item then return self:announceManual({ reason }) end
-  else
-    snapshot, reason = self:captureWorld("all")
-    if not snapshot then return self:announceManual({ reason }) end
-  end
-  local names = self:writableCustomNames()
-  if not names then return self:announceManual({ "Names could not be saved" }) end
-  local okNaming, Naming = pcall(require, "src.ui.game3.naming")
-  if not (okNaming and type(Naming) == "table" and type(Naming.open) == "function") then
-    return self:announceManual({ "Renaming is not available here" })
-  end
-  local mapId = snapshot.mapId
-  local current
-  if kind == "map" then
-    current = names.maps[mapId] or snapshot.locationName
-  else
-    names.objects[mapId] = names.objects[mapId] or {}
-    current = names.objects[mapId][item.id] or item.label
-  end
-  local game = self.game
-  local limit = Navigation.RENAME_MAX
-  local initial = tostring(current or "")
-  if #initial > limit then initial = "" end -- a long label is retyped, not cut mid-word
-  local ok, err = pcall(Naming.open, {
-    template = "BOX", title = kind == "map" and "Map name?" or "Object name?",
-    maxLen = limit, initialText = initial, game = game,
-    onDone = function(value)
-      value = type(value) == "string" and value:gsub("^%s+", ""):gsub("%s+$", "") or ""
-      if kind == "map" then
-        names.maps[mapId] = value ~= "" and value or nil
-      else
-        names.objects[mapId][item.id] = value ~= "" and value or nil
-      end
-      if type(game.writeOptions) == "function" then pcall(game.writeOptions, game) end
-      self:announceManual({ value ~= "" and "Names saved" or "Name cleared" })
-    end,
-  })
-  if not ok then
-    return self:announceManual({ "Renaming could not open: " .. tostring(err) })
-  end
-  return true
 end
 
 -- A floor picked from the Area list is reached as soon as the journey arrives on it,

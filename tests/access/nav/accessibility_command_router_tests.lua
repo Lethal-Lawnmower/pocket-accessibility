@@ -5,9 +5,8 @@ local Input = require("src.core.Input")
 local expectedPlain = {
   y = "read_player_position",
   j = "previous_map_item",
-  k = "current_map_item",
+  k = "describe_route_to_selected_item",
   l = "next_map_item",
-  p = "describe_route_to_selected_item",
   t = "read_screen_text",
   m = "read_map_name",
   q = "read_game_time",
@@ -25,8 +24,7 @@ local expectedShift = {
   y = "read_camera_position",
   j = "previous_item_filter",
   l = "next_item_filter",
-  k = "rename_selected_item",
-  m = "rename_map",
+  k = "auto_walk_to_selected_item",
   d = "move_camera_left_through_walls",
   g = "move_camera_right_through_walls",
   r = "move_camera_up_through_walls",
@@ -35,7 +33,6 @@ local expectedShift = {
   c = "toggle_camera_follow",
   h = "read_player_health",
   e = "read_terrain",
-  ["0"] = "configure_rom_hack",
 }
 
 S.same(CommandRouter.MAPPINGS.plain, expectedPlain,
@@ -367,7 +364,7 @@ local contextual = CommandRouter.new({
     return true
   end,
 })
-S.check(not contextual:keypressed("p", { screenId = "Bag" }),
+S.check(not contextual:keypressed("k", { screenId = "Bag" }),
   "pathfinding key passes through when a menu owns focus")
 S.check(not contextual:keypressed("j", { screenId = "Battle" }),
   "entity browse key passes through during battle")
@@ -396,7 +393,7 @@ S.check(mapPressed and mapAction == "describe_route_to_selected_item",
 contextual:gamepadaxis("triggerleft", 0)
 S.check(contextual:gamepadaxis("triggerleft", 0.8),
   "entity trigger dispatches again in free-roam world")
-contextual:keypressed("p")
+contextual:keypressed("k")
 S.eq(contextualCalls[#contextualCalls], "describe_route_to_selected_item",
   "keyboard path command dispatches only in free-roam world")
 local failedGate = CommandRouter.new({

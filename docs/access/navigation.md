@@ -87,9 +87,6 @@ LUA_PATH="<repo>/?.lua;<repo>/?/init.lua;;" luajit "<repo>/tests/access/nav/worl
 - Speech stack replaced by the adapter (BackendLoader, Speech, SpeechTrace).
 - T (read screen text) repeats the last screen speech from the new
   presenters (`Speech.lastScreenText`).
-- Renaming (Shift+K, Shift+M) prefills upstream's NamingScreen glyph list
-  with the current name; the old fork had added an initial-text option to
-  that upstream file instead.
 
 ## Game run (2026-10-31)
 
@@ -107,7 +104,7 @@ surrounding tiles, pathfinding start ("1 right"), and Pallet Town's warps
 | Left trigger + D-pad up / down | Previous / next object category (All, Warps, Connections, Signposts, NPCs, Objects, Area; FireRed adds Misc after Objects) |
 | Left trigger + D-pad left / right | Previous / next object in the category |
 | Left stick click | Auto-walk to the selected object; again to stop |
-| Right stick click | Guided navigation to the selected object (the P command); again to stop |
+| Right stick click | Guided navigation to the selected object (the K command); again to stop |
 
 Wired in `src/access/nav/init.lua` through `love.gamepadaxis`,
 `gamepadpressed` and `gamepadreleased` wrappers that run before upstream.

@@ -51,20 +51,5 @@ return function(game)
   U.log("RESULT", "right stick =>", pad("rightstick"))
   U.log("RESULT", "right stick again =>", pad("rightstick"))
 
-  -- Shift+M: Gen 2's naming screen with the current name typed in
-  L.nav():handleCommand("rename_map")
-  U.wait(10)
-  local top = game.stack:top()
-  local NamingScreen = package.loaded["src.ui.gen2.NamingScreen"]
-  U.log("RESULT", "rename screen", tostring(getmetatable(top) == NamingScreen),
-    "initial", tostring(top and top.text), "title", tostring(top and top.accessibilityTitle))
-  if top and top.accept then
-    top.text = "HOME"
-    top:accept()
-    U.wait(10)
-  end
-  U.log("RESULT", "after rename =>", L.heard(), "top", tostring(game.stack:top()))
-  U.log("RESULT", "M =>", L.command("read_map_name"))
-  L.nav():writableCustomNames().maps[game.world.map.id] = nil
   U.log("DONE")
 end

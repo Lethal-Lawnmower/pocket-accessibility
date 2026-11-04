@@ -112,10 +112,6 @@ and a third `WorldAdapter` entry: the Gen 2 pattern.
   offered. The Tanoby Key room (seven boulders, seven switches) is planned
   in about a second of search (30 to 32 pushes); it took six with the old
   estimate and a fresh search after every push.
-- **Renaming** (Shift+K, Shift+M) opens FireRed's own naming screen (box
-  keyboard, titled "Object name?" or "Map name?", up to 10 characters,
-  starting from the current name); names are kept in FireRed's options and
-  an empty name restores the game's.
 - **Fixes shared with Gen 1 and 2:** auto-walk counts the battle marker as
   a battle; navigation rebinds by the adapter's identity; command gating
   and the camera option read each generation's own state.

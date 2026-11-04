@@ -22,21 +22,19 @@ return function(game)
   key("f7")                     -- command layer on
   key("m")                      -- map name
   key("y")                      -- position
-  key("k")                      -- current object
   key("l")                      -- next
   key("l")
   key("j")                      -- previous
   key("l", true)                -- next filter
-  key("k")
   key("e")                      -- collision tiles around
   key("d")                      -- camera left
   key("f")                      -- camera back to player
-  key("p", false, 400)          -- pathfind to the selected object
+  key("k", false, 400)          -- spoken directions to the selected object
+  key("k")                      -- and stop
 
   U.teleport(game, "PALLET_TOWN", 10, 8, "down")
   U.wait(30)
   key("m")
-  key("k")
   key("l")
   key("l")
   key("f7")                     -- command layer off

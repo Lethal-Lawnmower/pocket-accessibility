@@ -542,10 +542,8 @@ function Accessibility:processWorldEvents(state)
     self.pendingMapEvent = nil
     self.pendingStepEvent = nil
     if currentMapId(overworld) == mapEvent.mapId then
-      local names = self:customNames()
-      local mapNames = type(names.maps) == "table" and names.maps or {}
       local location = self.worldSnapshot.locationName(
-        overworld.map, mapEvent.mapId, mapNames[mapEvent.mapId],
+        overworld.map, mapEvent.mapId, nil,
         self.game.save and self.game.save.player and self.game.save.player.name,
         nil, self.game.save and self.game.save.version,
         self.game.save and self.game.save.player and self.game.save.player.rival)
@@ -824,7 +822,7 @@ function Accessibility:announceManual(parts, opts)
 end
 
 -- Exact saved names that may legitimately open a spoken line as a speaker
--- label. Read live so a rename or a new game is reflected without restarting.
+-- label. Read live so a new game is reflected without restarting.
 function Accessibility:speakerNames()
   local save = self.game and self.game.save
   local player = type(save) == "table" and save.player or nil
@@ -837,26 +835,6 @@ function Accessibility:speakerNames()
     end
   end
   return found and names or nil
-end
-
-function Accessibility:customNames()
-  local save = self.game and self.game.save
-  local options = save and save.options
-  local names = options and options.accessibilityNames
-  return type(names) == "table" and names or { maps = {}, objects = {} }
-end
-
-function Accessibility:writableCustomNames()
-  local save = self.game and self.game.save
-  if not (save and type(save.options) == "table") then return nil end
-  local names = save.options.accessibilityNames
-  if type(names) ~= "table" then
-    names = {}
-    save.options.accessibilityNames = names
-  end
-  if type(names.maps) ~= "table" then names.maps = {} end
-  if type(names.objects) ~= "table" then names.objects = {} end
-  return names
 end
 
 function Accessibility:worldForCommand()
@@ -883,7 +861,6 @@ function Accessibility:captureWorld(filter)
     field = data and data.field,
     lastMapRewrites = FieldDefaults.field(data, "lastMapRewrites"),
     filter = filter or self.browseFilter,
-    customNames = self:customNames(),
     playerName = self.game.save and self.game.save.player
                  and self.game.save.player.name,
     rivalName = self.game.save and self.game.save.player
@@ -3311,54 +3288,6 @@ function Accessibility:readScreenText()
     normalize(text, self:speakerNames()) or "No accessible screen text" })
 end
 
-function Accessibility:beginRename(kind)
-  local item, snapshot
-  if kind == "object" then
-    local reason
-    item, reason, snapshot = self:selectedBrowseItem(0)
-    if not item then return self:announceManual({ reason }) end
-  else
-    local reason
-    snapshot, reason = self:captureWorld("all")
-    if not snapshot then return self:announceManual({ reason }) end
-  end
-  local names = self:writableCustomNames()
-  if not names then return self:announceManual({ "Names could not be saved" }) end
-  local mapId = snapshot.mapId
-  local current
-  if kind == "map" then
-    current = names.maps[mapId] or snapshot.locationName
-  else
-    names.objects[mapId] = names.objects[mapId] or {}
-    current = names.objects[mapId][item.id] or item.label
-  end
-
-  local NamingScreen = require("src.ui.NamingScreen")
-  local screen = NamingScreen.new(self.game, {
-    title = kind == "map" and "MAP NAME?" or "OBJECT NAME?",
-    maxLen = 12,
-    onDone = function(value)
-      if kind == "map" then
-        names.maps[mapId] = value ~= "" and value or nil
-      else
-        names.objects[mapId][item.id] = value ~= "" and value or nil
-      end
-      if self.game.writeOptions then self.game:writeOptions() end
-      self:announceManual({ "Names saved" })
-    end,
-  })
-  -- v0.3.98 adaptation: upstream's NamingScreen has no initial-text option
-  -- (the old fork added one), so the current name is placed in its glyph
-  -- list, one cell per character, as typing would have.
-  screen.accessibilityTitle = kind == "map" and "Rename map" or "Rename selected item"
-  for char in tostring(current or ""):gmatch("[%z\1-\127\194-\244][\128-\191]*") do
-    if #screen.glyphs >= 12 then break end
-    screen.glyphs[#screen.glyphs + 1] = char
-  end
-  self.game.stack:push(screen)
-  return true
-end
-
 function Accessibility:handleCommandStatus(actionId)
   if actionId == "command_layer_enabled" then
     return self:announceManual({
@@ -3377,15 +3306,15 @@ function Accessibility:handleCommand(actionId)
     local helpLines = {
       "Accessibility help. F7 toggles command mode. F8 reads this help.",
       "While command mode is on, use arrow keys to move. WASD is reserved so the historical letter commands stay exact. Y reads player coordinates. Shift Y reads sonar coordinates.",
-      "J, K, and L browse map items. Shift J and Shift L change the item filter. M reads the map name. Q reads the in-game time when the game has a clock.",
+      "J and L browse map items. Shift J and Shift L change the item filter. K gives spoken directions to the selected item as you move: press K again to stop. Shift K auto-walks to it, and any key stops the walk. M reads the map name. Q reads the in-game time when the game has a clock.",
       -- v0.3.98 adaptation (decision 22): camera lines only when it is on
       self.cameraEnabled ~= false
         and "D, G, R, and V move sonar left, right, up, and down. Hold left Shift to move sonar through walls. F resets sonar."
         or nil,
       (self.cameraEnabled ~= false
-        and "P starts continuous navigation to the selected item. It speaks turns and corrections as you move. Press P again to stop. Shift F describes a route to sonar. C toggles sonar following. E reads nearby tile identifiers. Shift E describes the terrain at sonar."
-        or "P starts continuous navigation to the selected item. It speaks turns and corrections as you move. Press P again to stop. E reads nearby tile identifiers.") .. puzzleHelp,
-      "T reads the active screen. H reads enemy health. Shift H reads player health. Shift K renames an item. Shift M renames the map.",
+        and "Shift F describes a route to sonar. C toggles sonar following. E reads nearby tile identifiers. Shift E describes the terrain at sonar."
+        or "E reads nearby tile identifiers.") .. puzzleHelp,
+      "T reads the active screen. H reads enemy health. Shift H reads player health.",
     }
     -- drop the camera line when it is off (announceManual stops at a nil)
     local parts = {}
@@ -3420,10 +3349,6 @@ function Accessibility:handleCommand(actionId)
     return self:announceManual({ snapshot and snapshot.locationName or reason })
   elseif actionId == "read_game_time" then
     return self:readGameTime()
-  elseif actionId == "rename_selected_item" then
-    return self:beginRename("object")
-  elseif actionId == "rename_map" then
-    return self:beginRename("map")
   elseif actionId == "read_collision_tiles" then
     return self:readCollisionTiles()
   elseif actionId == "read_terrain" then
@@ -3458,10 +3383,6 @@ function Accessibility:handleCommand(actionId)
     return self:describeRouteToSelected()
   elseif actionId == "describe_route_to_camera" then
     return self:describeRouteToSonar()
-  elseif actionId == "configure_rom_hack" then
-    return self:announceManual({
-      "ROM profiles are not needed in the native port. Configure installed mods in the Mods menu.",
-    })
   end
   return false, "unknown accessibility command: " .. tostring(actionId)
 end

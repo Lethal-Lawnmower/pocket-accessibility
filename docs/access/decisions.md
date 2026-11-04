@@ -442,3 +442,12 @@ Covers that push only: it is not acceptance, and not a release. Nobody has playe
 
 The owner: "take out the F6 keybind from the project altogether. The repeat keybind." Source read: nothing was wired to F6. `CommandRouter` never
 handled it and `repeatLast` had no caller, yet the start-up line and F8's help offered it. Both lines and `repeatLast` are removed. F6 now does nothing here.
+
+## 46. K walks, and commands the port does not need go (2026-11-04)
+
+The owner: "K can pathfind you there, like controller does with right stick click. Shift K auto walks." Keyboard had no auto-walk at all. Then, offered P for
+reading the current item and Shift P for renaming: "If our PC port doesn't need them, let's take them out. So, like, the renaming, that kind of shit."
+So: K is guided navigation (from P), Shift K auto-walks, J and L still move through the list. Removed: the key that read the current item (K), renaming items and maps
+(Shift K, Shift M) with its saved names, and Shift 0 (a message that ROM profiles are not needed). P is free. Saved `accessibilityNames` stay in options files but are not read.
+Taken as "them" meaning both P and Shift P; reading the current item is easy to put back if the owner meant only renaming. The `current_map_item` command stays for tests.
+Other old commands not touched, for the owner to judge: E and Shift E, Y and Shift Y, and the sonar keys.
