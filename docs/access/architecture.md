@@ -39,6 +39,11 @@ check exactly these places.
 | File | Function or place | What it reports | Added |
 |---|---|---|---|
 | `main.lua` | `love.load`, right after `Boot.run(args)` | Calls `require("src.access").install()`, starting the layer before any game, editor or importer path | 2026-10-31 |
+| `main.lua` | Top of the file | `require("src.access.PackagedBuild").install()`: in a packaged folder, stand-ins for the left-out launcher modules (`launcher.md`). Does nothing in a source checkout | 2026-11-03 |
+| `main.lua` | `makeLauncher`, first line | Packaged: `PackagedBuild.noLauncher` ends the program instead of opening upstream's launcher. Every launcher route passes here | 2026-11-03 |
+| `main.lua` | `returnToLauncher`, after its guard | Packaged: a Discord invite or launch request is ignored; other returns end the process | 2026-11-03 |
+| `main.lua` | `bootGame`, failed box recovery | Packaged: refuses the start with the recovery message, since `BoxPanel` is left out | 2026-11-03 |
+| `src/core/HostShell.lua`, `src/update/Boot.lua` (runtime replacement, packaged only, no edit) | `HostShell.restart` only quits; `Boot.canUpdateInPlace` returns false | No restart into a launcher, no updater | 2026-11-03 |
 | `main.lua` (runtime wrapper, no edit) | `love.update`, `love.quit` | `Access.install` wraps both; ours runs after upstream's and passes its return value through | 2026-10-31 |
 | `src/core/StateStack.lua` (read only) | `StateStack.states` | Top screen each frame; relies on Gen 1 `Game` using the module as its stack | 2026-10-31 |
 | `TextBox`, `Menu`, `ListMenu`, `ChoiceBox` (read only) | Fields `pages`, `pageIndex`, `items`, `index`, `title`, `labels`; row fields `label`, `level`, `sub`, `price`, `count`, `right` | Speech for dialogue and menus (`menus-and-text.md`) | 2026-10-31 |
@@ -100,18 +105,17 @@ launcher needs, so no game-side change is planned. Our launcher
 
 **Do not pass `--game` on the command line from source** (`love . --game red`): on 2026-10-31 that failed before `main.lua` ran (no output at all, with the layer on or off), and the owner saw LÖVE's blue error screen. `POKEPORT_GAME=red` works. Re-check this for packaged builds.
 
-Without a game choice, upstream's own proprietary launcher opens. Our packaged
-build must never reach that path (see packaging notes below).
+Without a game choice, upstream's own proprietary launcher opens from a source
+checkout. A packaged build has no such path: it exits with code 40 (`launcher.md`, "Packaged release").
 
 ## Packaging notes (for the launcher workstream)
 
-- **Upstream's self-updater must be off in our builds.** `src/update/Boot.lua`
-  and `Check.lua` download upstream's `gen1recomp-X.Y.Z.love` from upstream's
-  GitHub releases and mount it above the bundled code. In our build that would
-  silently replace our accessibility layer with plain upstream. Source
-  checkouts never self-update; packaged builds would.
-- Upstream's proprietary launcher files (License Term 2) must not be in our
-  distributed build.
+- **Upstream's self-updater is off in our builds.** `src/update/Boot.lua`
+  and `Check.lua` download upstream's `gen1recomp-X.Y.Z.love` and mount it above the
+  bundled code, which would replace our layer with plain upstream. Our package runs unfused and
+  unstamped, the launcher sets `POKEPORT_PORTMASTER_MANAGED=1`, and `PackagedBuild` turns it off.
+- Upstream's proprietary launcher files (License Term 2) are not in our package;
+  `launcher/package_release.py` audits that.
 - Upstream connects to Discord rich presence at start-up when Discord is
   running (log: "discord: rich presence connected"). Decide whether our build
   keeps that; it shares what the player is doing with Discord.

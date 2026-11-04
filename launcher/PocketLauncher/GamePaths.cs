@@ -1,10 +1,10 @@
 namespace PocketLauncher;
 
 /// <summary>
-/// Where LÖVE, the game folder and the save folder are.  For now the
-/// launcher runs from a source checkout: the game folder is the first folder
-/// above the launcher that holds main.lua and src/access, and LÖVE is the
-/// standard install.  Packaged builds will bundle both (docs/access/launcher.md).
+/// Where LÖVE, the game folder and the save folder are.  In a packaged folder
+/// (docs/access/launcher.md) they are "game" and "love" beside the launcher.
+/// From a source checkout, the game folder is the first folder above the
+/// launcher that holds main.lua and src/access, and LÖVE is the standard install.
 /// Environment overrides: POCKET_LOVE (the LÖVE executable), POCKET_GAME_DIR
 /// (the game folder) and POKEPORT_IDENTITY (the save folder name, which the
 /// game reads too; test runs use a disposable one).
@@ -82,6 +82,8 @@ internal sealed record GamePaths(string? LoveExe, string? GameDir, string SaveDi
     {
         string? forced = Environment.GetEnvironmentVariable("POCKET_GAME_DIR");
         if (!string.IsNullOrEmpty(forced)) return IsGameDir(forced) ? Path.GetFullPath(forced) : null;
+        string packaged = Path.Combine(AppContext.BaseDirectory, "game");
+        if (IsGameDir(packaged)) return packaged;
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir != null; dir = dir.Parent)
         {
             if (IsGameDir(dir.FullName)) return dir.FullName;
@@ -93,9 +95,23 @@ internal sealed record GamePaths(string? LoveExe, string? GameDir, string SaveDi
         File.Exists(Path.Combine(dir, "main.lua"))
         && File.Exists(Path.Combine(dir, "src", "access", "init.lua"));
 
+    /// <summary>Written by the game when it refuses to start (src/access/PackagedBuild.lua).</summary>
+    public string RefusalFile => Path.Combine(SaveDir, "pocket-access-start-refused.txt");
+
     /// <summary>Prism's DLL, without which the game runs but cannot speak.</summary>
-    public bool HasPrism => GameDir != null
-        && File.Exists(Path.Combine(GameDir, "local-deps", "prism", "prism.dll"));
+    public bool HasPrism
+    {
+        get
+        {
+            // The same places, in the same order, as PrismBackend.candidates.
+            if (Environment.GetEnvironmentVariable("POKEPORT_PRISM_DLL") is { Length: > 0 } forced && File.Exists(forced)) return true;
+            if (GameDir == null) return false;
+            string? above = Path.GetDirectoryName(GameDir);
+            string?[] folders = [above, GameDir, above == null ? null : Path.Combine(above, "local-deps", "prism"),
+                                 Path.Combine(GameDir, "local-deps", "prism")];
+            return folders.Any(folder => folder != null && File.Exists(Path.Combine(folder, "prism.dll")));
+        }
+    }
 
     /// <summary>
     /// Whether a game was ever imported: the cache's completion marker exists

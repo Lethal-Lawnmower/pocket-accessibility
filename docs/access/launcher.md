@@ -15,7 +15,7 @@ it, found the stale-import problem (fixed), and approved it ("Looks good").
 | Edit save (Alt+E) | Opens the native save editor on the selected game's current save (`save-editor.md`), over the launcher until it closes. Same import check as Play. |
 | Mods (Alt+M) | Opens the Mods window for the selected game, below. |
 | Import ROM (Alt+I) | A standard Open dialog for `.gb`, `.gbc` and `.gba`. The file's SHA-1 says which game it is; anything else is refused with a message. The game program imports it and quits; a message box says whether it worked. |
-| Credits (Alt+C) | A read-only text box, readable line by line: project, the upstream credit, Prism, Pokémon Access as inspiration, license, source, the Nintendo disclaimer. |
+| Credits (Alt+C) | A read-only text box, readable line by line: project, copyright, the upstream credit, Prism, Pokémon Access as inspiration, license, the no-warranty statement, source, the Nintendo disclaimer. License (Alt+L) and Third-party notices (Alt+T) open those texts the same way. |
 | Exit (Alt+X) | Closes the launcher. |
 | Credit line | Upstream's required credit (License Term 1), always visible in the window. |
 | Status bar | Ready, playing, importing, or what went wrong. Results the player must hear also come as message boxes, which screen readers announce. |
@@ -55,14 +55,14 @@ to v17), the launcher called Crystal imported, and Play opened upstream's
 own launcher with "Update required". The ready check now lists all six
 games there as needing importing again.
 
-**Paths.** For now the launcher runs from a source checkout: the game folder
-is the first folder above the launcher holding `main.lua` and
-`src/access/init.lua`; LÖVE is `love\love.exe` beside the launcher or the
+**Paths.** Packaged, the game folder is `game` beside the launcher. From a source
+checkout it is the first folder above the launcher holding `main.lua` and
+`src/access/init.lua`. LÖVE is `love\love.exe` beside the launcher or the
 standard install. The save folder is `%APPDATA%\LOVE\<identity>`
 (`pokemon-love2d`, the same saves the owner uses now). Overrides:
 `POCKET_LOVE`, `POCKET_GAME_DIR`, and `POKEPORT_IDENTITY` (passed through to
 the game, so tests use a disposable profile). A missing Prism DLL gets a
-warning at start: the games run but cannot speak.
+warning at start: the games run but cannot speak. The launcher checks the same places as the game (`speech.md`).
 
 **Game list.** `GameCatalog.cs` mirrors ids, cache folders and accepted ROM
 hashes from `src/core/GameVersion.lua`; `tests/access/launcher_catalog_test.lua`
@@ -168,26 +168,98 @@ or keys while a game was open. Use this for launcher tests from now on.
 | Owner's first try (2026-11-01) | Crystal was listed as imported and Play opened upstream's launcher ("Update required"): the cache was from an older build. Fixed with the ready check: the list on the owner's profile now reads "needs importing again" for all six games, and a test profile still reads Crystal imported (UI Automation). |
 | Owner | Opened on the owner's profile after the fix: "Looks good"; push approved. Not yet used to import and play a game. |
 
-## Before a packaged release
+## Packaged release
 
-- **Layout.** One folder: the launcher, LÖVE 11.5 (zlib license), the game
-  folder, Prism (MPL-2.0, license and build confirmed first, decision 9).
-  The launcher either self-contained (no runtime install, larger) or needing
-  the .NET 10 Desktop runtime: to decide.
-- **Upstream's launcher files** (Term 2 list in `LICENSE.MD`) left out of the
-  build. Three routes would still try to open upstream's launcher, and must
-  be closed by a small listed hook before release: a game whose cache fails
-  the full check (the ready check now stops this from our launcher, but not
-  a cache that breaks between the check and Play), the online, arena and Discord-invite screens that return
-  to the launcher (`returnToLauncher`, which restarts the process), and any
-  start without a game choice.
-- **Save folder.** A fused build keeps saves in `%APPDATA%\<identity>`, not
-  under `LOVE`; the launcher must follow whatever the build uses, and the
-  owner's existing saves must carry over.
-- **Upstream's Discord rich presence:** keep or switch off (owner decision).
+Nothing is published; a packaged release needs the owner's approval (decision 19).
+
+```
+python launcher/package_release.py --dotnet self-contained --out <new folder outside the repository>
+```
+
+The script exports the game with `git archive HEAD`, so only committed files can go in, from an allowlist in
+the script. Only LÖVE and Prism come from outside the repository. Its last step audits the finished folder:
+no ROMs, saves, caches, logs, `.pdb`, `tolk.dll` or `portable.txt`; no launcher files; no other program files;
+every `require` in the kept Lua resolves. It needs git, the .NET 10 SDK, LÖVE 11.5 and the unpacked Prism release
+(`--prism-release`; the DLL must match that release byte for byte, or its licenses might not apply).
+
+| In the folder | What |
+|---|---|
+| `PocketLauncher.exe` | One file, no `.pdb`. |
+| `love\` | LÖVE 11.5, the nine files it needs. |
+| `game\` | `main.lua`, `conf.lua`, `src`, `assets`, `data`, `tools\save-editor`, the ROM manifests, `LICENSE.MD`, `README.md`, `launcher` (its source, and the three backends it runs), `local-deps\prism\prism.dll`, and the marker `pocket-access-package.txt`. |
+| `licenses\`, `THIRD-PARTY-NOTICES.txt`, `README.txt` | Every license text the notices name. The notices also open from Credits. |
+
+**Left out:** every Term 2 file (`src/import/RomImporter.lua` whole, because it holds launcher interface code);
+launcher-only screens that are not on the Term 2 list by name but cannot work without it (`src/import/online/`, `BoxPanel`,
+`BoxUI`, `BoxTools`, `BoxDetails`, `BoxOrganizer`, `ShowcaseEditor`, `LauncherSplash`, `LauncherThemeVideo`); `mods/`
+(no mod is bundled, decision 42; `mods/example_mew_starter` holds sprites generated from a ROM cache); upstream's unused logos
+(`assets/logo` except `pokemon_logo.png`, which the title screen draws); every other top-level file and folder. Upstream's
+`scripts/pack_love.sh` cannot be used: it requires `LauncherView.lua` and packs everything.
+
+**How the game runs without those files.** `src/access/PackagedBuild.lua`, active only when the marker exists:
+
+- `src.import.RomImporter` resolves to `src/access/PackagedImporter.lua`: the GPL import steps only, written from those
+  functions of `RomImporter.lua` (`isReady`, `startData`, `_startExtractThread`, `_pumpExtract`, `_completeImport`). No
+  interface code was used. The cache it writes is compared with upstream's below.
+- `src.mods.LauncherMods` and `src.import.LauncherSplash` resolve to small stand-ins.
+- **Routes that opened upstream's launcher now end the program.** A cache failing the full check at Play, or a start
+  with no game: the game writes the reason to `pocket-access-start-refused.txt` in the save folder and exits with code 40;
+  our launcher says it in a message box and refreshes the list. Quitting from a game or arena screen ends the process, and our launcher
+  comes back. A Discord invite or outside launch request is ignored, so a running game is not dropped. A
+  failed box-storage recovery at boot is refused the same way, with its own message.
+- `HostShell.restart` only quits, and a leftover relaunch marker is removed, because it would turn the next Play into
+  a start with no game.
+- Upstream's updater cannot run: unfused and not version-stamped already keep it off, and the module turns it off
+  for a direct start too.
+
+**Saves.** Unfused, so saves stay in `%APPDATA%\LOVE\pokemon-love2d`, the folder source runs use. Nothing moves.
+
+**Paths.** `GamePaths.cs` looks for `game` and `love\love.exe` beside the launcher first; no environment variables needed.
+
+**Self-contained or runtime-required: the owner's decision.** `--dotnet` has no default.
+
+| | Self-contained | Runtime required |
+|---|---|---|
+| Size, unzipped | 114.6 MiB | 65.6 MiB |
+| Size, zipped | 66.1 MiB | 22.3 MiB |
+| Player must install | Nothing | The .NET 10 Desktop Runtime. Without it Windows shows a .NET message, not checked with a screen reader. |
+| .NET inside the package | Yes, so its license terms apply to what we pass on | No |
+| Text on disk | The runtime pack the build copies in carries the MIT license and third-party notices; the package includes both. `C:\Program Files\dotnet\LICENSE.txt` is a separate Microsoft license for the install. Which governs has not been confirmed by anyone qualified | Not needed |
+
+**Known gaps.**
+
+- `--editor` on a direct start of the game program opens upstream's editor, and an icon draw would fail: its icons are in
+  `assets/launcher`. Our launcher never does this; it uses its own window and backend.
+- `IssueReport.lua` links to upstream's tracker. Its only caller is `RomImporter.lua`, so nothing in the package reaches it.
+- The `LauncherMods` stand-in reports no mods to account sync. Sync needs a sign-in in upstream's launcher, so it should not
+  arise, but that path was not run.
+- `.github/workflows/release.yml` is upstream's, unchanged: pushes to `main` run upstream's packaging, if Actions are on. Not touched.
+- **Upstream's Discord rich presence:** still on, as from source (owner decision).
+- Prism stays at 0.17.3 (`speech.md`).
+
+## Verification: packaged folder (2026-11-03)
+
+By script only, on disposable profiles, on a second Windows desktop. No one has listened to it or played it, and it was not
+run on a second PC, so a PC with no .NET, no LÖVE and no Visual C++ runtime is untested.
+
+| Level | Result |
+|---|---|
+| Build | The script, both `--dotnet` choices. Audit passed: 2,264 files; 61 left out by rule, plus `mods/`. No local paths in the runtime-required launcher, the one form whose program bytes can be searched. |
+| Import | Red, Crystal, Emerald from the package. Red and Crystal caches byte-identical to upstream's importer from source (532 and 1,347 files). Blue through the launcher, with the ROM passed to it. Emerald's dump came from another folder; FireRed's import was not run, no clean dump being in the ROM folder. |
+| Boot, driver | Red, Crystal, Emerald and FireRed (a copy of a test profile's cache), 600 frames each, no errors. No Term 2 module or file present, unfused, updater off with no environment variable, saves in `%APPDATA%\LOVE\<identity>`. |
+| Boot, as Play starts it | Red, Crystal, FireRed with no driver: running with the game's window title after 25 seconds; closed with exit 0; intro and title speech logged (Red's title screen; the other two reached their intros). |
+| Launcher | No environment variables: found `game` and `love`; ready check listed the imported games. Play started `love\love.exe` on `game`, and the launcher came back Ready on close. Runtime-required launcher: same list. |
+| Refusals | Cache marker broken after the list was read, then Play: message box "Pokémon Red did not start...", no game process left, list refreshed. No game chosen: exit 40 and the message. Scripted start of a game not imported: exit 40. |
+| Returns | Through the driver host on Red and Emerald: invite and launch request ignored, game kept running; arena-style return ended the process, exit 0, no marker left, nothing restarted. A real Discord invite was not sent. |
+| Stale marker | A leftover relaunch marker: Red still started, marker gone. |
+| Failed box recovery | Not run; source read only. |
+| Credits | Copyright, no-warranty line, FireRed. License (39,539 characters) and Third-party notices open and read through UI Automation. |
+| Mods, Edit save | Mods window: warning, then 196 mods from the live index. Edit save on a copied Red save: the window lists the party. Nothing edited or installed. |
+| Prism | `prism.dll` loaded from the package (`speech ready: OneCore` on the second desktop, with silent runs on). Choosing NVDA from the package and audible speech are **not** tested. |
+| Not tested | A real play session or save from the package; Gold, Silver, Yellow, LeafGreen, Ruby, Sapphire imports; a mod running from the package; a second PC. |
 
 ## Next
 
 Settings (game options before start,
 such as the Accessibility page's values), a bring-your-own Pokémon Access
-sound folder (decision 8), packaging.
+sound folder (decision 8).

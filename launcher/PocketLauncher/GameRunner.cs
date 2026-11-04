@@ -20,6 +20,9 @@ namespace PocketLauncher;
 /// </summary>
 internal sealed class GameRunner(GamePaths paths)
 {
+    // src/access/PackagedBuild.lua, EXIT_REFUSED: only a packaged build exits with it.
+    private const int RefusedExitCode = 40;
+
     private ProcessStartInfo StartInfo()
     {
         if (paths.LoveExe == null || paths.GameDir == null)
@@ -36,14 +39,20 @@ internal sealed class GameRunner(GamePaths paths)
         return info;
     }
 
-    /// <summary>Starts a game; the task ends when its window closes.</summary>
-    public async Task PlayAsync(Game game)
+    /// <summary>Starts a game; the task ends when its window closes.  Returns why
+    /// the game refused to start, or null if it ran.</summary>
+    public async Task<string?> PlayAsync(Game game)
     {
+        File.Delete(paths.RefusalFile);
         var info = StartInfo();
         info.Environment["POKEPORT_GAME"] = game.Id;
         using var process = Process.Start(info)
             ?? throw new InvalidOperationException("The game did not start.");
         await process.WaitForExitAsync();
+        if (process.ExitCode != RefusedExitCode) return null;
+        string reason = File.Exists(paths.RefusalFile) ? (await File.ReadAllTextAsync(paths.RefusalFile)).Trim() : "";
+        File.Delete(paths.RefusalFile);
+        return $"{game.Name} did not start. {reason}";
     }
 
     /// <summary>Imports a cartridge dump for its game; the game program quits when done.</summary>

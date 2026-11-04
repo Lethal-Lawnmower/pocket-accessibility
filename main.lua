@@ -8,6 +8,10 @@
 --     opens the editor on that slot's file, and restores the launcher when
 --     the editor's Close button is pressed (openEditor / closeEditor below)
 
+-- Pocket Accessibility hook (docs/access/architecture.md): a packaged build has
+-- no upstream launcher.  Does nothing in a source checkout.
+local PackagedBuild = require("src.access.PackagedBuild").install()
+
 -- POKEPORT_JIT=0 runs without the LuaJIT compiler, approximating devices that
 -- only have an interpreter (see README "Measuring frame time").
 if os.getenv("POKEPORT_JIT") == "0" and jit and jit.off then
@@ -565,6 +569,7 @@ function closeSkinStudio()
 end
 
 local function makeLauncher(launcherOpts)
+  if PackagedBuild.active then return PackagedBuild.noLauncher(launcherOpts) end -- Pocket Accessibility hook
   require("src.import.LauncherWindow").activate()
   local RomImporter = require("src.import.RomImporter")
   local forceImport = os.getenv("POKEPORT_FORCE_IMPORT") == "1"
@@ -634,6 +639,7 @@ end
 
 local function returnToLauncher(opts)
   if not Game or quitToLauncher then return end
+  if PackagedBuild.active and PackagedBuild.ignoresReturn(opts) then return end -- Pocket Accessibility hook
   opts = opts or {}
   if not require("src.core.HostShell").canRestart() then
     return rebuildLauncherInProcess(opts)
@@ -667,6 +673,7 @@ function bootGame(version, cartId, opts)
     require("src.core.SaveData").persistenceFs())
   if recoveryNotice then require("src.core.Logger").warn("%s", recoveryNotice) end
   if not recovered then
+    if PackagedBuild.active then Importer = PackagedBuild.refuse(recoveryError); return end -- Pocket Accessibility hook
     Importer = makeLauncher({ initialTab = "box" })
     Importer._boxState = nil
     require("src.import.BoxPanel").refresh(Importer).notice = recoveryError
