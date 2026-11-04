@@ -140,6 +140,10 @@ function Scripts.signRole(key)
     if yesNo and (s.ops.setflag or s.ops.clearflag) then return "Secret Switch", "secret_switch" end
     if s.ops.playfanfare and not yesNo then return "Card Key Door", "card_key_door" end
     -- pressed with no question, and something opens: the Game Corner's poster
+    -- (Shoal Cave's pickups draw on the floor too: an item, not a switch)
+    if not yesNo and s.ops.setflag and (s.ops.additem or s.stds[0] or s.stds[1]) and GameData.isHoenn() then
+      return "Item Spot", "item_spot"
+    end
     if not yesNo and s.ops.setflag and not s.ops.trainerbattle then return "Hidden Switch", "hidden_switch" end
   end
   return nil
@@ -208,6 +212,48 @@ function Scripts.itemBallItem(key)
     end
   end
   if finds and item and item > 0 then return item end
+  return nil
+end
+
+-- Floor switches: a coord event the player's step fires, whose script changes the floor
+-- and neither talks with a trainer nor walks anyone about (Mauville Gym's beams, Mossdeep
+-- Gym's turning arrows).  Story scenes also set metatiles, with movements.
+function Scripts.isFloorSwitch(key)
+  if not Scripts.get(key) then return false end
+  local s = Scripts.reach(key, 8)
+  if s.ops.applymovement or s.ops.trainerbattle or s.ops.warp or s.ops.warpsilent then return false end
+  -- Mauville's beams are set by a special, then the whole map is redrawn
+  return (s.ops.setmetatile or s.ops.moverotatingtileobjects or s.specials.DrawWholeMapView) and true or false
+end
+
+-- The cells of a map's floor switches, as { x, y }.
+function Scripts.floorSwitches(def)
+  local cells = {}
+  for _, event in ipairs(type(def) == "table" and def.coordEvents or {}) do
+    if type(event.x) == "number" and Scripts.isFloorSwitch(event.scriptKey) then
+      cells[#cells + 1] = { x = event.x, y = event.y }
+    end
+  end
+  return cells
+end
+
+-- Where a map's own script sends a Dive (setdivewarp in its resume or dive script), when
+-- no header link does: { mapId, x, y }, or nil.  Sootopolis's crater, Route 134's chamber.
+function Scripts.diveWarpOf(def)
+  local ms = type(def) == "table" and type(def.mapScripts) == "table" and def.mapScripts or nil
+  if not ms then return nil end
+  for _, kind in ipairs({ "onDiveWarp", "onResume" }) do
+    local key = ms[kind]
+    local rows = type(key) == "string" and { { script = key } } or (type(key) == "table" and key or {})
+    for _, row in ipairs(rows) do
+      for _, cmd in ipairs(Scripts.get(row.script) or {}) do
+        if type(cmd) == "table" and cmd.op == "setdivewarp" then
+          local mapId = Scripts.mapIdOf(cmd[1], cmd[2])
+          if mapId then return { mapId = mapId, warp = tonumber(cmd[3]), x = tonumber(cmd[4]), y = tonumber(cmd[5]) } end
+        end
+      end
+    end
+  end
   return nil
 end
 

@@ -105,6 +105,19 @@ return function(game)
     end
   end
 
+  -- Dive links, and how many cells each offers
+  for _, id in ipairs(L.mapIds()) do
+    local def = maps[id]
+    if def.dive or def.emerge then
+      local world = nav:regionalStaticWorld(id, { x = 0, y = 0 })
+      local n = world and #nav:diveTransitions(world, 3) or -1
+      local keys = {}
+      for key in pairs(def.mapScripts or {}) do keys[#keys + 1] = tostring(key) end
+      table.sort(keys)
+      U.log("DIVELINK", id, "dive", show(def.dive), "emerge", show(def.emerge), "cells", n, "scripts", table.concat(keys, " "))
+    end
+  end
+
   local wanted = os.getenv("RSE_DUMP_MAPS")
   for name in tostring(wanted or ""):gmatch("[^,]+") do
     local id = L.prefix .. name

@@ -1,0 +1,278 @@
+-- Ruby, Sapphire and Emerald's story places by one auto-walk each, as a player reaches
+-- them from the object list (and the Area list for other floors).  RSE_STORY_PARTS limits
+-- the parts:
+--   A  every multi-floor area: the Area list has its floors, and a journey is planned
+--      from the first floor to each (no walking)
+--   G  every gym, from its door to its leader
+--   F  field walks: first route, ledges, Surf, Waterfall, Dive and back, currents
+--   H  hideouts, Seafloor Cavern, Victory Road and the other late places
+-- Harness setup (party, badges, flags, teleports) goes through the game's own loader,
+-- party and flag store; battles by the harness.  Silent; RESULT and FAIL lines.  Nobody
+-- hears these runs.
+return function(game)
+  local L = dofile("tests/access/drivers/rse_nav_lib.lua").new(game)
+  local U, AutoWalk = L.U, L.AutoWalk
+  local BoulderWalk = require("src.access.nav.BoulderWalk")
+  local SwitchWalk = require("src.access.nav.SwitchWalk")
+  if not L.boot() then return end
+  L.giveParty()
+  L.repel()
+  L.fastWalk(8)
+  local maps = game.data.maps
+  local World = require("src.access.nav.gen3.World")
+  local nav = L.nav()
+  local areaKey = nav.areaKey
+  local id = L.id
+  local only = os.getenv("RSE_STORY_PARTS")
+  local isEmerald = L.GameData.isEmerald()
+  local function part(letter) return not only or only == "" or only:find(letter, 1, true) ~= nil end
+  local summary = { arrived = 0, failed = 0 }
+
+  -- A cell beside the map's warp (the first by default) that is floor and no warp.
+  local function entry(mapId, warpIndex)
+    local def = maps[mapId]
+    local view = World.loadedView(game, def)
+    local warp = def.warps[warpIndex or 1]
+    for _, d in ipairs({ { 0, -1 }, { 0, 1 }, { -1, 0 }, { 1, 0 } }) do
+      local x, y = warp.x + d[1], warp.y + d[2]
+      if view:isWalkableCell(x, y) and not view:warpAt(x, y) then return x, y end
+    end
+    return warp.x, warp.y
+  end
+
+  local function arrive(mapId, warpIndex)
+    if not maps[mapId] then U.log("SKIP", mapId, "not on this cartridge") return false end
+    local x, y = entry(mapId, warpIndex)
+    L.heal()
+    L.teleport(mapId, x, y, "up")
+    L.settle(120, true)
+    return L.where()
+  end
+
+  local function arriveAt(mapId, x, y, facing)
+    if not maps[mapId] then U.log("SKIP", mapId, "not on this cartridge") return false end
+    L.heal()
+    L.teleport(mapId, x, y, facing or "down")
+    L.settle(120, true)
+    return L.where()
+  end
+
+  -- Every puzzle or walk the one command started, to its end, with the harness in
+  -- battles and through text the walk waits on.
+  local function run(limit)
+    local Extra = package.loaded["src.access.nav.IceWalk"]
+    for frame = 1, limit or 30000 do
+      local extraActive = Extra and Extra.active()
+      if not (AutoWalk.active() or BoulderWalk.active() or SwitchWalk.active() or extraActive) then return true end
+      if frame % 900 == 0 then L.heal() end
+      local boulders, switches = BoulderWalk._state(), SwitchWalk._state()
+      if switches and os.getenv("RSE_STORY_TRACE") == "1" then
+        local mark = tostring(switches.phase) .. " " .. tostring(switches.sign and switches.sign.label) .. " flips " .. tostring(switches.flips)
+        if mark ~= L.lastMark then
+          L.lastMark = mark
+          local walkState = AutoWalk._state()
+          local goals = {}
+          for _, goal in ipairs(walkState and walkState.goals or {}) do goals[#goals + 1] = goal.x .. "," .. goal.y end
+          U.log("SWITCH", mark, "at", L.where(), "walk goals", table.concat(goals, " "), "steps", L.steps():sub(1, 160))
+          if switches.phase == "choose" and os.getenv("RSE_STORY_SHOW") == "1" then L.showFloor(mark) end
+        end
+      end
+      local own = (boulders and (boulders.phase == "strength" or boulders.phase == "settling"))
+        or (switches and switches.phase == "flipping")
+      if not L.battleStep() then
+        if frame % 15 == 0 and not own and L.messageOpen() and not L.free() then
+          L.tap("a", 2)
+        else
+          U.wait(1)
+        end
+      end
+    end
+    BoulderWalk.stop() SwitchWalk.stop() AutoWalk.stop()
+    U.log("FAIL", "still going at the limit", L.where())
+    return false
+  end
+
+  local function labels(filter)
+    local list = {}
+    for _, candidate in ipairs(L.browse(filter)) do list[#list + 1] = tostring(candidate.label) end
+    return table.concat(list, "; "):sub(1, 700)
+  end
+
+  -- One auto-walk to the first item of `filter` whose label matches; `reachedMap`, when
+  -- given, is what must be true after it.
+  local function walk(name, filter, pattern, reachedMap, limit)
+    local item = L.findLabel(pattern, filter)
+    if not item then
+      summary.failed = summary.failed + 1
+      U.log("FAIL", name, "not listed:", pattern, "in", filter, "at", L.where(), labels(filter))
+      return false
+    end
+    L.select(item, filter)
+    L.heard()
+    AutoWalk.start(L.nav(), game, L.adapter())
+    run(limit)
+    local said = L.heard()
+    local mapId = L.pos()
+    local ok = not reachedMap or mapId == reachedMap
+    if ok and not reachedMap then
+      -- beside the target, or standing where the words say it stopped
+      local player = World.player
+      local targetX, targetY = item.x, item.y
+      ok = type(targetX) == "number" and math.abs(player.cellX - targetX) + math.abs(player.cellY - targetY) <= 2
+    end
+    summary[ok and "arrived" or "failed"] = summary[ok and "arrived" or "failed"] + 1
+    U.log(ok and "RESULT" or "FAIL", name, "->", L.where(), "|", said:sub(-160))
+    if not ok and os.getenv("RSE_STORY_SHOW") == "1" then
+      L.showFloor(name)
+      local world = nav:worldState()
+      for _, sign in ipairs(nav:switchSigns(world)) do
+        local options = nav:routeOptionsFor(world, sign.goals, 2)
+        local found = options and require("src.access.nav.Pathfinder").find(options)
+        local leg, why = nav:regionalNextLeg({ targetMapId = L.pos(), targetGoals = sign.goals })
+        U.log("SIGN", sign.label, "route", tostring(found ~= nil), "leg", tostring(leg ~= nil), tostring(why))
+      end
+    end
+    return ok
+  end
+
+  if part("A") then
+    local groups = {}
+    for _, mapId in ipairs(L.mapIds()) do
+      local key = areaKey(mapId)
+      if key then
+        groups[key] = groups[key] or {}
+        table.insert(groups[key], mapId)
+      end
+    end
+    local keys = {}
+    for key, members in pairs(groups) do if #members > 1 then keys[#keys + 1] = key end end
+    table.sort(keys)
+    local planned, refused, floorsListed = 0, 0, 0
+    for _, key in ipairs(keys) do
+      table.sort(groups[key])
+      local first
+      for _, mapId in ipairs(groups[key]) do
+        if maps[mapId].warps and maps[mapId].warps[1] then first = first or mapId end
+      end
+      if first and not key:match("^BATTLE_FRONTIER") then
+        arrive(first)
+        local listed = {}
+        for _, item in ipairs(L.browse("area")) do
+          if item.floorEntry then listed[item.mapId] = item end
+        end
+        for _, mapId in ipairs(groups[key]) do
+          if mapId ~= first then
+            if listed[mapId] then floorsListed = floorsListed + 1 else U.log("FAIL", "no Area entry", first, mapId) end
+            local goals = { { x = 0, y = 0 } }
+            goals.anywhere = true
+            local leg, why = L.nav():regionalNextLeg({ targetMapId = mapId, targetGoals = goals })
+            if leg then
+              planned = planned + 1
+            else
+              refused = refused + 1
+              U.log("REFUSED", first, "to", mapId, tostring(why))
+            end
+          end
+        end
+      end
+      U.wait(1)
+    end
+    U.log("RESULT", "areas", #keys, "floor entries listed", floorsListed, "journeys planned", planned, "refused", refused)
+  end
+
+  if part("G") then
+    local gyms = {
+      { "RUSTBORO_CITY_GYM", "Roxanne" }, { "DEWFORD_TOWN_GYM", "Brawly" }, { "MAUVILLE_CITY_GYM", "Wattson" },
+      { "LAVARIDGE_TOWN_GYM_1F", "Flannery" }, { "PETALBURG_CITY_GYM", "Norman" }, { "FORTREE_CITY_GYM", "Winona" },
+      { "MOSSDEEP_CITY_GYM", isEmerald and "Tate" or "Liza" }, { "SOOTOPOLIS_CITY_GYM_1F", isEmerald and "Juan" or "Wallace" },
+    }
+    local onlyGyms = os.getenv("RSE_STORY_GYMS")
+    for _, row in ipairs(gyms) do
+      local mapId = id(row[1])
+      if (not onlyGyms or onlyGyms:find(row[2], 1, true)) and arrive(mapId) then
+        U.log("GYM", mapId, "listed:", labels("npcs"))
+        walk("gym " .. row[1] .. " to " .. row[2], "npcs", row[2], nil, 40000)
+      end
+    end
+  end
+
+  if part("F") then
+    arriveAt(id("ROUTE101"), 10, 15)
+    walk("Route 101 to Oldale", "connections", "Oldale", id("OLDALE_TOWN"))
+    walk("Oldale to its Center", "warps", "Pok.mon Center", id("OLDALE_TOWN_POKEMON_CENTER_1F"))
+    arriveAt(id("ROUTE124"), 70, 49)
+    walk("Route 124 to its seabed", "area", "Underwater Route 124", nil)
+    U.log("RESULT", "stopped at", L.where())
+    -- the game's own question, as a player answers it
+    L.tap("a", 20)
+    L.settle(1500, "a")
+    U.log(L.pos() == id("UNDERWATER_ROUTE124") and "RESULT" or "FAIL", "dived", L.where(), L.heard():sub(-160))
+    walk("Back to the surface", "area", "Route 124$", nil)
+    L.tap("a", 20)
+    L.settle(1500, "a")
+    U.log(L.pos() == id("ROUTE124") and "RESULT" or "FAIL", "surfaced", L.where(), L.heard():sub(-160))
+    -- Surf over a current and up a waterfall
+    if maps[id("ROUTE131")] then
+      arriveAt(id("SOOTOPOLIS_CITY"), 31, 34)
+      walk("Sootopolis to its gym", "warps", "Gym", id("SOOTOPOLIS_CITY_GYM_1F"))
+    end
+    arriveAt(id("ROUTE119"), 7, 150)
+    walk("Route 119 north to the Weather Institute", "warps", "Weather Institute", id("ROUTE119_WEATHER_INSTITUTE_1F"))
+    arriveAt(id("ROUTE114"), 7, 50)
+    walk("Route 114 to Meteor Falls", "connections", "Route 115", id("ROUTE115"))
+  end
+
+  if part("H") then
+    -- Harness flags that open what the story opens: read from this cartridge's names.
+    local function setFlagByName(name)
+      local flag = L.GameData.flag(name)
+      if flag then L.setFlag(flag, true) else U.log("NOTE", "no flag", name) end
+    end
+    setFlagByName("FLAG_LANDMARK_SEAFLOOR_CAVERN")
+    local function area(title, start, pattern, reached, warpIndex)
+      if not maps[id(start)] then return end
+      if arrive(id(start), warpIndex) then
+        walk(title, "area", pattern, reached and id(reached) or nil, 60000)
+      end
+    end
+    area("Granite Cave 1F to B1F", "GRANITE_CAVE_1F", "B1F$", "GRANITE_CAVE_B1F")
+    area("Mt. Pyre 1F to 2F", "MT_PYRE_1F", "Mt%. Pyre 2F$", "MT_PYRE_2F")
+    area("Mt. Pyre 2F to 3F", "MT_PYRE_2F", "Mt%. Pyre 3F$", "MT_PYRE_3F")
+    area("Mt. Pyre 5F to 6F", "MT_PYRE_5F", "Mt%. Pyre 6F$", "MT_PYRE_6F")
+    area("Magma Hideout 1F to 4F", "MAGMA_HIDEOUT_1F", "Magma Hideout 4F$", "MAGMA_HIDEOUT_4F")
+    area("Aqua Hideout 1F to B2F", "AQUA_HIDEOUT_1F", "Aqua Hideout B2F$", "AQUA_HIDEOUT_B2F")
+    area("Seafloor Cavern entrance to Room 1", "SEAFLOOR_CAVERN_ENTRANCE", "Room 1$", "SEAFLOOR_CAVERN_ROOM1")
+    area("Seafloor Cavern Room 1 to Room 9", "SEAFLOOR_CAVERN_ROOM1", "Room 9$", "SEAFLOOR_CAVERN_ROOM9")
+    area("Victory Road 1F to B1F", "VICTORY_ROAD_1F", "B1F$", "VICTORY_ROAD_B1F")
+    area("Victory Road B1F to B2F", "VICTORY_ROAD_B1F", "B2F$", "VICTORY_ROAD_B2F")
+    area("Meteor Falls 1F to B1F", "METEOR_FALLS_1F_1R", "B1F 1[Rr]$", "METEOR_FALLS_B1F_1R")
+    area("New Mauville entrance to inside", "NEW_MAUVILLE_ENTRANCE", "Inside$", "NEW_MAUVILLE_INSIDE")
+    area("Abandoned Ship deck to corridors", "ABANDONED_SHIP_DECK", "Corridors 1F$", "ABANDONED_SHIP_CORRIDORS_1F")
+    area("Weather Institute 1F to 2F", "ROUTE119_WEATHER_INSTITUTE_1F", "2F$", "ROUTE119_WEATHER_INSTITUTE_2F")
+    area("Space Center 1F to 2F", "MOSSDEEP_CITY_SPACE_CENTER_1F", "2F$", "MOSSDEEP_CITY_SPACE_CENTER_2F")
+    area("Safari Zone South to Southwest", "SAFARI_ZONE_SOUTH", "Southwest$", "SAFARI_ZONE_SOUTHWEST")
+    area("Shoal Cave entrance to Ice Room", "SHOAL_CAVE_LOW_TIDE_ENTRANCE_ROOM", "Ice Room$", "SHOAL_CAVE_LOW_TIDE_ICE_ROOM")
+    -- Sky Pillar: on foot the cracked floors refuse; on the Mach Bike they are ridden
+    if maps[id("SKY_PILLAR_2F")] then
+      arrive(id("SKY_PILLAR_2F"))
+      walk("Sky Pillar 2F to 3F on foot", "area", "Sky Pillar 3F$", nil)
+      arrive(id("SKY_PILLAR_2F"))
+      local Bike = require("src.core.game3.bike")
+      local rse = Bike.rse()
+      local okMount, mountErr = pcall(function() rse.getOnOff("mach") end)
+      U.log("NOTE", "mounted", tostring(okMount), tostring(mountErr), tostring(require("src.core.game3.player").bikeType))
+      walk("Sky Pillar 2F to 3F on the Mach Bike", "area", "Sky Pillar 3F$", id("SKY_PILLAR_3F"))
+      pcall(function() rse.getOnOff("mach") end)
+    end
+    -- Sootopolis's crater by Dive, from Route 126
+    arriveAt(id("UNDERWATER_ROUTE126"), 45, 67, "up")
+    walk("Underwater Route 126 into the crater", "warps", "Sootopolis", id("UNDERWATER_SOOTOPOLIS_CITY"))
+    -- the clock
+    L.heard()
+    nav:handleCommand("read_game_time")
+    U.log("RESULT", "Q says", L.heard())
+  end
+
+  U.log("RESULT", "walks arrived", summary.arrived, "failed", summary.failed)
+  U.log("DONE")
+end

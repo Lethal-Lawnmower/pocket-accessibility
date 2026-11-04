@@ -101,6 +101,11 @@ end
 -- fallback guided navigation uses).
 local function findRoute(nav, goals)
   local Pathfinder = require("src.access.nav.Pathfinder")
+  -- a floor whose route depends on more than cells (Fortree's spinning gates)
+  if type(nav.plannedRoute) == "function" then
+    local handled, planned, planError = nav:plannedRoute(goals)
+    if handled then return planned, planError end
+  end
   local lastErr = "No route"
   for policy = 1, 2 do
     local options, err = nav:worldRouteRequest(goals, policy)
@@ -203,6 +208,8 @@ function AutoWalk.start(nav, game, adapter, opts)
   if not opts.quiet and Boulders.active() then return Boulders.stop("Auto walk stopped") end
   local Switches = require("src.access.nav.SwitchWalk")
   if not opts.quiet and Switches.active() then return Switches.stop("Auto walk stopped") end
+  local Ice = require("src.access.nav.IceWalk")
+  if not opts.quiet and Ice.active() then return Ice.stop("Auto walk stopped") end
   if walk then return AutoWalk.stop("Auto walk stopped") end
   adapter = adapter or WorldAdapter.current() or WorldAdapter.gen1
   local tooDark = type(nav.darkRefusal) == "function" and nav:darkRefusal()
@@ -273,6 +280,11 @@ function AutoWalk.start(nav, game, adapter, opts)
     danceLeg = leg
   end
   local result, findErr = findRoute(nav, goals)
+  -- Thin ice comes before any way round through a fall (Sootopolis Gym)
+  if not result and not journey and not opts.goals and not opts.quiet
+     and require("src.access.nav.IceWalk").tryStart(nav, game, adapter, item, goals, overworld) then
+    return true
+  end
   -- A target on this map with no way here may have one through other maps
   -- (Seafoam's floors): the coordinator that says so (FireRed) walks it as
   -- a journey, the same answer guided navigation gives.
@@ -550,7 +562,7 @@ local function resume(quiet)
       return
     end
     -- a floor of a journey closed by boulders or switches: its puzzle comes first
-    if walk.journey and not walk.quiet and journeyPuzzle() then return end
+    if (walk.journey or walk.nav.puzzlesOnResume) and not walk.quiet and journeyPuzzle() then return end
     return AutoWalk.stop("Cannot reach " .. tostring(walk.label) .. ", auto walk stopped")
   end
   walk.retryIn = nil

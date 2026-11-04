@@ -351,8 +351,262 @@ local function labelledSigns(self, world, label)
 end
 
 function Navigation:switchSigns(world)
-  return labelledSigns(self, world, "Secret Switch")
+  local signs = labelledSigns(self, world, "Secret Switch")
+  -- Hoenn's floor switches: a step onto one presses it (Mauville, Mossdeep)
+  for _, cell in ipairs(self:floorSwitchCells(world)) do
+    signs[#signs + 1] = { label = "Floor Switch " .. cell.x .. "," .. cell.y, x = cell.x, y = cell.y,
+      goals = { { x = cell.x, y = cell.y } }, step = true }
+  end
+  return signs
 end
+
+-- A switch's script has let go but what it moved is still on its way (Mossdeep's statues).
+function Navigation:objectsMoving()
+  for _, actor in ipairs(World.actors()) do
+    if actor.moving then return true end
+  end
+  return false
+end
+
+function Navigation:floorSwitchCells(world)
+  local def = world and world.map and world.map.def
+  if type(def) ~= "table" or not GameData.isHoenn() then return {} end
+  self.gen3FloorSwitches = self.gen3FloorSwitches or setmetatable({}, { __mode = "k" })
+  local cells = self.gen3FloorSwitches[def]
+  if not cells then
+    cells = Scripts.floorSwitches(def)
+    self.gen3FloorSwitches[def] = cells
+  end
+  return cells
+end
+
+-- What a Hoenn floor switch can change beyond collision: where objects stand, and the
+-- arrows it turned.
+function Navigation:switchFloorExtra(map)
+  if not GameData.isHoenn() then return nil end
+  local parts = {}
+  for _, actor in ipairs(World.actors()) do
+    parts[#parts + 1] = tostring(actor.localId) .. "@" .. tostring(actor.cellX) .. "," .. tostring(actor.cellY)
+  end
+  local world = self:worldState()
+  parts[#parts + 1] = world and world.map == map and self:floorMarks(world) or ""
+  return table.concat(parts, ";")
+end
+
+-- ------------------------------------------------------------ spinning gates
+
+-- Fortree Gym and Trick House 6: whether a step goes through depends on which way each gate
+-- stands, and the step turns it, so a route is a search over cells and gate positions together.
+-- The rules are Player.tryMove's and RotatingGate.checkCollision's, read here against a copy of
+-- the orientations.  A journey plans these floors as walkable, and auto-walk asks this for
+-- the walk itself (AutoWalk: findRoute).
+local GATE_LIMIT = 300000
+local GATE_SECONDS = 1.5
+
+local function gatePuzzle(world)
+  local RG = loaded("src.core.game3.rotating_gate")
+  if not (RG and RG.active and call(RG.active)) then return nil end
+  local p = rawget(RG, "_p")
+  if type(p) ~= "table" or type(p.gates) ~= "table" or #p.gates == 0 then return nil end
+  if world and world.map and p.map ~= world.map.id then return nil end
+  return RG, p
+end
+
+-- The player is riding the Mach Bike.
+function Navigation:onMachBike()
+  local Player = loaded("src.core.game3.player")
+  return Player ~= nil and Player.biking == true and Player.bikeType == "mach"
+end
+
+-- This floor has what only speed crosses: kept per map.
+function Navigation:hasSpeedTiles(map)
+  self.gen3SpeedFloors = self.gen3SpeedFloors or setmetatable({}, { __mode = "k" })
+  local known = self.gen3SpeedFloors[map.def]
+  if known ~= nil then return known end
+  known = false
+  local mud = Terrain.HOENN_MB.MUDDY_SLOPE
+  for y = 0, map.heightCells - 1 do
+    for x = 0, map.widthCells - 1 do
+      local beh = map:behavior(x, y)
+      if beh == mud or Terrain.isCrackedFloor(beh) then known = true end
+    end
+  end
+  self.gen3SpeedFloors[map.def] = known
+  return known
+end
+
+-- A walk on the Mach Bike over cracked floors and up muddy slopes: a search over cell, heading
+-- and speed.  Each straight step raises the speed one gear (Bike: machTrySpeedUp) and any turn
+-- drops it to nothing; a cracked floor holds only at the top gear
+-- (step_callbacks_rse.crackedFloor) and a muddy slope pushes back anything slower
+-- (ForcedMovement.muddySlope).  So a run-up is part of the route.
+function Navigation:machRoute(world, goals)
+  self.machStrict = true
+  local options = self:routeOptionsFor(world, goals, 2)
+  self.machStrict = nil
+  if not options then return nil, "No path" end
+  local map, player = world.map, world.player
+  local Bike = loaded("src.core.game3.bike")
+  local rse = Bike and call(Bike.rse)
+  local gear = rse and rse.state and tonumber(rse.state.frameCounter) or 0
+  local goalSet = {}
+  for _, goal in ipairs(goals) do goalSet[cellKey(goal.x, goal.y)] = goal end
+  local mud, cracked = Terrain.HOENN_MB.MUDDY_SLOPE, Terrain.HOENN_MB.CRACKED_FLOOR
+  local first = { x = player.cellX, y = player.cellY, heading = player.facing, gear = gear }
+  local seen = { [first.x .. "," .. first.y .. first.heading .. gear] = true }
+  local queue, head = { first }, 1
+  local deadline = os.clock() + GATE_SECONDS
+  local function arrive(node, tx, ty, direction, nextGear, edge)
+    local key = tx .. "," .. ty .. direction .. nextGear
+    if seen[key] then return end
+    seen[key] = true
+    queue[#queue + 1] = { x = tx, y = ty, heading = direction, gear = nextGear, parent = node,
+      step = { fromX = node.x, fromY = node.y, x = tx, y = ty, direction = direction,
+        kind = edge and edge.kind or nil, instruction = edge and edge.instruction or nil } }
+  end
+  while queue[head] do
+    local node = queue[head]
+    head = head + 1
+    local goal = goalSet[cellKey(node.x, node.y)]
+    if goal then
+      local steps, cursor = {}, node
+      while cursor.parent do
+        table.insert(steps, 1, cursor.step)
+        cursor = cursor.parent
+      end
+      return { steps = steps, goal = goal, cost = #steps, policy = 2 }
+    end
+    if head % 256 == 0 and os.clock() > deadline then return nil, "regional search timed out" end
+    local byDirection = {}
+    for _, edge in ipairs(options.neighbors(node.x, node.y)) do byDirection[edge.direction] = edge end
+    for _, direction in ipairs(ORDER) do
+      local d = DELTA[direction]
+      local tx, ty = node.x + d[1], node.y + d[2]
+      local straight = direction == node.heading
+      -- the gear this step ends in: a turn starts from nothing
+      local nextGear = straight and math.min(node.gear + 1, 2) or 1
+      local beh = map:inBounds(tx, ty) and map:behavior(tx, ty) or nil
+      local fast = straight and node.gear >= 1
+      if (beh == cracked or (beh == mud and direction == "up")) then
+        if fast and not map:dirBlocked(node.x, node.y, tx, ty, direction) then
+          arrive(node, tx, ty, direction, 2, nil)
+        end
+      elseif byDirection[direction] then
+        local edge = byDirection[direction]
+        arrive(node, edge.x, edge.y, direction, nextGear, edge)
+      end
+    end
+  end
+  return nil, "No path"
+end
+
+function Navigation:plannedRoute(goals)
+  if not GameData.isHoenn() then return false end
+  local world = self:worldForCommand()
+  if not world then return false end
+  if self:onMachBike() and self:hasSpeedTiles(world.map) then
+    return true, self:machRoute(world, goals)
+  end
+  local RG, puzzle = gatePuzzle(world)
+  if not RG then return false end
+  local options = self:routeOptionsFor(world, goals, 2)
+  if not options then return true, nil, "No path" end
+  local Collision = loaded("src.core.game3.collision")
+  local function wall(x, y)
+    if Collision.inBounds and not Collision.inBounds(x, y) then return true end
+    return not Collision.isWalkable(x, y)
+  end
+  local gates = puzzle.gates
+  local info, layouts = RG.ROTATION_INFO, RG.ARM_LAYOUT
+  local function canRotate(gate, orientation, direction)
+    local arms = direction == RG.ROTATE_ANTICLOCKWISE and RG.ARM_POS_ACW or RG.ARM_POS_CW
+    local layout = layouts[gate.shape]
+    for arm = 0, 3 do
+      for j = 0, 1 do
+        if layout[2 * arm + j + 1] == 1 then
+          local off = arms[2 * ((orientation + arm) % 4) + j + 1]
+          if wall(gate.x + off[1], gate.y + off[2]) then return false end
+        end
+      end
+    end
+    return true
+  end
+  -- the orientations after stepping onto (x, y) moving `direction`; nil when a gate blocks
+  local function stepThrough(orient, direction, x, y)
+    local rows = info[direction]
+    for i, gate in ipairs(gates) do
+      if gate.x - 2 <= x and x <= gate.x + 1 and gate.y - 2 <= y and y <= gate.y + 1 then
+        local r = rows[(y - gate.y + 2) * 4 + (x - gate.x + 2) + 1]
+        if r then
+          local arm = (r.arm - orient[i] + 4) % 4
+          if layouts[gate.shape][arm * 2 + r.long + 1] == 1 then
+            if not canRotate(gate, orient[i], r.dir) then return nil end
+            local copy = { unpack(orient) }
+            if r.dir == RG.ROTATE_ANTICLOCKWISE then
+              copy[i] = (orient[i] + 3) % 4
+            else
+              copy[i] = (orient[i] + 1) % 4
+            end
+            return copy
+          end
+        end
+      end
+    end
+    return orient
+  end
+  local start = {}
+  for i = 1, #gates do start[i] = RG.getOrientation(i - 1) end
+  local goalSet = {}
+  for _, goal in ipairs(goals) do goalSet[cellKey(goal.x, goal.y)] = goal end
+  local player = world.player
+  local first = { x = player.cellX, y = player.cellY, orient = start }
+  local key0 = cellKey(first.x, first.y) .. ":" .. table.concat(start, "")
+  local seen, queue, head = { [key0] = true }, { first }, 1
+  local deadline = os.clock() + GATE_SECONDS
+  while queue[head] do
+    local node = queue[head]
+    head = head + 1
+    if goalSet[cellKey(node.x, node.y)] then
+      local steps, cursor = {}, node
+      while cursor.parent do
+        table.insert(steps, 1, cursor.step)
+        cursor = cursor.parent
+      end
+      return true, { steps = steps, goal = goalSet[cellKey(node.x, node.y)], cost = #steps, policy = 2 }
+    end
+    if head % 256 == 0 and (os.clock() > deadline or head > GATE_LIMIT) then
+      return true, nil, "Could not plan a route through the gates in time"
+    end
+    for _, edge in ipairs(options.neighbors(node.x, node.y)) do
+      local orient = stepThrough(node.orient, edge.direction, node.x + DELTA[edge.direction][1], node.y + DELTA[edge.direction][2])
+      if orient then
+        local key = cellKey(edge.x, edge.y) .. ":" .. table.concat(orient, "")
+        if not seen[key] then
+          seen[key] = true
+          queue[#queue + 1] = { x = edge.x, y = edge.y, orient = orient, parent = node,
+            step = { fromX = node.x, fromY = node.y, x = edge.x, y = edge.y, direction = edge.direction,
+              kind = edge.kind, instruction = edge.instruction } }
+        end
+      end
+    end
+  end
+  return true, nil, "No path"
+end
+
+-- Sootopolis Gym's thin ice (IceWalk.lua); Hoenn only, since FireRed's Icefall Cave has its
+-- own answer (falling through, decision 33).
+-- A trainer who walked up can stand in the only way (Mauville Gym): the floor's switches may
+-- still open another.  Read by auto-walk when a walk's route is lost.
+Navigation.puzzlesOnResume = nil
+setmetatable(Navigation, { __index = function(_, key)
+  if key == "puzzlesOnResume" then return GameData.isHoenn() end
+  return Shared[key]
+end })
+
+function Navigation:thinIceBehavior()
+  return GameData.isHoenn() and Terrain.MB.THIN_ICE or nil
+end
+Navigation.crackedIceBehavior = Terrain.MB.CRACKED_ICE
 
 -- The trash cans, for the same walk's hidden switches.  Their script ends at once when
 -- the player faces up, so the cell below a can is left out.
@@ -628,6 +882,11 @@ function Navigation:interactiveBrowseObjects(world, puzzle)
         end
       end
     end
+  end
+  for _, cell in ipairs(self:floorSwitchCells(world)) do
+    add({ id = "floor_switch:" .. mapId .. ":" .. cellKey(cell.x, cell.y), label = "Floor Switch",
+      x = cell.x, y = cell.y, interaction = "walk_onto", semanticKind = "puzzle_switch",
+      routeInstruction = "Step on it" })
   end
   -- a place Secret Power opens: a thing to walk up to and use the move on
   for y = 0, height - 1 do
@@ -1109,6 +1368,11 @@ function Navigation:routeOptionsFor(world, goals, policy)
   local canWaterfall = self:hmAllowed(world, "WATERFALL", policy)
   local useCardKey = policy >= 2 and (self:hasCardKey() or policy >= 3)
   local occupied = occupancy(world)
+  -- on the Mach Bike a journey plans cracked floors and slopes as floor; the walk on the
+  -- floor itself works out the speed (machRoute, which asks with machStrict set)
+  local machFree = not self.machStrict and GameData.isHoenn() and self:onMachBike()
+  local floorSwitches = {}
+  for _, cell in ipairs(self:floorSwitchCells(world)) do floorSwitches[cellKey(cell.x, cell.y)] = true end
   local closedDoors = {}
   for key in pairs(self:cardKeyDoorCells(world)) do
     local x, y = key:match("^(-?%d+),(-?%d+)$")
@@ -1157,8 +1421,14 @@ function Navigation:routeOptionsFor(world, goals, policy)
       if not map:standingWarp(x, y) then return false end
     end
     local beh = map:behavior(x, y)
-    if Terrain.givesWay(beh) and not isGoal then return false end
+    if Terrain.givesWay(beh) and not isGoal
+       and not (machFree and beh == Terrain.HOENN_MB.CRACKED_FLOOR) then
+      return false
+    end
     if Terrain.needsAcroBike(beh) then return false end
+    -- crossing a floor switch would change the floor under the route; pressing one is a
+    -- step of its own (SwitchWalk)
+    if floorSwitches[cellKey(x, y)] and not isGoal and policy < 3 then return false end
     -- a closed card key door: opened on the way with the key, else a wall
     if closedDoors[cellKey(x, y)] then return useCardKey end
     local water = map:isWater(x, y)
@@ -1262,6 +1532,11 @@ function Navigation:routeOptionsFor(world, goals, policy)
     -- What only a bike crosses, for naming what is missing (policy 3): a Mach Bike at
     -- speed over cracked floors and up muddy slopes, an Acro Bike on rails.  The walk
     -- itself is refused: both take a run-up and timing no route here knows how to hold.
+    if machFree and beh == Terrain.HOENN_MB.MUDDY_SLOPE and direction == "up" and not blocker(x, y, fromElevation) then
+      local cy = y
+      while map:behavior(x, cy) == Terrain.HOENN_MB.MUDDY_SLOPE and cy > 0 do cy = cy - 1 end
+      return x, cy
+    end
     if policy >= 3 and not blocker(x, y, fromElevation) then
       if Terrain.needsAcroBike(beh) then return x, y, "acro_bike", "Ride the Acro Bike " .. direction end
       if Terrain.isCrackedFloor(beh) then return x, y, "mach_bike", "Ride the Mach Bike " .. direction end
@@ -1348,7 +1623,8 @@ function Navigation:routeOptionsFor(world, goals, policy)
       local tx, ty, kind, instruction = landing(x, y, direction)
       if tx ~= nil then
         result[#result + 1] = { x = tx, y = ty, direction = direction,
-          kind = kind, instruction = instruction, cost = kind == "item_ball" and 2 or nil }
+          kind = kind, instruction = instruction,
+          cost = (kind == "item_ball" and 2) or (floorSwitches[cellKey(tx, ty)] and 12) or nil }
       end
     end
     return result
@@ -1373,6 +1649,8 @@ Navigation.replanJourneyOffRoute = true
 function Navigation:worldRouteRequest(goals, policy)
   local world, reason = self:worldForCommand()
   if not world then return nil, reason end
+  -- the route depends on how the gates stand: say so, not a route that ignores them
+  if gatePuzzle(world) then return nil, "Spinning gates here: use auto walk" end
   return self:routeOptionsFor(world, goals, policy)
 end
 
@@ -1728,11 +2006,13 @@ function Navigation:diveTransitions(world, policy)
   local map = world.map
   local def = map and map.def
   local Dive = loaded("src.core.game3.dive")
-  if not (Dive and type(def) == "table" and (def.dive or def.emerge)) then return result end
+  if not (Dive and type(def) == "table") then return result end
+  local link = map.underwater and def.emerge or def.dive
+  local scripted = not link and Scripts.diveWarpOf(def) or nil
+  if not (link or scripted) then return result end
   if policy < 3 and not self:hmAllowed(world, "DIVE", policy) then return result end
   local needs = (not self:hmAllowed(world, "DIVE", 2)) and "Dive" or nil
-  local link = map.underwater and def.emerge or def.dive
-  local destId = type(link) == "table" and link.map or link
+  local destId = scripted and scripted.mapId or (type(link) == "table" and link.map or link)
   local destDef = type(destId) == "string" and self:regionalMapDef(destId) or nil
   local dest = destDef and World.plannedView(self.game, destDef)
   if not dest then return result end
@@ -1742,9 +2022,18 @@ function Navigation:diveTransitions(world, policy)
       local here
       if map.underwater then here = not Dive.isUnableToEmerge(beh) and (map:isWater(x, y) or map:walkableColl(x, y))
       else here = Dive.isDiveable(beh) end
-      if here and dest:inBounds(x, y) and (dest:isWater(x, y) or dest:walkableColl(x, y)) then
-        result[#result + 1] = { kind = "dive", x = x, y = y, emerge = map.underwater == true,
-          destMap = destId, destX = x, destY = y, needs = needs }
+      if here then
+        -- a script's landing is one cell (a warp number lands where that warp stands)
+        local toX, toY = x, y
+        if scripted then
+          toX, toY = scripted.x, scripted.y
+          local warpRow = scripted.warp ~= nil and scripted.warp ~= 255 and (destDef.warps or {})[scripted.warp + 1]
+          if warpRow then toX, toY = warpRow.x, warpRow.y end
+        end
+        if dest:inBounds(toX, toY) and (dest:isWater(toX, toY) or dest:walkableColl(toX, toY)) then
+          result[#result + 1] = { kind = "dive", x = x, y = y, emerge = map.underwater == true,
+            destMap = destId, destX = toX, destY = toY, needs = needs }
+        end
       end
     end
   end

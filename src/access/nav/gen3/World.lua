@@ -237,6 +237,11 @@ function View:warpAt(x, y)
   -- installWarps: active on a warp COLL byte after its door repair (which
   -- View:coll mirrors)
   if isWarpColl(self:coll(x, y)) then return warp, index end
+  -- Ruby, Sapphire and Emerald: Dive's water doors and their kin fire on behaviour alone
+  -- (installWarps' RSE_WARP; their collision byte is water or floor)
+  local beh = self:behavior(x, y)
+  local C = collisionModule()
+  if C and beh and beh >= 0x100 and C.isWarpMetatileBehavior(beh) then return warp, index end
   return nil
 end
 
@@ -359,7 +364,7 @@ local function newView(game, def, mapId, live)
     game = game, def = def, id = mapId or def.id, live = live == true,
     -- pokeemerald/include/constants/map_types.h: MAP_TYPE_UNDERWATER, moved through
     -- as water with no Surf to start (Dive.isUnderwaterMap)
-    underwater = tonumber(def.mapType) == 5 and def.emerge ~= nil,
+    underwater = tonumber(def.mapType) == 5,
     widthCells = layout.width, heightCells = layout.height,
     warpIndex = {}, warpCells = {}, kindCache = {},
   }, View)

@@ -64,6 +64,38 @@ function L.new(game)
     game.options[block].accessAutoWalkSpeed = speed or 8
   end
 
+  -- The live floor as rows of characters, for reading a failed walk from the log.
+  function self.showFloor(tag)
+    local world = self.nav():worldState()
+    local map = world.map
+    local Terrain = require("src.access.nav.gen3.TerrainSemantics")
+    local objects = {}
+    for _, actor in ipairs(world.npcs or {}) do objects[actor.cellY * 1024 + actor.cellX] = actor.invisible and "i" or "O" end
+    local switches = {}
+    for _, cell in ipairs(self.nav():floorSwitchCells(world)) do switches[cell.y * 1024 + cell.x] = true end
+    for y = 0, map.heightCells - 1 do
+      local row = {}
+      for x = 0, map.widthCells - 1 do
+        local key = y * 1024 + x
+        local beh = map:behavior(x, y)
+        local dir, kind = Terrain.forced(beh)
+        local ch = "#"
+        if x == world.player.cellX and y == world.player.cellY then ch = "@"
+        elseif objects[key] then ch = objects[key]
+        elseif map:warpAt(x, y) then ch = "W"
+        elseif switches[key] then ch = "S"
+        elseif dir then ch = ({ up = "^", down = "v", left = "<", right = ">" })[dir]
+        elseif kind == "ice" then ch = "/"
+        elseif beh == Terrain.MB.THIN_ICE then ch = "t"
+        elseif beh == Terrain.MB.CRACKED_ICE then ch = "x"
+        elseif map:isWater(x, y) then ch = "~"
+        elseif map:isWalkableCell(x, y) then ch = "." end
+        row[#row + 1] = ch
+      end
+      U.log("FLOOR", tag or "", string.format("%3d", y), table.concat(row))
+    end
+  end
+
   local firstBoot = self.boot
   function self.boot()
     if not firstBoot() then return false end
