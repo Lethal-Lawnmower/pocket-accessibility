@@ -162,6 +162,10 @@ and recorded in the topic file.
 - **Ruby, Sapphire, Emerald (decision 44, 2026-11-04):** on branch `gen3-all`. Screens in `ruby-sapphire-emerald.md`, navigation in
   `ruby-sapphire-emerald-navigation.md`. Run in game by script, silent; not heard, no playthrough: the harness sets party, badges and flags, teleports and skips
   scenes. Agent reports, then one sweep of the merged code by the lead. Emerald's load scripts and the Wailmer barrier are honoured, so a new game's Lilycove is closed.
+  Lead's sweep of merged `gen3-all`, 2026-11-04, all 7 games: no crashes. Each Hoenn game: 8 of 8 gym leaders reached by one auto-walk, 0 bad labels. Failures left:
+  `rse_nav_sweep` "no generic labels" (537 Emerald, 566 Ruby and Sapphire: mostly "Person", sprites a variable picks, on maps the player is not on); `rse_story`'s story blocks (Aqua and Magma
+  Hideouts, New Mauville, Seafloor Cavern's entrance), Emerald's Shoal Cave Ice Room (one run), Trick House 7 in Ruby and Sapphire, Sky Pillar on foot (correctly "Needs Mach Bike"); Emerald's move
+  tutor did not finish in `rse_screens_field` once, and the test's cleanup then failed. FireRed `gen3_battle` hit its 600-second limit once in a loaded sweep and passed alone (status has an earlier 1-in-6 hang there).
   For the owner: Dewford Gym is not "dark" under decision 37, because Flash is refused there and its level falls as trainers lose; and the wording questions at the end of `ruby-sapphire-emerald.md`.
 
 ## Launcher

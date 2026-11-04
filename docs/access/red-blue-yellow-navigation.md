@@ -138,8 +138,10 @@ ran only before these fixes (1651 of 1679, 1669 of 1698). Their other navigation
 
 A ledge left auto-walk at 1X for the rest of a route when its direction stayed held, until a battle or a stop: found 2026-11-04 by
 `gen3_nav`, whose 200X check passed only when a wild battle happened. Fixed in `AutoWalk` (landing ends the hop's 1X). `gen3_nav` then 3 of 3 on LeafGreen,
-`gen2_nav` passes on Crystal. Not checked on a Gen 1 route: `gen1_nav_walk` with `WALK_MAPS=ROUTE_4` alone wrote nothing in 560 seconds, on old and new code alike,
-though Route 4 passes within the whole run; not investigated.
+`gen2_nav` passes on Crystal. A Route 4 check that wrote nothing was a test error: the search for "Red Version" had picked FireRed's dump, newly in the same folder.
+
+Whole run on the final merged code, Red's own dump, 2026-11-04: 1655 of 1679 walks as they should. The one new miss since the table above is the Game Corner Prize Room's
+"Prize Vendor 3" sign; not investigated. Area journeys as in the table. No speed setting was set in that run, so it does not test the ledge fix on a Gen 1 route.
 
 A wild battle on the way to the water left "Could not use Surf" on the second ask (FireRed `gen3_nav_gaps`, one run in the rerun):
 a battle now clears that memory. Waterfall part then passed 6 of 6.
