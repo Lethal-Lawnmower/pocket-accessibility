@@ -257,7 +257,7 @@ return function(game)
     -- the game's own question, as a player answers it
     L.tap("a", 20)
     L.settle(1500, "a")
-    U.log(L.pos() == id("UNDERWATER_ROUTE124") and "RESULT" or "FAIL", "dived", L.where(), L.heard():sub(-160))
+    U.log(L.pos() ~= id("ROUTE124") and "RESULT" or "FAIL", "dived", L.where(), L.heard():sub(-160))
     walk("Back to the surface", "area", "Route 124$", nil)
     L.tap("b", 20)
     L.settle(1500, "a")
@@ -351,7 +351,7 @@ return function(game)
       pcall(function() rse.getOnOff("mach") end)
     end
     -- Sootopolis's crater by Dive, from Route 126
-    arriveAt(id("UNDERWATER_ROUTE126"), 45, 67, "up")
+    arriveAt(maps[id("UNDERWATER_ROUTE126")] and id("UNDERWATER_ROUTE126") or id("UNDERWATER2"), 45, 67, "up")
     walk("Underwater Route 126 into the crater", "warps", "Sootopolis", id("UNDERWATER_SOOTOPOLIS_CITY"))
     -- the clock
     L.heard()

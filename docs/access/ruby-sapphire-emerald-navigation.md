@@ -64,8 +64,42 @@ All under AUTO-WALK PUZZLES; any key stops them. They start when a target has no
 
 Numbers below are from driver logs on this branch. Nobody has heard any of it.
 
-VERIFICATION_TABLE
+| Check | Emerald | Ruby | Sapphire |
+|---|---|---|---|
+| Label sweep (`rse_nav_sweep`), maps | 519 | 395 | 395 |
+| Labels on those maps | 4405 | 3523 | 3523 |
+| Bad labels (raw ids, addresses, placeholders) | 0 | 0 | 0 |
+| Generic: "Person" | 495 | 536 | 536 |
+| Generic: "Exit" (dynamic warps) | 33 | 30 | 30 |
+| Generic: "Trainer" | 9 | 0 | 0 |
+| "Signpost N" | 0 | 0 | 0 |
+| Reach (`rse_nav_reach`): listed, no cell any flood entered | 2099, 150 | 1756, 117 | 1756, 117 |
+| Area journeys planned, refused (`rse_story` A, a new game's flags) | 238, 68 | 209, 43 | 209, 43 |
+| All 8 gym leaders, door to leader, one auto-walk each | 8 of 8 | 8 of 8 | 8 of 8 |
+
+All levels: run in game by driver with a harness party, badges, flags and teleports, skipping every scene in between. No full playthrough
+was run, and no walk started from a save. Rerunning Emerald's later parts after the last fix, one walk changed: Shoal Cave's Ice Room is "No route" at high tide,
+because the game's tide follows the clock (`UpdateShoalTideFlag`); low tide arrived.
+
+- **"Person" and "Exit" are planned-map counts.** "Person" is a sprite a variable picks: mostly Secret Bases (360), then Contest Halls and houses, resolved when the map loads.
+  Live, on Brendan's and May's 2F, two Pokémon Centers, a Secret Base and Lilycove (Emerald), 0 of 41 objects said "Person". "Exit" is a warp the game fills in while running (Secret Bases, link rooms).
+- **Puzzles, seen arriving:** Mauville (switches, a trainer in the only way), Fortree (gates; Ruby and Sapphire's route crosses a cell twice), Lavaridge (holes and springs), Mossdeep (Emerald: 16 presses in the traced run; Ruby and Sapphire: hidden switches), Sootopolis (all three rooms). Seafloor Cavern Room 1 to Room 9 by one walk, boulders and Rock Smash included, all three games. Trick House 1, 2, 3, 4, 6, 8 to the scroll, all three; 7 in Emerald only.
+- **Field moves, seen:** Surf, Waterfall (Meteor Falls), Dive and back (Route 124, all three), Sky Pillar 2F to 3F on the Mach Bike, and "Needs Mach Bike" on foot (run with the harness's VAR_SKY_PILLAR_STATE in Emerald). Crater by water door (Emerald). Q says the time.
+- **Unit tests:** every suite in `tests/access` passes; `gen2_nav_cart_test` skipped. No Hoenn unit suite was added; drivers are the evidence.
+- **Other games on this code:** FireRed `gen3_nav` 15/15, `gen3_nav_more` 13/13, `gen3_nav_gaps` 38/38, `gen3_nav_puzzle` 5/5, `gen3_boulders` (Seafoam, Tanoby 32, Victory Road 19, 25, 34), `gen3_nav_sweep` 7/7, `gen3_switches`. Crystal `gen2_nav`, `gen2_switches`: finished, no FAIL lines. Red `journeys`: finished, no FAIL lines; `gen1_puzzles`: no FAIL lines, but stopped by my 500 second limit before its end, so not a full pass.
+- **Heard:** nothing. Every run was silent.
+
 
 ## Known gaps
 
-KNOWN_GAPS
+- **Story doors and guards.** New Mauville's door, Sootopolis Gym's door, the grunts inside Aqua and Magma Hideouts and at Seafloor Cavern's entrance: "No route" until the story clears them. Reach counts them as terrain. These were read from the floors, not walked with the story's flags set.
+- **Reach gaps left, by map (Emerald; the reasons are read from the maps, not proved by walking):** Battle Pyramid squares 48 (generated in the challenge), Trick House 19, New Mauville 18 (behind the Basement Key door), Abandoned Ship hidden rooms 13 (their key), Seafloor 11 and Fiery Path 7, Victory Road B1F 4 (boulders the flood holds fixed; Seafloor was walked through), Petalburg Gym's locked signs 10, Shoal Cave 10 (tide), Safari Zone 4 (bikes). Ruby and Sapphire much the same without the Pyramid; their Trick House 35, Seafloor 14.
+- **Trick House 7 in Ruby and Sapphire:** "No switch opens a way". Their constants have no arrow tile names, so `rotatingSwitchPlan` cannot read the puzzle and trying switches does not find it. Optional. Trick House 5 is the Mechadolls' quiz, a held script, not a walk.
+- **Rooms by script:** Battle Frontier, tents, contests, the cable car, the ferry, Regi chambers, Mirage Island: lists work where the map is free; nothing walks their rides or challenges. No Frontier facility was walked.
+- **Acro Bike:** Jagged Pass upward, Safari Zone's rails: "Needs Acro Bike", no walk.
+- **Mach Bike:** the player must already be riding; only Sky Pillar 2F was ridden. Granite Cave B2F's cracks, Mirage Tower's and the muddy slopes are the same search, not run.
+- **Secret bases:** a spot is listed and walked to. Secret Power, and a base's own decorations, are not run.
+- **Unexplained:** in Ruby and Sapphire, Seafloor Cavern's entrance with the grunt in the way, the walk's first move brought up the game's Dive question (the harness answered yes). Not looked into. A real player can answer no.
+- **Petalburg Gym:** Norman's object stands by the door in a new game's state, so "door to leader" there is a few steps and proves nothing about the rooms. The rooms' doors are warps the planner reads; none was walked to Norman in a later state.
+- **A move through a bridge** says each cell in guided navigation, but the crossing has only been walked by auto-walk (Victory Road 1F).
+

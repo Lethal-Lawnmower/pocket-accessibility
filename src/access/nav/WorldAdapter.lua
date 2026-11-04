@@ -326,11 +326,10 @@ function Gen3.transitioning(_world)
   local Forced = loaded("src.core.game3.forced_movement")
   local Player = loaded("src.core.game3.player")
   if Forced and rawget(Forced, "forced") == true then
-    -- the flag outlives a slide a battle cut short (a trainer's eye on Mossdeep Gym's arrows):
-    -- standing still on plain floor, nothing is moving the player any more
-    local Collision = loaded("src.core.game3.collision")
-    local stopped = Player and not Player.moving and Collision and Forced.isForcedMovementTile
-      and not call(Forced.isForcedMovementTile, call(Collision.behavior, Player.cellX, Player.cellY))
+    -- the flag outlives a slide a battle cut short (a trainer's eye on Mossdeep Gym's arrows,
+    -- Trick House 8's floor): each forced step starts in the tick the last one ends, so a
+    -- player standing still is no longer being moved
+    local stopped = Player and not Player.moving
     if not stopped then return true end
   end
   if Player then
