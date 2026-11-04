@@ -12,6 +12,8 @@
 -- currents, spinners and the stop tile their own sounds, and warns when the
 -- player stands next to a ledge they could jump.
 
+local GameData = require("src.access.nav.gen3.GameData")
+
 local Terrain = { SCHEMA = 1 }
 
 local PROFILE = {
@@ -46,13 +48,18 @@ local PROFILE = {
   rock = { label = "smashable rock", cue = "boulder" },
   wall = { label = "wall", cue = "wall" },
   edge = { label = "map edge", cue = "wall" },
+  cracked_floor = { label = "cracked floor", cue = "hole", hazard = true },
+  bumpy_slope = { label = "bumpy slope", cue = "wall" },
+  rail = { label = "narrow rail", cue = "wall" },
+  ash = { label = "ash", cue = "grass" },
+  deep_sand = { label = "deep sand", cue = "default" },
   unknown = { label = "unknown terrain", cue = "default" },
 }
 Terrain.PROFILE = PROFILE
 
 -- pokefirered include/constants/metatile_behaviors.h
 local MB = {
-  WATERFALL = 0x13, STRENGTH_BUTTON = 0x20, ICE = 0x23, THIN_ICE = 0x26,
+  WATERFALL = 0x13, STRENGTH_BUTTON = 0x20, ICE = 0x23, THIN_ICE = 0x26, TRICK_HOUSE_SLIP = 0x48,
   CRACKED_ICE = 0x27, COUNTER = 0x80,
   CAVE_DOOR = 0x60, LADDER = 0x61, FALL_WARP = 0x66, REGULAR_WARP = 0x67,
   WARP_DOOR = 0x69, UP_ESCALATOR = 0x6A, DOWN_ESCALATOR = 0x6B,
@@ -63,6 +70,32 @@ local CURRENT = { [0x50] = "right", [0x51] = "left", [0x52] = "up", [0x53] = "do
 local SPIN = { [0x54] = "right", [0x55] = "left", [0x56] = "up", [0x57] = "down" }
 local WALK = { [0x40] = "right", [0x41] = "left", [0x42] = "up", [0x43] = "down" }
 local SLIDE = { [0x44] = "right", [0x45] = "left", [0x46] = "up", [0x47] = "down" }
+-- Names only Ruby, Sapphire and Emerald have: upstream's canonical ids
+-- (src/core/game3/mb.lua), never a game's raw byte.
+local H = setmetatable({}, { __index = function(self, name)
+  local value = GameData.mb(name) or false
+  rawset(self, name, value)
+  return value
+end })
+Terrain.HOENN_MB = H
+
+-- On foot these do not take the player: the Acro Bike's bumpy slopes and rails
+-- (Bike.acroCollision), the cracked floors a Mach Bike at full speed rides across and
+-- anything slower falls through (step_callbacks_rse.crackedFloor).
+function Terrain.needsAcroBike(beh)
+  return beh ~= nil and (beh == H.BUMPY_SLOPE or beh == H.ISOLATED_VERTICAL_RAIL
+    or beh == H.ISOLATED_HORIZONTAL_RAIL or beh == H.VERTICAL_RAIL or beh == H.HORIZONTAL_RAIL)
+end
+
+function Terrain.isCrackedFloor(beh)
+  return beh ~= nil and (beh == H.CRACKED_FLOOR or beh == H.CRACKED_FLOOR_HOLE)
+end
+
+-- A step here drops the player, unless it is the walk's goal.
+function Terrain.givesWay(beh)
+  return beh == MB.CRACKED_ICE or beh == MB.FALL_WARP or Terrain.isCrackedFloor(beh)
+end
+
 local STAIR_UP = { [0x6C] = true, [0x6D] = true }
 local STAIR_DOWN = { [0x6E] = true, [0x6F] = true }
 local ARROW = { [0x62] = true, [0x63] = true, [0x64] = true, [0x65] = true }
@@ -75,7 +108,8 @@ Terrain.STOP_SPINNING = 0x58
 -- or nil.  Ice keeps the direction of travel (nil direction, "ice").
 function Terrain.forced(beh)
   if beh == nil then return nil end
-  if beh == MB.ICE then return nil, "ice" end
+  if beh == MB.ICE or beh == MB.TRICK_HOUSE_SLIP then return nil, "ice" end
+  if beh == H.MUDDY_SLOPE then return "down", "moving_floor" end
   if CURRENT[beh] then return CURRENT[beh], "current" end
   if SPIN[beh] then return SPIN[beh], "spinner" end
   if WALK[beh] then return WALK[beh], "moving_floor" end
@@ -94,13 +128,32 @@ local function entityAt(world, x, y)
   return nil
 end
 
-local GFX_CUT_TREE, GFX_ROCK, GFX_BOULDER = 95, 96, 97
-Terrain.GFX = { ITEM_BALL = 92, CUT_TREE = GFX_CUT_TREE, ROCK = GFX_ROCK, BOULDER = GFX_BOULDER }
+-- The graphics of field obstacles: FireRed's numbers, or the running
+-- cartridge's own constants (Terrain.GFX.BOULDER is 97 in FireRed, 87 in Emerald,
+-- Ruby and Sapphire).  Read each time: the game can change in one process.
+local FRLG_GFX = { ITEM_BALL = 92, CUT_TREE = 95, ROCK = 96, BOULDER = 97 }
+local RSE_GFX_NAME = { ITEM_BALL = "OBJ_EVENT_GFX_ITEM_BALL", CUT_TREE = "OBJ_EVENT_GFX_CUTTABLE_TREE",
+  ROCK = "OBJ_EVENT_GFX_BREAKABLE_ROCK", BOULDER = "OBJ_EVENT_GFX_PUSHABLE_BOULDER" }
+local gfxByGame = {}
+Terrain.GFX = setmetatable({}, { __index = function(_, key)
+  local id = GameData.id()
+  local row = gfxByGame[id]
+  if not row then
+    row = {}
+    gfxByGame[id] = row
+    local set = GameData.isHoenn() and GameData.constants() or nil
+    local names = set and set.event_objects and set.event_objects.byName
+    for name, value in pairs(FRLG_GFX) do
+      row[name] = names and names[RSE_GFX_NAME[name]] or value
+    end
+  end
+  return row[key]
+end })
 
 function Terrain.isBoulder(entity)
   local def = type(entity) == "table" and entity.def or nil
   local gfx = type(entity) == "table" and (entity.graphicsId or (def and (def.graphicsId or def.gfx))) or nil
-  return tonumber(gfx) == GFX_BOULDER and entity.passable ~= true
+  return tonumber(gfx) == Terrain.GFX.BOULDER and entity.passable ~= true
 end
 
 local function record(kind, x, y, extra)
@@ -127,9 +180,9 @@ function Terrain.classify(world, x, y, opts)
   local entity = entityAt(world, x, y)
   if entity then
     local gfx = tonumber(entity.graphicsId or (entity.def and entity.def.graphicsId))
-    if gfx == GFX_BOULDER then return record("boulder", x, y, { passable = false, entity = entity }) end
-    if gfx == GFX_CUT_TREE then return record("cut_tree", x, y, { passable = false, entity = entity }) end
-    if gfx == GFX_ROCK then return record("rock", x, y, { passable = false, entity = entity }) end
+    if gfx == Terrain.GFX.BOULDER then return record("boulder", x, y, { passable = false, entity = entity }) end
+    if gfx == Terrain.GFX.CUT_TREE then return record("cut_tree", x, y, { passable = false, entity = entity }) end
+    if gfx == Terrain.GFX.ROCK then return record("rock", x, y, { passable = false, entity = entity }) end
   end
   local warpKind = map.warpKind and map:warpKind(x, y) or nil
   if warpKind then
@@ -153,11 +206,16 @@ function Terrain.classify(world, x, y, opts)
   if WALK[beh] or SLIDE[beh] then
     return record("moving_floor", x, y, { direction = WALK[beh] or SLIDE[beh] })
   end
-  if beh == MB.ICE then return record("ice", x, y) end
+  if beh == MB.ICE or beh == MB.TRICK_HOUSE_SLIP then return record("ice", x, y) end
   if beh == MB.THIN_ICE then return record("thin_ice", x, y) end
   if beh == MB.CRACKED_ICE then return record("cracked_ice", x, y) end
   if beh == MB.STRENGTH_BUTTON then return record("switch", x, y, { passable = true }) end
-  if CYCLING_SLOPE[beh] then return record("slope", x, y, { direction = "down" }) end
+  if CYCLING_SLOPE[beh] or beh == H.MUDDY_SLOPE then return record("slope", x, y, { direction = "down" }) end
+  if Terrain.isCrackedFloor(beh) then return record("cracked_floor", x, y) end
+  if beh == H.BUMPY_SLOPE then return record("bumpy_slope", x, y) end
+  if Terrain.needsAcroBike(beh) then return record("rail", x, y) end
+  if beh == H.ASHGRASS then return record("ash", x, y, { passable = true }) end
+  if beh == H.DEEP_SAND then return record("deep_sand", x, y, { passable = true }) end
   if map.isLedgeCell and map:isLedgeCell(x, y) then
     local facings = map:ledgeFacings(x, y) or {}
     local direction = next(facings)
@@ -197,5 +255,41 @@ Terrain.FURNITURE = {
   [0x9E] = { label = "Blinking Lights", scenery = true }, [0x9F] = { label = "Tools", scenery = true },
   [0xA0] = { label = "Machine", scenery = true }, [0xA1] = { label = "Video Game", scenery = true },
 }
+
+-- Ruby, Sapphire and Emerald's own furniture, by name (the importer's interaction
+-- pack answers A on these; upstream src/core/game3/scripting/interaction_scripts.lua).
+for name, row in pairs({
+  PICTURE_BOOK_SHELF = { label = "Bookshelf", scenery = true },
+  POKEMON_CENTER_BOOKSHELF = { label = "Bookshelf", scenery = true },
+  VASE = { label = "Vase", scenery = true },
+  TRASH_CAN = { label = "Trash Can", scenery = true },
+  SHOP_SHELF = { label = "Shop Shelf", scenery = true },
+  BLUEPRINT = { label = "Blueprint", scenery = true },
+  SLOT_MACHINE = { label = "Slot Machine" },
+  ROULETTE = { label = "Roulette" },
+  POKEBLOCK_FEEDER = { label = "Pok\195\169block Feeder" },
+  CABLE_BOX_RESULTS_1 = { label = "Link Results" },
+  CABLE_BOX_RESULTS_2 = { label = "Link Results" },
+  WIRELESS_BOX_RESULTS = { label = "Link Results" },
+  TRAINER_HILL_TIMER = { label = "Trainer Hill Timer" },
+  SECRET_BASE_PC = { label = "Secret Base PC" },
+  SECRET_BASE_REGISTER_PC = { label = "Registry PC" },
+  PLAYER_ROOM_PC_ON = { label = "PC" },
+  SKY_PILLAR_CLOSED_DOOR = { label = "Closed Door", faceUp = true },
+  CLOSED_SOOTOPOLIS_DOOR = { label = "Closed Door", faceUp = true },
+  TRICK_HOUSE_PUZZLE_DOOR = { label = "Trick House Door", faceUp = true },
+}) do
+  local id = GameData.mb(name)
+  if id then Terrain.FURNITURE[id] = row end
+end
+
+-- Spots the Secret Power move opens (fldeff_misc, MB_SECRET_BASE_SPOT_*): the closed
+-- ones, for the object list.
+local SECRET_SPOTS = {}
+for _, name in ipairs({ "RED_CAVE", "BROWN_CAVE", "YELLOW_CAVE", "TREE_LEFT", "SHRUB", "BLUE_CAVE", "TREE_RIGHT" }) do
+  local id = GameData.mb("SECRET_BASE_SPOT_" .. name)
+  if id then SECRET_SPOTS[id] = true end
+end
+function Terrain.isSecretBaseSpot(beh) return SECRET_SPOTS[beh] == true end
 
 return Terrain

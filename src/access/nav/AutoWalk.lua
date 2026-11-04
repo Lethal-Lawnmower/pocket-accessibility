@@ -101,12 +101,20 @@ end
 -- fallback guided navigation uses).
 local function findRoute(nav, goals)
   local Pathfinder = require("src.access.nav.Pathfinder")
+  -- a floor whose route depends on more than cells (Fortree's spinning gates)
+  if type(nav.plannedRoute) == "function" then
+    local handled, planned, planError = nav:plannedRoute(goals)
+    if handled then return planned, planError end
+  end
   local lastErr = "No route"
   for policy = 1, 2 do
     local options, err = nav:worldRouteRequest(goals, policy)
     if options then
       local result, findErr = Pathfinder.find(options)
-      if result and type(result.steps) == "table" then return result end
+      if result and type(result.steps) == "table" then
+        if type(nav.expandRoute) == "function" then nav:expandRoute(result) end
+        return result
+      end
       lastErr = findErr or lastErr
     else
       lastErr = err or lastErr
@@ -174,6 +182,15 @@ end
 -- Off the cell, on the way back: the step off is done with.  Left in the list it sent
 -- the player off again from the same cell for ever, on a warp that needs its direction
 -- held to fire (Tohjo Falls' mats).
+-- A route that crosses a cell twice (round a spinning gate, Fortree Gym) marks its steps
+-- `ordered`: the steps done are dropped, or the first step from that cell would be taken for ever.
+-- The last stays, for the arrival.
+local function dropTakenSteps(x, y)
+  local steps = walk.steps
+  if not (steps and steps.ordered) then return end
+  while #steps > 1 and steps[1].x == x and steps[1].y == y do table.remove(steps, 1) end
+end
+
 local function leftTheCell(x, y)
   local second = walk.steps[2]
   if walk.steppingOff and second and second.fromX == x and second.fromY == y then
@@ -203,6 +220,8 @@ function AutoWalk.start(nav, game, adapter, opts)
   if not opts.quiet and Boulders.active() then return Boulders.stop("Auto walk stopped") end
   local Switches = require("src.access.nav.SwitchWalk")
   if not opts.quiet and Switches.active() then return Switches.stop("Auto walk stopped") end
+  local Ice = require("src.access.nav.IceWalk")
+  if not opts.quiet and Ice.active() then return Ice.stop("Auto walk stopped") end
   if walk then return AutoWalk.stop("Auto walk stopped") end
   adapter = adapter or WorldAdapter.current() or WorldAdapter.gen1
   local tooDark = type(nav.darkRefusal) == "function" and nav:darkRefusal()
@@ -273,6 +292,11 @@ function AutoWalk.start(nav, game, adapter, opts)
     danceLeg = leg
   end
   local result, findErr = findRoute(nav, goals)
+  -- Thin ice comes before any way round through a fall (Sootopolis Gym)
+  if not result and not journey and not opts.goals and not opts.quiet
+     and require("src.access.nav.IceWalk").tryStart(nav, game, adapter, item, goals, overworld) then
+    return true
+  end
   -- A target on this map with no way here may have one through other maps
   -- (Seafoam's floors): the coordinator that says so (FireRed) walks it as
   -- a journey, the same answer guided navigation gives.
@@ -326,6 +350,8 @@ function AutoWalk.start(nav, game, adapter, opts)
     targetId = item.id, targetType = item.type,
     targetX = item.x, targetY = item.y,
     quiet = opts.quiet,
+    areaSelection = item.type == "area" and item.id or nil,
+    areaFilter = item.type == "area" and nav.browseFilter or nil,
     -- the map a warp target leads to: reaching it is the arrival even when
     -- a fast game speed moved the player past the last step between two
     -- updates (several tiles per real frame at 200X)
@@ -520,6 +546,10 @@ end
 -- The walk ends and this floor's puzzle takes over, when it has one that helps.
 local function journeyPuzzle()
   local nav, game, adapter, overworld = walk.nav, walk.game, walk.adapter, walk.overworld
+  -- a new floor cleared the selection: the walk's Area target is still the one asked for
+  if walk.areaSelection and nav.browseSelectionId == nil then
+    nav.browseFilter, nav.browseSelectionId = walk.areaFilter, walk.areaSelection
+  end
   local item = nav:selectedRouteGoals()
   if type(item) ~= "table" then return false end
   local saved = walk
@@ -550,7 +580,7 @@ local function resume(quiet)
       return
     end
     -- a floor of a journey closed by boulders or switches: its puzzle comes first
-    if walk.journey and not walk.quiet and journeyPuzzle() then return end
+    if (walk.journey or walk.nav.puzzlesOnResume) and not walk.quiet and journeyPuzzle() then return end
     return AutoWalk.stop("Cannot reach " .. tostring(walk.label) .. ", auto walk stopped")
   end
   walk.retryIn = nil
@@ -593,6 +623,9 @@ local function nextLeg()
     if err and not PLANNER_REASONS[err] then return AutoWalk.stop(tostring(err) .. ", auto walk stopped") end
     return AutoWalk.stop("No route from here to " .. tostring(walk.label) .. ", auto walk stopped")
   end
+  -- a floor as the target: being on it is the arrival (a step across a connection can still
+  -- be finishing, and the cell it started from is not one to walk back to)
+  if leg.arrived then return AutoWalk.stop(arrivalText()) end
   walk.map, walk.goals, walk.final = walk.overworld.map, leg.goals, leg.final == true or leg.stopAtGoal == true
   walk.stopText = leg.stopAtGoal and leg.stopText or nil
   if walk.stopText then walk.targetMapId = nil end
@@ -732,6 +765,7 @@ function AutoWalk.update(top)
   local x, y = player.cellX, player.cellY
   if landedOnThisMap(x, y) then return AutoWalk.stop(arrivalText()) end
   leftTheCell(x, y)
+  dropTakenSteps(x, y)
   if x ~= walk.lastX or y ~= walk.lastY then
     walk.lastX, walk.lastY, walk.still = x, y, 0
   elseif not player.moving then
@@ -917,6 +951,7 @@ function AutoWalk.stepped(x, y)
   if not walk or walk.paused or walk.awaitingMap or walk.pushDir or walk.tapA then return end
   if walk.overworld.map ~= walk.map then return end
   leftTheCell(x, y)
+  dropTakenSteps(x, y)
   -- landed: a walk that keeps its direction held does not pass the update's step code again,
   -- and stayed at 1X for the rest of the route
   if walk.hopping then walk.turning, walk.hopping = nil, nil end

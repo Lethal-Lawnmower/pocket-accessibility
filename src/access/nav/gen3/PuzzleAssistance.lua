@@ -117,7 +117,7 @@ function Puzzle.strengthPrefix(nav)
   if not ok then return "Strength availability unknown; " end
   if not usable then
     if missingMon then return "Needs a party Pok\195\169mon with Strength; " end
-    if missingBadge then return "Needs the Rainbow Badge; " end
+    if missingBadge then return "Needs the " .. tostring(missingBadge) .. "; " end
   end
   if type(nav.strengthActive) == "function" and not nav:strengthActive() then
     return "Use Strength on a boulder first; "
@@ -145,7 +145,7 @@ local function floorModel(world, targets, boulders)
       -- is not pressed there (Victory Road 1F's entrance mat)
       pressDir[i] = warp and map.standingWarp and map:standingWarp(x, y) or nil
       standable[i] = walk and (not warpCell[i] or pressDir[i] ~= nil)
-        and beh ~= Terrain.MB.CRACKED_ICE
+        and beh ~= Terrain.MB.CRACKED_ICE and not Terrain.isCrackedFloor(beh)
     end
   end
   for _, entity in ipairs(world.npcs or {}) do

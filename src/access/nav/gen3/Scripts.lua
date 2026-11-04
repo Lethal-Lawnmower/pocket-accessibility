@@ -17,6 +17,8 @@
 --   fossil display   special OpenMuseumFossilPic (Pewter Museum)
 -- Anything else is "Signpost N", as in Gen 1 and Gen 2.
 
+local GameData = require("src.access.nav.gen3.GameData")
+
 local Scripts = {}
 
 local function loaded(path) return package.loaded[path] end
@@ -41,17 +43,15 @@ function Scripts.get(key)
   return type(list) == "table" and list or nil
 end
 
-local specialNames = nil
+local specialNames, specialNamesGame = nil, nil
 local function specialName(id)
-  if specialNames == nil then
-    specialNames = false
-    local ok, Constants = pcall(require, "src.core.game3.constants")
-    if ok and Constants and Constants.of then
-      local okOf, set = pcall(Constants.of, "firered")
-      local specials = okOf and set and set.specials
-      if type(specials) == "table" and type(specials.byId) == "table" then
-        specialNames = specials.byId
-      end
+  local game = GameData.id()
+  if specialNames == nil or (specialNamesGame ~= nil and specialNamesGame ~= game) then
+    specialNames, specialNamesGame = false, game
+    local set = GameData.constants()
+    local specials = set and set.specials
+    if type(specials) == "table" and type(specials.byId) == "table" then
+      specialNames = specials.byId
     end
   end
   if not specialNames then return nil end
@@ -62,7 +62,7 @@ end
 Scripts.specialName = specialName
 
 -- Test hook: a fixed id -> name table.
-function Scripts.setSpecialNames(names) specialNames = names end
+function Scripts.setSpecialNames(names) specialNames, specialNamesGame = names, nil end
 
 local BRANCH = { ["goto"] = true, goto_if = true, call = true, call_if = true }
 
@@ -109,6 +109,13 @@ local SPECIAL_ROLES = {
   { "ShowBerryCrushRankings", "Records" }, { "ShowDodrioBerryPickingRecords", "Records" },
   { "GetHeracrossSizeRecordInfo", "Size Record" }, { "GetMagikarpSizeRecordInfo", "Size Record" },
   { "AnimateTeleporterHousing", "Teleporter" },
+  -- Ruby, Sapphire and Emerald
+  { "PlayRoulette", "Roulette" },
+  { "StartWallClock", "Wall Clock" }, { "Special_ViewWallClock", "Wall Clock" },
+  { "ShowRankingHallRecordsWindow", "Records" }, { "ShowBerryBlenderRecordWindow", "Records" },
+  { "ShowTrainerHillRecords", "Records" }, { "RemoveRecordsWindow", "Records" },
+  { "ShowBattleTowerRecords", "Records" },
+  { "TryBecomeLinkLeader", "Link Machine" }, { "CallBattleDomeFunction", "Tournament Board" },
 }
 
 -- The role a sign's script names, or nil.  Returns role, kind.
@@ -122,6 +129,13 @@ function Scripts.signRole(key)
   -- signs whose text is a script command, not a loaded word
   if s.ops.playslotmachine then return "Slot Machine", "slot_machine" end
   if s.ops.braillemessage then return "Braille", "braille" end
+  if s.ops.showcontestpainting then return "Contest Painting", "painting" end
+  -- Mauville's bike shop's racks: a choice of bikes, nothing else
+  if s.ops.multichoice and s.ops.copyvar and not s.ops.callstd and not s.ops.setmetatile then return "Bike Rack", "bike_rack" end
+  -- Trick House: found once for the game's own check, then read again
+  if s.ops.playfanfare and s.ops.setvar and s.ops.message and not s.ops.setmetatile then
+    return "Secret Scroll", "scroll"
+  end
   if s.ops.checkmoney and s.ops.additem then return "Vending Machine", "vending_machine" end
   if s.ops.setmetatile then
     local yesNo = s.stds[5] == true
@@ -129,6 +143,10 @@ function Scripts.signRole(key)
     if yesNo and (s.ops.setflag or s.ops.clearflag) then return "Secret Switch", "secret_switch" end
     if s.ops.playfanfare and not yesNo then return "Card Key Door", "card_key_door" end
     -- pressed with no question, and something opens: the Game Corner's poster
+    -- (Shoal Cave's pickups draw on the floor too: an item, not a switch)
+    if not yesNo and s.ops.setflag and (s.ops.additem or s.stds[0] or s.stds[1]) and GameData.isHoenn() then
+      return "Item Spot", "item_spot"
+    end
     if not yesNo and s.ops.setflag and not s.ops.trainerbattle then return "Hidden Switch", "hidden_switch" end
   end
   return nil
@@ -141,19 +159,30 @@ end
 -- What a plain sign says, for its name: the first text its script loads, first line
 -- only (read from the script, never run).  Nil when it has none.
 function Scripts.signWords(key)
-  local list = Scripts.get(key)
   local RomText = package.loaded["src.core.game3.rom_text"] or require("src.core.game3.rom_text")
-  for _, cmd in ipairs(type(list) == "table" and list or {}) do
-    if type(cmd) == "table" and cmd.op == "loadword" and type(cmd.value) == "string" then
-      local ok, text = pcall(RomText.plain, cmd.value)
-      if ok and type(text) == "string" then
-        local line = text:gsub("{[^}]*}", " "):gsub("%c.*$", ""):gsub("%s+", " ")
-          :gsub("^%s+", ""):gsub("%s+$", "")
-        if line ~= "" then return line:sub(1, 48) end
+  local seen = {}
+  -- Ruby, Sapphire and Emerald's signs branch first (a flag, then the words): follow
+  -- a few branches, in script order
+  local function words(k, depth)
+    if depth > 3 or seen[k] then return nil end
+    seen[k] = true
+    local list = Scripts.get(k)
+    for _, cmd in ipairs(type(list) == "table" and list or {}) do
+      if type(cmd) == "table" and cmd.op == "loadword" and type(cmd.value) == "string" then
+        local ok, text = pcall(RomText.plain, cmd.value)
+        if ok and type(text) == "string" then
+          local line = text:gsub("{[^}]*}", " "):gsub("%c.*$", ""):gsub("%s+", " ")
+            :gsub("^%s+", ""):gsub("%s+$", "")
+          if line ~= "" then return line:sub(1, 48) end
+        end
+      elseif type(cmd) == "table" and BRANCH[cmd.op] and GameData.isHoenn() then
+        local found = words(cmd.target, depth + 1)
+        if found then return found end
       end
     end
+    return nil
   end
-  return nil
+  return words(key, 0)
 end
 
 function Scripts.cardKeyFlag(key)
@@ -189,28 +218,85 @@ function Scripts.itemBallItem(key)
   return nil
 end
 
+-- Floor switches: a coord event the player's step fires, whose script changes the floor
+-- and neither talks with a trainer nor walks anyone about (Mauville Gym's beams, Mossdeep
+-- Gym's turning arrows).  Story scenes also set metatiles, with movements.
+function Scripts.isFloorSwitch(key)
+  if not Scripts.get(key) then return false end
+  local s = Scripts.reach(key, 8)
+  if s.ops.applymovement or s.ops.trainerbattle or s.ops.warp or s.ops.warpsilent then return false end
+  -- Mauville's beams are set by a special, then the whole map is redrawn
+  return (s.ops.setmetatile or s.ops.moverotatingtileobjects or s.specials.DrawWholeMapView) and true or false
+end
+
+-- The cells of a map's floor switches, as { x, y }.
+function Scripts.floorSwitches(def)
+  local cells = {}
+  for _, event in ipairs(type(def) == "table" and def.coordEvents or {}) do
+    if type(event.x) == "number" and Scripts.isFloorSwitch(event.scriptKey) then
+      cells[#cells + 1] = { x = event.x, y = event.y }
+    end
+  end
+  return cells
+end
+
+-- A floor switch that turns a rotating tile puzzle: the arrow colour it moves, and whether
+-- the puzzle is the Trick House's tile set (initrotatingtilepuzzle's argument).  Nil otherwise.
+function Scripts.rotatingSwitch(key)
+  local number, trickHouse
+  for _, cmd in ipairs(Scripts.get(key) or {}) do
+    if type(cmd) == "table" then
+      if cmd.op == "initrotatingtilepuzzle" then trickHouse = (tonumber(cmd[1]) or 0) ~= 0 end
+      if cmd.op == "moverotatingtileobjects" then number = tonumber(cmd[1]) end
+    end
+  end
+  if number == nil then return nil end
+  return { number = number, trickHouse = trickHouse == true }
+end
+
+-- Where a map's own script sends a Dive (setdivewarp in its resume or dive script), when
+-- no header link does: { mapId, x, y }, or nil.  Sootopolis's crater, Route 134's chamber.
+function Scripts.diveWarpOf(def)
+  local ms = type(def) == "table" and type(def.mapScripts) == "table" and def.mapScripts or nil
+  if not ms then return nil end
+  for _, kind in ipairs({ "onDiveWarp", "onResume" }) do
+    local key = ms[kind]
+    local rows = type(key) == "string" and { { script = key } } or (type(key) == "table" and key or {})
+    for _, row in ipairs(rows) do
+      for _, cmd in ipairs(Scripts.get(row.script) or {}) do
+        if type(cmd) == "table" and cmd.op == "setdivewarp" then
+          local mapId = Scripts.mapIdOf(cmd[1], cmd[2])
+          if mapId then return { mapId = mapId, warp = tonumber(cmd[3]), x = tonumber(cmd[4]), y = tonumber(cmd[5]) } end
+        end
+      end
+    end
+  end
+  return nil
+end
+
 -- ------------------------------------------------------------ map numbers
 
 -- Scripts name maps by group and number (setdynamicwarp, warphole); the
 -- data names them "FR_" plus the constant without "MAP_".
-local mapIds, injectedGroups = nil, nil
+local mapIds, mapIdsGame, injectedGroups = nil, nil, nil
 function Scripts.setMapGroups(byName) injectedGroups = byName mapIds = nil end
 
 function Scripts.mapIdOf(group, num)
   group, num = tonumber(group), tonumber(num)
   if not (group and num) then return nil end
-  if mapIds == nil then
+  local game = GameData.id()
+  if mapIds == nil or mapIdsGame ~= game then
+    mapIdsGame = game
     local byName = injectedGroups
     if not byName then
-      local ok, Constants = pcall(require, "src.core.game3.constants")
-      local okOf, set = false, nil
-      if ok and Constants and Constants.of then okOf, set = pcall(Constants.of, "firered") end
-      byName = okOf and set and set.map_groups and set.map_groups.byName or nil
+      local set = GameData.constants()
+      byName = set and set.map_groups and set.map_groups.byName or nil
     end
     mapIds = {}
+    local prefix = GameData.mapPrefix()
     for name, row in pairs(type(byName) == "table" and byName or {}) do
       if type(name) == "string" and type(row) == "table" and row.group and row.num then
-        mapIds[tonumber(row.group) * 1024 + tonumber(row.num)] = "FR_" .. name:gsub("^MAP_", "")
+        mapIds[tonumber(row.group) * 1024 + tonumber(row.num)] = prefix .. name:gsub("^MAP_", "")
       end
     end
   end
@@ -234,11 +320,19 @@ end
 -- layoutIndex = n or nil, key = string } where key changes whenever the
 -- result does.
 local HARMLESS = { lockall = true, releaseall = true, lock = true, release = true,
-  setworldmapflag = true, nop = true, nop1 = true,
+  setworldmapflag = true, nop = true, nop1 = true, setflashlevel = true,
   -- these touch the save's respawn, the weather and objects, never the floor
   setrespawn = true, setweather = true, doweather = true, setescapewarp = true,
   setobjectmovementtype = true, setobjectxyperm = true, setobjectxy = true,
   addobject = true, removeobject = true, showobjectat = true, hideobjectat = true }
+-- Specials Ruby, Sapphire and Emerald's load scripts call that touch objects, the
+-- weather or daily flags, never the floor: pokeemerald's names.
+local HARMLESS_SPECIAL = {
+  ShouldDistributeEonTicket = true, IsWirelessContest = true, SetEReaderTrainerGfxId = true,
+  SetLilycoveLadyGfx = true, SetMauvilleOldManObjEventGfx = true, SetRoute123Weather = true,
+  SetSecretBaseOwnerGfxId = true, ShouldHideFanClubInterviewer = true, UpdateShoalTideFlag = true,
+  RotatingGate_InitPuzzle = true, SetTrickHouseNuggetFlag = true,
+}
 -- pokefirered sCmpTable: the comparison result is 0 (less, or a flag
 -- unset), 1 (equal, or set) or 2 (greater)
 local CONDITION = {
@@ -246,6 +340,13 @@ local CONDITION = {
   [3] = { [0] = true, [1] = true }, [4] = { [1] = true, [2] = true },
   [5] = { [0] = true, [2] = true },
 }
+
+local function World_session()
+  local Runtime = loaded("src.core.game3.runtime")
+  if not (Runtime and Runtime.getSession) then return nil end
+  local ok, session = pcall(Runtime.getSession)
+  return ok and session or nil
+end
 
 local function argOf(cmd, name, index)
   local value = cmd[name]
@@ -330,9 +431,15 @@ function Scripts.loadState(def, flag, var)
             impassable = (tonumber(cmd[4]) or 0) ~= 0 }
         elseif op == "setmaplayoutindex" then
           layoutIndex = tonumber(cmd[1])
+        elseif op == "checkplayergender" then
+          local session = World_session and World_session()
+          vars[0x800D] = tonumber(session and session.gender) or 0
+        elseif op == "cleartrainerflag" then
+          flags[0x500 + (tonumber(argOf(cmd, "trainer", 1)) or 0)] = false
         elseif op == "special" or op == "specialvar" then
           local id = op == "specialvar" and cmd[2] or cmd.id or cmd[1]
-          return nil, "special " .. tostring(specialName(tonumber(id)))
+          local name = specialName(tonumber(id))
+          if not HARMLESS_SPECIAL[name] then return nil, "special " .. tostring(name) end
         elseif not HARMLESS[op] then
           return nil, tostring(op)
         end
@@ -452,17 +559,23 @@ end
 function Scripts.crackedIceDrop(def)
   local ms = type(def) == "table" and type(def.mapScripts) == "table" and def.mapScripts or nil
   if not ms then return nil end
-  local cracks = false
+  -- step callback 4 is thin ice, 7 cracked floors (Sky Pillar, Granite Cave); the
+  -- floors name their landing with setholewarp and fall with warphole 255, 255
+  local cracks, holeGroup, holeNum = false, nil, nil
   if type(ms.onResume) == "string" then
     for _, cmd in ipairs(Scripts.get(ms.onResume) or {}) do
-      if type(cmd) == "table" and cmd.op == "setstepcallback" and tonumber(cmd[1]) == 4 then cracks = true end
+      if type(cmd) == "table" then
+        if cmd.op == "setstepcallback" and (tonumber(cmd[1]) == 4 or tonumber(cmd[1]) == 7) then cracks = tonumber(cmd[1]) end
+        if cmd.op == "setholewarp" then holeGroup, holeNum = cmd[1], cmd[2] end
+      end
     end
   end
   if not cracks then return nil end
   for _, row in ipairs(type(ms.onFrame) == "table" and ms.onFrame or {}) do
     for _, cmd in ipairs(Scripts.get(row.script) or {}) do
       if type(cmd) == "table" and cmd.op == "warphole" then
-        return Scripts.mapIdOf(cmd[1], cmd[2])
+        if tonumber(cmd[1]) == 255 and holeGroup then return Scripts.mapIdOf(holeGroup, holeNum), cracks end
+        return Scripts.mapIdOf(cmd[1], cmd[2]), cracks
       end
     end
   end

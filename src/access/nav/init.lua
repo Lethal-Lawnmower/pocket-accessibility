@@ -16,6 +16,7 @@ local AutoWalk = require("src.access.nav.AutoWalk")
 local Chase = require("src.access.nav.Chase")
 local BoulderWalk = require("src.access.nav.BoulderWalk")
 local SwitchWalk = require("src.access.nav.SwitchWalk")
+local IceWalk = require("src.access.nav.IceWalk")
 local WalkSpeed = require("src.access.nav.WalkSpeed")
 local WorldAdapter = require("src.access.nav.WorldAdapter")
 
@@ -133,6 +134,7 @@ local function ensure()
   Chase.stop()
   BoulderWalk.stop()
   SwitchWalk.stop()
+  IceWalk.stop()
   AutoWalk.stop()
   local ok, err = pcall(build, game, adapter)
   if not ok then
@@ -151,6 +153,7 @@ function Nav.update()
   Chase.update()
   BoulderWalk.update()
   SwitchWalk.update()
+  IceWalk.update()
   local pushing = BoulderWalk.pushing()
   WalkSpeed.update(game, AutoWalk.walking() or pushing, AutoWalk.turning() or pushing)
 end
@@ -167,6 +170,9 @@ function Nav.keypressed(key, _, isRepeat)
   if BoulderWalk.active() and adapter.onMap(game) then
     BoulderWalk.stop("Auto walk stopped")
     return true
+  end
+  if IceWalk.active() and adapter.onMap(game) then
+    IceWalk.stop("Auto walk stopped")
   end
   if SwitchWalk.active() and adapter.onMap(game) then
     SwitchWalk.stop("Auto walk stopped")
@@ -225,6 +231,9 @@ function Nav.gamepadpressed(_, button)
     BoulderWalk.stop("Auto walk stopped")
     consumedButtons[button] = true
     return true
+  end
+  if IceWalk.active() and adapter.onMap(game) then
+    IceWalk.stop("Auto walk stopped")
   end
   if SwitchWalk.active() and adapter.onMap(game) then
     SwitchWalk.stop("Auto walk stopped")

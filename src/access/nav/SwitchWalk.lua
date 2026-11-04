@@ -40,6 +40,8 @@ end
 
 local function floorState(map)
   local parts = {}
+  -- Hoenn: arrows turning and objects moving change no collision (Mossdeep Gym)
+  if run and type(run.nav.switchFloorExtra) == "function" then parts[1] = run.nav:switchFloorExtra(map) end
   for y = 0, map.heightCells - 1 do
     for x = 0, map.widthCells - 1 do
       local read = map.cellCollision or map.coll or map.cellTile
@@ -124,9 +126,23 @@ local function walkToSign(pick, from)
   local player = run.overworld.player
   for _, goal in ipairs(pick.goals) do
     if goal.x == player.cellX and goal.y == player.cellY then
+      if pick.step then
+        -- a floor switch fires on the step onto it, and the player already stands there
+        run.tried[from][pick.label] = "blocked"
+        run.phase = "choose"
+        return
+      end
       run.phase = "face"
       return
     end
+  end
+  if pick.step and not autoWalk().routeExists(run.nav, pick.goals) then
+    -- a floor switch past the pads of this floor (Mossdeep Gym)
+    local here = run.nav:currentMapIdOf(run.overworld)
+    run.expectStep = true
+    autoWalk().start(run.nav, run.game, run.adapter, { goals = pick.goals, quiet = true,
+      journeyTo = { targetMapId = here, targetGoals = pick.goals } })
+    return
   end
   autoWalk().start(run.nav, run.game, run.adapter, { goals = pick.goals, quiet = true })
 end
@@ -247,10 +263,40 @@ function choose()
     return walkToSign(back, state)
   end
   local pick, byLabel, again = nil, {}, nil
+  -- a floor whose switches can be worked out (Mossdeep Gym): the next press toward the target
+  local worked = type(run.nav.rotatingSwitchPlan) == "function" and item.type ~= "area"
+    and run.nav:rotatingSwitchPlan(run.overworld, goals) or nil
+  if worked then
+    for _, sign in ipairs(signs) do
+      if sign.label == worked then
+        local player = run.overworld.player
+        if sign.x == player.cellX and sign.y == player.cellY then
+          local off = run.nav:stepOffCell(run.overworld)
+          if off then
+            autoWalk().start(run.nav, run.game, run.adapter, { goals = { off }, quiet = true })
+            run.phase = "choose"
+            return
+          end
+        else
+          return walkToSign(sign, state)
+        end
+      end
+    end
+  end
   for _, sign in ipairs(signs) do
     byLabel[sign.label] = sign
-    if run.tried[state][sign.label] == nil then
-      if not AutoWalk.routeExists(run.nav, sign.goals) then
+    -- what a floor switch can reach depends on where the player stands as well as on the
+    -- floor (Mossdeep Gym's rooms), so "blocked" is asked again from here
+    if run.tried[state][sign.label] == nil or (sign.step and run.tried[state][sign.label] == "blocked") then
+      run.tried[state][sign.label] = nil
+      local reachable = AutoWalk.routeExists(run.nav, sign.goals)
+      -- a floor switch fires on the step onto it: not from standing on it
+      if sign.step and sign.x == run.overworld.player.cellX and sign.y == run.overworld.player.cellY then
+        reachable = false
+      elseif not reachable and sign.step and run.nav.autoWalkJourneys then
+        reachable = run.nav:regionalNextLeg({ targetMapId = run.nav:currentMapIdOf(run.overworld), targetGoals = sign.goals }) ~= nil
+      end
+      if not reachable then
         run.tried[state][sign.label] = "blocked"
       elseif sign.label == run.lastLabel then
         again = sign -- flipping it straight back is the last thing to try here
@@ -293,7 +339,7 @@ function SwitchWalk.update()
     if run.waited > PROMPT_FRAMES then
       return SwitchWalk.stop("The switch did not finish, auto walk stopped")
     end
-    if onMap then
+    if onMap and not (type(run.nav.objectsMoving) == "function" and run.nav:objectsMoving()) then
       run.calm = run.calm + 1
       if run.calm >= CALM_FRAMES then
         if run.hidden then return finishHiddenPress() end
@@ -341,6 +387,11 @@ function SwitchWalk.update()
     if run.hidden then run.tried[sign.label] = true
     else run.tried[run.from][sign.label] = "blocked" end
     run.phase = "choose"
+    return
+  end
+  if run.phase == "face" and sign.step then
+    -- the step onto it pressed it: wait for its script and the floor to settle
+    run.phase, run.waited, run.calm = "flipping", 0, 0
     return
   end
   if run.phase == "face" then
