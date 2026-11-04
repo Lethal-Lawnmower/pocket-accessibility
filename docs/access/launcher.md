@@ -274,7 +274,7 @@ Self-contained, each program holds its own .NET: the updater is 49.2 MiB unpacke
 
 ## Verification: release 0.0.1 (2026-11-04)
 
-Self-contained, from commit 6085a86d, 115.0 MiB unzipped. By script only, on a disposable profile, on a second Windows desktop, with the package's own LÖVE. No one has played or heard it,
+Self-contained, from commit f6c0815f (the zip with the updater and the Discord link), 164.2 MiB unzipped, 109.9 MiB zipped. By script only, on a disposable profile, on a second Windows desktop, with the package's own LÖVE. No one has played or heard it,
 and it was not run on a second PC. All eleven games, with their newest revisions in Gen 3: import exit 0, then a 600-frame boot through the driver, packaged, updater off, no traceback, and the ready check
 says ready for each. The launcher stayed open for 25 seconds. Its window could not be read on that desktop, so its list and Play were not driven this time.
 
