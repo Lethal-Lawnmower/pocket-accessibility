@@ -1,5 +1,11 @@
 # Pocket Accessibility
 
+Pocket Accessibility aims to cover the gaps and weird issues that the original [Pokémon Access](https://github.com/nuive/pokemon-access) couldn't, with the PC ports from the [Pokémon Gen 1 Recompilation Project](https://github.com/bryanthaboi/gen1recomp) by BOIS CLUB GAMES, LLC as its foundation.
+
+If you don't know Pokémon Access, it's a set of scripts by nuive that make the Pokémon games playable with a screen reader through the VBA-ReRecording emulator. It grew out of the Pokécrystal Access Project, which did the same for Crystal.
+
+**Early days:** there is no packaged release yet, so you run it from source. Expect mild inconveniences to moderate bugs.
+
 > [!WARNING]
 > **Seizure and flashing warning, in my own words.** This README was generated
 > by AI, with human bits added where needed, and this is one of them. Seizures,
@@ -10,20 +16,21 @@
 > See also Nintendo's
 > [information about photosensitivity](https://en-americas-support.nintendo.com/app/answers/detail/a_id/59596).
 
-## Currently Supported Games
+## Supported Games
 
-Pokémon Red, Blue, Yellow, Gold, Silver, Crystal, FireRed, LeafGreen, Ruby, Sapphire and Emerald.
+Red, Blue, Yellow, Gold, Silver, Crystal, FireRed, LeafGreen, Ruby, Sapphire and Emerald.
 
-In my personal opinion, these games are in a playable enough state to hopefully
-be completed. Playing through each game myself, one by one, would be unrealistic,
-depending on how many games are added to this project. If you have any issues,
-reach out to me on Discord (`lethal_lawnmower`). But if not, I have adapted most
-of the features I want. Some features are subject to change.
+Playing through every game myself isn't realistic, so here's how far I've gotten:
 
-## About
+- **Crystal:** finished, beat the Elite Four in November 2026.
+- **Red:** played through in August 2026.
+- **FireRed:** played to about the second gym.
+- **Emerald:** only just started. This is very early.
+- **Blue, Yellow, Gold and Silver:** not played through, but they share most of their code with the games above.
+- **LeafGreen:** not played, but it shares FireRed's code.
+- **Ruby and Sapphire:** not played. These are new, so expect more bugs.
 
-Accessibility mods for the PC ports of Pokémon games made by
-BOIS CLUB GAMES, LLC ([Pokemon Gen 1 Recompilation Project](https://github.com/bryanthaboi/gen1recomp)).
+All of them have been through automated tests and scripted runs. If you run into a problem, open an issue here or reach out to me on Discord (`lethal_lawnmower`).
 
 ## Goal
 
@@ -59,20 +66,6 @@ repository or reach out to me on Discord (`lethal_lawnmower`).
 
 My main interest is Crystal from the second generation and most of the
 third-generation GBA games.
-
-## Status
-
-There is no packaged release yet; run it from source (below). Expect mild
-inconveniences to moderate bugs.
-
-| Game | How far it has been played by me | Otherwise |
-|---|---|---|
-| Crystal | Finished: beat the Elite Four, November 2026 | Automated tests and scripted runs |
-| Red | Played through, August 2026 | Automated tests and scripted runs |
-| FireRed | Played to about the second gym | Automated tests and scripted runs |
-| LeafGreen | Not played | Automated tests and scripted runs; shares FireRed's code |
-| Blue, Yellow, Gold, Silver | Not played through | Automated tests and scripted runs; share most of their code with the games above |
-| Ruby, Sapphire, Emerald | Not played | Automated tests and scripted runs only, new in November 2026; expect more bugs here |
 
 ## What It Does
 
