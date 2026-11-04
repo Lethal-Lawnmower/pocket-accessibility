@@ -237,6 +237,20 @@ function Scripts.floorSwitches(def)
   return cells
 end
 
+-- A floor switch that turns a rotating tile puzzle: the arrow colour it moves, and whether
+-- the puzzle is the Trick House's tile set (initrotatingtilepuzzle's argument).  Nil otherwise.
+function Scripts.rotatingSwitch(key)
+  local number, trickHouse
+  for _, cmd in ipairs(Scripts.get(key) or {}) do
+    if type(cmd) == "table" then
+      if cmd.op == "initrotatingtilepuzzle" then trickHouse = (tonumber(cmd[1]) or 0) ~= 0 end
+      if cmd.op == "moverotatingtileobjects" then number = tonumber(cmd[1]) end
+    end
+  end
+  if number == nil then return nil end
+  return { number = number, trickHouse = trickHouse == true }
+end
+
 -- Where a map's own script sends a Dive (setdivewarp in its resume or dive script), when
 -- no header link does: { mapId, x, y }, or nil.  Sootopolis's crater, Route 134's chamber.
 function Scripts.diveWarpOf(def)

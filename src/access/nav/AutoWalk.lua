@@ -605,6 +605,9 @@ local function nextLeg()
     if err and not PLANNER_REASONS[err] then return AutoWalk.stop(tostring(err) .. ", auto walk stopped") end
     return AutoWalk.stop("No route from here to " .. tostring(walk.label) .. ", auto walk stopped")
   end
+  -- a floor as the target: being on it is the arrival (a step across a connection can still
+  -- be finishing, and the cell it started from is not one to walk back to)
+  if leg.arrived then return AutoWalk.stop(arrivalText()) end
   walk.map, walk.goals, walk.final = walk.overworld.map, leg.goals, leg.final == true or leg.stopAtGoal == true
   walk.stopText = leg.stopAtGoal and leg.stopText or nil
   if walk.stopText then walk.targetMapId = nil end

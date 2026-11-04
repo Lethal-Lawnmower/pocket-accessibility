@@ -66,6 +66,21 @@ return function(game)
       if not (AutoWalk.active() or BoulderWalk.active() or SwitchWalk.active() or extraActive) then return true end
       if frame % 900 == 0 then L.heal() end
       local boulders, switches = BoulderWalk._state(), SwitchWalk._state()
+      local walkNow = AutoWalk._state()
+      if walkNow and walkNow.paused and os.getenv("RSE_STORY_TRACE") == "1" then
+        local Space = package.loaded["src.core.game3.scripting.space"]
+        local vm = Space and Space.vm
+        local Field = package.loaded["src.core.game3.field"]
+        local Fade = package.loaded["src.ui.game3.fade"]
+        local mark = table.concat({ "held", tostring(L.adapter().held(game)), "vm", tostring(vm and vm:isRunning()),
+          "script", tostring(vm and (vm.currentKey or vm.key or vm.script)), "locked", tostring(Field and Field.isLocked and Field.isLocked()),
+          "hold", tostring(Field and rawget(Field, "_holdInput")), "fade", tostring(Fade and Fade.lockInput),
+          "pending", tostring(Space and Space._pendingOnFrame), "at", L.where() }, " ")
+        if mark ~= L.lastPause then
+          L.lastPause = mark
+          U.log("PAUSE", mark)
+        end
+      end
       if switches and os.getenv("RSE_STORY_TRACE") == "1" then
         local mark = tostring(switches.phase) .. " " .. tostring(switches.sign and switches.sign.label) .. " flips " .. tostring(switches.flips)
         if mark ~= L.lastMark then
@@ -191,6 +206,15 @@ return function(game)
       local mapId = id(row[1])
       if (not onlyGyms or onlyGyms:find(row[2], 1, true)) and arrive(mapId) then
         U.log("GYM", mapId, "listed:", labels("npcs"))
+        if os.getenv("RSE_STORY_TRACE") == "1" then
+          local world = nav:worldState()
+          local target = L.findLabel(row[2], "npcs")
+          L.select(target, "npcs")
+          local _, goals = nav:selectedRouteGoals()
+          local started = os.clock()
+          local ok, plan, why = pcall(nav.rotatingSwitchPlan, nav, world, goals)
+          U.log("PLAN", tostring(ok), tostring(plan), tostring(why), os.clock() - started)
+        end
         walk("gym " .. row[1] .. " to " .. row[2], "npcs", row[2], nil, 40000)
       end
     end
@@ -198,7 +222,8 @@ return function(game)
 
   if part("F") then
     arriveAt(id("ROUTE101"), 10, 15)
-    walk("Route 101 to Oldale", "connections", "Oldale", id("OLDALE_TOWN"))
+    if walk("Route 101 to Oldale's edge", "connections", "Oldale", nil) then L.hold("up", 30) L.settle(200, true) end
+    U.log(L.pos() == id("OLDALE_TOWN") and "RESULT" or "FAIL", "crossed to", L.where())
     walk("Oldale to its Center", "warps", "Pok.mon Center", id("OLDALE_TOWN_POKEMON_CENTER_1F"))
     arriveAt(id("ROUTE124"), 70, 49)
     walk("Route 124 to its seabed", "area", "Underwater Route 124", nil)
@@ -208,18 +233,12 @@ return function(game)
     L.settle(1500, "a")
     U.log(L.pos() == id("UNDERWATER_ROUTE124") and "RESULT" or "FAIL", "dived", L.where(), L.heard():sub(-160))
     walk("Back to the surface", "area", "Route 124$", nil)
-    L.tap("a", 20)
+    L.tap("b", 20)
     L.settle(1500, "a")
     U.log(L.pos() == id("ROUTE124") and "RESULT" or "FAIL", "surfaced", L.where(), L.heard():sub(-160))
     -- Surf over a current and up a waterfall
-    if maps[id("ROUTE131")] then
-      arriveAt(id("SOOTOPOLIS_CITY"), 31, 34)
-      walk("Sootopolis to its gym", "warps", "Gym", id("SOOTOPOLIS_CITY_GYM_1F"))
-    end
-    arriveAt(id("ROUTE119"), 7, 150)
-    walk("Route 119 north to the Weather Institute", "warps", "Weather Institute", id("ROUTE119_WEATHER_INSTITUTE_1F"))
-    arriveAt(id("ROUTE114"), 7, 50)
-    walk("Route 114 to Meteor Falls", "connections", "Route 115", id("ROUTE115"))
+    arriveAt(id("ROUTE134"), 40, 20)
+    walk("Route 134 across the currents to Route 133", "connections", "Route 133", nil)
   end
 
   if part("H") then
@@ -229,6 +248,7 @@ return function(game)
       if flag then L.setFlag(flag, true) else U.log("NOTE", "no flag", name) end
     end
     setFlagByName("FLAG_LANDMARK_SEAFLOOR_CAVERN")
+    setFlagByName("FLAG_SYS_USE_FLASH")
     local function area(title, start, pattern, reached, warpIndex)
       if not maps[id(start)] then return end
       if arrive(id(start), warpIndex) then
@@ -249,12 +269,16 @@ return function(game)
     area("New Mauville entrance to inside", "NEW_MAUVILLE_ENTRANCE", "Inside$", "NEW_MAUVILLE_INSIDE")
     area("Abandoned Ship deck to corridors", "ABANDONED_SHIP_DECK", "Corridors 1F$", "ABANDONED_SHIP_CORRIDORS_1F")
     area("Weather Institute 1F to 2F", "ROUTE119_WEATHER_INSTITUTE_1F", "2F$", "ROUTE119_WEATHER_INSTITUTE_2F")
-    area("Space Center 1F to 2F", "MOSSDEEP_CITY_SPACE_CENTER_1F", "2F$", "MOSSDEEP_CITY_SPACE_CENTER_2F")
+    area("Space Center 1F to 2F", "MOSSDEEP_CITY_SPACE_CENTER_1F", "Space Center 2F$", "MOSSDEEP_CITY_SPACE_CENTER_2F")
     area("Safari Zone South to Southwest", "SAFARI_ZONE_SOUTH", "Southwest$", "SAFARI_ZONE_SOUTHWEST")
     area("Shoal Cave entrance to Ice Room", "SHOAL_CAVE_LOW_TIDE_ENTRANCE_ROOM", "Ice Room$", "SHOAL_CAVE_LOW_TIDE_ICE_ROOM")
-    -- Sky Pillar: on foot the cracked floors refuse; on the Mach Bike they are ridden
+    -- Sky Pillar: on foot the cracked floors refuse; on the Mach Bike they are ridden.  The
+    -- floors crack in the story (VAR_SKY_PILLAR_STATE); its value is set here
     if maps[id("SKY_PILLAR_2F")] then
+      local stateVar = L.GameData.var("VAR_SKY_PILLAR_STATE")
+      if stateVar then L.setVar(stateVar, 2) end
       arrive(id("SKY_PILLAR_2F"))
+      L.showFloor("Sky Pillar 2F")
       walk("Sky Pillar 2F to 3F on foot", "area", "Sky Pillar 3F$", nil)
       arrive(id("SKY_PILLAR_2F"))
       local Bike = require("src.core.game3.bike")

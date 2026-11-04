@@ -263,6 +263,26 @@ function choose()
     return walkToSign(back, state)
   end
   local pick, byLabel, again = nil, {}, nil
+  -- a floor whose switches can be worked out (Mossdeep Gym): the next press toward the target
+  local worked = type(run.nav.rotatingSwitchPlan) == "function" and item.type ~= "area"
+    and run.nav:rotatingSwitchPlan(run.overworld, goals) or nil
+  if worked then
+    for _, sign in ipairs(signs) do
+      if sign.label == worked then
+        local player = run.overworld.player
+        if sign.x == player.cellX and sign.y == player.cellY then
+          local off = run.nav:stepOffCell(run.overworld)
+          if off then
+            autoWalk().start(run.nav, run.game, run.adapter, { goals = { off }, quiet = true })
+            run.phase = "choose"
+            return
+          end
+        else
+          return walkToSign(sign, state)
+        end
+      end
+    end
+  end
   for _, sign in ipairs(signs) do
     byLabel[sign.label] = sign
     -- what a floor switch can reach depends on where the player stands as well as on the
@@ -288,15 +308,6 @@ function choose()
     end
   end
   pick = pick or again
-  if os.getenv("RSE_STORY_TRACE") == "1" then
-    local rows = {}
-    for _, sign in ipairs(signs) do rows[#rows + 1] = sign.label .. "=" .. tostring(run.tried[state][sign.label] and #tostring(run.tried[state][sign.label])) end
-    local moving = {}
-    for _, actor in ipairs(run.overworld.npcs or {}) do
-      if actor.moving then moving[#moving + 1] = tostring(actor.localId) .. "@" .. tostring(actor.cellX) .. "," .. tostring(actor.cellY) .. ">" .. tostring(actor.targetX) .. "," .. tostring(actor.targetY) end
-    end
-    print("[switchdebug]", #state, tostring(pick and pick.label), table.concat(rows, " "), "moving", table.concat(moving, " "))
-  end
   if pick then run.uses[pick.label] = (run.uses[pick.label] or 0) + 1 end
   if not pick then
     run.complete[state] = true

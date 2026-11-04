@@ -360,6 +360,168 @@ function Navigation:switchSigns(world)
   return signs
 end
 
+-- Mossdeep Gym and Trick House 5: each floor switch moves every object on an arrow of its
+-- colour one cell along that arrow (RotatingTilePuzzle.move), so the floor after any presses can
+-- be worked out, and which presses open the way to a target searched for without walking
+-- them.  A state is where the objects stand and where the player last pressed.  The answer is
+-- the next switch to press; nil when this floor has no such switches or no answer turned up.
+local TILE_ARROW = { [0] = { 1, 0 }, [1] = { 0, 1 }, [2] = { -1, 0 }, [3] = { 0, -1 } }
+local ROTATE_STATES, ROTATE_SECONDS = 12000, 2.5
+
+function Navigation:rotatingSwitchPlan(world, goals)
+  local map = world.map
+  local def = map.def
+  local cells, trickHouse = {}, false
+  for _, event in ipairs(type(def) == "table" and def.coordEvents or {}) do
+    local rotation = type(event.x) == "number" and Scripts.rotatingSwitch(event.scriptKey) or nil
+    if rotation then
+      cells[#cells + 1] = { x = event.x, y = event.y, number = rotation.number,
+        label = "Floor Switch " .. event.x .. "," .. event.y }
+      trickHouse = rotation.trickHouse
+    end
+  end
+  if #cells == 0 then return nil end
+  local set = GameData.constants()
+  local labels = set and set.metatile_labels and set.metatile_labels.byName
+  local start = labels and labels[trickHouse and "METATILE_TrickHousePuzzle_Arrow_YellowOnWhite_Right"
+    or "METATILE_MossdeepGym_YellowArrow_Right"]
+  local bound = labels and labels.METATILE_MossdeepGym_YellowArrow_Right
+  local layout = def.midLayout
+  if not (start and bound and layout and layout.midAt) then return nil, "no arrows" end
+  -- the floor's arrows do not change, only who stands on them
+  local function arrowAt(x, y)
+    local mid = layout:midAt(x, y) or 0
+    if mid < bound then return nil end
+    local row = math.floor((mid - start) / 8) % 256
+    if row >= 5 then return nil end
+    local tile = (mid - start) % 8
+    return row, TILE_ARROW[tile]
+  end
+  local actors, keyParts = {}, {}
+  for i, actor in ipairs(world.npcs or {}) do
+    actors[i] = { x = actor.cellX, y = actor.cellY, actor = actor }
+  end
+  local function stateKey(positions, px, py)
+    for i, pos in ipairs(positions) do keyParts[i] = pos.x .. "," .. pos.y end
+    return table.concat(keyParts, ";", 1, #positions) .. "@" .. px .. "," .. py
+  end
+  local function press(positions, number)
+    local moved = {}
+    for i, pos in ipairs(positions) do
+      local row, arrow = arrowAt(pos.x, pos.y)
+      if row == number and arrow then
+        moved[i] = { x = pos.x + arrow[1], y = pos.y + arrow[2], actor = pos.actor }
+      else
+        moved[i] = pos
+      end
+    end
+    return moved
+  end
+  -- every cell the player can reach from (px, py) with the objects there, through this map's pads
+  local mapId = self:currentMapIdOf(world)
+  local transitions = {}
+  for _, transition in ipairs(self:regionalTransitions(mapId)) do
+    if transition.kind == "warp" and transition.destMap == mapId then
+      local key = cellKey(transition.x, transition.y)
+      transitions[key] = transitions[key] or {}
+      table.insert(transitions[key], transition)
+    end
+  end
+  local allGoals = {}
+  for _, goal in ipairs(goals) do allGoals[#allGoals + 1] = goal end
+  for _, cell in ipairs(cells) do allGoals[#allGoals + 1] = { x = cell.x, y = cell.y } end
+  for key in pairs(transitions) do
+    local x, y = key:match("^(-?%d+),(-?%d+)$")
+    allGoals[#allGoals + 1] = { x = tonumber(x), y = tonumber(y) }
+  end
+  local function region(positions, px, py)
+    local npcs = {}
+    for i, pos in ipairs(positions) do
+      -- a copy at the worked-out cell, as occupancy and the elevation rule read it
+      npcs[i] = setmetatable({ cellX = pos.x, cellY = pos.y, moving = false }, { __index = pos.actor })
+    end
+    local simulated = { isOverworld = true, map = map, npcs = npcs,
+      player = { cellX = px, cellY = py, surfing = false } }
+    local options = self:routeOptionsFor(simulated, allGoals, 2)
+    if not options then return {} end
+    local seen, queue, head = {}, { { px, py, true } }, 1
+    while queue[head] do
+      local node = queue[head]
+      head = head + 1
+      local key = cellKey(node[1], node[2])
+      local mark = key .. (node[3] and "a" or "w")
+      if not seen[mark] then
+        seen[mark], seen[key] = true, true
+        local fires = not node[3] and map:warpAt(node[1], node[2]) ~= nil and not map:standingWarp(node[1], node[2])
+        if fires then
+          for _, transition in ipairs(transitions[key] or {}) do
+            queue[#queue + 1] = { transition.destX, transition.destY, true }
+          end
+        else
+          -- a floor switch is an end of the walk: stepping on it presses it
+          local pressed = false
+          if not node[3] then
+            for _, cell in ipairs(cells) do
+              if cell.x == node[1] and cell.y == node[2] then pressed = true end
+            end
+          end
+          if not pressed then
+            for _, edge in ipairs(options.neighbors(node[1], node[2])) do
+              queue[#queue + 1] = { edge.x, edge.y, false }
+            end
+          end
+        end
+      end
+    end
+    return seen
+  end
+  local player = world.player
+  local first = { positions = actors, x = player.cellX, y = player.cellY }
+  local seenStates = { [stateKey(actors, first.x, first.y)] = true }
+  local queue, head = { first }, 1
+  local deadline = os.clock() + ROTATE_SECONDS
+  while queue[head] do
+    local node = queue[head]
+    head = head + 1
+    if head > ROTATE_STATES or os.clock() > deadline then return nil, "limit " .. head end
+    local reached = region(node.positions, node.x, node.y)
+    for _, goal in ipairs(goals) do
+      if reached[cellKey(goal.x, goal.y)] then
+        -- the first press of this line of presses; none means the way is open
+        return node.firstLabel, "open"
+      end
+    end
+    for _, cell in ipairs(cells) do
+      -- pressing the one underfoot again takes a step off and back
+      if reached[cellKey(cell.x, cell.y)] then
+        local positions = press(node.positions, cell.number)
+        local key = stateKey(positions, cell.x, cell.y)
+        if not seenStates[key] then
+          seenStates[key] = true
+          queue[#queue + 1] = { positions = positions, x = cell.x, y = cell.y,
+            firstLabel = node.firstLabel or cell.label }
+        end
+      end
+    end
+  end
+  return nil, "searched " .. head
+end
+
+-- A cell next to the player to step to and come back from, or nil (a floor switch pressed
+-- twice running).
+function Navigation:stepOffCell(world)
+  local player = world.player
+  local goals = { { x = player.cellX, y = player.cellY } }
+  local options = self:routeOptionsFor(world, goals, 1)
+  for _, edge in ipairs(options and options.neighbors(player.cellX, player.cellY) or {}) do
+    if not edge.kind and math.abs(edge.x - player.cellX) + math.abs(edge.y - player.cellY) == 1
+       and not world.map:warpAt(edge.x, edge.y) then
+      return { x = edge.x, y = edge.y }
+    end
+  end
+  return nil
+end
+
 -- A switch's script has let go but what it moved is still on its way (Mossdeep's statues).
 function Navigation:objectsMoving()
   for _, actor in ipairs(World.actors()) do
@@ -1224,7 +1386,7 @@ end
 
 -- Q: FireRed has no real-time clock (pret's FRLG has none).  Ruby, Sapphire and
 -- Emerald say the game's own local time (Rtc.calcLocalTime: the time the player set
--- at the wall clock, with the same day count the game's daily events use).
+-- at the wall clock).
 function Navigation:readGameTime()
   local Rtc = GameData.isHoenn() and lazyRtc() or nil
   local session = self:session()
@@ -1235,7 +1397,7 @@ function Navigation:readGameTime()
       local suffix = hours >= 12 and "PM" or "AM"
       local twelve = hours % 12
       if twelve == 0 then twelve = 12 end
-      return self:announceManual({ ("%d:%02d %s, day %d"):format(twelve, minutes, suffix, tonumber(time.days) or 0) })
+      return self:announceManual({ ("%d:%02d %s"):format(twelve, minutes, suffix) })
     end
     return self:announceManual({ "The clock has not been set" })
   end
@@ -2347,7 +2509,7 @@ function Navigation:regionalNextLeg(navigation)
   if result.final then
     -- a floor as the target: being on it is the arrival
     if target.anywhere then
-      return { final = true, goals = { { x = start.x, y = start.y } },
+      return { final = true, goals = { { x = start.x, y = start.y } }, arrived = true,
         appendInstructions = navigation.targetAppendInstructions }
     end
     -- an Area target's cells were worked out on the map the journey began
@@ -2388,10 +2550,12 @@ function Navigation:regionalNextLeg(navigation)
     stopText = "Arrived at the floor panel. Face " .. transition.facing
       .. " and take the elevator to " .. floorName
   elseif transition.kind == "dive" then
+    -- pokeemerald field_control_avatar.c: A dives from deep water, B surfaces
     local verb = transition.emerge and "surface" or "dive"
-    instruction = "Press A to " .. verb .. " to " .. destinationName
-    stopText = "Arrived at the " .. (transition.emerge and "way up" or "deep water") .. ". Press A and answer yes to "
-      .. verb .. " to " .. destinationName
+    local button = transition.emerge and "B" or "A"
+    instruction = "Press " .. button .. " to " .. verb .. " to " .. destinationName
+    stopText = "Arrived at the " .. (transition.emerge and "way up" or "deep water") .. ". Press " .. button
+      .. " and answer yes to " .. verb .. " to " .. destinationName
   elseif transition.kind == "fall" and not transition.cracked then
     instruction = "Step off the thin ice and back onto it: it cracks and you fall through to "
       .. destinationName
