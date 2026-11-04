@@ -265,12 +265,12 @@ The owner: "We could make a separate updater app then." `launcher/PocketUpdater`
 
 - **Asks** this repository's `releases/latest`. It takes only an asset named `PocketAccessibility-*-windows-x64.zip`, only from this repository's download address over https, and only if GitHub reports its SHA-256 (the asset's `digest`).
 - **Installs** after the player presses Update now, with no launcher or game from this folder running: download, checksum, unpack to `update-incoming`, check the required files and that `version.txt` matches the release, then move each packaged item into `update-old` and the new one in. Any failure puts every item back. Files the package does not hold are left alone. Saves, imports and mods are in the save folder.
-- **Its own file:** Windows allows a running program's file to be moved. The old copy is deleted on the next run if it was still open.
+- **It does not replace itself.** The owner: "The updater should be a one-and-done thing, right?" `PocketUpdater.exe` is skipped in the swap, so a fixed updater reaches players only through a fresh download of the zip.
 - **No check at launch:** it asks GitHub only when the player chooses to. Add one if the owner wants it.
 - **Announcements:** bar named "Update progress", status strip, and automation notifications for each stage and quarter, as in the Mods window.
 - `package_release.py --version` writes `version.txt`, publishes both programs and writes the zip. A release's tag is `v<version>`. A source checkout has no updater, and its button is hidden.
 
-Self-contained, each program holds its own .NET, so the updater adds about as much as the launcher.
+Self-contained, each program holds its own .NET: the updater is 49.2 MiB unpacked and takes the zip from 66.1 to 109.9 MiB. Every update downloads that whole zip.
 
 ## Verification: release 0.0.1 (2026-11-04)
 

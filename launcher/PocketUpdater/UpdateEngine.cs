@@ -27,6 +27,7 @@ internal static partial class UpdateEngine
     private const string VersionFile = "version.txt";
     private const string IncomingFolder = "update-incoming";
     private const string RetiredFolder = "update-old";
+    private const string UpdaterFile = "PocketUpdater.exe";
     private const long MaxDownloadBytes = 1024L * 1024 * 1024;
     private const long MaxUnpackedBytes = 2L * 1024 * 1024 * 1024;
     private const int DownloadEndsAt = 70, UnpackEndsAt = 95, InstallAt = 97;
@@ -265,8 +266,9 @@ internal static partial class UpdateEngine
 
     /// <summary>
     /// Moves each item the package holds out of the way and the new one in; on any failure, puts
-    /// everything back.  Moving is allowed for this running updater's own file, which Windows
-    /// keeps open under its new name.  Anything else in the folder is left alone.
+    /// everything back.  The updater itself stays: it is what is running, and it has one simple
+    /// job.  A fixed updater reaches players through a fresh download of the zip.  Anything else
+    /// in the folder is left alone.
     /// </summary>
     private static void Swap(string newRoot, string programDir)
     {
@@ -279,6 +281,7 @@ internal static partial class UpdateEngine
             foreach (string source in Directory.GetFileSystemEntries(newRoot))
             {
                 string name = Path.GetFileName(source);
+                if (name.Equals(UpdaterFile, StringComparison.OrdinalIgnoreCase)) continue;
                 string target = Path.Combine(programDir, name);
                 if (Exists(target))
                 {
@@ -312,7 +315,7 @@ internal static partial class UpdateEngine
         else if (File.Exists(path)) File.Delete(path);
     }
 
-    /// <summary>Clears scratch folders, and the old copy; a file still open stays until next time.</summary>
+    /// <summary>Clears scratch folders and the old copy.</summary>
     public static void RemoveLeftovers(string programDir)
     {
         foreach (string folder in new[] { IncomingFolder, RetiredFolder })
@@ -324,7 +327,7 @@ internal static partial class UpdateEngine
             }
             catch (Exception error) when (error is IOException or UnauthorizedAccessException)
             {
-                // this updater's own old file; the next run removes it
+                // something still has a file open; the next run removes it
             }
         }
     }
