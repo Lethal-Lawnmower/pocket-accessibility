@@ -58,7 +58,7 @@ end
 -- presentation only and dropped, as is any other tag left over.
 local TAG_WORDS = {
   PKMN = "POKéMON", PK = "PK", MN = "MN", LV = "level ", LV_2 = "level ", PP = "PP ",
-  ID = "ID ", NO = "number ", PLUS = "plus", TIMES = "times",
+  ID = "ID ", NO = "number ", PLUS = "plus", TIMES = "times", POKEBLOCK = "POKéBLOCK",
   -- button, pad and arrow glyphs stand right before a word on screen
   -- ("{A_BUTTON}NEXT"), so their words end in a space; doubled spaces are
   -- collapsed later

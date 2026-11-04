@@ -1232,7 +1232,9 @@ local SPECIES_NIDORAN_F, SPECIES_NIDORAN_M, SPECIES_EGG = 29, 32, 412
 -- sign, level, Pokédex number, ID.  `number` is the card's own number text.
 local function memberCard(mon, nickname, number, trainerId)
   local sp = tonumber(mon.species) or 0
-  local parts = { say(nickname or "") }
+  local parts = {}
+  -- a record can hold an empty nickname (a Pokémon given without one draws blank)
+  if nonEmpty(say(nickname or "")) then parts[1] = say(nickname) end
   if sp == SPECIES_EGG then return parts[1] end
   local species = speciesName(sp)
   local P = pokemonModule()
@@ -1333,7 +1335,10 @@ Special.hallOfFamePc = add({
     memo.team, memo.mon = H._team, H._mon
     local parts = {}
     if teamChanged then
-      parts[#parts + 1] = say(rom("gText_HOFNumber", { stringVars = { tostring(H._number) } }))
+      local title = say(rom("gText_HOFNumber", { stringVars = { tostring(H._number) } }))
+      -- Ruby and Sapphire's string has no number in it; pokeruby prints it after.
+      if title and not title:find(tostring(H._number), 1, true) then title = title .. " " .. tostring(H._number) end
+      parts[#parts + 1] = title
     end
     local mon = members[H._mon or 1]
     if mon then

@@ -105,12 +105,28 @@ local function ownsInput(layer)
   return false
 end
 
+-- Hoenn's boot screens are objects in `boot.custom`
+-- (src/ui/game3/boot_modules.lua), one at a time; a layer over them (OPTION,
+-- Mystery Gift from the main menu) is the screen while it is open.
+local function customBootTop(game, boot, layer)
+  if layer then return proxy(layer, kindOf(layer.id), { layer = layer, mod = layer.mod, game = game }) end
+  local c = boot.custom
+  local fields = { boot = boot, game = game }
+  if c.intro then return proxy(c.intro, "hoenn_intro", fields) end
+  if c.title then return proxy(c.title, "hoenn_title", fields) end
+  if c.menu then return proxy(c.menu, "hoenn_main_menu", fields) end
+  if c.newGame then return proxy(c.newGame, "hoenn_birch", fields) end
+  if c.combo then return proxy(c.combo, "hoenn_combo", fields) end
+  return nil
+end
+
 local function bootTop(game, layer)
   if layer and layer.id == "naming" then
     return proxy(layer, "naming", { layer = layer, mod = layer.mod, game = game })
   end
   local boot = game.boot
   if type(boot) ~= "table" then return nil end
+  if type(boot.custom) == "table" then return customBootTop(game, boot, layer) end
   local phase = boot.phase
   if phase == "intro" and boot.introMovie then
     return proxy(boot.introMovie, "intro", { boot = boot, game = game })

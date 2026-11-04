@@ -246,10 +246,10 @@ end
 -- The money window's text (src/money.c: MONEY and the ¥ amount).
 local function moneyString(amount)
   local n = math.max(0, math.floor(tonumber(amount) or 0))
-  return say(rom("gText_PokedollarVar1", { stringVars = { tostring(n) } })) or tostring(n)
+  return say(rom("gText_PokedollarVar1", { stringVars = { tostring(n) } })) or ("¥" .. tostring(n))
 end
 local function moneyText(amount)
-  return join({ say(rom("gText_TrainerCardMoney")), moneyString(amount) }, " ")
+  return join({ say(rom("gText_TrainerCardMoney")) or "MONEY", moneyString(amount) }, " ")
 end
 Items.moneyText = moneyText
 
@@ -763,12 +763,25 @@ end
 -- only; the level when the status icon is clear (or POKéRUS); the gender
 -- mark except on Nidoran; the slot description (ABLE, NOT ABLE, LEARNED
 -- ...) in place of HP; the status and held-item icons in words.
+-- Ruby and Sapphire draw the slot description as an image: their description
+-- is { nativeRsDescriptor = offset } (rs/party_menu_data.lua), so its id is
+-- found by that offset and said in words.  FireRed's is a string.
+local function slotDescriptionWord(P, i)
+  local desc = try(P.slotDescription, i)
+  if type(desc) ~= "table" then return say(desc) end
+  local Data = loaded("src.ui.game3.rs.party_menu_data")
+  for id, offset in pairs(Data and Data.descriptorOffsets or {}) do
+    if offset == desc.nativeRsDescriptor then return (tostring(id):gsub("_", " ")) end
+  end
+  return nil
+end
+
 function Party.slot(P, i)
   local party = P._party or {}
   local mon = party[i]
   if type(mon) ~= "table" then return nil end
   local parts = { monName(mon) }
-  local desc = say(try(P.slotDescription, i))
+  local desc = slotDescriptionWord(P, i)
   if isEgg(mon) then
     parts[#parts + 1] = desc
     return join(parts)
@@ -828,10 +841,25 @@ function Party.row(P, cursor)
   return text, index, count
 end
 
+-- Ruby and Sapphire's party prompts (rs/party_menu_data.lua: promptText, by
+-- the id its drawPrompt and drawActions choose); nil in every other game.
+local function rsPartyPrompt(id, name)
+  local Data = loaded("src.ui.game3.rs.party_menu_data")
+  local promptText = Data and screenLocal(Data.drawActions, "promptText", 2)
+  return promptText and say(try(promptText, id, name)) or nil
+end
+
 -- The prompt at the bottom, chosen the way PartyMenu.draw chooses it.
 function Party.prompt(P)
   local key = "gText_ChoosePokemon"
   local D = itemsData()
+  local rsId = 0
+  if P.mode == "switch" then rsId = 1
+  elseif P.mode == "give" then rsId = 4
+  elseif P.mode == "move_tutor" then rsId = 20
+  elseif P.mode == "use" then rsId = (P._item and D and try(D.isTm, P._item)) and 2 or 3 end
+  local rsText = rsPartyPrompt(rsId)
+  if rsText then return rsText end
   if P.mode == "switch" then
     key = "gText_MoveToWhere"
   elseif P.mode == "use" then
@@ -921,9 +949,9 @@ function Party.read(P, memo, entering)
       text = move
     end
   elseif mode == "action" then
-    text = menuText(P, P.ACTIONS, P.actionCursor or 1, say(rom("gText_DoWhatWithPokemon")), fresh, memo.actionCursor)
+    text = menuText(P, P.ACTIONS, P.actionCursor or 1, rsPartyPrompt(5, monName((P._party or {})[P.cursor])) or say(rom("gText_DoWhatWithPokemon")), fresh, memo.actionCursor)
   elseif mode == "item_action" then
-    text = menuText(P, P.ITEM_ACTIONS, P.itemActionCursor or 1, say(rom("gText_DoWhatWithItem")), fresh,
+    text = menuText(P, P.ITEM_ACTIONS, P.itemActionCursor or 1, rsPartyPrompt(13) or say(rom("gText_DoWhatWithItem")), fresh,
       memo.itemCursor)
   elseif mode == "stat_growth" then
     if fresh or P._statGrowthPage ~= memo.growthPage then
@@ -958,12 +986,29 @@ end
 
 Items.party = {
   matches = Common.matcher("party", "src.ui.game3.party_menu"),
+  -- through the profile's text aliases, as the party screen itself runs:
+  -- Ruby and Sapphire name its strings differently (no effect in FireRed)
+  poll = function(state, memo, entering)
+    local Screens = loaded("src.ui.game3.screens")
+    if Screens and Screens.withTextAliases then
+      return Screens.withTextAliases(nil, Items.partyPoll, state, memo, entering)
+    end
+    return Items.partyPoll(state, memo, entering)
+  end,
+}
+
+function Items.partyPoll(state, memo, entering)
+  return Items._partyPoll(state, memo, entering)
+end
+
+Items._partyPresenter = {
   poll = function(state, memo, entering)
     local text = Party.read(state.mod, memo, entering)
     if not text then return nil end
     return text, true
   end,
 }
+Items._partyPoll = Items._partyPresenter.poll
 
 -- ---------------------------------------------------------------- summary
 -- src/ui/game3/summary_menu.lua.  Pages INFO, SKILLS, KNOWN MOVES, the
@@ -1779,7 +1824,9 @@ function Box.read(B, memo, entering)
     if fresh then
       local key = mode == "deposit_box_full" and "gText_BoxIsFull2"
         or (B._pendingDeposit and "gText_DepositInWhichBox" or "gText_JumpToWhichBox")
-      text = sentences(say(rom(key)), mode == "pick_box" and Box.pickBox(B, storage) or nil)
+      -- Ruby and Sapphire keep these strings under PCText_ (rs/storage_policy.lua)
+      local native = romHas(key) and key or ("PCText_" .. key:gsub("^gText_", ""):gsub("2$", ""))
+      text = sentences(say(rom(native)), mode == "pick_box" and Box.pickBox(B, storage) or nil)
     elseif B._pickBox ~= memo.pickBox then
       text = Box.pickBox(B, storage)
     end
@@ -1990,6 +2037,22 @@ Items.regionMap = {
 Items.ordered = {
   Items.bag, Items.tmCase, Items.berryPouch, Items.party, Items.summary, Items.pokedex,
   Items.pcMenu, Items.itemPc, Items.boxStorage, Items.shop, Items.moneyBox, Items.regionMap,
+}
+
+-- Reading helpers the Hoenn presenters share (gen3/HoennItems.lua).
+Items.lib = {
+  say = say, try = try, pocketRows = pocketRows, readSell = readSell, quantity = quantity,
+  speciesName = speciesName, typesText = typesText, typeName = typeName, powerAccuracy = powerAccuracy,
+  moneyText = moneyText, moneyString = moneyString, bagCount = bagCount,
+  Summary = function() return Items.Summary end,
+  SummaryMenu = function() return loaded("src.ui.game3.summary_menu") end,
+  moveLine = function(moveId)
+    local P = pokemon()
+    local def = P and try(P.battleMove, moveId) or {}
+    local pp = tonumber(def.pp)
+    return join({ typeName(def.type) and ("type " .. typeName(def.type)) or nil, powerAccuracy(def),
+      (pp and pp > 0) and ("PP " .. pp) or nil })
+  end,
 }
 
 return Items

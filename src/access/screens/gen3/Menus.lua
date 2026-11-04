@@ -523,9 +523,10 @@ Menus.naming = {
 -- ---------------------------------------------------------- start menu
 
 -- The Safari Zone window (StartMenu.draw: the menu data's extraWindow, a
--- cart string with the steps and balls).
+-- cart string with the steps and balls), and Emerald's Battle Pyramid floor
+-- window from the same call (kind "pyramid" exists only in rse/start_menu_data).
 local function safariText(StartMenu)
-  if StartMenu._kind ~= "safari" then return nil end
+  if StartMenu._kind ~= "safari" and StartMenu._kind ~= "pyramid" then return nil end
   local data, ctx = StartMenu._data, StartMenu._ctx
   local window = data and ctx and call(data.extraWindow, StartMenu._kind, ctx)
   if type(window) ~= "table" or not window.key then return nil end
@@ -1277,6 +1278,12 @@ Menus.mapName = {
     local Popup = loaded("src.ui.game3.map_name_popup")
     if not name and Popup and Popup._state and Popup.STATE and Popup._state ~= Popup.STATE.IDLE then
       name = Popup._name
+    end
+    -- Hoenn's popups keep the name in their own window (Popup.Rse, Popup.Rs)
+    for _, Native in ipairs(Popup and { Popup.Rse, Popup.Rs } or {}) do
+      if not name and type(Native) == "table" and Native.task and type(Native.window) == "table" then
+        name = Native.window.name
+      end
     end
     if type(name) ~= "string" or name == "" or name == memo.name then return nil end
     memo.name = name
