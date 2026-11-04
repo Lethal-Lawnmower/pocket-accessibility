@@ -392,7 +392,33 @@ Hoenn.wallClock = {
   end,
 }
 
-Hoenn.ordered = { Hoenn.optionEmerald, Hoenn.optionRuby, Hoenn.saveMenu, Hoenn.trainerEmerald, Hoenn.trainerRuby,
+-- ---------------------------------------------------------- Ruby's egg
+-- rs/egg_hatch.lua (layer "rs_egg_hatch"): `_scene.printer` for its text,
+-- `_scene.yesNo`-style menu read from the scene's confirm when it has one.
+Hoenn.eggRuby = {
+  matches = Common.matcher("rs_egg_hatch", "src.ui.game3.rs.egg_hatch"),
+  poll = function(state, memo)
+    local scene = state.mod and state.mod._scene
+    if type(scene) ~= "table" then return nil end
+    local parts = {}
+    if not memo.said then
+      memo.said = true
+      parts[1] = "Egg hatching."
+    end
+    local text = scene.printer and H.printerSay(scene.printer, memo, state.game)
+    if text then parts[#parts + 1] = text end
+    local menu = scene.yesNo or scene.confirm
+    if type(menu) == "table" and memo.yes ~= menu.cursor then
+      memo.yes = menu.cursor
+      parts[#parts + 1] = H.yesNo((menu.cursor or 0) + 1)
+    end
+    local out = sentences(parts)
+    if not out then return nil end
+    return out, true
+  end,
+}
+
+Hoenn.ordered = { Hoenn.eggRuby, Hoenn.optionEmerald, Hoenn.optionRuby, Hoenn.saveMenu, Hoenn.trainerEmerald, Hoenn.trainerRuby,
   Hoenn.starter, Hoenn.wallClock }
 
 return Hoenn

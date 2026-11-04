@@ -227,15 +227,11 @@ return function(game)
   end)
 
   section("pc", function()
-    require("src.ui.game3.hud").openPc(game, session)
-    wait(40)
+    local PcMenu = require("src.ui.game3.pc_menu")
+    local function pcOpen(mode) PcMenu.show({ session = session, startMode = mode, bedroom = mode == "player_pc", closeOnExit = true }) wait(40) end
+    pcOpen("player_pc")                 -- the player's PC, as the bedroom's opens
     L.log("TOP", tostring(L.top()))
-    L.talk(4)
-    wait(20)
-    taps({ "down", "up" }, 15)
-    tap("down", 15)
-    tap("a", 30)                        -- player's PC
-    L.log("PCMODE", tostring(require("src.ui.game3.pc_menu").mode))
+    L.log("PCMODE", tostring(PcMenu.mode))
     taps({ "down", "up" }, 15)
     tap("a", 30)                        -- ITEM STORAGE
     taps({ "down", "up" }, 15)
@@ -261,19 +257,37 @@ return function(game)
     tap("b", 30)
     tap("b", 30)
     wait(30)
-    tap("up", 15)
-    tap("a", 30)                        -- someone's PC
-    L.log("PCMODE", tostring(require("src.ui.game3.pc_menu").mode))
+    tap("down", 15)                     -- MAILBOX
+    tap("a", 40)
+    tap("a", 30)
+    tap("b", 30)
+    L.closeAll()
+    pcOpen("storage")                   -- someone's PC
+    L.log("PCMODE", tostring(PcMenu.mode))
     taps({ "down", "up" }, 15)
     tap("down", 15)
-    tap("a", 90)                        -- DEPOSIT or WITHDRAW
+    tap("a", 90)                        -- DEPOSIT
     L.log("TOP", tostring(L.top()))
+    wait(60)
     taps({ "down", "down", "up" }, 20)
     tap("a", 30)                        -- action menu
-    tap("down", 20)
+    tap("a", 40)                        -- STORE: box picker
+    taps({ "right", "left" }, 20)
+    tap("a", 60)
+    wait(30)
+    tap("b", 90)                        -- close
+    wait(30)
+    tap("up", 15)                       -- WITHDRAW
+    tap("a", 90)
+    L.log("TOP", tostring(L.top()))
+    wait(60)
+    taps({ "right", "left" }, 20)
+    tap("a", 30)                        -- action menu on the box's first slot
+    taps({ "down", "up" }, 15)
+    tap("b", 30)
     tap("b", 30)
     tap("b", 90)
-    wait(30)
+    wait(40)
     L.closeAll()
   end)
 
@@ -326,6 +340,33 @@ return function(game)
     wait(90)
     taps({ "up", "up", "up", "right", "right" }, 18)
     tap("b", 70)
+    L.closeAll()
+  end)
+
+  section("evolution", function()
+    local Evo = require("src.ui.game3.evolution_scene")
+    Evo.start(session.party[1], consts:require("species", "SPECIES_MARSHTOMP"),
+      { session = session, canStop = true, onDone = function() end })
+    L.log("TOP", tostring(L.top()))
+    for _ = 1, 400 do
+      if not Evo.isOpen() then break end
+      tap("a", 30)
+    end
+    L.closeAll()
+  end)
+
+  section("egg", function()
+    local Screens = require("src.ui.game3.screens")
+    local Hatch = Screens.get("egg_hatch", session) or require("src.ui.game3.egg_hatch")
+    local _, _, egg = Party.giveMon(session, consts:require("species", "SPECIES_WURMPLE"), 5)
+    if egg then egg.isEgg = true end
+    Hatch.start(egg, { session = session, slot = #session.party, onDone = function() end })
+    wait(60)
+    L.log("TOP", tostring(L.top()))
+    for _ = 1, 200 do
+      if not Hatch.isOpen() then break end
+      tap("b", 40)
+    end
     L.closeAll()
   end)
 

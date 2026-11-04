@@ -1278,6 +1278,12 @@ Menus.mapName = {
     if not name and Popup and Popup._state and Popup.STATE and Popup._state ~= Popup.STATE.IDLE then
       name = Popup._name
     end
+    -- Hoenn's popups keep the name in their own window (Popup.Rse, Popup.Rs)
+    for _, Native in ipairs(Popup and { Popup.Rse, Popup.Rs } or {}) do
+      if not name and type(Native) == "table" and Native.task and type(Native.window) == "table" then
+        name = Native.window.name
+      end
+    end
     if type(name) ~= "string" or name == "" or name == memo.name then return nil end
     memo.name = name
     return nonEmpty(speakable(tr(name))), false
