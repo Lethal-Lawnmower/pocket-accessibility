@@ -210,8 +210,8 @@ Gen2.options = Gen1.options
 -- (purple-gen3-integration, src/accessibility/gen3/FieldInput.lua, commit
 -- 244150e22, upstream v0.3.32), re-derived for v0.3.98 under decision 20:
 -- the same gates Player.update checks before it polls the D-pad.
--- LeafGreen is deferred (owner, 2026-11-01): only FireRed's layout is
--- enabled, by version id.
+-- Every Gen 3 cartridge shares this adapter: the field modules are one code
+-- path upstream, and what differs comes from the profile (nav/gen3/GameData.lua).
 
 local Gen3 = { generation = 3 }
 
@@ -229,18 +229,6 @@ local function call(fn, ...)
   return nil
 end
 
--- FireRed and LeafGreen share maps, scripts and constants (upstream's LeafGreen profile is
--- FireRed's with another name), so navigation is the same for both.
-local function kanto3()
-  local GameVersion = package.loaded["src.core.GameVersion"]
-  if not (GameVersion and GameVersion.get) then
-    -- tests and early boot: trust the generation check alone
-    return true
-  end
-  local ok, id = pcall(GameVersion.get)
-  return ok and (id == "firered" or id == "leafgreen")
-end
-
 function Gen3.game()
   local CurrentGame = loaded("src.access.CurrentGame")
   local game = CurrentGame and call(CurrentGame.get) or nil
@@ -254,7 +242,6 @@ function Gen3.game()
   if game.generation ~= nil and game.generation ~= 3 then return nil end
   -- no session before a new game or Continue: nothing to navigate yet
   if type(game.session) ~= "table" then return nil end
-  if not kanto3() then return nil end
   return game
 end
 
@@ -392,13 +379,12 @@ WorldAdapter.gen1 = Gen1
 WorldAdapter.gen2 = Gen2
 WorldAdapter.gen3 = Gen3
 
--- The adapter for the running game's generation, or nil (the launcher, and
--- Ruby, Sapphire and Emerald, which are not scoped yet).
+-- The adapter for the running game's generation, or nil (the launcher).
 function WorldAdapter.current()
   local gen = generation()
   if gen == 1 then return Gen1 end
   if gen == 2 then return Gen2 end
-  if gen == 3 and kanto3() then return Gen3 end
+  if gen == 3 then return Gen3 end
   return nil
 end
 

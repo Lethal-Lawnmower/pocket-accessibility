@@ -25,6 +25,7 @@ local Terrain = require("src.access.nav.gen3.TerrainSemantics")
 local Puzzle = require("src.access.nav.gen3.PuzzleAssistance")
 local Scripts = require("src.access.nav.gen3.Scripts")
 local World = require("src.access.nav.gen3.World")
+local GameData = require("src.access.nav.gen3.GameData")
 local WorldAdapter = require("src.access.nav.WorldAdapter")
 local Pathfinder = require("src.access.nav.Pathfinder")
 
@@ -40,6 +41,11 @@ local OPPOSITE = { up = "down", down = "up", left = "right", right = "left" }
 local function cellKey(x, y) return tostring(x) .. "," .. tostring(y) end
 
 local function loaded(path) return package.loaded[path] end
+
+local function lazyRtc()
+  local ok, Rtc = pcall(require, "src.core.game3.rtc")
+  return ok and Rtc or nil
+end
 
 local function call(fn, ...)
   if type(fn) ~= "function" then return nil end
@@ -117,13 +123,27 @@ end
 
 -- Decision 37.  A cave map's flash level until Flash clears it, and the circle
 -- of light it leaves (FieldView.flashRadius, in pixels from the player).
--- Ruby, Sapphire and Emerald keep level 1 after Flash, so they will need the
--- flash flag as well when they get navigation.
+-- Ruby, Sapphire and Emerald keep level 1 after Flash, so the flash flag says
+-- when it is on.  Flash works only in a map whose header says cave, and Dewford Gym
+-- is dark some other way: its level falls as its trainers lose (setflashlevel in its
+-- own scripts) and the Flash move is refused there, so "use Flash" could never be
+-- obeyed and the gym is not dark for this rule.
 local function fieldView() return package.loaded["src.core.game3.field_view"] end
 
-function Navigation:isDark()
+function Navigation:isDark(world)
   local view = fieldView()
-  return type(view) == "table" and (tonumber(view.flashLevel) or 0) > 0
+  if not (type(view) == "table" and (tonumber(view.flashLevel) or 0) > 0) then return false end
+  if not GameData.isHoenn() then return true end
+  world = world or self:worldState()
+  local def = world and world.map and world.map.def
+  local cave = def and (def.cave == 1 or def.cave == true)
+  if not cave then return false end
+  local FieldMoves = loaded("src.core.game3.field_moves")
+  local flag = FieldMoves and FieldMoves.SYS_FLAGS and FieldMoves.SYS_FLAGS.FLASH_ACTIVE
+  local Space = loaded("src.core.game3.scripting.space")
+  local Flags = loaded("src.core.game3.scripting.flags")
+  if flag and Space and Space.store and Flags and call(Flags.getFlag, Space.store, nil, flag) then return false end
+  return true
 end
 
 function Navigation:darkCellVisible(world, x, y)
@@ -190,7 +210,7 @@ end
 
 local MOVE_LABEL = {
   CUT = "Cut", SURF = "Surf", STRENGTH = "Strength", ROCK_SMASH = "Rock Smash",
-  WATERFALL = "Waterfall", FLASH = "Flash",
+  WATERFALL = "Waterfall", FLASH = "Flash", DIVE = "Dive", SECRET_POWER = "Secret Power",
 }
 -- FireRed's field-move badges (FieldMoves.BADGE_FLAGS).
 local BADGE_LABEL = {
@@ -198,6 +218,20 @@ local BADGE_LABEL = {
   SURF = "Soul Badge", ROCK_SMASH = "Marsh Badge", WATERFALL = "Volcano Badge",
 }
 Navigation.BADGE_LABEL = BADGE_LABEL
+
+-- The badge a field move needs on this cartridge: upstream's table (Flags.BADGES and
+-- the profile's names) on Ruby, Sapphire and Emerald, whose gyms differ.
+local function badgeLabel(moveId)
+  if not GameData.isHoenn() then return BADGE_LABEL[moveId] end
+  local Flags = loaded("src.core.game3.scripting.flags")
+  local ok, table_ = pcall(function() return Flags.forVersion(GameData.id()).BADGES end)
+  for _, row in ipairs(ok and table_ or {}) do
+    if row.fieldMove == moveId and type(row.name) == "string" then
+      return row.name:sub(1, 1) .. row.name:sub(2):lower() .. " Badge"
+    end
+  end
+  return nil
+end
 
 -- The checks the game makes before a field move works: a party member that
 -- knows it (FieldMoves.partyMoveUser, which honours fieldmove.eligibility)
@@ -216,7 +250,7 @@ function Navigation:fieldMoveStatus(moveId)
       and call(FieldMoves.hasBadge, { store = Space.store }, moveId) == true
   end
   local hasMon = mon ~= nil
-  return hasMon and hasBadge, not hasMon, (not hasBadge) and BADGE_LABEL[moveId] or nil
+  return hasMon and hasBadge, not hasMon, (not hasBadge) and badgeLabel(moveId) or nil
 end
 
 function Navigation:fieldMoveRequirement(moveId)
@@ -595,6 +629,17 @@ function Navigation:interactiveBrowseObjects(world, puzzle)
       end
     end
   end
+  -- a place Secret Power opens: a thing to walk up to and use the move on
+  for y = 0, height - 1 do
+    for x = 0, width - 1 do
+      if Terrain.isSecretBaseSpot(map:behavior(x, y)) then
+        add({
+          id = "secret_spot:" .. mapId .. ":" .. cellKey(x, y), label = "Secret Base Spot", x = x, y = y,
+          interaction = "interact", interactionCells = { { x = x, y = y } }, semanticKind = "furniture",
+        })
+      end
+    end
+  end
   local def = type(map.def) == "table" and map.def or {}
   local authored = def.accessibilityObjects
   local a11y = type(def.accessibility) == "table" and def.accessibility or nil
@@ -918,9 +963,23 @@ function Navigation:update()
   return self:updateNavigation()
 end
 
--- Q: FireRed has no real-time clock (pret's FRLG has none; RTC is Ruby,
--- Sapphire and Emerald).
+-- Q: FireRed has no real-time clock (pret's FRLG has none).  Ruby, Sapphire and
+-- Emerald say the game's own local time (Rtc.calcLocalTime: the time the player set
+-- at the wall clock, with the same day count the game's daily events use).
 function Navigation:readGameTime()
+  local Rtc = GameData.isHoenn() and lazyRtc() or nil
+  local session = self:session()
+  if Rtc and call(Rtc.enabled, session) then
+    local time = call(Rtc.calcLocalTime, session)
+    if type(time) == "table" and tonumber(time.hours) then
+      local hours, minutes = tonumber(time.hours), tonumber(time.minutes) or 0
+      local suffix = hours >= 12 and "PM" or "AM"
+      local twelve = hours % 12
+      if twelve == 0 then twelve = 12 end
+      return self:announceManual({ ("%d:%02d %s, day %d"):format(twelve, minutes, suffix, tonumber(time.days) or 0) })
+    end
+    return self:announceManual({ "The clock has not been set" })
+  end
   return self:announceManual({ "This game has no clock" })
 end
 
@@ -1098,8 +1157,8 @@ function Navigation:routeOptionsFor(world, goals, policy)
       if not map:standingWarp(x, y) then return false end
     end
     local beh = map:behavior(x, y)
-    if beh == Terrain.MB.FALL_WARP and not isGoal then return false end
-    if beh == Terrain.MB.CRACKED_ICE and not isGoal then return false end
+    if Terrain.givesWay(beh) and not isGoal then return false end
+    if Terrain.needsAcroBike(beh) then return false end
     -- a closed card key door: opened on the way with the key, else a wall
     if closedDoors[cellKey(x, y)] then return useCardKey end
     local water = map:isWater(x, y)
@@ -1186,7 +1245,8 @@ function Navigation:routeOptionsFor(world, goals, policy)
     if not map:inBounds(x, y) then return nil end
     -- pressing a standing warp's own direction on it would take it
     if map:standingWarp(fromX, fromY) == direction then return nil end
-    local onWater = map:isWater(fromX, fromY)
+    local underwater = map.underwater == true
+    local onWater = underwater or map:isWater(fromX, fromY)
     local fromElevation = elevationOf(fromX, fromY)
     -- a ledge ahead facing the move: the hop lands two cells on
     local facings = map:ledgeFacings(x, y)
@@ -1199,6 +1259,18 @@ function Navigation:routeOptionsFor(world, goals, policy)
     end
     if map:dirBlocked(fromX, fromY, x, y, direction) then return nil end
     local beh = map:behavior(x, y)
+    -- What only a bike crosses, for naming what is missing (policy 3): a Mach Bike at
+    -- speed over cracked floors and up muddy slopes, an Acro Bike on rails.  The walk
+    -- itself is refused: both take a run-up and timing no route here knows how to hold.
+    if policy >= 3 and not blocker(x, y, fromElevation) then
+      if Terrain.needsAcroBike(beh) then return x, y, "acro_bike", "Ride the Acro Bike " .. direction end
+      if Terrain.isCrackedFloor(beh) then return x, y, "mach_bike", "Ride the Mach Bike " .. direction end
+      if beh == Terrain.HOENN_MB.MUDDY_SLOPE and direction == "up" then
+        local cy = y
+        while map:behavior(x, cy) == Terrain.HOENN_MB.MUDDY_SLOPE and cy > 0 do cy = cy - 1 end
+        return x, cy, "mach_bike", "Ride the Mach Bike up the slope"
+      end
+    end
     -- Waterfall: climbed from below while surfing, the whole column in one
     -- move to the first cell above it (FieldMoves.tryWaterfallOW, the ride)
     if beh == Terrain.MB.WATERFALL and direction == "up" then
@@ -1241,7 +1313,7 @@ function Navigation:routeOptionsFor(world, goals, policy)
       entryKind, entryInstruction = "surf", "Use Surf facing " .. direction
     else
       if not enterable(fromX, fromY, x, y, direction, onWater) then return nil end
-      if onWater and not toWater then
+      if onWater and not toWater and not underwater then
         entryKind, entryInstruction = "exit_water", "Exit water " .. direction
       end
     end
@@ -1352,6 +1424,8 @@ function Navigation:routeRequirements(world, result)
     if step.kind == "surf" then need("SURF") end
     if step.kind == "rock_smash" then need("ROCK_SMASH") end
     if step.kind == "waterfall" then need("WATERFALL") end
+    if step.kind == "mach_bike" then needed.MACH_BIKE = true end
+    if step.kind == "acro_bike" then needed.ACRO_BIKE = true end
     if self:isClosedCardKeyDoorCell(world, step.x, step.y) and not self:hasCardKey() then
       needed.CARD_KEY = true
     end
@@ -1620,17 +1694,57 @@ function Navigation:fallTransitions(world)
   local map = world.map
   local result = {}
   local def = map.def
-  local destId = type(def) == "table" and Scripts.crackedIceDrop(def) or nil
+  local destId
+  if type(def) == "table" then destId = Scripts.crackedIceDrop(def) end
   local destDef = destId and self:regionalMapDef(destId)
   local below = destDef and World.loadedView(self.game, destDef)
   if not below then return result end
   for y = 0, map.heightCells - 1 do
     for x = 0, map.widthCells - 1 do
       local beh = map:behavior(x, y)
-      if (beh == Terrain.MB.THIN_ICE or beh == Terrain.MB.CRACKED_ICE)
+      if Terrain.isCrackedFloor(beh) then
+        -- a cracked floor gives way at the first step, on anything but a Mach Bike at
+        -- full speed: an ordinary drop
+        if below:isWalkableCell(x, y) then
+          result[#result + 1] = { kind = "fall", x = x, y = y, cracked = true,
+            destMap = destId, destX = x, destY = y }
+        end
+      elseif (beh == Terrain.MB.THIN_ICE or beh == Terrain.MB.CRACKED_ICE)
          and below:isWalkableCell(x, y) then
         result[#result + 1] = { kind = "fall", x = x, y = y, cracked = beh == Terrain.MB.CRACKED_ICE,
           destMap = destId, destX = x, destY = y }
+      end
+    end
+  end
+  return result
+end
+
+-- Dive: a map's `dive` or `emerge` header (Dive.setDiveWarp) lands at the same x and y
+-- on the map below or above.  Deep water dives (Dive.isDiveable); anywhere below the
+-- surface but under solid rock emerges (Dive.isUnableToEmerge).  Taken with an A press
+-- and the game's own question, so the leg ends at the cell (as an elevator's does).
+function Navigation:diveTransitions(world, policy)
+  local result = {}
+  local map = world.map
+  local def = map and map.def
+  local Dive = loaded("src.core.game3.dive")
+  if not (Dive and type(def) == "table" and (def.dive or def.emerge)) then return result end
+  if policy < 3 and not self:hmAllowed(world, "DIVE", policy) then return result end
+  local needs = (not self:hmAllowed(world, "DIVE", 2)) and "Dive" or nil
+  local link = map.underwater and def.emerge or def.dive
+  local destId = type(link) == "table" and link.map or link
+  local destDef = type(destId) == "string" and self:regionalMapDef(destId) or nil
+  local dest = destDef and World.plannedView(self.game, destDef)
+  if not dest then return result end
+  for y = 0, map.heightCells - 1 do
+    for x = 0, map.widthCells - 1 do
+      local beh = map:behavior(x, y)
+      local here
+      if map.underwater then here = not Dive.isUnableToEmerge(beh) and (map:isWater(x, y) or map:walkableColl(x, y))
+      else here = Dive.isDiveable(beh) end
+      if here and dest:inBounds(x, y) and (dest:isWater(x, y) or dest:walkableColl(x, y)) then
+        result[#result + 1] = { kind = "dive", x = x, y = y, emerge = map.underwater == true,
+          destMap = destId, destX = x, destY = y, needs = needs }
       end
     end
   end
@@ -1674,6 +1788,7 @@ function Navigation:journeyMap(mapId, policy, target, live, special)
   if special then
     for _, transition in ipairs(self:elevatorTransitions(world, policy)) do add(transition) end
     for _, transition in ipairs(self:fallTransitions(world)) do add(transition) end
+    for _, transition in ipairs(self:diveTransitions(world, policy)) do add(transition) end
   end
   local targetSet = {}
   if mapId == target.mapId then
@@ -1758,18 +1873,23 @@ function Navigation:journeySearch(start, target, policy, allowed, maxSeconds, sp
         local fires = not node.arrived and map:warpAt(node.x, node.y) ~= nil
           and not map:standingWarp(node.x, node.y)
         -- cracked ice gives way under the player: no walking on from it
-        if not node.arrived and map:behavior(node.x, node.y) == Terrain.MB.CRACKED_ICE then fires = true end
+        if not node.arrived and (map:behavior(node.x, node.y) == Terrain.MB.CRACKED_ICE
+            or Terrain.isCrackedFloor(map:behavior(node.x, node.y))) then
+          fires = true
+        end
         -- transitions: a warp fires on arrival by walking (or, for exit mats,
         -- arrows and stairs, while their direction is pressed); a
         -- connection is crossed by stepping off the edge
         for _, transition in ipairs(entry.byCell[cell] or {}) do
           local usable = transition.kind == "connection" or transition.kind == "elevator"
-            or transition.kind == "fall" or fires or map:standingWarp(node.x, node.y) ~= nil
+            or transition.kind == "fall" or transition.kind == "dive"
+            or fires or map:standingWarp(node.x, node.y) ~= nil
           if usable and (not allowed or allowed[transition.destMap]) then
             -- a menu is dearer than a walk (stairs win when they are close,
             -- and after a floor is chosen the car's exit beats the panel);
             -- thin ice takes a few steps more than a warp
-            local extra = (transition.kind == "elevator" and 20) or (transition.kind == "fall" and 4) or 1
+            local extra = (transition.kind == "elevator" and 20) or (transition.kind == "fall" and 4)
+              or (transition.kind == "dive" and 12) or 1
             reach({ mapId = transition.destMap, x = transition.destX, y = transition.destY,
               arrived = true, cost = node.cost + extra, hops = node.hops + 1, parent = node,
               firstTransition = node.firstTransition or transition, needs = transition.needs })
@@ -1978,6 +2098,11 @@ function Navigation:regionalNextLeg(navigation)
       .. floorName
     stopText = "Arrived at the floor panel. Face " .. transition.facing
       .. " and take the elevator to " .. floorName
+  elseif transition.kind == "dive" then
+    local verb = transition.emerge and "surface" or "dive"
+    instruction = "Press A to " .. verb .. " to " .. destinationName
+    stopText = "Arrived at the " .. (transition.emerge and "way up" or "deep water") .. ". Press A and answer yes to "
+      .. verb .. " to " .. destinationName
   elseif transition.kind == "fall" and not transition.cracked then
     instruction = "Step off the thin ice and back onto it: it cracks and you fall through to "
       .. destinationName
@@ -2005,7 +2130,14 @@ end
 -- starts with the island, the first three (FIVE_ISLAND_LOST_CAVE_*).
 local function areaKey(mapId)
   if type(mapId) ~= "string" then return nil end
-  local id = mapId:gsub("^FR_", "")
+  local id = GameData.bareMapId(mapId)
+  if GameData.isHoenn() then
+    -- every Secret Base map is a room of its own; a route and its seabed are one area
+    if id:match("^SECRET_BASE") or id:match("^BATTLE_PYRAMID_SQUARE") then return nil end
+    id = id:gsub("^UNDERWATER_", "")
+    local route = id:match("^(ROUTE%d+)$")
+    if route then return route end
+  end
   if id:match("^%u+_ISLAND_") then
     return id:match("^(%u+_ISLAND_[%u%d]+)")
   end
@@ -2021,8 +2153,9 @@ function Navigation:areaBrowse(world)
   local items = {}
   if not key then return items end
   local members = {}
+  local prefix = GameData.mapPrefix()
   for mapId in pairs(maps) do
-    if type(mapId) == "string" and mapId:match("^FR_") and areaKey(mapId) == key then
+    if type(mapId) == "string" and mapId:sub(1, #prefix) == prefix and areaKey(mapId) == key then
       members[#members + 1] = mapId
     end
   end

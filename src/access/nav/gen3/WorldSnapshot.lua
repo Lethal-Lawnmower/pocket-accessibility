@@ -24,6 +24,7 @@
 local Shared = require("src.access.nav.WorldSnapshot")
 local Scripts = require("src.access.nav.gen3.Scripts")
 local Terrain = require("src.access.nav.gen3.TerrainSemantics")
+local GameData = require("src.access.nav.gen3.GameData")
 
 local Snapshot = {}
 for key, value in pairs(Shared) do Snapshot[key] = value end
@@ -47,11 +48,19 @@ local MAP_WORDS = {
   PSYCHICS = "Psychic's", LORELEIS = "Lorelei's", WARDENS = "Warden's",
   DIGLETTS = "Diglett's", BRUNOS = "Bruno's", AGATHAS = "Agatha's",
   LANCES = "Lance's", CHAMPIONS = "Champion's", POKEMON = "Pok\195\169mon",
+  -- Ruby, Sapphire and Emerald
+  BRENDANS = "Brendan's", MAYS = "May's", BIRCHS = "Birch's", CAPTAINS = "Captain's",
+  COZMOS = "Cozmo's", DRAKES = "Drake's", GLACIAS = "Glacia's", PHOEBES = "Phoebe's",
+  SIDNEYS = "Sidney's", STEVENS = "Steven's", WALLYS = "Wally's", SCOTTS = "Scott's",
+  BRINEYS = "Briney's", LADYS = "Lady's", FAMILYS = "Family's", MANIACS = "Maniac's",
+  LANETTES = "Lanette's", TUNNELERS = "Tunneler's", MASTERS = "Master's", HUNTERS = "Hunters'",
+  CUTTERS = "Cutter's", RELEARNERS = "Relearner's", DELETERS = "Deleter's", RATERS = "Rater's",
+  STERNS = "Stern's", AND = "and", OF = "of",
 }
 
 function Snapshot.mapIdName(mapId)
   if type(mapId) ~= "string" then return nil end
-  local id = mapId:gsub("^FR_", ""):gsub("^SEVII_", "")
+  local id = GameData.bareMapId(mapId):gsub("^SEVII_", "")
   local words = {}
   for word in id:gmatch("[^_]+") do
     local fixed = MAP_WORDS[word]
@@ -80,14 +89,13 @@ end
 
 -- ------------------------------------------------------------ objects
 
-local GFX_NAME = nil
+local GFX_NAME, GFX_NAME_GAME = nil, nil
 local function gfxName(gfx)
-  if GFX_NAME == nil then
-    GFX_NAME = false
-    local ok, Constants = pcall(require, "src.core.game3.constants")
-    local okOf, set = false, nil
-    if ok and Constants and Constants.of then okOf, set = pcall(Constants.of, "firered") end
-    local objects = okOf and set and set.event_objects
+  local game = GameData.id()
+  if GFX_NAME == nil or (GFX_NAME_GAME ~= nil and GFX_NAME_GAME ~= game) then
+    GFX_NAME, GFX_NAME_GAME = false, game
+    local set = GameData.constants()
+    local objects = set and set.event_objects
     local byId = objects and objects.byId
     if type(byId) == "table" then
       GFX_NAME = type(byId.OBJ_EVENT_GFX_) == "table" and byId.OBJ_EVENT_GFX_ or byId
@@ -96,7 +104,7 @@ local function gfxName(gfx)
   local name = GFX_NAME and GFX_NAME[tonumber(gfx)] or nil
   return type(name) == "string" and name or nil
 end
-function Snapshot.setGraphicsNames(names) GFX_NAME = names end
+function Snapshot.setGraphicsNames(names) GFX_NAME, GFX_NAME_GAME = names, nil end
 
 local GFX_LABELS = {
   PROF_OAK = "Professor Oak", LT_SURGE = "Lt. Surge", MR_FUJI = "Mr. Fuji",
@@ -106,6 +114,21 @@ local GFX_LABELS = {
   TEACHY_TV_HOST = "Teachy TV Host", OLD_MAN_LYING_DOWN = "Old Man",
   CUT_TREE = "Cuttable Tree", ROCK_SMASH_ROCK = "Smashable Rock",
   PUSHABLE_BOULDER = "Boulder", ITEM_BALL = "Pok\195\169 Ball",
+  -- Ruby, Sapphire and Emerald (their sheets, in event_objects)
+  CUTTABLE_TREE = "Cuttable Tree", BREAKABLE_ROCK = "Smashable Rock",
+  PROF_BIRCH = "Professor Birch", BIRCHS_BAG = "Professor Birch's Bag",
+  MR_BRINEYS_BOAT = "Mr. Briney's Boat", HOOH = "Ho-Oh", TEALA = "Attendant",
+  LINK_RECEPTIONIST = "Receptionist", GAMEBOY_KID = "Kid", POKEFAN = "Pok\195\169 Fan",
+  ROOFTOP_SALE_WOMAN = "Sale Clerk", HOT_SPRINGS_OLD_WOMAN = "Old Woman",
+  TUBER_M_SWIMMING = "Tuber", CYCLING_TRIATHLETE = "Triathlete", RUNNING_TRIATHLETE = "Triathlete",
+  AQUA_MEMBER = "Team Aqua Grunt", MAGMA_MEMBER = "Team Magma Grunt",
+  GROUDON_ASLEEP = "Groudon", GROUDON_FRONT = "Groudon", GROUDON_SIDE = "Groudon",
+  KYOGRE_ASLEEP = "Kyogre", KYOGRE_FRONT = "Kyogre", KYOGRE_SIDE = "Kyogre",
+  RAYQUAZA_STILL = "Rayquaza", KECLEON_BRIDGE_SHADOW = "Kecleon",
+  VIGOROTH_CARRYING_BOX = "Vigoroth", VIGOROTH_FACING_AWAY = "Vigoroth",
+  TRICK_HOUSE_STATUE = "Statue", DEOXYS_TRIANGLE = "Triangle", SUBMARINE_SHADOW = "Submarine",
+  SS_TIDAL = "S.S. Tidal", UNION_ROOM_NURSE = "Nurse", MYSTERY_GIFT_MAN = "Delivery Man",
+  QUINTY_PLUMP = "Man", GIDDY = "Man", HIPSTER = "Man", MAN = "Man",
   NIDORAN_F = "Nidoran female", NIDORAN_M = "Nidoran male", HO_OH = "Ho-Oh",
   DEOXYS_D = "Deoxys", DEOXYS_A = "Deoxys", DEOXYS_N = "Deoxys", SS_ANNE = "S.S. Anne",
   OLD_AMBER = "Old Amber", POKEDEX = "Pok\195\169dex",
@@ -122,10 +145,14 @@ local function resolvedGraphics(actor, def)
 end
 -- The player's own sheets on someone else (link partners, the Trainer
 -- Tower): not who stands there.
-local PLAYER_SHEETS = { RED = true, GREEN = true, RS_BRENDAN = true, RS_MAY = true }
+local PLAYER_SHEETS = { RED = true, GREEN = true, RS_BRENDAN = true, RS_MAY = true,
+  BRENDAN = true, MAY = true, LINK = true }
 
 local function personLabel(name)
   if GFX_LABELS[name] then return GFX_LABELS[name] end
+  -- the rival's sheets: the rival's own name in Hoenn (the game gives it by gender)
+  local rival = name:match("^RIVAL_(%u+)_")
+  if rival then return Shared.humanize(rival) end
   local base = name:gsub("_WATER$", ""):gsub("_LAND$", ""):gsub("_%d+$", "")
   base = base:gsub("_[MF]$", "")
   if GFX_LABELS[base] then return GFX_LABELS[base] end
@@ -139,13 +166,20 @@ local THING_GRAPHICS = {
   LAPRAS_DOLL = true, METEORITE = true, OLD_AMBER = true, POKEDEX = true,
   PUSHABLE_BOULDER = true, ROCK_SMASH_ROCK = true, RUBY = true, SAPPHIRE = true,
   SEAGALLOP = true, SIGN = true, SS_ANNE = true, TOWN_MAP = true, TRAINER_TIPS = true,
+  -- Ruby, Sapphire and Emerald
+  BERRY_TREE = true, BERRY_TREE_EARLY_STAGES = true, BERRY_TREE_LATE_STAGES = true,
+  BREAKABLE_ROCK = true, CUTTABLE_TREE = true, TRICK_HOUSE_STATUE = true, MOVING_BOX = true,
+  TRUCK = true, CABLE_CAR = true, SS_TIDAL = true, MR_BRINEYS_BOAT = true, BIRCHS_BAG = true,
+  SUBMARINE_SHADOW = true, DEOXYS_TRIANGLE = true,
 }
 
 function Snapshot.isThing(actor)
   local def = type(actor.def) == "table" and actor.def or {}
   local gfx = resolvedGraphics(actor, def)
   local name = gfx and gfxName(gfx)
-  return name ~= nil and THING_GRAPHICS[(name:gsub("^OBJ_EVENT_GFX_", ""))] == true
+  if not name then return false end
+  name = name:gsub("^OBJ_EVENT_GFX_", "")
+  return THING_GRAPHICS[name] == true or name:match("_DOLL$") ~= nil or name:match("_CUSHION$") ~= nil
 end
 
 -- The label for a FireRed object from its graphics, or nil.

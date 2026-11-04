@@ -316,6 +316,12 @@ function View:computeWarpKind(x, y)
     if C.isEscalator(beh) then return "escalator" end
     if C.isFallWarp(beh) then return "hole" end
     if C.isWarpPad(beh) then return "pad" end
+    -- Lavaridge Gym's and Mt. Pyre's holes, Mossdeep Gym's pads and Lavaridge's
+    -- springs (the springs and pads carry the player; the holes drop them)
+    if C.isMtPyreHole and (C.isMtPyreHole(beh) or C.isLavaridge1FWarp(beh) or C.isCrackedFloorHole(beh)) then
+      return "hole"
+    end
+    if C.isMossdeepGymWarp and (C.isMossdeepGymWarp(beh) or C.isLavaridgeB1FWarp(beh)) then return "pad" end
   end
   return "step"
 end
@@ -351,6 +357,9 @@ local function newView(game, def, mapId, live)
   if not layout then return nil end
   local view = setmetatable({
     game = game, def = def, id = mapId or def.id, live = live == true,
+    -- pokeemerald/include/constants/map_types.h: MAP_TYPE_UNDERWATER, moved through
+    -- as water with no Surf to start (Dive.isUnderwaterMap)
+    underwater = tonumber(def.mapType) == 5 and def.emerge ~= nil,
     widthCells = layout.width, heightCells = layout.height,
     warpIndex = {}, warpCells = {}, kindCache = {},
   }, View)
@@ -545,6 +554,7 @@ local playerProxy = setmetatable({}, {
     if not Player then return nil end
     if key == "onBike" then return Player.biking == true end
     if key == "surfing" then return Player.surfing == true end
+    if key == "underwater" then return Player.underwater == true end
     return Player[key]
   end,
 })
