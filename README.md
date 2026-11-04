@@ -32,41 +32,6 @@ Playing through every game myself isn't realistic, so here's how far I've gotten
 
 All of them have been through automated tests and scripted runs. If you run into a problem, open an issue here or reach out to me on Discord (`lethal_lawnmower`).
 
-## Goal
-
-My goal is to bring the [Pokémon Access](https://github.com/nuive/pokemon-access)
-scripts made by nuive, which build on Tyler Spivey's Pokécrystal Access
-Project, to these PC ports. Those scripts rely on VBA, which is built on old,
-outdated emulator technology. The audio and video quality are poor, and I feel
-the community deserves better.
-
-Text-to-speech is routed through [Prism](https://github.com/ethindp/prism), and
-navigation includes my own additions and improvements.
-
-## A Note on AI
-
-For full transparency: these accessibility mods are built with AI. I'm blind,
-and I don't have the same access to play these games that most sighted people
-do. AI has empowered people with disabilities to turn ideas into reality, and
-it's what made this project possible.
-
-If you have a problem with that, I'm sorry you feel that way, but it's not
-going to change how this project is made. It exists to make these games
-playable for people who couldn't play them independently before.
-
-## Where the Navigation Comes From
-
-I played through Red in early August 2026, and about 95% of the navigation
-data, workarounds and code here came out of that playthrough. Playing
-through every game over and over again isn't realistic, and it isn't
-something I want to do. My aim is to get a working baseline for nearly
-everything that way, so the places I tested should work without issue when
-you reach them. If something doesn't, please open an issue on this
-repository or reach out to me on Discord (`lethal_lawnmower`).
-
-My main interest is Crystal from the second generation and most of the
-third-generation GBA games.
-
 ## What It Does
 
 - **Speech:** menus, dialogue, the Pokémon screens and battles all go through [Prism](https://github.com/ethindp/prism), so it works with your screen reader without any extra setup. Gone are the days of hunting down the right NVDA DLL or `Tolk.dll`. F7 turns on the navigation keys, and F8 is help.
@@ -116,6 +81,27 @@ The navigation keys only work on the map, so they never get in the way of menus 
 **On a controller,** hold the left trigger and use the D-pad: up and down change the category, and left and right move through it. Click the right stick for spoken directions, and the left stick to auto-walk. Click again to stop.
 
 Want another key? Ask, and I'll look at adding it.
+
+## Why I Made This
+
+The original scripts by nuive, which build on Tyler Spivey's Pokécrystal Access Project, rely on VBA, which is built on old, outdated emulator technology. The audio and video quality are poor, and I feel the community deserves better.
+
+## A Note on AI
+
+For full transparency: these accessibility mods are built with AI. I'm blind,
+and I don't have the same access to play these games that most sighted people
+do. AI has empowered people with disabilities to turn ideas into reality, and
+it's what made this project possible.
+
+If you have a problem with that, I'm sorry you feel that way, but it's not
+going to change how this project is made. It exists to make these games
+playable for people who couldn't play them independently before.
+
+## Where the Navigation Comes From
+
+In my personal opinion, about 80 to 90% of the navigation ideas came from my Red playthrough in August 2026, and the remaining 10 to 20% came from my latest Crystal playthrough. My main interest is Crystal from the second generation and most of the third-generation GBA games.
+
+Things are bound to change, and I'm more than willing to listen to and adapt to community feedback. At the end of the day, this isn't meant to be my project, but something the community can add to and build on. If something doesn't work, please open an issue on this repository or reach out to me on Discord (`lethal_lawnmower`).
 
 ## Credit
 
