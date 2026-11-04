@@ -32,8 +32,8 @@ function L.new(game)
     local flag = GameData.flag("FLAG_SYS_POKEMON_GET")
     if flag then self.setFlag(flag, true) end
     s.party = {}
-    Party.giveMon(s, species or 9, level or 90)
-    Party.giveMon(s, species or 9, level or 90)
+    Party.giveMon(s, species or 9, level or 100)
+    Party.giveMon(s, species or 9, level or 100)
     local M = FieldMoves.MOVES
     local function moves(mon, list)
       local pp = {}
@@ -43,7 +43,7 @@ function L.new(game)
     -- Hydro Pump first: upstream's auto-fight uses move 1
     moves(s.party[1], { 56, M.SURF, M.STRENGTH, M.CUT })
     moves(s.party[2], { 56, M.ROCK_SMASH, M.WATERFALL, M.DIVE })
-    Party.giveMon(s, species or 9, level or 90)
+    Party.giveMon(s, species or 9, level or 100)
     moves(s.party[3], { 56, M.FLASH, M.SECRET_POWER, M.FLY })
     for _, badge in ipairs(Flags.forVersion(GameData.id()).BADGES or {}) do
       if badge.flag then self.setFlag(badge.flag, true) end

@@ -175,7 +175,7 @@ return function(game)
       for _, mapId in ipairs(groups[key]) do
         if maps[mapId].warps and maps[mapId].warps[1] then first = first or mapId end
       end
-      if first and not key:match("^BATTLE_FRONTIER") then
+      if first and not key:match("^BATTLE_") then -- (their load scripts need a challenge under way)
         arrive(first)
         local listed = {}
         for _, item in ipairs(L.browse("area")) do
@@ -295,9 +295,18 @@ return function(game)
     area("Space Center 1F to 2F", "MOSSDEEP_CITY_SPACE_CENTER_1F", "Space Center 2F$", "MOSSDEEP_CITY_SPACE_CENTER_2F")
     area("Safari Zone South to Southwest", "SAFARI_ZONE_SOUTH", "Southwest$", "SAFARI_ZONE_SOUTHWEST")
     area("Shoal Cave entrance to Ice Room", "SHOAL_CAVE_LOW_TIDE_ENTRANCE_ROOM", "Ice Room$", "SHOAL_CAVE_LOW_TIDE_ICE_ROOM")
+    -- the Trick House's rooms, each to its scroll
+    for number = 1, 8 do
+      local name = "ROUTE110_TRICK_HOUSE_PUZZLE" .. number
+      local onlyList = os.getenv("RSE_STORY_PLACES")
+      if maps[id(name)] and (not onlyList or onlyList:find(name, 1, true)) and arrive(id(name)) then
+        walk("Trick House " .. number .. " to the scroll", "signposts", "Secret Scroll", nil, 40000)
+      end
+    end
     -- Sky Pillar: on foot the cracked floors refuse; on the Mach Bike they are ridden.  The
     -- floors crack in the story (VAR_SKY_PILLAR_STATE); its value is set here
-    if maps[id("SKY_PILLAR_2F")] then
+    local onlyPlaces = os.getenv("RSE_STORY_PLACES")
+    if maps[id("SKY_PILLAR_2F")] and not onlyPlaces then
       local stateVar = L.GameData.var("VAR_SKY_PILLAR_STATE")
       if stateVar then L.setVar(stateVar, 2) end
       arrive(id("SKY_PILLAR_2F"))
@@ -331,6 +340,24 @@ return function(game)
     L.heard()
     nav:handleCommand("read_game_time")
     U.log("RESULT", "Q says", L.heard())
+  end
+
+  if part("L") then
+    -- People whose sprite a variable decides: what the live list says on those maps
+    for _, name in ipairs({ "LITTLEROOT_TOWN_BRENDANS_HOUSE_2F", "LITTLEROOT_TOWN_MAYS_HOUSE_2F", "CONTEST_HALL",
+        "LILYCOVE_CITY_POKEMON_CENTER_1F", "MAUVILLE_CITY_POKEMON_CENTER_1F", "SECRET_BASE_RED_CAVE1",
+        "SLATEPORT_CITY_BATTLE_TENT_BATTLE_ROOM", "LILYCOVE_CITY" }) do
+      if maps[id(name)] and maps[id(name)].warps and maps[id(name)].warps[1] and arrive(id(name)) then
+        local persons, total = 0, 0
+        for _, item in ipairs(L.browse("all")) do
+          if item.type == "object" then
+            total = total + 1
+            if item.label == "Person" then persons = persons + 1 end
+          end
+        end
+        U.log("RESULT", "live list", name, "objects", total, "Person", persons)
+      end
+    end
   end
 
   U.log("RESULT", "walks arrived", summary.arrived, "failed", summary.failed)

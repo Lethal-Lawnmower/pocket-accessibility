@@ -290,7 +290,8 @@ function Snapshot.projectSigns(view, def, player)
   for index, event in ipairs(def.bgEvents or {}) do
     local kind = tonumber(event.kind) or 0
     if event.type == "sign" and (kind == 0 or SIGN_FACING[kind])
-       and type(event.x) == "number" and type(event.y) == "number" then
+       and type(event.x) == "number" and type(event.y) == "number"
+       and not (GameData.isHoenn() and view and not view:inBounds(event.x, event.y)) then
       listed[#listed + 1] = { index = index, event = event, kind = kind }
     end
   end

@@ -114,6 +114,7 @@ local SPECIAL_ROLES = {
   { "StartWallClock", "Wall Clock" }, { "Special_ViewWallClock", "Wall Clock" },
   { "ShowRankingHallRecordsWindow", "Records" }, { "ShowBerryBlenderRecordWindow", "Records" },
   { "ShowTrainerHillRecords", "Records" }, { "RemoveRecordsWindow", "Records" },
+  { "ShowBattleTowerRecords", "Records" },
   { "TryBecomeLinkLeader", "Link Machine" }, { "CallBattleDomeFunction", "Tournament Board" },
 }
 
@@ -129,6 +130,8 @@ function Scripts.signRole(key)
   if s.ops.playslotmachine then return "Slot Machine", "slot_machine" end
   if s.ops.braillemessage then return "Braille", "braille" end
   if s.ops.showcontestpainting then return "Contest Painting", "painting" end
+  -- Mauville's bike shop's racks: a choice of bikes, nothing else
+  if s.ops.multichoice and s.ops.copyvar and not s.ops.callstd and not s.ops.setmetatile then return "Bike Rack", "bike_rack" end
   -- Trick House: found once for the game's own check, then read again
   if s.ops.playfanfare and s.ops.setvar and s.ops.message and not s.ops.setmetatile then
     return "Secret Scroll", "scroll"
