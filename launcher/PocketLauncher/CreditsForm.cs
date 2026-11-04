@@ -10,7 +10,7 @@ internal sealed class CreditsForm : Form
 {
     private static readonly string[] Lines =
     [
-        "Pocket Accessibility: screen reader accessibility for Pokémon Red, Blue, Yellow, Gold, Silver, Crystal and FireRed.",
+        "Pocket Accessibility: screen reader accessibility for Pokémon Red, Blue, Yellow, Gold, Silver, Crystal, FireRed, LeafGreen, Ruby, Sapphire and Emerald.",
         "Copyright (C) 2026 BOIS CLUB GAMES, LLC. Accessibility additions copyright (C) 2026 the Pocket Accessibility contributors.",
         "",
         MainForm.UpstreamCredit + ".",

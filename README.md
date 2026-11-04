@@ -8,7 +8,7 @@ Pocket Accessibility aims to cover the gaps and weird issues that the original [
 
 If you don't know Pokémon Access, it's a set of scripts by nuive that make the Pokémon games playable with a screen reader through the VBA-ReRecording emulator. It grew out of the Pokécrystal Access Project, which did the same for Crystal.
 
-**Early days:** there is no packaged release yet, so you run it from source. Expect mild inconveniences to moderate bugs.
+**Early days:** expect mild inconveniences to moderate bugs.
 
 > [!WARNING]
 > **Seizure and flashing warning, in my own words.** This README was generated
@@ -61,7 +61,15 @@ Not everything is covered. If auto-walk says there's no route, the way may reall
 
 ## Getting Started
 
-There's no packaged release yet, so for now you run it from source on Windows. You supply your own ROMs. No game data is included.
+You supply your own ROMs. No game data is included.
+
+1. Download the zip from this repository's [Releases page](https://github.com/Lethal-Lawnmower/pocket-accessibility/releases) and unzip it anywhere.
+2. Open `PocketLauncher.exe`.
+3. Choose Import ROM, pick your game's ROM, then Play.
+
+Windows only for now. Nothing else needs installing, and your saves are kept outside that folder, so you can replace it with a newer version.
+
+### Running from source
 
 1. Install [LÖVE 11.5](https://love2d.org/).
 2. Download a [Prism](https://github.com/ethindp/prism/releases) Windows x64 release and copy `prism.dll` into `local-deps/prism/` in this folder.
