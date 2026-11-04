@@ -243,6 +243,7 @@ Contest.stage = {
       if appeal < NUM_APPEALS and appeal ~= memo.round
           and inTask(s, s.mainTaskId, "taskDisplayAppealNumberText", "taskTryShowMoveSelectScreen") then
         memo.round = appeal
+        parts[#parts + 1] = "Round " .. (appeal + 1) .. " of " .. NUM_APPEALS
         parts[#parts + 1] = roundOrder(s, c)
       elseif memo.totals ~= appeal
           and inTask(s, s.mainTaskId, "taskReUpdateHeartSliders") then
@@ -545,7 +546,10 @@ local function windowRows(win)
     local row = byRow[key]
     table.sort(row, function(a, b) return (a.x or 0) < (b.x or 0) end)
     local cells = {}
-    for i, p in ipairs(row) do cells[i] = (tostring(p.text):gsub("^%s+", ""):gsub("%s+$", "")) end
+    for i, p in ipairs(row) do
+      -- Ruby's place reads "1 . NAME".
+      cells[i] = (tostring(p.text):gsub("^%s+", ""):gsub("%s+$", ""):gsub("^(%d+) %. ", "%1. "))
+    end
     rows[#rows + 1] = cells
   end
   return rows
@@ -584,7 +588,8 @@ local function resultsText(win)
     elseif #cells == 2 then
       parts[#parts + 1] = join({ say(label), say(cells[2]) })
     else
-      local value = joinedCell(cells, 2):gsub("%s*%.%s*", ".")
+      -- Ruby: "92", ".", "88RPM" and "00MIN.", "30SEC."
+      local value = joinedCell(cells, 2):gsub("%s+%.%s+", "."):gsub("(%d)(%a)", "%1 %2")
       parts[#parts + 1] = join({ say(label), say(value) })
     end
   end

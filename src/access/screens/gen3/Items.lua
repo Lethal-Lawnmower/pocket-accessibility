@@ -763,12 +763,25 @@ end
 -- only; the level when the status icon is clear (or POKéRUS); the gender
 -- mark except on Nidoran; the slot description (ABLE, NOT ABLE, LEARNED
 -- ...) in place of HP; the status and held-item icons in words.
+-- Ruby and Sapphire draw the slot description as an image: their description
+-- is { nativeRsDescriptor = offset } (rs/party_menu_data.lua), so its id is
+-- found by that offset and said in words.  FireRed's is a string.
+local function slotDescriptionWord(P, i)
+  local desc = try(P.slotDescription, i)
+  if type(desc) ~= "table" then return say(desc) end
+  local Data = loaded("src.ui.game3.rs.party_menu_data")
+  for id, offset in pairs(Data and Data.descriptorOffsets or {}) do
+    if offset == desc.nativeRsDescriptor then return (tostring(id):gsub("_", " ")) end
+  end
+  return nil
+end
+
 function Party.slot(P, i)
   local party = P._party or {}
   local mon = party[i]
   if type(mon) ~= "table" then return nil end
   local parts = { monName(mon) }
-  local desc = say(try(P.slotDescription, i))
+  local desc = slotDescriptionWord(P, i)
   if isEgg(mon) then
     parts[#parts + 1] = desc
     return join(parts)

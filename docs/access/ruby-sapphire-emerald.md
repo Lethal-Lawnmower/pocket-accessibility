@@ -62,6 +62,14 @@ draws and drives FireRed's module, `boot` names the boot objects.
 | Incoming call (Emerald) | "POKéNAV call" (the icon, our words), each page | |
 | Trainer's Eyes (Ruby, Sapphire) | "TRAINER'S EYES", registered, battles, trainer, place, "wants a rematch", position, help bar | Row; detail (strategy, Pokémon, introduction), next trainer |
 | Ribbons | "RIBBONS", name, gender, level, count, position | Row; summary: next Pokémon, count; each ribbon's description with position, gift ribbons included |
+| Contest stage (all rounds) | Rank and category; each round "Round N of 5", appeal order with trainer, total hearts, stars, status and judge's attention | Announcer page by page; move rows with category, combo or repeated, position, appeal and jam hearts as numbers, description; hearts after each appeal or jam; stars; status; excitement N of 5, maximum, reset; next-turn order; totals after the round. Narration is queued; the move list interrupts it |
+| Contest results | Rank and category | Each banner; preliminary stars; round 2 hearts (minus when lost); places 1st to 4th; winner; "Press A" (the scene waits with nothing on screen) |
+| Contest painting | "Painting", caption; the artist's copy has no caption, so the name | |
+| Choosing a contest Pokémon | FireRed's party presenter; Ruby and Sapphire through `rs_contest_party`, with ABLE and NOT ABLE from their image descriptors | Row |
+| Pokéblock case (field, Safari battle) | "POKéBLOCK CASE", name, level, position, flavours, feel | Row; "Moving"; USE, TOSS, CANCEL; toss question, yes/no, result; STOW CASE |
+| Use Pokéblock, feeding | "CONDITION", name, gender, level, position, nature, five conditions and sheen as numbers; CANCEL | Row; question, yes/no; "ate" line through its printer; "Press A" before the change; each "was enhanced" line, new numbers |
+| Berry Blender | Its messages; player names and berries once thrown; berry through the bag (location blender) | Ranking with BEST, GOOD, MISS counts; results with berries, maximum speed, time; "made" line; yes/no. The timing game is silent, see below |
+| Berry tag (bag CHECK TAG) | "BERRY TAG", number, name, position, size, firmness, flavours, description | Next berry |
 
 Labels our words stand for, because the screen draws them as images: Pokédex
 bar and START menu, search row names, Ruby's trainer card labels, Ruby's summary
@@ -70,6 +78,24 @@ the Pokénav (`gen3/HoennPokenav.lua`): menu rows, left headers, graph axes,
 sparkles (the sheen number stands for them), marking symbols, gender signs,
 rematch marker, blue light, call icon, and Ruby and Sapphire's help bars (read
 off the images; only map, Trainer's Eyes, search graph, markings are said).
+
+Known gaps in contests and the blender (`gen3/HoennContest.lua`,
+`drivers/rse_screens_contest.lua`): the Berry Blender's timing game is silent by
+design. Its arrow, BEST, GOOD and MISS sprites and changing speed digits are real
+time with no readable text, and a spoken cue would arrive after the moment; a player
+hears only the game's own sounds, which come after a press. Whether a cue is wanted
+is the owner's decision. Pictures are not described: the painting, the winner's
+banner, the judge. Heart bars in the results are said as the stars and hearts they
+are built from, not as a length. Not run: link contest and link blender text, a
+contest entered from the reception script (the driver opens the modules the natives
+open, with the same options), turn-skipped "can't participate", the blender's YES
+path and its two refusals.
+
+Labels our words stand for in those screens: contest category and rank, hearts,
+stars, status and judge symbols (protected, nervous, cannot appeal, judge's
+attention), excitement, next-turn labels, places, the combo and repeated colours,
+CONDITION and its axes, sheen, the blender's score icons, Ruby and Sapphire's BERRY
+TAG title.
 
 Known gaps in the Pokénav: the map's city picture is not described; the map
 says nothing about which places can be flown to. Emerald's graph, list and map
@@ -93,6 +119,11 @@ TALLY missed=0.
 
 ## Upstream observations (recorded, not fixed)
 
+- Ruby and Sapphire's contest stage prints "Appeal no. MAY! Which move will be
+  played?" in the running game: `rse/contest.lua` `nativeText` turns the text's
+  `FC 00` into `FD 01`, which the Ruby dialect expands to the player's name, not the
+  round number. Read from the printer's tokens, not seen on a screen. Speech says
+  that line as printed, and "Round N of 5" beside it from the contest's own counter.
 - Emerald's own string for the contest page title is spelled "C0NTEST MOVES"
   in the running data; the layer says CONTEST.
 - `PcMenu` root mode reads FireRed's `Text_AccessWhichPC` on B after `show()`

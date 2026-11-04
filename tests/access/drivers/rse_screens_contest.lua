@@ -118,11 +118,6 @@ return function(game)
       local s = Stage.active()
       if not s then break end
       local task = s.m.tasks.t[s.mainTaskId]
-      if frames % 600 == 599 then
-        local nameOf = "?"
-        for name, fn in pairs(s.fn) do if task and fn == task.func then nameOf = name end end
-        L.log("TASK", nameOf .. " " .. tostring(s.m.state) .. " y " .. tostring(s.bgY[1]))
-      end
       if task and s.fn.taskHandleMoveSelectInput == task.func then
         if not inMenu then
           inMenu = true
@@ -277,6 +272,60 @@ return function(game)
     wait(30)
   end)
 
+  section("safaribattle", function()
+    -- A real Safari battle: its POKeBLOCK command (rse_battle.lua's way in).
+    blocks()
+    local Battle = require("src.core.game3.battle")
+    local Ui = require("src.core.game3.battle.ui")
+    local Runtime = require("src.core.game3.runtime")
+    local BattleBridge = require("src.core.game3.battle_bridge")
+    local Rules = require("src.core.game3.battle.rules")
+    session.safari = { active = true, balls = Rules.safari.BALLS, steps = Rules.safari.STEPS }
+    local started, why = BattleBridge.startWild(Runtime._mod, game, { species = 111, level = 25 }, { safari = true, fade = false })
+    if not started then L.log("FAIL", "safari: " .. tostring(why)) return end
+    local function atMenu() return Battle.isActive() and Battle._phase == "command" and Ui._mode == "menu" end
+    for _ = 1, 3000 do
+      if atMenu() then break end
+      local Message = require("src.ui.game3.message")
+      if Message.isOpen() and Message.isWaiting() then tap("a", 20) else wait(1) end
+    end
+    L.log("ATMENU", tostring(atMenu()))
+    for _ = 1, 4 do
+      local c = (Ui._menuIndex or 1) - 1
+      if c == 1 then break end
+      if c % 2 == 0 then tap("right", 12) else tap("left", 12) end
+    end
+    tap("a", 80)                        -- POKeBLOCK
+    L.log("TOP", tostring(L.top()) .. " " .. tostring(Battle._phase))
+    tap("down", 20)
+    tap("a", 20)                        -- actions
+    taps({ "down", "up" }, 20)
+    tap("a", 90)                        -- USE
+    for _ = 1, 1500 do
+      if atMenu() then break end
+      local Message = require("src.ui.game3.message")
+      if Message.isOpen() and Message.isWaiting() then tap("a", 20) else wait(1) end
+    end
+    L.log("ATMENU", tostring(atMenu()))
+    for _ = 1, 8 do
+      if not atMenu() then break end
+      for _ = 1, 4 do                   -- RUN, the fourth command (rse_battle.lua menuTo)
+        local c = (Ui._menuIndex or 1) - 1
+        if c == 3 then break end
+        if c % 2 ~= 1 then tap("right", 12) else tap("down", 12) end
+      end
+      tap("a", 60)
+      for _ = 1, 400 do
+        if atMenu() or not Battle.isActive() then break end
+        local Message = require("src.ui.game3.message")
+        if Message.isOpen() and Message.isWaiting() then tap("a", 20) else wait(1) end
+      end
+    end
+    session.safari = nil
+    wait(60)
+    L.log("INBATTLE", tostring(Battle.isActive()))
+  end)
+
   section("tag", function()
     local Tag = Screens.get("berry_tag", session)
     local list = { item("ITEM_CHERI_BERRY"), item("ITEM_ORAN_BERRY") }
@@ -304,18 +353,30 @@ return function(game)
     wait(30)
     L.log("TOP", tostring(L.top()))
     local played = false
+    local tagSeen = false
     local frames = 0
     local answered = 0
     local cool = 0
     local B = require("src.core.game3.rse.berry_blender")
     while not finished and frames < 60 * 180 do
       local top = L.top()
-      if top == "bag_menu" or top == "bag" then
+      if top == "rse_berry_tag" or top == "rs_berry_tag" then
+        wait(40)
+        tap("b", 60)
+      elseif top == "bag_menu" or top == "bag" then
         L.log("STEP", "berry in the bag " .. tostring(top))
         wait(60)
         taps({ "down", "up" }, 20)
         tap("a", 30)
-        taps({ "down", "up" }, 15)
+        -- the bag's own CHECK TAG once, then CONFIRM (the rows' order differs by game)
+        local want = tagSeen and "CONFIRM" or "CHECK_TAG"
+        tagSeen = true
+        local BagMenu = require("src.ui.game3.bag_menu")
+        for _, key in ipairs({ "down", "up", "left", "right", "down", "up" }) do
+          if BagMenu.ACTIONS and BagMenu.ACTIONS[BagMenu.actionCursor] == want then break end
+          tap(key, 15)
+        end
+        L.log("STEP", "action " .. tostring(BagMenu.ACTIONS and BagMenu.ACTIONS[BagMenu.actionCursor]))
         tap("a", 60)
       elseif screen.cb == "play" then
         played = true
