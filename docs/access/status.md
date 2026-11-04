@@ -154,12 +154,12 @@ and recorded in the topic file.
 - **Story pass against Crystal (2026-11-03):** boulders opening a way, Area floors, journeys through puzzles,
   Mansion's switches across floors, Saffron's pads, sign names. Run in game by script, not heard, not a full
   playthrough; table in `firered-leafgreen-navigation.md`.
-- **LeafGreen (decision 44, 2026-11-04):** on local `main`, by script, not heard or played. It shares FireRed's profile, maps and
+- **LeafGreen (decision 44, 2026-11-04):** on `main`, pushed, by script, not heard or played. It shares FireRed's profile, maps and
   constants; only the navigation gate changed. All 18 Gen 3 drivers ran on LeafGreen 1.0 with no failures after two test
   fixes (`npc_category` and `dark_maps` treated only `firered` as Gen 3; `gen3_menus_more` needs `gen3_menus`'s save first). Dumps of 1.0 and 1.1,
   Ruby, Sapphire 1.0 to 1.2 and Emerald 1.0, checked by SHA-1, are in the private dumps folder beside the repository. 1.1 not run. Differences in the story, such as
   version-only Pokémon, were not walked.
-- **Ruby, Sapphire, Emerald (decision 44, 2026-11-04):** merged to local `main` with LeafGreen at the owner's request ("main"); not pushed. Screens in `ruby-sapphire-emerald.md`, navigation in
+- **Ruby, Sapphire, Emerald (decision 44, 2026-11-04):** merged to `main` with LeafGreen at the owner's request ("main"), pushed 2026-11-04 ("push it"). Screens in `ruby-sapphire-emerald.md`, navigation in
   `ruby-sapphire-emerald-navigation.md`. Run in game by script, silent; not heard, no playthrough: the harness sets party, badges and flags, teleports and skips
   scenes. Agent reports, then one sweep of the merged code by the lead. Emerald's load scripts and the Wailmer barrier are honoured, so a new game's Lilycove is closed.
   Lead's sweep of merged `gen3-all`, 2026-11-04, all 7 games: no crashes. Each Hoenn game: 8 of 8 gym leaders reached by one auto-walk, 0 bad labels. Failures left:
@@ -227,7 +227,7 @@ and recorded in the topic file.
 
 ## Navigation
 
-- **Parity across games (decision 43, 2026-11-03):** merged to local `main` on 2026-11-04 at the owner's request ("Yes, merge it"); not pushed. By script only; not heard, no
+- **Parity across games (decision 43, 2026-11-03):** merged to `main` on 2026-11-04 at the owner's request ("Yes, merge it"), pushed the same day ("push it"). By script only; not heard, no
   owner test. Results: `red-blue-yellow-navigation.md`, `firered-leafgreen-navigation.md`, `gold-silver-crystal-navigation.md`.
   Open: `gen3_story` part B stops at its limit in Celadon Gym on a level-up stat screen in the harness's battle, so Erika, Misty and Brock
   were not walked to in that run; cause in the harness suspected, not proven. Part D, Sevii: reach only, not walked. `victory_road_tower`'s test is stale.

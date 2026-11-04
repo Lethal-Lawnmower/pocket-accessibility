@@ -434,3 +434,6 @@ Sapphire, Emerald / Leaf Green." Ends decision 30's deferral of LeafGreen and st
 allowed by decision 29. Same boundaries: Pokémon Access is a behaviour reference only, Prism only, no upstream game fixes, no push without approval.
 
 Asked to work on the README later ("We can do that after"): making it read more human, in chunks. Not started.
+
+Push, 2026-11-04: the owner approved publishing this work ("push it"), which also carries the navigation parity work of decision 43.
+Covers that push only: it is not acceptance, and not a release. Nobody has played or heard the four new games.
