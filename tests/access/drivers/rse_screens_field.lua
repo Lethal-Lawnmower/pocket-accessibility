@@ -26,10 +26,60 @@ return function(game)
       local ok3, top = pcall(Top.resolve, game)
       return ok3 and top and top.gen3 or nil
     end
-    tap("start", 30)
+    for _ = 1, 100 do
+      if kind() ~= "hoenn_intro" then break end
+      tap("start", 30)
+    end
     waitFor("title", function() return kind() == "hoenn_title" and game.boot.custom.title.phase == "phase3" end, 1800)
     L.log("TITLE", tostring(kind()))
     local combo = os.getenv("RSE_TITLE")
+    if combo == "events" then
+      -- rs/mystery_events.lua fetches from the internet; these two calls are stubbed
+      -- so nothing is contacted.  Its rows and printer are the screen's own.
+      local MG = require("src.core.game3.mystery_gift")
+      MG.fetchOnline = function() return { driver = true } end
+      MG.pollOnline = function()
+        return "ok", { events = { { label = "A DRIVER EVENT", bytes = "" } },
+          news = { { label = "A DRIVER NEWS", news = { titleText = "NEWS TITLE", bodyText = { "line one", "line two", "line three",
+            "line four", "line five", "line six", "line seven", "line eight", "line nine", "line ten" } } } } }
+      end
+      tap("start", 60)
+      waitFor("menu", function() return kind() == "hoenn_main_menu" and game.boot.custom.menu.state == "input" end, 300)
+      local menu = game.boot.custom.menu
+      L.log("ITEMS", table.concat(menu.items, " "))
+      for _ = 1, 6 do
+        if menu.items[menu.cursor] == "MYSTERY_EVENTS" then break end
+        tap("down", 20)
+      end
+      -- Upstream's list window asks for a text this cart has not (gText_SelectorArrow3) and
+      -- crashes; recorded in the notes.  Drawing it is skipped to reach the speech behind it.
+      local Events = require("src.ui.game3.rs.mystery_events")
+      Events.drawList = function() end
+      tap("a", 60)
+      waitFor("events", function() return menu.events and menu.events.state == "list" end, 600)
+      local ev = menu.events
+      L.log("EVENTS", tostring(ev and ev.state))
+      if ev and ev.state == "list" then
+        taps({ "down", "up" }, 20)
+        for _, row in ipairs(ev.rows) do L.log("ROW", tostring(row.kind)) end
+        tap("down", 20)                 -- the news row (events first)
+        tap("a", 30)
+        L.log("EVENTS", tostring(ev.state))
+        taps({ "down", "down", "up" }, 20)
+        tap("b", 30)
+        tap("up", 20)
+        tap("a", 60)                    -- the event: ready to load
+        wait(120)
+        L.log("EVENTS", tostring(ev.state))
+        tap("b", 30)
+        tap("b", 90)
+      end
+      wait(60)
+      L.log("END", tostring(kind()))
+      L.log("DONE", "rse_screens_field")
+      love.event.quit()
+      return
+    end
     local keys = { clear = { "b", "select", "up" }, rtc = { "b", "select", "left" }, berry = { "b", "select" } }
     for _, key in ipairs(keys[combo]) do game.input.state[key] = true end
     wait(4)
@@ -217,10 +267,6 @@ return function(game)
     -- rse/secret_base.lua's PC script calls ui.open({ isPlayerRoom = false }).
     giveDecor()
     goTo("MAP_SECRET_BASE_YELLOW_CAVE2", 5, 5, "up")
-    local SB = require("src.core.game3.rse.secret_base")
-    local mid = consts:require("metatile_labels", "METATILE_SecretBase_PC")
-    local pcX, pcY = SB.findMetatile(SB.fieldGrid(), mid)
-    L.log("PCCELL", tostring(pcX) .. "," .. tostring(pcY))
     local UI = decorUi()
     local mod = Screens.get("decoration", session) or UI
     mod.open({ isPlayerRoom = false, session = session })
@@ -287,6 +333,49 @@ return function(game)
     L.closeAll(3)
     wait(30)
     L.talk(10)
+    L.closeAll()
+  end)
+
+  section("decor_other", function()
+    -- The registry of friends' bases and the trader's choice, through the module
+    -- and options secret_base.lua and the old trader's native use.
+    giveDecor()
+    local UI = decorUi()
+    local mod = Screens.get("decoration", session) or UI
+    goTo("MAP_SECRET_BASE_YELLOW_CAVE2", 5, 5, "up")
+    L.talk(4)
+    local SB = require("src.core.game3.rse.secret_base")
+    mod.openRegistry({ session = session })
+    waitFor("no registry", function() return UI.state == "wait_press" end, 200)
+    tap("a", 40)
+    wait(30)
+    L.talk(6)
+    L.closeAll()
+    local base = SB.base(session, 1)
+    base.secretBaseId = 21
+    base.playerName = "ROXIE"
+    base.registryStatus = SB.REGISTERED
+    L.log("REGISTERED", tostring(SB.isRegistered(1, session)))
+    mod.openRegistry({ session = session })
+    wait(20)
+    L.log("STATE", tostring(UI.state))
+    taps({ "down", "up" }, 16)
+    tap("a", 20)                        -- DEL. REGIST?
+    taps({ "down", "up" }, 16)
+    tap("b", 20)
+    tap("b", 30)
+    wait(30)
+    L.talk(6)
+    L.closeAll()
+    local done
+    local ctx = { specialVars = { [0x8004] = decor("DECOR_PICHU_DOLL") }, stringVars = {} }
+    mod.openTrade(ctx, function() done = true end)
+    wait(20)
+    L.log("TOP", tostring(L.top()))
+    tap("down", 16)
+    tap("up", 16)
+    tap("b", 30)
+    L.log("TRADE", tostring(done))
     L.closeAll()
   end)
 
@@ -626,6 +715,8 @@ return function(game)
           tap("a", 20)
         end
       elseif cs == ST.WAIT_REEL_STOP then
+        -- the machine's own bias, set by the driver so one spin wins (a test aid)
+        if spins >= 2 and s.core.currentReel == 0 then s.core.machineBias = 4 end
         wait(20)
         tap("a", 10)
       elseif cs == ST.WAIT_PAYOUT then
@@ -688,12 +779,14 @@ return function(game)
       if L.top() == "summary" then tap("b", 40) else tap("a", 25) end
     end
     L.log("FINISHED", tostring(finished))
+    if not finished then screens.reset() end
     L.closeAll()
   end)
 
   -- ----------------------------------------------------------------- scenes
 
   section("cable_car", function()
+    if isRs then return end               -- Ruby and Sapphire pass their pack through cable_real's script
     local Car = require("src.ui.game3.rse.cable_car")
     local finished
     Car.open({ goingDown = false, session = session, onDone = function() finished = true end })
@@ -701,7 +794,151 @@ return function(game)
     L.log("TOP", tostring(L.top()))
     waitFor("ride", function() return finished end, 1800)
     L.log("FINISHED", tostring(finished))
+    if not finished then
+      local scene = Car.active()
+      L.log("STUCK", tostring(scene and scene.c and scene.c.state) .. " timer " .. tostring(scene and scene.c and scene.c.timer))
+      Car.reset()
+    end
     wait(20)
+  end)
+
+  section("cable_real", function()
+    -- The station's attendant by his own script (tests/drivers/em_cable_car.lua's way in).
+    local Core = require("src.core.game3.rse.cable_car")
+    Core.last = nil
+    goTo("MAP_ROUTE112_CABLE_CAR_STATION", 6, 9, "up")
+    wait(20)
+    local att = require("src.core.game3.objects").find(1)
+    local ax, ay = att and att.cellX or 6, att and att.cellY or 6
+    L.log("ATT", ax .. "," .. ay)
+    goTo("MAP_ROUTE112_CABLE_CAR_STATION", ax, ay + 1, "up")
+    wait(20)
+    tap("a", 30)
+    for _ = 1, 40 do
+      if Core.last and Core.last.phase ~= "fade" then break end
+      tap("a", 20)
+    end
+    L.log("PHASE", tostring(Core.last and Core.last.phase) .. " " .. tostring(L.top()))
+    local scene = Core.last and Core.last.screen
+    if scene then
+      waitFor("ride", function() return scene.done end, 1800)
+      L.log("RIDE", tostring(scene.done) .. " state " .. tostring(scene.c and scene.c.state) .. " frames " .. tostring(scene.frames))
+    end
+    wait(120)
+    if scene and not scene.done then require("src.ui.game3.rse.cable_car").reset() end
+    L.log("MAP", tostring(L.session().map))
+    L.talk(6)
+    L.closeAll()
+  end)
+
+  section("em_daycare", function()
+    if isRs then return end
+    local Daycare = require("src.core.game3.daycare")
+    Party.giveMon(session, consts:require("species", "SPECIES_RALTS"), 7)
+    Daycare.deposit(session, #session.party)
+    local Menu = require("src.ui.game3.daycare_menu")
+    local value
+    Menu.show(Daycare.stateOf(session), function(v) value = v end)
+    wait(20)
+    L.log("TOP", tostring(L.top()))
+    taps({ "down", "down", "up" }, 16)
+    tap("b", 30)
+    L.log("VALUE", tostring(value))
+    L.closeAll()
+  end)
+
+  section("mailgive", function()
+    -- GIVE from the party's ITEM menu with mail: the composer, then cancelling it.
+    Bag.add(session.bag, item("ITEM_ORANGE_MAIL"), 2)
+    Bag.add(session.bag, item("ITEM_POTION"), 2)
+    local mon = session.party[2]
+    mon.item, mon.heldItem = 0, 0
+    L.closeAll()
+    tap("start", 25)
+    local StartMenu = require("src.ui.game3.start_menu")
+    for _ = 1, 12 do
+      local entry = StartMenu.ENTRIES[StartMenu.cursor]
+      if entry and entry.id == "pokemon" then break end
+      tap("down", 12)
+    end
+    tap("a", 60)
+    L.log("TOP", tostring(L.top()))
+    tap("down", 20)                     -- second Pokémon
+    tap("a", 30)                        -- its menu
+    local PartyMenu = require("src.ui.game3.party_menu")
+    L.log("MODE", tostring(PartyMenu.mode))
+    tap("down", 16)
+    tap("down", 16)
+    tap("a", 30)                        -- ITEM
+    tap("a", 60)                        -- GIVE: the bag
+    L.log("TOP", tostring(L.top()))
+    tap("a", 40)                        -- the mail, the pocket's first row
+    wait(60)
+    L.log("TOP", tostring(L.top()))
+    if L.top() == "bag" then
+      -- Emerald: the row's action menu, GIVE, then the Pokémon
+      local BagMenu = require("src.ui.game3.bag_menu")
+      for _, key in ipairs({ "right", "down", "left", "up", "down", "right" }) do
+        if BagMenu.ACTIONS and BagMenu.ACTIONS[BagMenu.actionCursor] == "GIVE" then break end
+        tap(key, 15)
+      end
+      L.log("ACTION", tostring(BagMenu.ACTIONS and BagMenu.ACTIONS[BagMenu.actionCursor]))
+      tap("a", 60)
+      L.log("TOP", tostring(L.top()))
+      tap("down", 16)
+      tap("a", 60)
+    end
+    waitFor("composer", function() return L.top() == "rs_mail_composer" or L.top() == "easy_chat" end, 240)
+    wait(60)
+    L.log("TOP", tostring(L.top()))
+    if L.top() == "rs_mail_composer" then
+      local Composer = require("src.ui.game3.rs.mail_composer")
+      waitFor("input", function() return Composer._state == "input" end, 120)
+      wait(10)
+      tap("a", 30)
+      waitFor("groups", function() return Composer._view == "groups" and not Composer._transition end, 120)
+      wait(10)
+      tap("a", 30)
+      waitFor("words", function() return Composer._view == "words" and not Composer._transition end, 120)
+      wait(10)
+      tap("a", 30)
+      waitFor("phrase", function() return Composer._view == "phrase" and not Composer._transition end, 120)
+      wait(20)
+      tap("start", 18)
+      tap("a", 30)                      -- OK: the save question
+      tap("a", 60)                      -- YES
+    elseif L.top() == "easy_chat" then
+      taps({ "a" }, 30)
+      tap("a", 30)
+      tap("a", 30)
+      wait(20)
+      taps({ "down", "down", "down", "down", "down" }, 16)
+      taps({ "right", "right" }, 16)
+      tap("a", 30)
+      wait(20)
+      tap("a", 60)
+    end
+    wait(60)
+    L.log("TOP", tostring(L.top()))
+    for _ = 1, 4 do
+      local Pm = require("src.ui.game3.party_menu")
+      if Pm.mode == "list" then break end
+      tap("a", 40)
+    end
+    L.log("HOLDS", tostring(mon.mail) .. " item " .. tostring(mon.item))
+    tap("a", 30)                        -- its menu: SUMMARY, SWITCH, MAIL, CANCEL
+    taps({ "down", "down" }, 16)
+    tap("a", 30)                        -- MAIL: READ, TAKE, CANCEL
+    tap("a", 60)                        -- READ
+    wait(40)
+    L.log("TOP", tostring(L.top()))
+    tap("a", 60)
+    wait(30)
+    L.log("TOP", tostring(L.top()))
+    tap("b", 30)
+    L.closeAll()
+    wait(20)
+    L.talk(6)
   end)
 
   section("rayquaza", function()
@@ -719,7 +956,7 @@ return function(game)
   section("hof", function()
     local Hof = require("src.ui.game3.hall_of_fame")
     local finished
-    Hof.start({ session = session, dontSave = true, warp = false, onDone = function() finished = true end })
+    Hof.start({ session = session, dontSave = false, warp = false, onDone = function() finished = true end })
     wait(30)
     L.log("TOP", tostring(L.top()))
     for _ = 1, 60 * 200 do
@@ -737,8 +974,8 @@ return function(game)
     wait(60)
     L.log("TOP", tostring(L.top()))
     if ok2 then
-      tap("a", 40)
-      tap("a", 40)
+      taps({ "down", "up" }, 30)
+      tap("a", 40)                      -- the older team, or out
       tap("b", 40)
     end
     L.closeAll()
@@ -766,8 +1003,10 @@ return function(game)
     D.show({ session = session, onDone = function() finished = true end })
     wait(90)
     L.log("TOP", tostring(L.top()))
-    tap("a", 60)
-    waitFor("diploma", function() return finished end, 120)
+    for _ = 1, 40 do
+      if finished then break end
+      tap("a", 30)
+    end
     L.log("FINISHED", tostring(finished))
     wait(10)
   end)
@@ -794,6 +1033,7 @@ return function(game)
     tap("down", 25)
     tap("a", 30)
     L.log("TOP", tostring(L.top()))
+    L.log("PROMPTRAW", (require("src.ui.game3.rse.scene_kit").manifest("rse/party").prompts[6]:gsub("[^%g ]", "?")))
     taps({ "down", "up" }, 16)
     tap("b", 30)
     tap("b", 30)
@@ -801,6 +1041,9 @@ return function(game)
     L.closeAll()
     local Daycare = require("src.core.game3.daycare")
     local dc = Daycare.stateOf(session)
+    Party.giveMon(session, consts:require("species", "SPECIES_RALTS"), 7)
+    Daycare.deposit(session, #session.party)
+    L.log("STORED", tostring(Daycare.count(dc)))
     local Level = require("src.ui.game3.rs.daycare_level_menu")
     local probe, why = pcall(Level.rows, dc)
     L.log("ROWS", tostring(probe) .. " " .. tostring(why))
@@ -861,7 +1104,17 @@ return function(game)
     -- The prize clerk's real script: a multichoice, Hoenn's script list window.
     giveCoins(50)
     goTo("MAP_MAUVILLE_CITY_GAME_CORNER", 14, 3, "up")
-    tap("a", 30)
+    if isRs then
+      tap("a", 30)
+    else
+      local started = {}
+      for name in pairs(Space.bundle.labels or {}) do
+        if name:find("MauvilleCity_GameCorner_EventScript_", 1, true) and name:find("Clerk", 1, true) then started[#started + 1] = name end
+      end
+      table.sort(started)
+      L.log("LABELS", table.concat(started, " "))
+      if started[1] then Space.startScript(started[1]) end
+    end
     mashUntil(function() return Choice.isOpen() end, 60)
     L.log("OPEN", tostring(Choice.isOpen()) .. " " .. tostring(Choice.kind))
     taps({ "down", "down", "up" }, 16)
@@ -878,8 +1131,10 @@ return function(game)
     local LM = require("src.core.game3.scripting.natives_listmenu")
     local Menu = LM.Menu
     local picked
+    -- Emerald's scrollable multichoices and exchange lists call Menu.showItems this way.
     local shown, why = pcall(function()
-      Menu.showItems("driver", { "ONE", "TWO", "THREE" }, { left = 1, top = 1, width = 8, shown = 3, count = 3 }, 0, 0,
+      Menu.showItems("driver", { "ONE", "TWO", "THREE" },
+        { maxShowed = 3, count = 3, left = 1, top = 1, height = 6, keepOpen = false }, 0, 0,
         function(i) picked = i end)
     end)
     L.log("SHOWN", tostring(shown) .. " " .. tostring(why))
@@ -917,6 +1172,17 @@ return function(game)
     local save = require("src.core.game3.save_schema_firered").toSaveTable(session)
     local written = require("src.core.SaveData").save(save)
     L.log("SAVED", tostring(written))
+    -- reset_rtc_screen.lua canResetRtc reads the flag and var from the raw save.
+    local Kit = require("src.ui.game3.rse.scene_kit")
+    local raw = Kit.loadRawSave()
+    local store = { flags = raw.flags or {}, vars = raw.vars or {} }
+    raw.flags, raw.vars = store.flags, store.vars
+    Flags.setFlag(store, nil, consts:require("flags", "FLAG_SYS_RESET_RTC_ENABLE"), true)
+    Flags.setVar(store, nil, consts:require("vars", "VAR_RESET_RTC_ENABLE"), 0x920)
+    if isRs then Flags.setFlag(store, nil, consts:require("flags", "FLAG_SYS_EXDATA_ENABLE"), true) end
+    L.log("SAVED2", tostring(require("src.core.SaveData").save(raw)))
+    local path = isRs and "src.ui.game3.rs.reset_rtc_screen" or "src.ui.game3.rse.reset_rtc_screen"
+    L.log("CANRESET", tostring(require(path).canResetRtc()))
   end)
 
   L.log("DONE", "rse_screens_field")

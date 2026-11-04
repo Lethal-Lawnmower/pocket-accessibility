@@ -415,7 +415,8 @@ local function editorPoll(path)
         if not memo.opened then
           memo.opened = true
           local lines = C._man.texts.edit
-          for _, line in ipairs(type(lines) == "table" and lines or { lines }) do parts[#parts + 1] = say(line) end
+          -- one sentence on two drawn lines
+          parts[#parts + 1] = say(table.concat(type(lines) == "table" and lines or { lines }, " "))
         end
         if fresh then parts[#parts + 1] = editorPhrase(C) end
         parts[#parts + 1] = editorSlot(C)
@@ -837,8 +838,9 @@ Field.credits = {
     local Pokemon = loaded("src.core.game3.pokemon")
     if st.showMons and Pokemon then
       for _, sprite in ipairs(st.mons or {}) do
-        if sprite.nat and not sprite.invisible and not memo.mons[sprite] then
-          memo.mons[sprite] = true
+        -- each species once: a slide brings back the same few for a new player
+        if sprite.nat and not sprite.invisible and not memo.mons[sprite.nat] then
+          memo.mons[sprite.nat] = true
           local species = try(Pokemon.speciesFromNational, sprite.nat)
           parts[#parts + 1] = species and say(try(Pokemon.name, species)) or nil
         end
@@ -846,7 +848,8 @@ Field.credits = {
     end
     if st.theEnd and not memo.theEnd then
       memo.theEnd = true
-      parts[#parts + 1] = "THE END"
+      -- rse/credits.lua "end6": any button leaves, or a long wait does
+      parts[#parts + 1] = "THE END. Press A"
     end
     local text = sentences(parts)
     if not text then return nil end
@@ -869,9 +872,10 @@ Field.rsDiploma = {
       table.insert(lines[row.y], (tostring(row.text)))
     end
     table.sort(order)
+    -- the certificate is one text over several lines
     local parts = {}
     for _, y in ipairs(order) do parts[#parts + 1] = say(table.concat(lines[y])) end
-    return sentences(parts), true
+    return join(parts, " "), true
   end,
 }
 
@@ -912,7 +916,12 @@ Field.rsDaycareParty = {
     if not first then return row, true end
     local Kit = loaded("src.ui.game3.rse.scene_kit")
     local man = Kit and try(Kit.manifest, "rse/party")
-    return sentences({ man and man.prompts and say(man.prompts[6]) or nil, row }), true
+    local prompt = man and man.prompts and say(man.prompts[6]) or nil
+    -- the pack's prompt has lost its name ("Do what with ?"); pokeruby prints the Pokémon's.
+    local Pokemon = loaded("src.core.game3.pokemon")
+    local name = Pokemon and M.session and M.session.party and say(try(Pokemon.displayMonName, M.session.party[M.slot]))
+    if prompt and name then prompt = prompt:gsub("with %?$", "with " .. name:gsub("%%", "%%%%") .. "?") end
+    return sentences({ prompt, row }), true
   end,
 }
 
@@ -928,6 +937,9 @@ Field.rsDaycareLevel = {
     if type(row) ~= "table" then return nil end
     local label = say(row.text)
     if label then label = label:gsub("%s*/%s*", " "):gsub("♂", " male"):gsub("♀", " female") end
+    -- an empty slot prints only the sign and level 0 (daycare_level_menu M.rows)
+    local bare = label and (label == "male" or label == "female" or label:find("^%s*male%s*$") or label:find("^%s*female%s*$"))
+    if bare and row.level == 0 then return join({ "empty", position(M.cursor + 1, #M.rowList) }), not first end
     return join({ label, row.level and ("level " .. tostring(row.level)) or nil,
       position(M.cursor + 1, #M.rowList) }), not first
   end,
@@ -980,6 +992,30 @@ Field.cableCar = { matches = Common.matcher("cable_car"), poll = sceneOnce("Cabl
 Field.rayquazaScene = { matches = Common.matcher("rayquaza_scene"), poll = sceneOnce("Rayquaza scene") }
 
 -- -------------------------------------------------------- passive windows
+
+-- coins_box.lua in Ruby and Sapphire (`ui.coinsWindow`): their own string, as
+-- CoinsBox.draw prints it; FireRed's presenter reads a key they do not have.
+local function coinsWindow()
+  local Profile = loaded("src.core.game3.profile")
+  local row = Profile and try(Profile.forSession)
+  local ui = type(row) == "table" and row.ui
+  local window = type(ui) == "table" and ui.coinsWindow
+  return type(window) == "table" and window.frameOrigin and window or nil
+end
+
+Field.rsCoinsBox = {
+  matches = function(state)
+    return type(state) == "table" and state.gen3 == "coins_box" and coinsWindow() ~= nil
+  end,
+  poll = function(state, memo)
+    local amount = state.mod and state.mod._amount
+    if amount == nil or amount == memo.amount then return nil end
+    memo.amount = amount
+    local text = say(H.rom(coinsWindow().text or "gText_Coins", { stringVars = { tostring(amount) } }))
+    if not text then return nil end
+    return text, false
+  end,
+}
 
 -- rs/link_records.lua draws over the field with no input of its own.
 local function linkRecordsText(M)
@@ -1040,7 +1076,7 @@ Field.ordered = {
   Field.composer, Field.easyChatEditor, Field.trendyPhrase,
   Field.roulette, Field.rouletteEntry, Field.slots, Field.moveRelearner, Field.credits,
   Field.rsDiploma, Field.glassWorkshop, Field.rsDaycareParty, Field.rsDaycareLevel, Field.rsCableLobby,
-  Field.cableCar, Field.rayquazaScene, Field.rsLinkRecords, Field.rsAutoScroll,
+  Field.cableCar, Field.rayquazaScene, Field.rsCoinsBox, Field.rsLinkRecords, Field.rsAutoScroll,
 }
 
 return Field

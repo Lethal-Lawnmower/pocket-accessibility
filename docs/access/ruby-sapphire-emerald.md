@@ -39,7 +39,8 @@ draws and drives FireRed's module, `boot` names the boot objects.
 | Intro, title | "Intro. Press start to skip."; "POKéMON <edition> Version. Press start." once start counts | |
 | Main menu | "Main menu", row, position, CONTINUE panel (player, time, Pokédex, badges) | Row; error pages page by page |
 | Birch's speech | Each page as it starts | Gender and (Ruby, Sapphire) name list with position; name yes/no |
-| Title combos (clear save, reset clock, Berry fix) | Their text, yes/no, the time being set | Source read only, never run |
+| Title combos (clear save, reset clock, Emerald's Berry fix) | Their text; clear save opens on NO; the reset screen's present and previous time; the Berry fix pages | YES/NO; the field being set with its value, CONFIRM; result lines |
+| Mystery Events (Ruby, Sapphire main menu) | Its printer pages | Event and news rows with position; news title and body, a new line as it scrolls; load prompts |
 | OPTION, ACCESSIBILITY | Title, label, value, position | Label and value; value only on the same row |
 | Save | Location, player, badges, Pokédex, time, the question, YES | YES/NO, next line |
 | Trainer card | Lines of the card, badges counted, stars | Back side (Ruby's labels are images: our words) |
@@ -70,6 +71,21 @@ draws and drives FireRed's module, `boot` names the boot objects.
 | Use Pokéblock, feeding | "CONDITION", name, gender, level, position, nature, five conditions and sheen as numbers; CANCEL | Row; question, yes/no; "ate" line through its printer; "Press A" before the change; each "was enhanced" line, new numbers |
 | Berry Blender | Its messages; player names and berries once thrown; berry through the bag (location blender) | Ranking with BEST, GOOD, MISS counts; results with berries, maximum speed, time; "made" line; yes/no. The timing game is silent, see below |
 | Berry tag (bag CHECK TAG) | "BERRY TAG", number, name, position, size, firmness, flavours, description | Next berry |
+| Decorating | Action row, position, description | Rows; categories with owned count, "not for this room", position; items with description, "in use in your base" or "room"; messages; yes/no |
+| Decorating, placing and putting away | Item, width, height, keys, cursor from where the player stood, "can be placed" or "cannot be placed" (putting away: the decoration under the cursor, PC, or "nothing here") | Each step the new offset and the same state; question, yes/no, result |
+| Base registry, trader's choice | Rows with position; DEL REGIST., CANCEL; "There is no REGISTRY" | Rows |
+| Mailbox | "MAILBOX", sender, position | Row; "What would you like to do" line with READ, MOVE TO BAG, GIVE, CANCEL; yes/no; result |
+| Letter (Emerald, Ruby, Sapphire readers) | Stationery name, every line, "From" and sender, the icon's Pokémon (Ruby, Sapphire), "Press A" | |
+| Word editors in Ruby and Sapphire (profile, sayings, bard's song, trendy phrase, mail) | The editor's instruction, phrase so far, "word 1 of 4" with its word | Slot; footer DEL. ALL, CANCEL, OK; groups or letters with position; side buttons; word with position; chosen phrase; questions and refusals, yes/no. Emerald uses FireRed's Easy Chat presenter |
+| Roulette | Wager question, yes/no; "Roulette", coins, bet a ball, instructions | Before each bet: coins, balls left, squares hit so far; each square with what it pays or "already hit"; bet, coins; where the ball landed; the game's result lines; keep playing |
+| Slots | "Slot machine", keys, coins | Bet with its lines and coins; "Spinning"; each reel top to bottom as it stops; win with payout and winning lines, or "No win"; Power meter; Reel Time spins; quit question; SELECT: payouts and Reel Time text |
+| Move tutor | Prompt, move, position, type, power, accuracy, PP, description | Row; contest page: category, appeal and jam hearts as numbers, description; questions, yes/no; learning lines; forgetting through the summary presenter |
+| Credits | Each page of titles and names; each Pokémon once; "THE END. Press A" | Queued, never cut off |
+| Diploma | The certificate as one text (Emerald through FireRed's presenter) | |
+| Glass workshop, day-care STORE menu and level menu, cable lobby | Row with position; "Do what with <name>?"; "empty" for a blank day-care row | Row |
+| Link battle records (Ruby, Sapphire), coins box, money box | Passive, queued: results and rows; "<n> COINS", "MONEY" | New amount |
+| Auto-scrolling message (Ruby, Sapphire) | Its text, once, queued | |
+| Cable car, Rayquaza scene | "Cable car ride", "Rayquaza scene" (no text and nothing to press in them) | |
 
 Labels our words stand for, because the screen draws them as images: Pokédex
 bar and START menu, search row names, Ruby's trainer card labels, Ruby's summary
@@ -96,6 +112,29 @@ stars, status and judge symbols (protected, nervous, cannot appeal, judge's
 attention), excitement, next-turn labels, places, the combo and repeated colours,
 CONDITION and its axes, sheen, the blender's score icons, Ruby and Sapphire's BERRY
 TAG title.
+
+Known gaps in the field screens (`gen3/HoennField.lua`,
+`drivers/rse_screens_field.lua`). Timing stays silent, as nothing readable shows:
+the roulette ball while it rolls, spinning reels, Reel Time's own game. Placing
+says offsets from where the player stood, not what is drawn around the cursor.
+"pays N times" and the reels are in our words, read from the same tables.
+Reached with a helper rather than from play, and named here: a won slots spin (the
+driver sets the machine's bias), the base decorating menu (opened with the PC
+script's options on the base's map; that script's own menu also opened it), Ruby and
+Sapphire's Mystery Events rows (fetch and list drawing stubbed: nothing is contacted,
+see below), cable lobby (driver's rows, a real lobby needs a link), list menu rows
+(driver's labels). Not run: Reel Time's spins line, a placed decoration in the
+bedroom, Trendy phrase and interview editors from their scripts (only the modules),
+the Mail composer's blank-mail refusal, Emerald's cable box results
+(`rse/frontier_records`), Rayquaza's Ruby and Sapphire counterpart (they have none).
+Trick House: its entrance script read as dialogue; the rooms are ordinary field
+text, not walked. Multichoice in Hoenn reads through FireRed's choice presenter
+(Emerald's coins clerk, Ruby and Sapphire's prize clerk ran by their scripts).
+
+Labels our words stand for in those screens: decoration in-use markers, word
+editor footer and side buttons, roulette colours and Pokémon, slot symbols, Power
+and Reel Time, payout chart, secret base cursor position, CONTEST and BATTLE MOVES
+headers on Ruby's tutor, the stationery name and icon.
 
 Known gaps in the Pokénav: the map's city picture is not described; the map
 says nothing about which places can be flown to. Emerald's graph, list and map
@@ -124,6 +163,19 @@ TALLY missed=0.
   `FC 00` into `FD 01`, which the Ruby dialect expands to the player's name, not the
   round number. Read from the printer's tokens, not seen on a screen. Speech says
   that line as printed, and "Round N of 5" beside it from the contest's own counter.
+- Ruby and Sapphire's Mystery Events list crashes when it has rows: `drawList` asks
+  for `gText_SelectorArrow3`, not in their text cache ("ROM text ... is not in the
+  script cache"). Only a list with rows reaches it, which needs online data. Speech
+  is written and seen behind a driver stub of that draw call.
+- Emerald's party GIVE with mail gives the item with no composer and no letter: "ZIGGY
+  was given the ORANGE MAIL to hold", `mon.mail` nil. Ruby and Sapphire open the composer.
+- Hall of Fame PC prints `???` for any Pokémon above 151 without the national
+  Pokédex (`KANTO_SPECIES_END` in `hall_of_fame_pc.lua`), so Hoenn's own say `???`
+  there while the Hall of Fame scene gave the regional number. Speech says what it prints.
+- Ruby and Sapphire's Hall of Fame PC title has lost its number ("HALL OF FAME No.")
+  and the day-care STORE prompt its name ("Do what with ?"). Speech adds the number
+  and the name from the screen's own fields.
+- `cable_car.lua` opened directly in Ruby never starts; through its script it rides.
 - Emerald's own string for the contest page title is spelled "C0NTEST MOVES"
   in the running data; the layer says CONTEST.
 - `PcMenu` root mode reads FireRed's `Text_AccessWhichPC` on B after `show()`

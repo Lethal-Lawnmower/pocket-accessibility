@@ -198,9 +198,9 @@ end
 -- reset_rtc_screen: the two clocks beside the first prompt (`present`, the
 -- save's `lastBerryTreeUpdate`) and the field the arrow marks (a sprite, so
 -- our words; `selection` runs days, hours, minutes, seconds, CONFIRM).
-local function rtcClock(label, t)
+local function rtcClock(keys, t)
   if type(t) ~= "table" then return nil end
-  return H.join({ say(rom(label)), string.format("day %d, %d:%02d:%02d", t.days or 0, t.hours or 0, t.minutes or 0, t.seconds or 0) }, " ")
+  return H.join({ H.first(keys), string.format("day %d, %d:%02d:%02d", t.days or 0, t.hours or 0, t.minutes or 0, t.seconds or 0) }, " ")
 end
 
 local function rtcSelected(combo)
@@ -245,8 +245,9 @@ Boot.combo = {
     end
     if combo.prompt and combo.present and not memo.clocks then
       memo.clocks = true
-      parts[#parts + 1] = rtcClock("gText_PresentTime", combo.present)
-      parts[#parts + 1] = rtcClock("gText_PreviousTime", combo.save and combo.save.lastBerryTreeUpdate)
+      parts[#parts + 1] = rtcClock({ "gText_PresentTime", "gSystemText_PresentTime" }, combo.present)
+      parts[#parts + 1] = rtcClock({ "gText_PreviousTime", "gSystemText_PreviousTime" },
+        combo.save and combo.save.lastBerryTreeUpdate)
     end
     local time = rtcInput(combo)
     if time and (memo.time ~= time or memo.selection ~= combo.selection) then
