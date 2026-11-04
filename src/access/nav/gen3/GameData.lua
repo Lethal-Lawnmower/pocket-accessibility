@@ -72,6 +72,10 @@ function GameData.bareMapId(mapId)
   return mapId
 end
 
+-- Ruby and Sapphire number the seabeds; these are the routes their `emerge` links name.
+GameData.RS_UNDERWATER = { UNDERWATER1 = "ROUTE124", UNDERWATER2 = "ROUTE126",
+  UNDERWATER3 = "ROUTE127", UNDERWATER4 = "ROUTE128" }
+
 -- A canonical metatile behaviour by name, or nil on names this build lacks.
 function GameData.mb(name)
   local MB = lazy("src.core.game3.mb")

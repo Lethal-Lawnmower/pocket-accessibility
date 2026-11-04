@@ -324,8 +324,15 @@ end
 function Gen3.transitioning(_world)
   if warpBusy() then return true end
   local Forced = loaded("src.core.game3.forced_movement")
-  if Forced and rawget(Forced, "forced") == true then return true end
   local Player = loaded("src.core.game3.player")
+  if Forced and rawget(Forced, "forced") == true then
+    -- the flag outlives a slide a battle cut short (a trainer's eye on Mossdeep Gym's arrows):
+    -- standing still on plain floor, nothing is moving the player any more
+    local Collision = loaded("src.core.game3.collision")
+    local stopped = Player and not Player.moving and Collision and Forced.isForcedMovementTile
+      and not call(Forced.isForcedMovementTile, call(Collision.behavior, Player.cellX, Player.cellY))
+    if not stopped then return true end
+  end
   if Player then
     if Player.spinning or Player._scriptedStep or Player.surfHopping
        or Player.boulderPush or (tonumber(Player.fieldMoveAnim) or 0) > 0 then

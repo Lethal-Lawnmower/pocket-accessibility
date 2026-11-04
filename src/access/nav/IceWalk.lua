@@ -102,6 +102,27 @@ local function coverRoom(map, cells, start, beside)
       path[#path] = nil
       return false
     end
+    -- prune: what is left must hang together from here, with at most one cell that can
+    -- only be the last
+    local reach, queue, head, ends = { [key] = true }, { key }, 1, 0
+    while queue[head] do
+      local here = queue[head]
+      head = head + 1
+      local free = 0
+      for _, m in ipairs(nexts[here]) do
+        if not used[m] or m == key then free = free + 1 end
+        if not used[m] and not reach[m] then
+          reach[m] = true
+          queue[#queue + 1] = m
+        end
+      end
+      if here ~= key and free <= 1 then ends = ends + 1 end
+    end
+    if #queue ~= left or ends > 1 then
+      used[key] = nil
+      path[#path] = nil
+      return false
+    end
     local order = {}
     for _, n in ipairs(nexts[key]) do
       if not used[n] then

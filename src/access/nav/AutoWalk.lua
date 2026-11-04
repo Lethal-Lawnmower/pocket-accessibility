@@ -182,6 +182,15 @@ end
 -- Off the cell, on the way back: the step off is done with.  Left in the list it sent
 -- the player off again from the same cell for ever, on a warp that needs its direction
 -- held to fire (Tohjo Falls' mats).
+-- A route that crosses a cell twice (round a spinning gate, Fortree Gym) marks its steps
+-- `ordered`: the steps done are dropped, or the first step from that cell would be taken for ever.
+-- The last stays, for the arrival.
+local function dropTakenSteps(x, y)
+  local steps = walk.steps
+  if not (steps and steps.ordered) then return end
+  while #steps > 1 and steps[1].x == x and steps[1].y == y do table.remove(steps, 1) end
+end
+
 local function leftTheCell(x, y)
   local second = walk.steps[2]
   if walk.steppingOff and second and second.fromX == x and second.fromY == y then
@@ -756,6 +765,7 @@ function AutoWalk.update(top)
   local x, y = player.cellX, player.cellY
   if landedOnThisMap(x, y) then return AutoWalk.stop(arrivalText()) end
   leftTheCell(x, y)
+  dropTakenSteps(x, y)
   if x ~= walk.lastX or y ~= walk.lastY then
     walk.lastX, walk.lastY, walk.still = x, y, 0
   elseif not player.moving then
@@ -941,6 +951,7 @@ function AutoWalk.stepped(x, y)
   if not walk or walk.paused or walk.awaitingMap or walk.pushDir or walk.tapA then return end
   if walk.overworld.map ~= walk.map then return end
   leftTheCell(x, y)
+  dropTakenSteps(x, y)
   for _, s in ipairs(walk.steps) do
     if s.fromX == x and s.fromY == y then
       -- a field move on this step starts with an A press: stop here and let

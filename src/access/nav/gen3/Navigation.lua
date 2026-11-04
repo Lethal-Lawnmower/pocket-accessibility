@@ -352,6 +352,10 @@ end
 
 function Navigation:switchSigns(world)
   local signs = labelledSigns(self, world, "Secret Switch")
+  -- Ruby and Sapphire's Mossdeep Gym: four hidden switches, each turning its arrows
+  if GameData.isHoenn() then
+    for _, sign in ipairs(labelledSigns(self, world, "Hidden Switch")) do signs[#signs + 1] = sign end
+  end
   -- Hoenn's floor switches: a step onto one presses it (Mauville, Mossdeep)
   for _, cell in ipairs(self:floorSwitchCells(world)) do
     signs[#signs + 1] = { label = "Floor Switch " .. cell.x .. "," .. cell.y, x = cell.x, y = cell.y,
@@ -636,6 +640,7 @@ function Navigation:machRoute(world, goals)
         table.insert(steps, 1, cursor.step)
         cursor = cursor.parent
       end
+      steps.ordered = true
       return { steps = steps, goal = goal, cost = #steps, policy = 2 }
     end
     if head % 256 == 0 and os.clock() > deadline then return nil, "regional search timed out" end
@@ -734,6 +739,7 @@ function Navigation:plannedRoute(goals)
         table.insert(steps, 1, cursor.step)
         cursor = cursor.parent
       end
+      steps.ordered = true
       return true, { steps = steps, goal = goalSet[cellKey(node.x, node.y)], cost = #steps, policy = 2 }
     end
     if head % 256 == 0 and (os.clock() > deadline or head > GATE_LIMIT) then
@@ -2639,7 +2645,7 @@ local function areaKey(mapId)
   if GameData.isHoenn() then
     -- every Secret Base map is a room of its own; a route and its seabed are one area
     if id:match("^SECRET_BASE") or id:match("^BATTLE_PYRAMID_SQUARE") then return nil end
-    id = id:gsub("^UNDERWATER_", "")
+    id = GameData.RS_UNDERWATER[id] or id:gsub("^UNDERWATER_", "")
     local route = id:match("^(ROUTE%d+)$")
     if route then return route end
   end

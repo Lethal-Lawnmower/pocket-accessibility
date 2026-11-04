@@ -102,8 +102,13 @@ return function(game)
         end
       end
     end
+    local stuck = AutoWalk._state()
+    U.log("FAIL", "still going at the limit", L.where(), "paused", tostring(stuck and stuck.paused), "still", tostring(stuck and stuck.still), "retry", tostring(stuck and stuck.retryIn), "await", tostring(stuck and stuck.awaitingMap), "held game", tostring(L.adapter().held(game)), "trans", tostring(L.adapter().transitioning()), "goals", tostring(stuck and stuck.goals and stuck.goals[1] and (stuck.goals[1].x .. "," .. stuck.goals[1].y)), "held", tostring(stuck and stuck.held), "steps", L.steps():sub(1, 200),
+      "free", tostring(L.free()), "message", tostring(L.messageOpen()),
+      "walk", tostring(AutoWalk.active()), "boulders", tostring(BoulderWalk.active()), "switches", tostring(SwitchWalk.active()),
+      "boulder phase", tostring(BoulderWalk._state() and BoulderWalk._state().phase), "switch phase", tostring(SwitchWalk._state() and SwitchWalk._state().phase))
+    if os.getenv("RSE_STORY_SHOW") == "1" then L.showFloor("limit") end
     BoulderWalk.stop() SwitchWalk.stop() AutoWalk.stop()
-    U.log("FAIL", "still going at the limit", L.where())
     return false
   end
 
@@ -210,6 +215,12 @@ return function(game)
     local onlyGyms = os.getenv("RSE_STORY_GYMS")
     for _, row in ipairs(gyms) do
       local mapId = id(row[1])
+      -- a leader the story has not brought back yet (Ruby and Sapphire's Wallace)
+      for _, object in ipairs(maps[mapId] and maps[mapId].objects or {}) do
+        local flag = tonumber(object.flag) or 0
+        local name = require("src.access.nav.gen3.WorldSnapshot").objectLabel({ def = object, graphicsId = object.graphicsId }, {})
+        if flag > 0 and name == row[2] then L.setFlag(flag, false) end
+      end
       if (not onlyGyms or onlyGyms:find(row[2], 1, true)) and arrive(mapId) then
         U.log("GYM", mapId, "listed:", labels("npcs"))
         if os.getenv("RSE_STORY_TRACE") == "1" then
@@ -221,7 +232,7 @@ return function(game)
           local ok, plan, why = pcall(nav.rotatingSwitchPlan, nav, world, goals)
           U.log("PLAN", tostring(ok), tostring(plan), tostring(why), os.clock() - started)
         end
-        walk("gym " .. row[1] .. " to " .. row[2], "npcs", row[2], nil, 40000)
+        walk("gym " .. row[1] .. " to " .. row[2], "npcs", row[2], nil, tonumber(os.getenv("RSE_STORY_LIMIT")) or 40000)
       end
     end
   end
@@ -239,7 +250,7 @@ return function(game)
     end
     U.log(L.pos() ~= id("ROUTE101") and "RESULT" or "FAIL", "crossed to", L.where())
     arriveAt(id("OLDALE_TOWN"), 11, 18)
-    walk("Oldale to its Center", "warps", "Pok.mon Center", id("OLDALE_TOWN_POKEMON_CENTER_1F"))
+    walk("Oldale to its Center", "warps", "Pok..?mon Center", id("OLDALE_TOWN_POKEMON_CENTER_1F"))
     arriveAt(id("ROUTE124"), 70, 49)
     walk("Route 124 to its seabed", "area", "Underwater Route 124", nil)
     U.log("RESULT", "stopped at", L.where())
@@ -254,8 +265,7 @@ return function(game)
     -- Surf over a current and up a waterfall
     -- Surf from the shore, across a route to its far edge
     arriveAt(id("ROUTE124"), 70, 49)
-    U.log("NOTE", "Route 124 connections", labels("connections"))
-    walk("Route 124 surf to Mossdeep's edge", "connections", "Mossdeep", nil)
+    walk("Route 124 surf to Route 126's edge", "connections", "Route 126", nil)
   end
 
   if part("H") then
@@ -275,6 +285,8 @@ return function(game)
         local Player = require("src.core.game3.player")
         local view = nav:worldState().map
         if view:isWater(Player.cellX, Player.cellY) then Player.surfing = true end
+        -- every map load clears Flash, as it does for a player
+        setFlagByName("FLAG_SYS_USE_FLASH")
         walk(title, "area", pattern, reached and id(reached) or nil, 60000)
       end
     end
@@ -282,7 +294,11 @@ return function(game)
     area("Mt. Pyre 1F to 2F", "MT_PYRE_1F", "Mt%. Pyre 2F$", "MT_PYRE_2F")
     area("Mt. Pyre 2F to 3F", "MT_PYRE_2F", "Mt%. Pyre 3F$", "MT_PYRE_3F")
     area("Mt. Pyre 5F to 6F", "MT_PYRE_5F", "Mt%. Pyre 6F$", "MT_PYRE_6F")
-    area("Magma Hideout 1F to 4F", "MAGMA_HIDEOUT_1F", "Magma Hideout 4F$", "MAGMA_HIDEOUT_4F")
+    if isEmerald then
+      area("Magma Hideout 1F to 4F", "MAGMA_HIDEOUT_1F", "Magma Hideout 4F$", "MAGMA_HIDEOUT_4F")
+    else
+      area("Magma Hideout 1F to B2F", "MAGMA_HIDEOUT_1F", "Magma Hideout B2F$", "MAGMA_HIDEOUT_B2F")
+    end
     area("Aqua Hideout 1F to B2F", "AQUA_HIDEOUT_1F", "Aqua Hideout B2F$", "AQUA_HIDEOUT_B2F")
     area("Seafloor Cavern entrance to Room 1", "SEAFLOOR_CAVERN_ENTRANCE", "Room 1$", "SEAFLOOR_CAVERN_ROOM1")
     area("Seafloor Cavern Room 1 to Room 9", "SEAFLOOR_CAVERN_ROOM1", "Room 9$", "SEAFLOOR_CAVERN_ROOM9")
@@ -296,7 +312,8 @@ return function(game)
     area("Safari Zone South to Southwest", "SAFARI_ZONE_SOUTH", "Southwest$", "SAFARI_ZONE_SOUTHWEST")
     area("Shoal Cave entrance to Ice Room", "SHOAL_CAVE_LOW_TIDE_ENTRANCE_ROOM", "Ice Room$", "SHOAL_CAVE_LOW_TIDE_ICE_ROOM")
     -- the Trick House's rooms, each to its scroll
-    for number = 1, 8 do
+    -- (5 is the Mechadolls' quiz, a script that holds the player: not a walk)
+    for _, number in ipairs({ 1, 2, 3, 4, 6, 7, 8 }) do
       local name = "ROUTE110_TRICK_HOUSE_PUZZLE" .. number
       local onlyList = os.getenv("RSE_STORY_PLACES")
       if maps[id(name)] and (not onlyList or onlyList:find(name, 1, true)) and arrive(id(name)) then

@@ -61,6 +61,7 @@ local MAP_WORDS = {
 function Snapshot.mapIdName(mapId)
   if type(mapId) ~= "string" then return nil end
   local id = GameData.bareMapId(mapId):gsub("^SEVII_", "")
+  id = GameData.RS_UNDERWATER[id] and ("UNDERWATER_" .. GameData.RS_UNDERWATER[id]) or id
   local words = {}
   for word in id:gmatch("[^_]+") do
     local fixed = MAP_WORDS[word]
