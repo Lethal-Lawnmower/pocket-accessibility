@@ -3301,20 +3301,10 @@ end
 
 function Accessibility:handleCommand(actionId)
   if actionId == "read_command_help" then
-    local puzzleHelp = self.generation == 2
-      and " In an Unown puzzle, Shift E repeats the held piece." or ""
     local helpLines = {
       "Accessibility help. F7 toggles command mode. F8 reads this help.",
-      "While command mode is on, use arrow keys to move. WASD is reserved so the historical letter commands stay exact. Y reads player coordinates. Shift Y reads sonar coordinates.",
-      "J and L browse map items. Shift J and Shift L change the item filter. K gives spoken directions to the selected item as you move: press K again to stop. Shift K auto-walks to it, and any key stops the walk. M reads the map name. Q reads the in-game time when the game has a clock.",
-      -- v0.3.98 adaptation (decision 22): camera lines only when it is on
-      self.cameraEnabled ~= false
-        and "D, G, R, and V move sonar left, right, up, and down. Hold left Shift to move sonar through walls. F resets sonar."
-        or nil,
-      (self.cameraEnabled ~= false
-        and "Shift F describes a route to sonar. C toggles sonar following. E reads nearby tile identifiers. Shift E describes the terrain at sonar."
-        or "E reads nearby tile identifiers.") .. puzzleHelp,
-      "T reads the active screen. H reads enemy health. Shift H reads player health.",
+      "While command mode is on, J and L browse map items. Shift J and Shift L change the item filter. K gives spoken directions to the selected item as you move: press K again to stop. Shift K auto-walks to it, and any key stops the walk.",
+      "On a controller, hold the left trigger: D-pad up and down change the item filter, left and right browse map items. Click the right stick for spoken directions and the left stick to auto-walk.",
     }
     -- drop the camera line when it is off (announceManual stops at a nil)
     local parts = {}

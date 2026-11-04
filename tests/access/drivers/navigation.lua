@@ -1,6 +1,6 @@
 -- Scripted run for navigation: in the player's bedroom and then Pallet Town,
--- turn on the F7 command layer and use the Pokemon Access keys (object list,
--- filters, position, map name, terrain, camera, pathfinding).  Keys go
+-- turn on the F7 command layer and use its keys (object list, filters,
+-- spoken directions).  Keys go
 -- through love.keypressed, so they pass the accessibility router exactly as
 -- a real key press would.  Read the "[access] say" lines.
 return function(game)
@@ -20,21 +20,15 @@ return function(game)
 
   key("f8", false, 30)          -- help
   key("f7")                     -- command layer on
-  key("m")                      -- map name
-  key("y")                      -- position
   key("l")                      -- next
   key("l")
   key("j")                      -- previous
   key("l", true)                -- next filter
-  key("e")                      -- collision tiles around
-  key("d")                      -- camera left
-  key("f")                      -- camera back to player
   key("k", false, 400)          -- spoken directions to the selected object
   key("k")                      -- and stop
 
   U.teleport(game, "PALLET_TOWN", 10, 8, "down")
   U.wait(30)
-  key("m")
   key("l")
   key("l")
   key("f7")                     -- command layer off

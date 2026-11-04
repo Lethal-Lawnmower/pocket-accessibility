@@ -69,7 +69,8 @@ CommandRouter.STATUS = {
 -- In compatibility mode the emulator-era command vocabulary owns D, so the
 -- native WASD set cannot remain half active. Arrow keys are the unambiguous
 -- movement controls; these otherwise-native letters are reserved consistently.
-CommandRouter.RESERVED_WASD = { w = true, a = true, s = true }
+-- (no letter commands use them now: decision 46, so WASD keeps moving in command mode)
+CommandRouter.RESERVED_WASD = {}
 
 local A = CommandRouter.ACTIONS
 
@@ -77,37 +78,14 @@ local A = CommandRouter.ACTIONS
 -- first-party command surface without maintaining a second key map.
 CommandRouter.MAPPINGS = {
   plain = {
-    y = A.READ_PLAYER_POSITION,
     j = A.PREVIOUS_MAP_ITEM,
-    k = A.DESCRIBE_ROUTE_TO_ITEM,
     l = A.NEXT_MAP_ITEM,
-    t = A.READ_SCREEN_TEXT,
-    m = A.READ_MAP_NAME,
-    q = A.READ_GAME_TIME,
-    e = A.READ_COLLISION_TILES,
-    d = A.MOVE_CAMERA_LEFT,
-    g = A.MOVE_CAMERA_RIGHT,
-    r = A.MOVE_CAMERA_UP,
-    v = A.MOVE_CAMERA_DOWN,
-    f = A.RESET_CAMERA_TO_PLAYER,
-    c = A.TOGGLE_CAMERA_FOLLOW,
-    h = A.READ_ENEMY_HEALTH,
+    k = A.DESCRIBE_ROUTE_TO_ITEM,
   },
   shift = {
-    y = A.READ_CAMERA_POSITION,
     j = A.PREVIOUS_ITEM_FILTER,
     l = A.NEXT_ITEM_FILTER,
     k = A.AUTO_WALK_TO_ITEM,
-    d = A.MOVE_CAMERA_LEFT_THROUGH_WALLS,
-    g = A.MOVE_CAMERA_RIGHT_THROUGH_WALLS,
-    r = A.MOVE_CAMERA_UP_THROUGH_WALLS,
-    v = A.MOVE_CAMERA_DOWN_THROUGH_WALLS,
-    f = A.DESCRIBE_ROUTE_TO_CAMERA,
-    -- Executable Pokemon Access uses C; its README documents Shift+C.  Keep
-    -- the latter as a compatibility alias during migration.
-    c = A.TOGGLE_CAMERA_FOLLOW,
-    h = A.READ_PLAYER_HEALTH,
-    e = A.READ_TERRAIN,
   },
 }
 

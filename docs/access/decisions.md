@@ -451,3 +451,8 @@ So: K is guided navigation (from P), Shift K auto-walks, J and L still move thro
 (Shift K, Shift M) with its saved names, and Shift 0 (a message that ROM profiles are not needed). P is free. Saved `accessibilityNames` stay in options files but are not read.
 Taken as "them" meaning both P and Shift P; reading the current item is easy to put back if the owner meant only renaming. The `current_map_item` command stays for tests.
 Other old commands not touched, for the owner to judge: E and Shift E, Y and Shift Y, and the sonar keys.
+
+Same day: "might as well remove any other keybinds we don't use, like T, to read the entire screen. You get the idea. I think all we genuinely need is what we have on
+controller. If they want them added, they can request them." So the keyboard's accessibility keys are now F7, F8, J, L, Shift J, Shift L, K and Shift K, and WASD moves in command mode.
+Removed from the keyboard: T, M, Q, Y, Shift Y, H, Shift H, E, Shift E, and the sonar keys D, G, R, V, F, C and their Shift forms. The code behind them stays for now (tests use it); no key reaches it.
+Consequences: no on-demand battle health (the battle menu's lines still say it), no key for the time in Gen 2 and Hoenn (the Pokégear and wall clock screens remain), no Shift E for the held Unown piece.

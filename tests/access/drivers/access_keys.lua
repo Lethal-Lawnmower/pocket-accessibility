@@ -35,6 +35,10 @@ return function(game)
   end
   local function check(ok, text) U.log(ok and "RESULT" or "FAIL", text) end
 
+  key("f8")
+  local help = heard()
+  check(help:find("Shift K auto-walks", 1, true) ~= nil and help:find("left trigger", 1, true) ~= nil
+    and help:find("sonar", 1, true) == nil, "F8 says the keys that exist: " .. help:sub(1, 200))
   key("f7")
   heard()
   local picked

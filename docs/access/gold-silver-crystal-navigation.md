@@ -66,7 +66,7 @@ paths are unchanged.
   the game asks, the walk pauses until the player answers, then resumes; asked
   again at the same place, it stops with the instruction.
 - **Q** reads weekday, 12-hour time with AM/PM (as the Pokégear prints it) and
-  morning, day or night. **Shift+E** on the Unown puzzle reads the held piece.
+  morning, day or night. **Shift+E** on the Unown puzzle read the held piece until decision 46 removed it.
   Renaming uses Gen 2's naming screen.
 - **Chase (decision 40):** walk to an object, talk to it; if it runs off, auto-walk again
   keeps after it (`nav/Chase.lua`). `drivers/gen2_chase.lua`, harness pressing A in text:

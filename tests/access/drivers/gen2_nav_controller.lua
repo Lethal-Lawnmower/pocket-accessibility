@@ -25,7 +25,6 @@ return function(game)
   end
 
   U.log("RESULT", "F7 =>", key("f7"))
-  U.log("RESULT", "M =>", key("m"))
   U.log("RESULT", "L =>", key("l"))
   U.log("RESULT", "L =>", key("l"))
   U.log("RESULT", "F7 off =>", key("f7"))

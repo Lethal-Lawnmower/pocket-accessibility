@@ -76,7 +76,7 @@ presenters. Shown values only: `Anim._present[id]` (`displayHp`,
 
 Example (FireRed): "CHARMANDER, male, HP 33 of 33. enemy PIDGEY, level 3,
 male, HP 100 percent. What will CHARMANDER do? FIGHT".
-`Gen3Battle.health(state, side)` answers H and Shift+H in the Gen 2 words;
+(H and Shift+H were removed, decision 46: nothing asks for this now but tests.) `Gen3Battle.health(state, side)` answers in the Gen 2 words;
 doubles name both battlers; Safari Shift+H gives the balls left.
 
 **Fast game speed.** A record-only runtime wrapper on `Message.show` and

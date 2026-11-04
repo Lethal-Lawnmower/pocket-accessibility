@@ -1,5 +1,8 @@
 # Navigation
 
+**Keys, 2026-11-04 (decision 46):** the keyboard's commands are now only F7, F8, J, L, Shift J, Shift L, K and Shift K, the same set as the controller. Mentions below and in
+other topic files of T, M, Q, Y, H, E, sonar keys, P or renaming describe keys that no longer exist. The code behind most of them remains, reached only by tests.
+
 Getting around the overworld: object list, pathfinding, camera ("sonar"),
 terrain and footstep cues, puzzle help. Reused from the old project under
 decision 20, adapted to v0.3.98. Status: wired into the game and working
@@ -70,7 +73,7 @@ LUA_PATH="<repo>/?.lua;<repo>/?/init.lua;;" luajit "<repo>/tests/access/nav/worl
 
 - `Access.install` wraps `love.keypressed` *before* upstream: the old
   `CommandRouter` sees every key first and consumes recognised commands.
-  F7 toggles the command layer (WASD is then reserved, arrows still move),
+  F7 toggles the command layer (J, L, K and Shift forms only, decision 46; WASD still moves),
   F8 reads help. There is no repeat key (decision 45).
 - The coordinator is created once a Gen 1 game is loaded (Game module with
   `save` and `data`) and re-created when the save or the mod event bus

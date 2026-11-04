@@ -24,7 +24,8 @@ eq(#offActions, 0, "camera off: no camera action")
 eq(off:keypressed("l", {}, false), true, "camera off: L still browses")
 eq(offActions[1], "next_map_item", "camera off: object list works")
 
+-- decision 46: no key reaches the camera now, with the option on either
 local on, onActions = router(true)
-eq(on:keypressed("d", {}, false), true, "camera on: D is a command")
-eq(onActions[1], "move_camera_left", "camera on: D moves the camera")
+eq(on:keypressed("d", {}, false), false, "camera on: D is the game's too")
+eq(#onActions, 0, "camera on: no camera action")
 T.finish()
