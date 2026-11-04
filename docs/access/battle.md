@@ -84,6 +84,9 @@ doubles name both battlers; Safari Shift+H gives the balls left.
 each battle page shown between two polls, so it is still said. 200X
 FireRed trainer battle: 8 of 32 lines lost without it, 0 of 38 with it.
 
+Ruby, Sapphire and Emerald use this presenter; their notes are in
+`ruby-sapphire-emerald.md` (section "Battle").
+
 ## Not covered yet
 
 - Shift and switch prompts and link battles: not yet checked in a game run.

@@ -192,6 +192,20 @@ and nickname question, level up with learn-move questions, SHIFT trainer battle,
 run, Safari, double battle with both menus and targets, weather; every scene
 TALLY missed=0.
 
+## Verification
+
+Level reached for everything here: run in game, silent, read from logs. Not
+heard, not owner accepted. Most deep screens were opened by the driver the way
+their native calls them, with session state set by the driver, not reached by
+playing there; each row above and the known gaps say what is not run.
+
+| Check | Result |
+|---|---|
+| `drivers/rse_menus`, `rse_screens`, `rse_battle` | Final sweep on Emerald, Sapphire (and `rse_screens` on Ruby; `rse_menus` and `rse_battle` earlier on Ruby): no BAD, FAIL or driver error; every battle scene TALLY missed=0 |
+| `drivers/rse_screens_pokenav`, `_contest`, `_field`, `_frontier` | Run on their games when written; not repeated after later commits |
+| FireRed `gen3_menus`, `gen3_menus_more`, `gen3_screens_more`, `gen3_items`, `gen3_special`, `gen3_battle` | Run to their end after all Hoenn commits: no BAD, FAIL or driver error; battle TALLY missed=0. Logs read for errors, not compared line by line with an earlier run |
+| Unit tests (`tests/access/*_test.lua`, except `gen2_nav_cart_test`) | All pass |
+
 ## Upstream observations (recorded, not fixed)
 
 - Ruby and Sapphire's contest stage prints "Appeal no. MAY! Which move will be

@@ -32,8 +32,17 @@ return function(game)
     tap("up", 20)
   end)
 
+  -- A profile with a save lists CONTINUE first, so rows are found by id.
+  local function menuTo(id)
+    for _ = 1, 6 do
+      local menu = c.menu
+      if menu and menu.items[menu.cursor] == id then return end
+      tap(menu and menu.items[menu.cursor] and "down" or "up", 20)
+    end
+  end
+
   section("option from the main menu", function()
-    tap("down", 20)
+    menuTo("OPTION")
     tap("a", 90)
     L.taps({ "right", "down", "down", "up" }, 20)
     tap("up", 20)
@@ -42,7 +51,8 @@ return function(game)
     tap("b", 30)
     tap("b", 90)
     waitFor("menu again", function() return c.menu and c.menu.state == "input" end, 400)
-    tap("up", 20)
+    for _ = 1, 4 do tap("up", 20) end
+    menuTo("NEW_GAME")
   end)
 
   section("birch", function()
