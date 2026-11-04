@@ -958,12 +958,29 @@ end
 
 Items.party = {
   matches = Common.matcher("party", "src.ui.game3.party_menu"),
+  -- through the profile's text aliases, as the party screen itself runs:
+  -- Ruby and Sapphire name its strings differently (no effect in FireRed)
+  poll = function(state, memo, entering)
+    local Screens = loaded("src.ui.game3.screens")
+    if Screens and Screens.withTextAliases then
+      return Screens.withTextAliases(nil, Items.partyPoll, state, memo, entering)
+    end
+    return Items.partyPoll(state, memo, entering)
+  end,
+}
+
+function Items.partyPoll(state, memo, entering)
+  return Items._partyPoll(state, memo, entering)
+end
+
+Items._partyPresenter = {
   poll = function(state, memo, entering)
     local text = Party.read(state.mod, memo, entering)
     if not text then return nil end
     return text, true
   end,
 }
+Items._partyPoll = Items._partyPresenter.poll
 
 -- ---------------------------------------------------------------- summary
 -- src/ui/game3/summary_menu.lua.  Pages INFO, SKILLS, KNOWN MOVES, the
@@ -1990,6 +2007,22 @@ Items.regionMap = {
 Items.ordered = {
   Items.bag, Items.tmCase, Items.berryPouch, Items.party, Items.summary, Items.pokedex,
   Items.pcMenu, Items.itemPc, Items.boxStorage, Items.shop, Items.moneyBox, Items.regionMap,
+}
+
+-- Reading helpers the Hoenn presenters share (gen3/HoennItems.lua).
+Items.lib = {
+  say = say, try = try, pocketRows = pocketRows, readSell = readSell, quantity = quantity,
+  speciesName = speciesName, typesText = typesText, typeName = typeName, powerAccuracy = powerAccuracy,
+  moneyText = moneyText, moneyString = moneyString, bagCount = bagCount,
+  Summary = function() return Items.Summary end,
+  SummaryMenu = function() return loaded("src.ui.game3.summary_menu") end,
+  moveLine = function(moveId)
+    local P = pokemon()
+    local def = P and try(P.battleMove, moveId) or {}
+    local pp = tonumber(def.pp)
+    return join({ typeName(def.type) and ("type " .. typeName(def.type)) or nil, powerAccuracy(def),
+      (pp and pp > 0) and ("PP " .. pp) or nil })
+  end,
 }
 
 return Items

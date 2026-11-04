@@ -9,6 +9,15 @@ local H = {}
 
 function H.loaded(path) return package.loaded[path] end
 
+-- Whether the running Gen 3 game is Ruby, Sapphire or Emerald, for presenters
+-- that share an upstream module with FireRed and LeafGreen.
+function H.isHoenn()
+  local Profile = package.loaded["src.core.game3.profile"]
+  if not (Profile and type(Profile.active) == "function") then return false end
+  local ok, row = pcall(Profile.active)
+  return ok and type(row) == "table" and row.family == "rse"
+end
+
 function H.try(fn, ...)
   if type(fn) ~= "function" then return nil end
   local ok, a, b, c = pcall(fn, ...)
@@ -40,10 +49,26 @@ function H.join(parts, sep)
   return nonEmpty(table.concat(out, sep or ", "))
 end
 
+-- The profile's text aliases (ui.textAliases): Ruby and Sapphire name many
+-- strings differently, and upstream applies these only while its screens run.
+local function aliased(key)
+  local RomText = package.loaded["src.core.game3.rom_text"]
+  if not RomText or RomText.has(key) then return key end
+  local Profile = package.loaded["src.core.game3.profile"]
+  local ok, row = pcall(function() return Profile.active() end)
+  local aliases = ok and type(row) == "table" and type(row.ui) == "table" and row.ui.textAliases
+  local to = type(aliases) == "table" and aliases[key]
+  if to and RomText.has(to) then return to end
+  local Policy = package.loaded["src.ui.game3.rs.player_pc_policy"]
+  to = Policy and Policy.aliases and Policy.aliases[key]
+  if to and RomText.has(to) then return to end
+  return key
+end
+
 function H.rom(key, ctx)
   local RomText = package.loaded["src.core.game3.rom_text"]
   if not (RomText and key) then return nil end
-  local ok, text = pcall(RomText.plain, key, ctx)
+  local ok, text = pcall(RomText.plain, aliased(key), ctx)
   if ok and type(text) == "string" then return text end
   return nil
 end
@@ -58,7 +83,7 @@ end
 
 function H.romHas(key)
   local RomText = package.loaded["src.core.game3.rom_text"]
-  return RomText ~= nil and H.try(RomText.has, key) == true
+  return RomText ~= nil and H.try(RomText.has, aliased(key)) == true
 end
 
 -- Speakable cart text, from the first key this game has.

@@ -34,7 +34,13 @@ return function(game)
   local Stack = require("src.ui.game3.stack")
   local session = L.session()
   local consts = C.active(session)
-  local function item(name) return consts:require("items", name) end
+  local function item(...)
+    for _, name in ipairs({ ... }) do
+      local ok, id = pcall(function() return consts:require("items", name) end)
+      if ok then return id end
+    end
+    error("no item " .. tostring((...)))
+  end
 
   section("setup", function() end)
   do
@@ -46,8 +52,8 @@ return function(game)
     Bag.add(session.bag, item("ITEM_POTION"), 3)
     Bag.add(session.bag, item("ITEM_ANTIDOTE"), 1)
     Bag.add(session.bag, item("ITEM_POKE_BALL"), 5)
-    Bag.add(session.bag, item("ITEM_TM06"), 1)
-    Bag.add(session.bag, item("ITEM_HM01"), 1)
+    Bag.add(session.bag, item("ITEM_TM06", "ITEM_TM06_TOXIC"), 1)
+    Bag.add(session.bag, item("ITEM_HM01", "ITEM_HM01_CUT"), 1)
     Bag.add(session.bag, item("ITEM_CHERI_BERRY"), 2)
     Bag.add(session.bag, item("ITEM_MACH_BIKE"), 1)
     session.money = 5000
@@ -122,13 +128,41 @@ return function(game)
     if not startTo("pokedex") then return end
     tap("a", 90)
     L.log("TOP", tostring(L.top()))
-    wait(100)
-    taps({ "a" }, 90)
+    wait(60)
+    local Dex = require("src.ui.game3.rse.pokedex")
+    local view = Dex.active()
+    tap("start", 30)                    -- the list's menu
+    taps({ "down", "down", "up", "up" }, 15)
+    tap("b", 30)
+    -- down to the first seen row (Hoenn lists every earlier number)
+    for _ = 1, 40 do
+      local it = view.list.items[view.selected]
+      if it and it.seen then break end
+      tap("down", 25)
+    end
+    tap("a", 90)                        -- entry
+    wait(60)
+    taps({ "right", "right", "left", "left" }, 20)
+    tap("a", 120)                       -- AREA (Ruby: next text page)
+    wait(40)
+    tap("right", 120)                   -- CRY
+    wait(40)
+    tap("b", 120)                       -- back to the entry
+    wait(30)
+    tap("b", 90)                        -- list
+    wait(30)
+    tap("select", 120)                  -- search
+    wait(40)
+    taps({ "right", "left" }, 20)
+    tap("a", 30)                        -- search rows
     taps({ "down", "down" }, 20)
-    tap("a", 90)
-    taps({ "right", "right" }, 40)
-    tap("b", 60)
-    tap("b", 60)
+    tap("a", 30)                        -- a parameter box
+    taps({ "down", "down", "up" }, 20)
+    tap("b", 30)
+    tap("b", 30)
+    tap("b", 90)
+    wait(40)
+    tap("b", 90)
     L.closeAll()
   end)
 
@@ -161,6 +195,137 @@ return function(game)
     taps({ "down", "right", "left" }, 15)
     tap("b", 25)
     tap("b", 60)
+    L.closeAll()
+  end)
+
+  section("shop", function()
+    require("src.ui.game3.shop_menu").show({ session = session,
+      items = { item("ITEM_POTION"), item("ITEM_ANTIDOTE"), item("ITEM_POKE_BALL") } })
+    wait(40)
+    L.log("TOP", tostring(L.top()))
+    taps({ "down", "up" }, 15)
+    tap("a", 70)                        -- BUY
+    taps({ "down", "up" }, 15)
+    tap("a", 30)                        -- quantity
+    tap("up", 15)
+    tap("a", 30)                        -- confirm
+    tap("down", 15)
+    tap("up", 15)
+    tap("a", 40)                        -- YES
+    tap("a", 30)
+    tap("b", 70)                        -- back to the root
+    tap("down", 15)                     -- SELL
+    tap("a", 90)
+    tap("a", 30)                        -- sell the first row
+    tap("up", 15)
+    tap("a", 25)
+    tap("a", 40)
+    tap("a", 30)
+    tap("b", 70)                        -- close the bag
+    tap("b", 40)
+    L.closeAll()
+  end)
+
+  section("pc", function()
+    require("src.ui.game3.hud").openPc(game, session)
+    wait(40)
+    L.log("TOP", tostring(L.top()))
+    L.talk(4)
+    wait(20)
+    taps({ "down", "up" }, 15)
+    tap("down", 15)
+    tap("a", 30)                        -- player's PC
+    L.log("PCMODE", tostring(require("src.ui.game3.pc_menu").mode))
+    taps({ "down", "up" }, 15)
+    tap("a", 30)                        -- ITEM STORAGE
+    taps({ "down", "up" }, 15)
+    tap("down", 15)
+    tap("a", 90)                        -- DEPOSIT: the bag at the item PC
+    tap("a", 30)                        -- deposit the first row
+    tap("up", 15)
+    tap("a", 30)
+    tap("a", 40)
+    tap("b", 70)
+    wait(30)
+    tap("up", 15)
+    tap("a", 60)                        -- WITHDRAW: item storage
+    L.log("TOP", tostring(L.top()))
+    tap("down", 15)
+    tap("up", 15)
+    tap("a", 30)
+    tap("up", 15)
+    tap("a", 30)
+    tap("a", 30)
+    tap("b", 40)
+    wait(30)
+    tap("b", 30)
+    tap("b", 30)
+    wait(30)
+    tap("up", 15)
+    tap("a", 30)                        -- someone's PC
+    L.log("PCMODE", tostring(require("src.ui.game3.pc_menu").mode))
+    taps({ "down", "up" }, 15)
+    tap("down", 15)
+    tap("a", 90)                        -- DEPOSIT or WITHDRAW
+    L.log("TOP", tostring(L.top()))
+    taps({ "down", "down", "up" }, 20)
+    tap("a", 30)                        -- action menu
+    tap("down", 20)
+    tap("b", 30)
+    tap("b", 90)
+    wait(30)
+    L.closeAll()
+  end)
+
+  section("starter", function()
+    local Choose = require("src.ui.game3.rse.starter_choose")
+    local chosen
+    Choose.open({ onDone = function(result) chosen = result end })
+    wait(80)
+    L.log("TOP", tostring(L.top()))
+    taps({ "left", "right", "right" }, 30)
+    tap("a", 120)
+    tap("down", 20)
+    tap("a", 60)                        -- NO
+    wait(30)
+    tap("a", 120)
+    tap("a", 60)                        -- YES
+    L.log("CHOSEN", tostring(chosen))
+    wait(40)
+    L.closeAll()
+  end)
+
+  section("clock", function()
+    local Clock = require("src.ui.game3.rse.wall_clock")
+    Clock.open({ mode = "set", session = session, onDone = function() end })
+    wait(80)
+    L.log("TOP", tostring(L.top()))
+    taps({ "right", "right", "left" }, 10)
+    tap("a", 60)
+    tap("down", 20)
+    tap("a", 60)                        -- NO
+    wait(30)
+    tap("a", 60)
+    tap("a", 60)                        -- YES
+    wait(60)
+    Clock.open({ mode = "view", session = session, onDone = function() end })
+    wait(80)
+    tap("a", 90)
+    L.closeAll()
+  end)
+
+  section("map", function()
+    local Map = require("src.ui.game3.rse.region_map")
+    Map.show({ session = session, mode = "wall" })
+    wait(90)
+    L.log("TOP", tostring(L.top()))
+    taps({ "up", "up", "up", "right", "right" }, 18)
+    tap("b", 70)
+    L.closeAll()
+    Map.show({ session = session, mode = "fly" })
+    wait(90)
+    taps({ "up", "up", "up", "right", "right" }, 18)
+    tap("b", 70)
     L.closeAll()
   end)
 
