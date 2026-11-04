@@ -199,6 +199,8 @@ AutoWalk.stop()
 game, overworld, nav = setup()
 AutoWalk.start(nav, game)
 for _ = 1, 95 do AutoWalk.update(overworld) end
+eq(spoken[#spoken], "Walking to PC", "someone in the way: it plans around them first")
+for _ = 1, 3 * 95 do AutoWalk.update(overworld) end
 eq(spoken[#spoken], "Blocked, auto walk stopped", "no progress stops the walk")
 eq(game.input.state.right, false, "blocked walk releases the direction")
 

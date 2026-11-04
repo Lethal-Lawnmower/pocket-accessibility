@@ -26,6 +26,7 @@ local AutoWalk = {}
 local SOURCE = "access_autowalk"
 local STUCK_FRAMES = 90
 local MAX_REROUTES = 8
+local MAX_BLOCKED_TRIES = 3
 local PUSH_FRAMES = 60
 -- Resuming from the same cell this many times means the game keeps turning
 -- the player back there (Ecruteak's Tin Tower sages stop every walk north
@@ -605,7 +606,12 @@ function AutoWalk.update(top)
     walk.lastX, walk.lastY, walk.still = x, y, 0
   elseif not player.moving then
     walk.still = walk.still + 1
-    if walk.still > STUCK_FRAMES then return AutoWalk.stop("Blocked, auto walk stopped") end
+    if walk.still > STUCK_FRAMES then
+      -- someone wandered into the way and stayed: around them, a few times per walk
+      walk.reroutes = (walk.reroutes or 0) + 1
+      if walk.reroutes > MAX_BLOCKED_TRIES then return AutoWalk.stop("Blocked, auto walk stopped") end
+      return resume(true)
+    end
   end
   -- A walk that must end exactly on its goal lets go as soon as the last step is under
   -- way: the step finishes by itself, and the game starts the next one in the tick it

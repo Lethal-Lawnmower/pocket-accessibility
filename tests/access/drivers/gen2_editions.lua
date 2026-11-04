@@ -148,13 +148,30 @@ return function(game)
   end
 
   if wanted("journeys") then
-    -- story state: Gold and Silver's sage stands on Tin Tower 1F's stairs until the
-    -- story moves him (found by his cell, so Crystal, with none there, is untouched)
+    -- story state: everyone flagged on Tin Tower 1F has moved on (Gold and Silver's sage
+    -- stands on the stairs, Crystal's sages and beasts fill the hall), and Crystal's
+    -- Burned Tower has fallen in (its holes come with the rival, by this flag)
     for _, object in ipairs(maps.TIN_TOWER_1F.objects or {}) do
-      for _, warp in ipairs(maps.TIN_TOWER_1F.warps) do
-        if object.x == warp.x and object.y == warp.y and object.eventFlag then
-          game.world.events:set(object.eventFlag, true)
-          U.log("RESULT", version, "TIN_TOWER_1F object on the stairs moved by the harness", tostring(object.sprite))
+      if object.eventFlag and object.eventFlag ~= 0xFFFF then
+        game.world.events:set(object.eventFlag, true)
+        U.log("RESULT", version, "TIN_TOWER_1F moved by the harness", tostring(object.sprite))
+      end
+    end
+    -- ... and its scene has played: arriving must not start it again
+    local lastScene = 0
+    for id in pairs(maps.TIN_TOWER_1F.sceneScripts or {}) do
+      if type(id) == "number" and id > lastScene then lastScene = id end
+    end
+    game.world.mapScenes = game.world.mapScenes or {}
+    game.world.mapScenes.TIN_TOWER_1F = lastScene + 1
+    -- the events each map's own load script tests: its stairs and holes as the story leaves them
+    for _, mapId in ipairs({ "BURNED_TOWER_1F", "TIN_TOWER_1F" }) do
+      for _, callback in ipairs(maps[mapId].callbacks or {}) do
+        for _, cmd in ipairs(game.world.scripts[callback.scriptKey] or {}) do
+          if cmd.op == "checkevent" then
+            game.world.events:set(cmd.event, true)
+            U.log("RESULT", version, mapId, "event set by the harness", tostring(cmd.event))
+          end
         end
       end
     end
