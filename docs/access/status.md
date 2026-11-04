@@ -217,13 +217,11 @@ and recorded in the topic file.
 
 ## Navigation
 
-- **Parity across games (decision 43, 2026-11-03):** on branch `integration-parity`, not on `main`. By script only; not heard, no
+- **Parity across games (decision 43, 2026-11-03):** merged to local `main` on 2026-11-04 at the owner's request ("Yes, merge it"); not pushed. By script only; not heard, no
   owner test. Results: `red-blue-yellow-navigation.md`, `firered-leafgreen-navigation.md`, `gold-silver-crystal-navigation.md`.
-  Open: `gen3_story` part C fails "Victory Road 2F to 3F" ("No route", from (1,9), on this branch and on the FireRed branch alone), which
-  conflicts with `firered-leafgreen-navigation.md`'s "Fixed" row; cause not found. Floor by floor, `gen3_boulders` still solves 2F and 3F.
-  `gen3_story` part B stops at its limit in Celadon Gym on a level-up stat screen in the harness's battle, so Erika, Misty and Brock
+  Open: `gen3_story` part B stops at its limit in Celadon Gym on a level-up stat screen in the harness's battle, so Erika, Misty and Brock
   were not walked to in that run; cause in the harness suspected, not proven. Part D, Sevii: reach only, not walked. `victory_road_tower`'s test is stale.
-  After the last fix (a battle before Surf) only the waterfall part (6 of 6) and the unit tests were rerun.
+  Whole-map walks and the rest of the drivers were not rerun after the last two fixes (a battle before Surf; Victory Road 2F).
 
 - **State:** old navigation reused (decision 20) and wired in: F7 command
   layer, object list, filters, map name, position, tiles, pathfinding,

@@ -185,7 +185,7 @@ Silph Scope come from the harness; every walk is one auto-walk from the list. Dr
 | Signs named | Fixed | Plain "Signpost N": 42 to 0. Slot Machine, Braille, Vending Machine, Hidden Switch (Game Corner poster), Quiz Machine |
 | Door and panel names in hideouts | Passed, one fixed | Card Key Door and Floor Panel listed; the Game Corner's poster was "Sign: Hey!"; Celadon's panel was listed twice, once on a wall no one can stand below |
 | Routes across floors, Area floor entries | Fixed | Area had items only. Now 271 floor entries in 65 areas; being on the floor is the arrival. 241 of 278 planned from each area's first floor; the 37 refused are the Mt. Ember and League rooms behind story doors, buildings closed by people in a new game, unconnected tunnels, harness failures on Tanoby's water |
-| Journeys through puzzle floors | Fixed | Victory Road 2F to 3F by Area from the west side: floor solved, then walked on. Seafoam 1F to B4F, calm and with strong currents. Victory Road 2F to its Route 23 exit; Indigo Plateau not walked. A journey stopped by boulders opens them and plans again |
+| Journeys through puzzle floors | Fixed; see below for 2F | Victory Road 2F to 3F by Area from the west side: floor solved, then walked on (this row's claim failed in `gen3_story` part C until 2026-11-04). Seafoam 1F to B4F, calm and with strong currents. Victory Road 2F to its Route 23 exit; Indigo Plateau not walked. A journey stopped by boulders opens them and plans again |
 | Text boxes read | Passed in trace | `gen3_walkthrough` speech, plus trainers' lines and Pokémon Tower's text in `gen3_story`. Silent runs cannot show refused speech |
 
 Story places, one walk each, all arrived: Game Corner Rocket, poster (Hidden Switch), stairs to the Hideout;
@@ -240,6 +240,16 @@ picks a first can, then a second next to it, and picks again after a wrong secon
 `gen3_surge`, three runs on a fresh profile with a level 90 party: 26, 11 and 41 presses, about 2.4, 1.6 and 3.5
 minutes of game time counting gym battles; each arrived at Lt. Surge. Every game line came through, such as "The
 first electric lock opened!". Red, Blue, Yellow, Gold, Silver and Crystal do not have this.
+
+## Victory Road 2F journey (2026-11-04, by script; not heard)
+
+The owner: "Fix FireRed's Victory Road." Area to Victory Road 3F from 2F said "No route", on the merged code and on the FireRed branch
+alone. The journey's plan sets boulders aside, so it found a leg to the warp at 3,3, but no walk to that warp existed yet, and
+`AutoWalk.start` tried a floor's puzzle only when no leg was found at all. It now tries the puzzle in both cases.
+
+`gen3_story` part C: 2F to 3F (the floor, then on), back to 2F, then to Route 23, all arrived; Seafoam 1F to B4F as before. No failures or
+crashes afterwards in FireRed's `gen3_nav`, `gen3_nav_more`, `gen3_nav_gaps`, `gen3_nav_puzzle`, `gen3_boulders`, `gen3_switches`, `gen3_surge`;
+Red's `gen1_puzzles`, `journeys`, `navigation`; Crystal's `gen2_nav`, `gen2_boulders`, `gen2_switches`, `gen2_editions`. Indigo Plateau not walked.
 
 ## Known gaps
 

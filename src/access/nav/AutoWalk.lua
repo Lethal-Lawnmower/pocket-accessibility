@@ -290,10 +290,13 @@ function AutoWalk.start(nav, game, adapter, opts)
     end
   end
   if not result then
-    if not opts.quiet and not journey then
+    if not opts.quiet then
       local BoulderWalk = require("src.access.nav.BoulderWalk")
-      if BoulderWalk.tryStart(nav, game, adapter, item, goals, overworld) then return true end
+      -- a journey planned with the boulders aside can have no way off this floor yet
+      -- (FireRed's Victory Road 2F): the floor comes first, as when no leg was found
+      if not journey and BoulderWalk.tryStart(nav, game, adapter, item, goals, overworld) then return true end
       if BoulderWalk.tryJourney(nav, game, adapter, item, overworld) then return true end
+      if journey and BoulderWalk.tryArea(nav, game, adapter, item, overworld) then return true end
       if require("src.access.nav.SwitchWalk").tryStart(nav, game, adapter, item, overworld) then
         return true
       end
