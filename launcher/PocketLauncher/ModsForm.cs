@@ -1,3 +1,4 @@
+using System.Windows.Forms.Automation;
 using System.Text;
 using System.Text.Json.Nodes;
 
@@ -31,6 +32,10 @@ internal sealed class ModsForm : Form
     private readonly Button zipButton = new();
     private readonly Button indexesButton = new();
     private readonly ToolStripStatusLabel status = new();
+    private readonly ProgressBar installBar = new()
+    {
+        AccessibleName = "Install progress", Dock = DockStyle.Bottom, Height = 22, Minimum = 0, Maximum = 100, Visible = false,
+    };
     private List<JsonObject> indexRows = [];
     private bool installing;
     private bool closed;
@@ -81,6 +86,7 @@ internal sealed class ModsForm : Form
         statusStrip.Items.Add(status);
 
         Controls.Add(tabs);
+        Controls.Add(installBar);
         Controls.Add(close);
         Controls.Add(statusStrip);
         ActiveControl = tabs;
@@ -413,7 +419,7 @@ internal sealed class ModsForm : Form
             return;
         }
 
-        await RunInstallAsync(selected.Title, () => ModInstaller.InstallFromUrlAsync(url, selected.Id, paths.SaveDir, FolderOfInstalled, CheckFolderAsync));
+        await RunInstallAsync(selected.Title, progress => ModInstaller.InstallFromUrlAsync(url, selected.Id, paths.SaveDir, FolderOfInstalled, CheckFolderAsync, progress));
     }
 
     private async Task InstallZipAsync()
@@ -426,7 +432,7 @@ internal sealed class ModsForm : Form
             $"Install {name}? This file is not from an index, so nothing has checked it. Only install it if you trust where it came from.",
             "Install mod", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
         if (answer != DialogResult.Yes) return;
-        await RunInstallAsync(name, () => ModInstaller.InstallFromFileAsync(dialog.FileName, paths.SaveDir, FolderOfInstalled, CheckFolderAsync));
+        await RunInstallAsync(name, progress => ModInstaller.InstallFromFileAsync(dialog.FileName, paths.SaveDir, FolderOfInstalled, CheckFolderAsync, progress));
     }
 
     private string? FolderOfInstalled(string modId) =>
@@ -435,14 +441,46 @@ internal sealed class ModsForm : Form
     private Task<JsonObject> CheckFolderAsync(string folder) =>
         AskAsync("check", new JsonObject { ["folder"] = folder, ["version"] = game.Id });
 
-    private async Task RunInstallAsync(string name, Func<Task<JsonObject>> install)
+    /// <summary>
+    /// Shows an install's stage on the bar and the status strip.  A screen reader reads neither by
+    /// itself away from them, so each new stage and each quarter is also raised as an automation
+    /// notification, the standard way a window tells a screen reader something changed.
+    /// </summary>
+    private void ShowInstallProgress(string name, InstallProgress progress, ref string? stage, ref int quarter)
+    {
+        installBar.Style = progress.Percent == null ? ProgressBarStyle.Marquee : ProgressBarStyle.Blocks;
+        if (progress.Percent is int percent) installBar.Value = Math.Clamp(percent, 0, 100);
+        string line = progress.Percent is int shown ? $"{progress.Stage} {name}, {shown} percent." : $"{progress.Stage} {name}.";
+        status.Text = line;
+        int nowQuarter = (progress.Percent ?? 0) / 25;
+        if (progress.Stage == stage && nowQuarter <= quarter) return;
+        stage = progress.Stage;
+        quarter = nowQuarter;
+        Announce(line);
+    }
+
+    private void Announce(string text)
+    {
+        if (!installBar.IsHandleCreated) return;
+        installBar.AccessibilityObject.RaiseAutomationNotification(
+            AutomationNotificationKind.ActionCompleted, AutomationNotificationProcessing.ImportantMostRecent, text);
+    }
+
+    private async Task RunInstallAsync(string name, Func<IProgress<InstallProgress>, Task<JsonObject>> install)
     {
         installing = true;
         installButton.Enabled = removeButton.Enabled = zipButton.Enabled = false;
+        installBar.Value = 0;
+        installBar.Visible = true;
         status.Text = $"Installing {name}.";
+        string? stage = null;
+        int quarter = 0;
+        var progress = new Progress<InstallProgress>(update => ShowInstallProgress(name, update, ref stage, ref quarter));
         try
         {
-            JsonObject installed = await install();
+            JsonObject installed = await install(progress);
+            installBar.Style = ProgressBarStyle.Blocks;
+            installBar.Value = 100;
             await LoadInstalledAsync();
             await LoadIndexAsync(force: false);
             string title = TextOf(installed, "name") ?? name;
@@ -462,6 +500,7 @@ internal sealed class ModsForm : Form
         finally
         {
             installing = false;
+            installBar.Visible = false;
             zipButton.Enabled = true;
             ShowFoundDetails();
             ShowInstalledDetails();

@@ -7,6 +7,10 @@ namespace PocketLauncher;
 /// <summary>A mod that could not be installed; the message is read to the player.</summary>
 internal sealed class ModInstallException(string message) : Exception(message);
 
+/// <summary>How far an install has got: its stage, and a percent of the whole install, or
+/// null while that cannot be known (a download whose size the server does not say).</summary>
+internal readonly record struct InstallProgress(string Stage, int? Percent);
+
 /// <summary>
 /// Downloads a mod's zip and unpacks it into the mods folder.  Written for this
 /// launcher: upstream's installer is in its proprietary launcher code (LICENSE.MD),
@@ -20,6 +24,9 @@ internal static partial class ModInstaller
     private const string IncomingFolder = "mods-incoming";
     private const long MaxDownloadBytes = 2L * 1024 * 1024 * 1024;
     private const long MaxUnpackedBytes = 4L * 1024 * 1024 * 1024;
+
+    // The download is nearly all of an install's time; the rest is shared out after it.
+    private const int DownloadEndsAt = 80, UnpackEndsAt = 95, CheckAt = 96, ReplaceAt = 98;
 
     private static readonly HttpClient Http = CreateHttpClient();
 
@@ -38,21 +45,27 @@ internal static partial class ModInstaller
     /// <returns>The check's answer about the installed mod.</returns>
     public static Task<JsonObject> InstallFromUrlAsync(string url, string expectedId, string saveDir,
                                                        Func<string, string?> existingFolderFor,
-                                                       Func<string, Task<JsonObject>> check)
+                                                       Func<string, Task<JsonObject>> check,
+                                                       IProgress<InstallProgress>? progress = null)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) || uri.Scheme != Uri.UriSchemeHttps)
         {
             throw new ModInstallException("The listing's download address is not a secure web address.");
         }
-        return InstallAsync(zipPath => DownloadAsync(uri, zipPath), expectedId, saveDir, existingFolderFor, check);
+        return InstallAsync(zipPath => DownloadAsync(uri, zipPath, progress), expectedId, saveDir, existingFolderFor, check, progress);
     }
 
     /// <summary>Installs a zip the player chose; whatever id its manifest names.</summary>
     /// <returns>The check's answer about the installed mod.</returns>
     public static Task<JsonObject> InstallFromFileAsync(string zipFile, string saveDir,
                                                         Func<string, string?> existingFolderFor,
-                                                        Func<string, Task<JsonObject>> check) =>
-        InstallAsync(zipPath => Task.Run(() => File.Copy(zipFile, zipPath)), null, saveDir, existingFolderFor, check);
+                                                        Func<string, Task<JsonObject>> check,
+                                                        IProgress<InstallProgress>? progress = null) =>
+        InstallAsync(zipPath =>
+        {
+            progress?.Report(new InstallProgress("Copying", 0));
+            return Task.Run(() => File.Copy(zipFile, zipPath));
+        }, null, saveDir, existingFolderFor, check, progress);
 
     /// <summary>
     /// Fetches the zip, unpacks and checks it, then replaces the mod's folder, if it has one.
@@ -61,7 +74,8 @@ internal static partial class ModInstaller
     /// </summary>
     private static async Task<JsonObject> InstallAsync(Func<string, Task> fetchZip, string? expectedId, string saveDir,
                                                        Func<string, string?> existingFolderFor,
-                                                       Func<string, Task<JsonObject>> check)
+                                                       Func<string, Task<JsonObject>> check,
+                                                       IProgress<InstallProgress>? progress)
     {
         string scratchName = Guid.NewGuid().ToString("N");
         string incoming = Path.Combine(saveDir, IncomingFolder);
@@ -71,8 +85,9 @@ internal static partial class ModInstaller
         try
         {
             await fetchZip(zipPath);
-            await Task.Run(() => Unpack(zipPath, scratch));
+            await Task.Run(() => Unpack(zipPath, scratch, progress));
 
+            progress?.Report(new InstallProgress("Checking", CheckAt));
             JsonObject verdict = await check($"{IncomingFolder}/{scratchName}");
             if (verdict["valid"]?.GetValue<bool>() != true)
             {
@@ -91,6 +106,7 @@ internal static partial class ModInstaller
 
             string modsDir = Path.Combine(saveDir, "mods");
             Directory.CreateDirectory(modsDir);
+            progress?.Report(new InstallProgress("Installing", ReplaceAt));
             await Task.Run(() => Replace(scratch, Path.Combine(modsDir, folderName)));
             return verdict;
         }
@@ -110,10 +126,13 @@ internal static partial class ModInstaller
         }
     }
 
-    private static async Task DownloadAsync(Uri uri, string zipPath)
+    private static async Task DownloadAsync(Uri uri, string zipPath, IProgress<InstallProgress>? progress)
     {
+        progress?.Report(new InstallProgress("Downloading", null));
         using HttpResponseMessage response = await Http.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead);
         response.EnsureSuccessStatusCode();
+        long? size = response.Content.Headers.ContentLength;
+        int reported = -1;
         await using Stream body = await response.Content.ReadAsStreamAsync();
         await using FileStream file = File.Create(zipPath);
         var buffer = new byte[81920];
@@ -124,6 +143,11 @@ internal static partial class ModInstaller
             total += read;
             if (total > MaxDownloadBytes) throw new ModInstallException("The download is too large to be a mod.");
             await file.WriteAsync(buffer.AsMemory(0, read));
+            if (size is > 0)
+            {
+                int percent = (int)Math.Min(DownloadEndsAt, total * DownloadEndsAt / size.Value);
+                if (percent != reported) progress?.Report(new InstallProgress("Downloading", reported = percent));
+            }
         }
     }
 
@@ -131,12 +155,14 @@ internal static partial class ModInstaller
     /// Mods are zipped with the manifest at the top or one folder down, so the shallowest
     /// manifest marks the mod's root, and only files under that root are unpacked.
     /// </summary>
-    private static void Unpack(string zipPath, string destination)
+    private static void Unpack(string zipPath, string destination, IProgress<InstallProgress>? progress)
     {
         using ZipArchive archive = ZipFile.OpenRead(zipPath);
         string root = FindModRoot(archive);
         string destinationRoot = Path.GetFullPath(destination) + Path.DirectorySeparatorChar;
         long total = 0;
+        long size = archive.Entries.Where(entry => entry.FullName.Replace('\\', '/').StartsWith(root, StringComparison.Ordinal)).Sum(entry => entry.Length);
+        int reported = -1;
         var buffer = new byte[81920];
         foreach (ZipArchiveEntry entry in archive.Entries)
         {
@@ -163,6 +189,11 @@ internal static partial class ModInstaller
                 total += read;
                 if (total > MaxUnpackedBytes) throw new ModInstallException("The mod unpacks to more than 4 gigabytes, so it was not installed.");
                 output.Write(buffer, 0, read);
+                if (size > 0)
+                {
+                    int percent = DownloadEndsAt + (int)Math.Min(UnpackEndsAt - DownloadEndsAt, total * (UnpackEndsAt - DownloadEndsAt) / size);
+                    if (percent != reported) progress?.Report(new InstallProgress("Unpacking", reported = percent));
+                }
             }
         }
     }
