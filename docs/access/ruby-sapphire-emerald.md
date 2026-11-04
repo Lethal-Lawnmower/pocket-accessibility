@@ -80,6 +80,18 @@ draws and drives FireRed's module, `boot` names the boot objects.
 | Roulette | Wager question, yes/no; "Roulette", coins, bet a ball, instructions | Before each bet: coins, balls left, squares hit so far; each square with what it pays or "already hit"; bet, coins; where the ball landed; the game's result lines; keep playing |
 | Slots | "Slot machine", keys, coins | Bet with its lines and coins; "Spinning"; each reel top to bottom as it stops; win with payout and winning lines, or "No win"; Power meter; Reel Time spins; quit question; SELECT: payouts and Reel Time text |
 | Move tutor | Prompt, move, position, type, power, accuracy, PP, description | Row; contest page: category, appeal and jam hearts as numbers, description; questions, yes/no; learning lines; forgetting through the summary presenter |
+| Frontier Pass (Emerald) | "Frontier pass", Battle Points, symbols earned, what is under the cursor | Under a free cursor: the button's name and description; Battle Points' number; a symbol's silver or gold; in empty space "Nothing here. Nearest", the nearest button and the way to it, then only that as it changes |
+| Frontier map (a phase of the pass) | "Frontier map", "You are at" or "You are near" a landmark, landmark, position, description | Landmark, position, description |
+| Frontier result and ranking windows, link battle and link contest records, blender speed records, BP box (Emerald) | Passive, queued: every row of the window in reading order; "<n> BP" | Ranking Hall's next level page; new amount |
+| Exchange corner, Frontier tutors (Emerald) | List row with price, position, the description the screen draws beside it | Row, price, description |
+| Battle Dome tree | "BATTLE TOURNEY", trainer or match, "out" with the round, position | Trainer with position; match number, who meets whom, result line; CANCEL or EXIT. Between rounds: "Still in" and names, "Press A" |
+| Battle Dome cards | Next opponent: class, name, three Pokémon, potential, style, stats | From the tree the same, or match number, both sides with Pokémon, "out", result line, and which arrows lead on |
+| Battle Factory rental | "RENTAL POKéMON", the prompt, species, category, position | Species, "chosen first", position; SUMMARY, RENT or DESELECT, OTHERS; the refusal; the three chosen, yes/no. Summary by its presenter |
+| Battle Factory swap | "POKéMON SWAP", the prompt, species, category, position | Row, position, either side; POKéMON FOR SWAP, CANCEL; SUMMARY, SWAP, RECHOOSE; "already in party"; accept and quit questions, yes/no |
+| Battle Pyramid bag | "Pyramid bag", row with quantity, position, description; CLOSE BAG | Row; the actions' question and rows; toss count, question, yes/no, result; moving an item; refusals |
+| Pyramid start menu | "Battle Pyramid Floor N" or "Peak" before the row | REST through the save presenter with the pyramid's own line; RETIRE through dialogue and yes/no |
+| Trainer Hill time board | Every mode with its time | |
+| Battle Tower record board (Ruby, Sapphire) | Passive, queued: title, both levels, current and record | |
 | Credits | Each page of titles and names; each Pokémon once; "THE END. Press A" | Queued, never cut off |
 | Diploma | The certificate as one text (Emerald through FireRed's presenter) | |
 | Glass workshop, day-care STORE menu and level menu, cable lobby | Row with position; "Do what with <name>?"; "empty" for a blank day-care row | Row |
@@ -125,8 +137,7 @@ Sapphire's Mystery Events rows (fetch and list drawing stubbed: nothing is conta
 see below), cable lobby (driver's rows, a real lobby needs a link), list menu rows
 (driver's labels). Not run: Reel Time's spins line, a placed decoration in the
 bedroom, Trendy phrase and interview editors from their scripts (only the modules),
-the Mail composer's blank-mail refusal, Emerald's cable box results
-(`rse/frontier_records`), Rayquaza's Ruby and Sapphire counterpart (they have none).
+the Mail composer's blank-mail refusal, Rayquaza's Ruby and Sapphire counterpart (they have none).
 Trick House: its entrance script read as dialogue; the rooms are ordinary field
 text, not walked. Multichoice in Hoenn reads through FireRed's choice presenter
 (Emerald's coins clerk, Ruby and Sapphire's prize clerk ran by their scripts).
@@ -135,6 +146,31 @@ Labels our words stand for in those screens: decoration in-use markers, word
 editor footer and side buttons, roulette colours and Pokémon, slot symbols, Power
 and Reel Time, payout chart, secret base cursor position, CONTEST and BATTLE MOVES
 headers on Ruby's tutor, the stationery name and icon.
+
+Known gaps in the Frontier (`gen3/HoennSpecial.lua`,
+`drivers/rse_screens_frontier.lua`). Reached by the game's own scripts: the results
+windows (tower, factory), Ranking Hall pages, cable box records, blender speed
+records, exchange corner, tutors, Trainer Hill board, and the Dome room's menu into
+the opponent card and tree. Reached by a helper, which set the session state the
+challenge would have set and passed the native's options, because a whole challenge
+is not played: the static and previous Dome trees and the second round, Factory
+rental and swap (`Factory.init`, `generateInitialRentalMons`, the rest of the rentals
+as the other side), the refusal and same-species lines (forced by the driver), the
+Pyramid floor (`Pyramid.init`, `seedFloor`, then its map), both toss-choice and battle
+bag openings, Pike's room, Ruby and Sapphire's record board (the native's one call).
+The other facility results windows ran as modules. Not run: the pass's Battle Record
+row with a record saved and its playback; the Pyramid bag's refusal messages and GIVE
+through the party; the bag used in a real battle; a real Pyramid or Pike challenge
+from its lobby; Dome's EXIT button; a Ranking Hall row with a name, or link multi's
+two names. The Frontier Pass cursor is free: "nearest" and its way are ours, measured
+from the screen's own button rectangles, not from what the player can see; the head on
+the map outdoors is said as the nearest landmark.
+
+Labels our words stand for in those screens: "Frontier pass", MAP, TRAINER CARD,
+CANCEL and the medals on the pass, "Frontier map", the pass's "Nothing here" and
+"Nearest", Dome's CANCEL and EXIT, "out", "against", "Still in", "More with" and the
+arrows, Factory's "chosen" for its coloured balls, "Pyramid bag", "empty" for a blank
+ranking row.
 
 Known gaps in the Pokénav: the map's city picture is not described; the map
 says nothing about which places can be flown to. Emerald's graph, list and map
