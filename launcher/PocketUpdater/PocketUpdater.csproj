@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Updates a packaged Pocket Accessibility folder from this repository's GitHub releases.
+       Separate from the launcher because the launcher has to be closed while it is replaced.
+       Standard controls only, as in the launcher. See docs/access/launcher.md. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>PocketUpdater</AssemblyName>
+    <RootNamespace>PocketUpdater</RootNamespace>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <Product>Pocket Accessibility</Product>
+    <Copyright>GPL-3.0 with the upstream project's Section 7 terms</Copyright>
+  </PropertyGroup>
+
+</Project>

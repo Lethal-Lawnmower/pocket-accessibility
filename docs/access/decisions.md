@@ -467,3 +467,7 @@ Upstream's README text below ours is replaced by a link ("Everything else I trus
 line in the README: it stays in Credit, word for word. Our reading of that license, not legal advice.
 
 Push, 2026-11-04: the owner approved publishing the README rewrite with their own introduction and decisions 45 to 47's key changes ("push it"). Covers that push only; not acceptance, not a release. The owner may add one more line to their introduction later.
+
+## 48. A separate updater (2026-11-04)
+
+The owner, on updating: "for it to update the actual games and stuff like that", then, offered a single-program design that copies itself: "We could make a separate updater app then." So `launcher/PocketUpdater` replaces the whole program folder from this repository's releases, asked for by a button. The release waits for it, and for the owner's feedback Discord server's invite link.

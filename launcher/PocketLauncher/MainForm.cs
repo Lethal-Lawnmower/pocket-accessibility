@@ -23,6 +23,7 @@ internal sealed class MainForm : Form
     private readonly Button modsButton = new();
     private readonly Button importButton = new();
     private readonly Button creditsButton = new();
+    private readonly Button updatesButton = new();
     private readonly Button exitButton = new();
     private readonly ToolStripStatusLabel status = new();
     private bool busy;
@@ -56,11 +57,14 @@ internal sealed class MainForm : Form
         ConfigureButton(modsButton, "&Mods...", () => { OpenMods(); return Task.CompletedTask; });
         ConfigureButton(importButton, "&Import ROM...", async () => await ImportAsync());
         ConfigureButton(creditsButton, "&Credits", () => { using var credits = new CreditsForm(paths); credits.ShowDialog(this); return Task.CompletedTask; });
+        ConfigureButton(updatesButton, "Check for &updates", () => { OpenUpdater(); return Task.CompletedTask; });
         ConfigureButton(exitButton, "E&xit", () => { Close(); return Task.CompletedTask; });
         AcceptButton = playButton; // Enter on the list plays the selected game
 
         var buttons = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, WrapContents = false };
-        buttons.Controls.AddRange([playButton, editButton, modsButton, importButton, creditsButton, exitButton]);
+        // a source checkout has no updater beside it: it updates with git
+        updatesButton.Visible = File.Exists(UpdaterPath);
+        buttons.Controls.AddRange([playButton, editButton, modsButton, importButton, creditsButton, updatesButton, exitButton]);
 
         var credit = new Label { Text = UpstreamCredit, AutoSize = true, MaximumSize = new Size(480, 0) };
 
@@ -196,6 +200,18 @@ internal sealed class MainForm : Form
         using var editor = new SaveEditorForm(paths, game);
         editor.ShowDialog(this);
         gamesList.Focus();
+    }
+
+    private static string UpdaterPath => Path.Combine(AppContext.BaseDirectory, "PocketUpdater.exe");
+
+    /// <summary>Hands over to the updater, which has to replace this program, and reopens it after.</summary>
+    private void OpenUpdater()
+    {
+        if (busy) return;
+        var info = new System.Diagnostics.ProcessStartInfo(UpdaterPath) { UseShellExecute = false };
+        info.ArgumentList.Add("--from-launcher");
+        System.Diagnostics.Process.Start(info)?.Dispose();
+        Close();
     }
 
     /// <summary>The Mods window for the selected game, after the first-time warning.</summary>

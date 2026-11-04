@@ -258,6 +258,20 @@ run on a second PC, so a PC with no .NET, no LÖVE and no Visual C++ runtime is 
 | Prism | `prism.dll` loaded from the package (`speech ready: OneCore` on the second desktop, with silent runs on). Choosing NVDA from the package and audible speech are **not** tested. |
 | Not tested | A real play session or save from the package; Gold, Silver, Yellow, LeafGreen, Ruby, Sapphire imports; a mod running from the package; a second PC. |
 
+## Updates (2026-11-04)
+
+The owner: "We could make a separate updater app then." `launcher/PocketUpdater` is a second small program with standard controls. The launcher's Check for updates (Alt+U, shown only when
+`PocketUpdater.exe` is beside it) starts it with `--from-launcher` and closes, so the launcher can be replaced; the updater reopens the launcher when it closes.
+
+- **Asks** this repository's `releases/latest`. It takes only an asset named `PocketAccessibility-*-windows-x64.zip`, only from this repository's download address over https, and only if GitHub reports its SHA-256 (the asset's `digest`).
+- **Installs** after the player presses Update now, with no launcher or game from this folder running: download, checksum, unpack to `update-incoming`, check the required files and that `version.txt` matches the release, then move each packaged item into `update-old` and the new one in. Any failure puts every item back. Files the package does not hold are left alone. Saves, imports and mods are in the save folder.
+- **Its own file:** Windows allows a running program's file to be moved. The old copy is deleted on the next run if it was still open.
+- **No check at launch:** it asks GitHub only when the player chooses to. Add one if the owner wants it.
+- **Announcements:** bar named "Update progress", status strip, and automation notifications for each stage and quarter, as in the Mods window.
+- `package_release.py --version` writes `version.txt`, publishes both programs and writes the zip. A release's tag is `v<version>`. A source checkout has no updater, and its button is hidden.
+
+Self-contained, each program holds its own .NET, so the updater adds about as much as the launcher.
+
 ## Verification: release 0.0.1 (2026-11-04)
 
 Self-contained, from commit 6085a86d, 115.0 MiB unzipped. By script only, on a disposable profile, on a second Windows desktop, with the package's own LÖVE. No one has played or heard it,

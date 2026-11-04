@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Builds the zip-ready Windows folder for a Pocket Accessibility release.
 
-    python launcher/package_release.py --dotnet self-contained --out <new folder outside the repository>
+    python launcher/package_release.py --version 0.0.1 --dotnet self-contained --out <new folder outside the repository>
+
+It also writes PocketAccessibility-<version>-windows-x64.zip beside that folder: the one asset a
+release needs, under the name PocketUpdater looks for.
 
 What goes in is decided here and nowhere else (docs/access/launcher.md, "Packaged
 release"): the game comes from `git archive HEAD`, so only committed files can be
@@ -20,6 +23,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import zipfile
 from pathlib import Path, PurePosixPath
 
 REPO = Path(__file__).resolve().parents[1]
@@ -171,11 +175,11 @@ def copy_prism(prism_dll, prism_release, game_dir, licenses):
     return prism_release.name
 
 
-def publish_launcher(out, licenses, self_contained):
-    """The launcher, as one executable beside game and love."""
+def publish_program(name, out, self_contained):
+    """One of our two programs, as one executable beside game and love."""
     scratch = out.parent / (out.name + "-publish")
     shutil.rmtree(scratch, ignore_errors=True)
-    command = ["dotnet", "publish", str(REPO / "launcher" / "PocketLauncher"), "-c", "Release", "-r", "win-x64",
+    command = ["dotnet", "publish", str(REPO / "launcher" / name), "-c", "Release", "-r", "win-x64",
                "-o", str(scratch), "--nologo", "-p:PublishSingleFile=true", "-p:DebugType=none",
                f"-p:PathMap={REPO}=."]  # no local paths or .pdb in the program
     if self_contained:
@@ -184,9 +188,15 @@ def publish_launcher(out, licenses, self_contained):
     else:
         command += ["--self-contained", "false"]
     run(*command)
-    shutil.copy2(scratch / "PocketLauncher.exe", out / "PocketLauncher.exe")
-    # ReadyCheck, SaveBackend and ModBackend are found in game/launcher (GamePaths.cs).
+    shutil.copy2(scratch / f"{name}.exe", out / f"{name}.exe")
     shutil.rmtree(scratch)
+
+
+def publish_launcher(out, licenses, self_contained):
+    """The launcher and the updater that replaces it."""
+    # ReadyCheck, SaveBackend and ModBackend are found in game/launcher (GamePaths.cs).
+    publish_program("PocketLauncher", out, self_contained)
+    publish_program("PocketUpdater", out, self_contained)
     if self_contained:
         # The texts published with the runtime packs that were built in, not the
         # SDK install's own LICENSE.txt, which is a different document.
@@ -213,7 +223,8 @@ def copy_notices(out, game_dir, licenses):
         shutil.copy2(game_dir / "assets" / folder / "README.md", notices / (folder.replace("/", "-") + ".md"))
 
 
-def write_notes(out, game_dir, commit, love_version, prism_name, licenses, self_contained):
+def write_notes(out, game_dir, commit, love_version, prism_name, licenses, self_contained, version):
+    (out / "version.txt").write_text(version + "\n", encoding="utf-8")
     (game_dir / "pocket-access-package.txt").write_text(
         f"Packaged by launcher/package_release.py from commit {commit}.\n"
         "src/access/PackagedBuild.lua reads this file's presence: no upstream launcher here.\n", encoding="utf-8")
@@ -240,6 +251,8 @@ Upstream's proprietary launcher files (License Term 2) are not in this package.
 
 Contents
   PocketLauncher.exe  the launcher
+  PocketUpdater.exe   installs newer releases from GitHub; the launcher's Check for updates opens it
+  version.txt         this release's version
   game                the game's source, and Prism in game\\local-deps\\prism
   love                {love_version}, unmodified (zlib license)
   licenses            license texts for everything above; see THIRD-PARTY-NOTICES.txt
@@ -285,7 +298,7 @@ def audit(out, game_dir, excluded):
             problems.append(f"launcher file: {posix}")
         if in_game is not None and any(in_game.startswith(d) for d in TERM2_DIRS + LAUNCHER_ONLY_DIRS):
             problems.append(f"launcher file: {posix}")
-        if path.suffix.lower() in {".exe", ".dll"} and posix != "PocketLauncher.exe" \
+        if path.suffix.lower() in {".exe", ".dll"} and posix not in {"PocketLauncher.exe", "PocketUpdater.exe"} \
                 and posix != "game/local-deps/prism/prism.dll" \
                 and not (parts[0] == "love" and rel.name in LOVE_FILES):
             problems.append(f"unexpected program file: {posix}")
@@ -304,6 +317,7 @@ def folder_size(path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--version", required=True, help="this release's version, such as 0.0.1; the tag is v<version>")
     parser.add_argument("--out", required=True, type=Path, help="folder to create; must not exist, outside the repository")
     parser.add_argument("--love", type=Path, default=Path(r"C:\Program Files\LOVE"), help="LÖVE 11.5 install folder")
     parser.add_argument("--prism-dll", type=Path, help="default: local-deps/prism/prism.dll in the main checkout")
@@ -313,6 +327,8 @@ def main():
                         help="self-contained builds .NET into the launcher; runtime-required leaves it out, "
                         "and players must install the .NET 10 Desktop Runtime (launcher.md has the trade-offs)")
     args = parser.parse_args()
+    if not re.fullmatch(r"\d+\.\d+\.\d+", args.version):
+        fail(f"{args.version} is not a version like 0.0.1")
 
     out = args.out.resolve()
     if out.exists():
@@ -335,14 +351,21 @@ def main():
     say(f"publishing the launcher ({args.dotnet})")
     publish_launcher(out, licenses, self_contained)
     copy_notices(out, game_dir, licenses)
-    write_notes(out, game_dir, commit, love_version, prism_name, licenses, self_contained)
+    write_notes(out, game_dir, commit, love_version, prism_name, licenses, self_contained, args.version)
     audit(out, game_dir, excluded)
     say(f"commit {commit}")
-    for part in ("PocketLauncher.exe", "love", "game", "licenses"):
+    for part in ("PocketLauncher.exe", "PocketUpdater.exe", "love", "game", "licenses"):
         target = out / part
         size = target.stat().st_size if target.is_file() else folder_size(target)
         say(f"  {part}: {size / 1048576:.1f} MiB")
     say(f"total {folder_size(out) / 1048576:.1f} MiB in {out}")
+    zip_path = out.parent / f"PocketAccessibility-{args.version}-windows-x64.zip"
+    if zip_path.exists():
+        fail(f"{zip_path} already exists")
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+        for path in sorted(p for p in out.rglob("*") if p.is_file()):
+            archive.write(path, f"PocketAccessibility-{args.version}/{path.relative_to(out).as_posix()}")
+    say(f"zip {zip_path}: {zip_path.stat().st_size / 1048576:.1f} MiB, sha256 {sha256(zip_path)}")
 
 
 if __name__ == "__main__":
