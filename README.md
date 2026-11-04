@@ -70,7 +70,7 @@ third-generation GBA games.
 ## What It Does
 
 - **Speech:** menus, dialogue, the Pokémon screens and battles all go through [Prism](https://github.com/ethindp/prism), so it works with your screen reader without any extra setup. Gone are the days of hunting down the right NVDA DLL or `Tolk.dll`. F7 turns on the accessibility command keys, and F8 is help.
-- **Navigation:** a list of what's on the map, like warps, signs, people and objects. You can get spoken directions or auto-walk to whatever you pick, on keyboard or controller. Battles pause the walk, and it carries on afterwards.
+- **Navigation:** a list of what's on the map, like warps, signs, people and objects. You can get spoken directions to whatever you pick, on keyboard or controller, or auto-walk there on a controller. Battles pause the walk, and it carries on afterwards.
 - **Other floors:** if there's no route on your floor, auto-walk looks through the other floors. The Area category lists the items and floors of the building or cave you're in. Some places still say there's no route. When an item is what's blocking you, it tells you to pick it up.
 - **Launcher:** a standard Windows program that lists the games, imports your ROMs and starts a game.
 - **Save editor:** opened from the launcher with Edit save, with tabs for party, boxes, items, trainer, map, Pokédex and events.
