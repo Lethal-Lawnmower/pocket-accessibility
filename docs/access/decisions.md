@@ -459,3 +459,9 @@ Consequences: no on-demand battle health (the battle menu's lines still say it),
 
 Same day: "health can stay. The health commands can stay. And ... make sure that the navigation keys are not activated in a menu slash and or battle, because in battles, they can be
 context dependent for battle stuff." H and Shift H are back, and work anywhere F7 is on. J, L, K and their Shift forms pass through to the game off the map (`access_keys` checks it).
+
+## 47. The README is the owner's, and upstream's README moves out (2026-11-04)
+
+The owner asked for the README in chunks, "something that seems cohesive like all the other accessibility mods", opening with what Pokémon Access couldn't do rather than what it is built on.
+Upstream's README text below ours is replaced by a link ("Everything else I trust you on"). LICENSE.MD's attribution term requires the "Based on the Pokemon Gen 1 Recompilation Project..."
+line in the README: it stays in Credit, word for word. Our reading of that license, not legal advice.
