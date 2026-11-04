@@ -246,10 +246,10 @@ end
 -- The money window's text (src/money.c: MONEY and the ¥ amount).
 local function moneyString(amount)
   local n = math.max(0, math.floor(tonumber(amount) or 0))
-  return say(rom("gText_PokedollarVar1", { stringVars = { tostring(n) } })) or tostring(n)
+  return say(rom("gText_PokedollarVar1", { stringVars = { tostring(n) } })) or ("¥" .. tostring(n))
 end
 local function moneyText(amount)
-  return join({ say(rom("gText_TrainerCardMoney")), moneyString(amount) }, " ")
+  return join({ say(rom("gText_TrainerCardMoney")) or "MONEY", moneyString(amount) }, " ")
 end
 Items.moneyText = moneyText
 
@@ -828,10 +828,25 @@ function Party.row(P, cursor)
   return text, index, count
 end
 
+-- Ruby and Sapphire's party prompts (rs/party_menu_data.lua: promptText, by
+-- the id its drawPrompt and drawActions choose); nil in every other game.
+local function rsPartyPrompt(id, name)
+  local Data = loaded("src.ui.game3.rs.party_menu_data")
+  local promptText = Data and screenLocal(Data.drawActions, "promptText", 2)
+  return promptText and say(try(promptText, id, name)) or nil
+end
+
 -- The prompt at the bottom, chosen the way PartyMenu.draw chooses it.
 function Party.prompt(P)
   local key = "gText_ChoosePokemon"
   local D = itemsData()
+  local rsId = 0
+  if P.mode == "switch" then rsId = 1
+  elseif P.mode == "give" then rsId = 4
+  elseif P.mode == "move_tutor" then rsId = 20
+  elseif P.mode == "use" then rsId = (P._item and D and try(D.isTm, P._item)) and 2 or 3 end
+  local rsText = rsPartyPrompt(rsId)
+  if rsText then return rsText end
   if P.mode == "switch" then
     key = "gText_MoveToWhere"
   elseif P.mode == "use" then
@@ -921,9 +936,9 @@ function Party.read(P, memo, entering)
       text = move
     end
   elseif mode == "action" then
-    text = menuText(P, P.ACTIONS, P.actionCursor or 1, say(rom("gText_DoWhatWithPokemon")), fresh, memo.actionCursor)
+    text = menuText(P, P.ACTIONS, P.actionCursor or 1, rsPartyPrompt(5, monName((P._party or {})[P.cursor])) or say(rom("gText_DoWhatWithPokemon")), fresh, memo.actionCursor)
   elseif mode == "item_action" then
-    text = menuText(P, P.ITEM_ACTIONS, P.itemActionCursor or 1, say(rom("gText_DoWhatWithItem")), fresh,
+    text = menuText(P, P.ITEM_ACTIONS, P.itemActionCursor or 1, rsPartyPrompt(13) or say(rom("gText_DoWhatWithItem")), fresh,
       memo.itemCursor)
   elseif mode == "stat_growth" then
     if fresh or P._statGrowthPage ~= memo.growthPage then
@@ -1796,7 +1811,9 @@ function Box.read(B, memo, entering)
     if fresh then
       local key = mode == "deposit_box_full" and "gText_BoxIsFull2"
         or (B._pendingDeposit and "gText_DepositInWhichBox" or "gText_JumpToWhichBox")
-      text = sentences(say(rom(key)), mode == "pick_box" and Box.pickBox(B, storage) or nil)
+      -- Ruby and Sapphire keep these strings under PCText_ (rs/storage_policy.lua)
+      local native = romHas(key) and key or ("PCText_" .. key:gsub("^gText_", ""):gsub("2$", ""))
+      text = sentences(say(rom(native)), mode == "pick_box" and Box.pickBox(B, storage) or nil)
     elseif B._pickBox ~= memo.pickBox then
       text = Box.pickBox(B, storage)
     end
