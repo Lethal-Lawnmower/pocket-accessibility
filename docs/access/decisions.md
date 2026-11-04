@@ -465,3 +465,5 @@ context dependent for battle stuff." H and Shift H are back, and work anywhere F
 The owner asked for the README in chunks, "something that seems cohesive like all the other accessibility mods", opening with what Pokémon Access couldn't do rather than what it is built on.
 Upstream's README text below ours is replaced by a link ("Everything else I trust you on"). LICENSE.MD's attribution term requires the "Based on the Pokemon Gen 1 Recompilation Project..."
 line in the README: it stays in Credit, word for word. Our reading of that license, not legal advice.
+
+Push, 2026-11-04: the owner approved publishing the README rewrite with their own introduction and decisions 45 to 47's key changes ("push it"). Covers that push only; not acceptance, not a release. The owner may add one more line to their introduction later.
