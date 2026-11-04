@@ -178,9 +178,19 @@ end
 
 local GEN3_OPTIONS = "src.ui.game3.option_menu"
 
-local function addGen3Page(OptionMenu)
+-- Each game's OPTION screen keeps its pages in its own field: FireRed, Ruby
+-- and Sapphire in `_pages`, Emerald in `_st.pages`
+-- (src/ui/game3/rse/option_menu.lua).
+local function gen3Pages(OptionMenu)
+  if OptionMenu.open == false then return nil end
   local pages = OptionMenu._pages
-  if not (OptionMenu.open and type(pages) == "table" and #pages == 1) then return end
+  if pages == nil and type(OptionMenu._st) == "table" then pages = OptionMenu._st.pages end
+  return type(pages) == "table" and pages or nil
+end
+
+local function addGen3Page(OptionMenu)
+  local pages = gen3Pages(OptionMenu)
+  if not (pages and #pages == 1) then return end
   local rows = type(pages[1]) == "table" and pages[1].rows
   if type(rows) ~= "table" or (rows[1] and rows[1].id == "group.accessibility") then return end
   local pageRows = Settings.gen3Rows()
@@ -188,18 +198,18 @@ local function addGen3Page(OptionMenu)
     id = "group.accessibility", label = "ACCESSIBILITY", group = true,
     value = function() return #pageRows .. " OPTIONS" end,
     activate = function()
-      local open = OptionMenu._pages
-      if type(open) ~= "table" then return end
+      local open = gen3Pages(OptionMenu)
+      if not open then return end
       open[#open + 1] = { title = "ACCESSIBILITY", rows = pageRows, index = 1, scroll = 0 }
     end,
   })
 end
 
-function Settings.installGen3()
-  if installed[GEN3_OPTIONS] then return true end
-  local OptionMenu = package.loaded[GEN3_OPTIONS]
+local function wrapGen3(path)
+  if installed[path] then return true end
+  local OptionMenu = package.loaded[path]
   if type(OptionMenu) ~= "table" or type(OptionMenu.show) ~= "function" then return false end
-  installed[GEN3_OPTIONS] = true
+  installed[path] = true
   local originalShow = OptionMenu.show
   OptionMenu.show = function(...)
     local result = originalShow(...)
@@ -207,6 +217,25 @@ function Settings.installGen3()
     return result
   end
   return true
+end
+
+-- The running game's own OPTION module, when its profile names one (the
+-- Hoenn games).  Loaded here, because the game loads it only as it opens
+-- the screen and calls show in that same frame, too late to wrap.
+local function profileOptionsPath()
+  local Profile = package.loaded["src.core.game3.profile"]
+  if not (Profile and type(Profile.active) == "function") then return nil end
+  local ok, row = pcall(Profile.active)
+  local screens = ok and type(row) == "table" and type(row.ui) == "table" and row.ui.screens
+  return type(screens) == "table" and screens.option or nil
+end
+
+function Settings.installGen3()
+  local frlg = wrapGen3(GEN3_OPTIONS)
+  local path = profileOptionsPath()
+  if not path then return frlg end
+  if not package.loaded[path] then pcall(require, path) end
+  return wrapGen3(path) and frlg
 end
 
 function Settings.install()
