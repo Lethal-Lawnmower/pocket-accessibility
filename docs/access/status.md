@@ -217,6 +217,10 @@ and recorded in the topic file.
 
 ## Navigation
 
+- **Parity across games (decision 43, 2026-11-03):** on branch `integration-parity`, not on `main`. By script only; not heard, no
+  owner test. Results: `red-blue-yellow-navigation.md`, `firered-leafgreen-navigation.md`, `gold-silver-crystal-navigation.md`.
+  Open: FireRed story part C's "Victory Road 2F to 3F", which conflicts with that file's "Fixed" row; `victory_road_tower`'s stale test.
+
 - **State:** old navigation reused (decision 20) and wired in: F7 command
   layer, object list, filters, map name, position, tiles, pathfinding,
   renaming, controller scheme (decision 23), auto-walk (resumes after

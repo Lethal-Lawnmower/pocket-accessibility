@@ -29,7 +29,8 @@ Topic files are created when work on that area starts, not before:
 `yellow.md`; Gold, Silver and Crystal share an engine: screens in
 `gold-silver-crystal.md`, navigation and the edition audit in
 `gold-silver-crystal-navigation.md`; FireRed and LeafGreen in
-`firered-leafgreen.md` and `firered-leafgreen-navigation.md`). About 300 lines each.
+`firered-leafgreen.md` and `firered-leafgreen-navigation.md`; Red, Blue and Yellow's navigation work
+in `red-blue-yellow-navigation.md`). About 300 lines each.
 
 ## Rules
 

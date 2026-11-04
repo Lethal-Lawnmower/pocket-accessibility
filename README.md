@@ -82,9 +82,11 @@ inconveniences to moderate bugs.
   or controller. Battles pause it, and it carries on afterwards.
 - **Across floors:** if a target has no route on your floor, auto-walk looks for one through
   other floors, including warps that land on the same floor, like Saffron Gym's pads. The Area
-  category lists items and floors of the same building or cave. In FireRed a journey does a boulder
-  floor on the way. In the other games it does not: on Victory Road and in Pokémon Mansion in Red,
-  Blue and Yellow, do the floor's switch first.
+  category lists items and floors of the same building or cave. It does a boulder floor on the way
+  in Red, Blue, Yellow and FireRed, but not in Gold, Silver or Crystal, where Ice Path says no route
+  until its holes are filled. In Red, Blue and Yellow, Pokémon Mansion's lower floors are not reached
+  from the first floor. If an item stands in the only way, as on Pokémon Tower 6F in Red, auto-walk
+  says so: pick it up and walk again.
 - **Launcher:** a standard Windows program that lists the games, imports your ROMs
   and starts a game.
 - **Save editor:** a standard Windows window, opened from the launcher with Edit save,

@@ -645,6 +645,8 @@ function AutoWalk.update(top)
       if walk.retryIn > 0 then return end
       return resume()
     end
+    -- a wild battle on the way to the water: being asked again there is no refusal
+    if walk.battleSeen then walk.fieldMoveAt = nil end
     -- the walk's own Surf or Cut: not the game turning the player back, and "got on" has
     -- said it (Route 12's walkway takes Surf many times, which used to end the walk)
     if walk.ownFieldMove then

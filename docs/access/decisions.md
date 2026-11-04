@@ -419,3 +419,10 @@ Same day, the owner: "I remember seeing some Generation 3 mods way more than wha
 asking to try other indexes and zip files. Both added. Only the official index is built in. Others are
 added by the player, with a warning, because the official index scans releases and keeps a blocklist and
 others may not. We do not ship or recommend a list of third-party indexes.
+
+## 43. Crystal's navigation work in every game (2026-11-03)
+
+The owner, after playing Crystal: "basically everything that I did in Crystal, basically see if you can catch that in the
+rest of the games. So we don't have people, actually, it doesn't work in XYZ." And: "I didn't mean actual upstream bugs."
+Upstream bugs stay unpatched (hard rule). Extends decision 41 to Red, Blue, Yellow and FireRed. Packaging and the release were
+set aside by the owner the same day ("keep that all to the side"): that branch is not merged. Agents' results are by script, not owner acceptance.
