@@ -437,3 +437,8 @@ Asked to work on the README later ("We can do that after"): making it read more 
 
 Push, 2026-11-04: the owner approved publishing this work ("push it"), which also carries the navigation parity work of decision 43.
 Covers that push only: it is not acceptance, and not a release. Nobody has played or heard the four new games.
+
+## 45. No F6 repeat key (2026-11-04)
+
+The owner: "take out the F6 keybind from the project altogether. The repeat keybind." Source read: nothing was wired to F6. `CommandRouter` never
+handled it and `repeatLast` had no caller, yet the start-up line and F8's help offered it. Both lines and `repeatLast` are removed. F6 now does nothing here.

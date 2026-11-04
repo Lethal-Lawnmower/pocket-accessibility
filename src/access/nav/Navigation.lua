@@ -188,7 +188,7 @@ function Accessibility.new(game, opts)
   self:subscribeWorldEvents()
   if self.enabled and self.speech and self.speech:isAvailable() then
     self:announce(
-      "Screen reader ready. Press F6 to repeat. Press F7 for accessibility command mode. Press F8 for help.",
+      "Screen reader ready. Press F7 for accessibility command mode. Press F8 for help.",
       { remember = true })
   end
   return self
@@ -730,7 +730,6 @@ function Accessibility:announce(text, opts)
   opts = opts or {}
   text = normalize(text, self:speakerNames())
   if not text then return false, "announcement text is empty" end
-  if opts.remember ~= false then self.lastText = text end
   if not self.enabled then return false, "accessibility disabled" end
   if not self.speech and not self:initializeSpeech() then
     return false, self.status.reason
@@ -781,11 +780,6 @@ function Accessibility:announceFrom(owner, text, opts)
   return true
 end
 
-function Accessibility:repeatLast()
-  if not self.lastText then return false, "nothing to repeat" end
-  return self:announceManual({ self.lastText })
-end
-
 function Accessibility:cue(id, opts)
   if not self.enabled then return false, "accessibility disabled" end
   if not self.earcons then return false, "earcons unavailable" end
@@ -812,7 +806,6 @@ function Accessibility:announceManual(parts, opts)
   for i, part in ipairs(parts) do
     local text = normalize(part, speakerNames)
     if not text then return false, "manual announcement part " .. i .. " is empty" end
-    self.lastText = text
     -- Trace the manual channel at the semantic stage too.  Without this every
     -- command answer -- browse results, route narration, arrival lines, the
     -- help text -- reached the native call with no semantic-stage counterpart
@@ -3382,7 +3375,7 @@ function Accessibility:handleCommand(actionId)
     local puzzleHelp = self.generation == 2
       and " In an Unown puzzle, Shift E repeats the held piece." or ""
     local helpLines = {
-      "Accessibility help. F6 repeats the last message. F7 toggles command mode. F8 reads this help.",
+      "Accessibility help. F7 toggles command mode. F8 reads this help.",
       "While command mode is on, use arrow keys to move. WASD is reserved so the historical letter commands stay exact. Y reads player coordinates. Shift Y reads sonar coordinates.",
       "J, K, and L browse map items. Shift J and Shift L change the item filter. M reads the map name. Q reads the in-game time when the game has a clock.",
       -- v0.3.98 adaptation (decision 22): camera lines only when it is on

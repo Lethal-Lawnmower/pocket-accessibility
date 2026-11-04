@@ -71,13 +71,13 @@ LUA_PATH="<repo>/?.lua;<repo>/?/init.lua;;" luajit "<repo>/tests/access/nav/worl
 - `Access.install` wraps `love.keypressed` *before* upstream: the old
   `CommandRouter` sees every key first and consumes recognised commands.
   F7 toggles the command layer (WASD is then reserved, arrows still move),
-  F8 reads help, F6 repeats.
+  F8 reads help. There is no repeat key (decision 45).
 - The coordinator is created once a Gen 1 game is loaded (Game module with
   `save` and `data`) and re-created when the save or the mod event bus
   (`Runtime.events`) changes. It subscribes to upstream's `map.entered` and
   `world.stepped` events.
 - Speech goes through an adapter over `src/access/Speech` (Prism). The old
-  start-up line ("Screen reader ready. Press F6 to repeat. Press F7 for
+  start-up line ("Screen reader ready. Press F7 for
   accessibility command mode. Press F8 for help.") plays once per game load.
 - `updateNavigation()` (added) runs routes, events and cues each frame; the
   old `describe()` screen speech is not driven (new presenters do that).

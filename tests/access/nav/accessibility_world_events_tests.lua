@@ -82,7 +82,7 @@ local access = Accessibility.new(game, {
 })
 
 S.eq(speechCalls[1].text,
-  "Screen reader ready. Press F6 to repeat. Press F7 for accessibility command mode. Press F8 for help.",
+  "Screen reader ready. Press F7 for accessibility command mode. Press F8 for help.",
   "production-ready announcement remains intact")
 bus:emit("world.stepped", { mapId = "TEST_TOWN", x = 2, y = 3, tile = 1 })
 access:update()

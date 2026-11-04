@@ -69,25 +69,12 @@ third-generation GBA games.
 
 ## What It Does
 
-- **Speech** through your screen reader: menus, dialogue, the Pokémon screens and
-  battles. F6 repeats, F7 turns on the accessibility command keys, F8 is help.
-- **Navigation:** a list of what is on the map (warps, connections, signs, people,
-  objects), spoken directions, and auto-walk to whatever you select, on keyboard
-  or controller. Battles pause it, and it carries on afterwards.
-- **Across floors:** if a target has no route on your floor, auto-walk looks for one through
-  other floors, including warps that land on the same floor, like Saffron Gym's pads. The Area
-  category lists items and floors of the same building or cave. It does a boulder floor on the way
-  in Red, Blue, Yellow and FireRed, but not in Gold, Silver or Crystal, where Ice Path says no route
-  until its holes are filled. In Red, Blue and Yellow, Pokémon Mansion's lower floors are not reached
-  from the first floor. If an item stands in the only way, as on Pokémon Tower 6F in Red, auto-walk
-  says so: pick it up and walk again.
-- **Launcher:** a standard Windows program that lists the games, imports your ROMs
-  and starts a game.
-- **Save editor:** a standard Windows window, opened from the launcher with Edit save,
-  with tabs for party, boxes, items, trainer, map, Pokédex and events.
-- **Mods:** the launcher's Mods window lists the community mod index, installs mods and turns them
-  on or off per game. Mods are not endorsed or tested by this project, and accessibility may break,
-  so use them at your own risk.
+- **Speech:** menus, dialogue, the Pokémon screens and battles all go through [Prism](https://github.com/ethindp/prism), so it works with your screen reader without any extra setup. Gone are the days of hunting down the right NVDA DLL or `Tolk.dll`. F7 turns on the accessibility command keys, and F8 is help.
+- **Navigation:** a list of what's on the map, like warps, signs, people and objects. You can get spoken directions or auto-walk to whatever you pick, on keyboard or controller. Battles pause the walk, and it carries on afterwards.
+- **Other floors:** if there's no route on your floor, auto-walk looks through the other floors. The Area category lists the items and floors of the building or cave you're in. Some places still say there's no route. When an item is what's blocking you, it tells you to pick it up.
+- **Launcher:** a standard Windows program that lists the games, imports your ROMs and starts a game.
+- **Save editor:** opened from the launcher with Edit save, with tabs for party, boxes, items, trainer, map, Pokédex and events.
+- **Mods:** the launcher's Mods window lists the community mod index, installs mods and turns them on or off per game. Mods aren't endorsed or tested by this project and can break accessibility, so use them at your own risk.
 
 ### Puzzles
 

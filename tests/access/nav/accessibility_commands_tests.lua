@@ -130,7 +130,7 @@ local access = Accessibility.new(game, {
   enabled = true, defaultDelayFrames = 0,
 })
 S.eq(lastOutput().text,
-  "Screen reader ready. Press F6 to repeat. Press F7 for accessibility command mode. Press F8 for help.",
+  "Screen reader ready. Press F7 for accessibility command mode. Press F8 for help.",
   "coordinator is ready and exposes bootstrap controls")
 
 local callsBeforeHelp = #speechCalls
