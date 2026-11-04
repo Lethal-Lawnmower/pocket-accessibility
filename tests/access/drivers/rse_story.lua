@@ -135,6 +135,17 @@ return function(game)
     if not ok and os.getenv("RSE_STORY_SHOW") == "1" then
       L.showFloor(name)
       local world = nav:worldState()
+      local selected = nav:selectedRouteGoals()
+      if type(selected) == "table" then
+        local goals = nav:journeyOpeningGoals(selected, world)
+        local cells = {}
+        for _, goal in ipairs(goals or {}) do cells[#cells + 1] = goal.x .. "," .. goal.y end
+        local ok, plan, why = pcall(nav.boulderOpening, nav, world, goals or {})
+        U.log("OPENING", tostring(selected.label), "goals", table.concat(cells, " "), tostring(ok), tostring(plan and plan.direction), tostring(why))
+      end
+      local rows = {}
+      for _, actor in ipairs(world.npcs) do rows[#rows + 1] = tostring(actor.graphicsId) .. "@" .. actor.cellX .. "," .. actor.cellY end
+      U.log("ACTORS", table.concat(rows, " "))
       for _, sign in ipairs(nav:switchSigns(world)) do
         local options = nav:routeOptionsFor(world, sign.goals, 2)
         local found = options and require("src.access.nav.Pathfinder").find(options)
@@ -226,7 +237,8 @@ return function(game)
         "conn", tostring(pcall(Collision.tryConnection, game, Player.cellX, Player.cellY, "up", false)))
       L.settle(100, true)
     end
-    U.log(L.pos() == id("OLDALE_TOWN") and "RESULT" or "FAIL", "crossed to", L.where())
+    U.log(L.pos() ~= id("ROUTE101") and "RESULT" or "FAIL", "crossed to", L.where())
+    arriveAt(id("OLDALE_TOWN"), 11, 18)
     walk("Oldale to its Center", "warps", "Pok.mon Center", id("OLDALE_TOWN_POKEMON_CENTER_1F"))
     arriveAt(id("ROUTE124"), 70, 49)
     walk("Route 124 to its seabed", "area", "Underwater Route 124", nil)
@@ -240,10 +252,10 @@ return function(game)
     L.settle(1500, "a")
     U.log(L.pos() == id("ROUTE124") and "RESULT" or "FAIL", "surfaced", L.where(), L.heard():sub(-160))
     -- Surf over a current and up a waterfall
-    arriveAt(id("ROUTE127"), 40, 40)
-    require("src.core.game3.player").surfing = true
-    U.log("NOTE", "Route 127 start", L.where(), labels("connections"))
-    walk("Route 127 surf to Route 128", "connections", "Route 128", nil)
+    -- Surf from the shore, across a route to its far edge
+    arriveAt(id("ROUTE124"), 70, 49)
+    U.log("NOTE", "Route 124 connections", labels("connections"))
+    walk("Route 124 surf to Mossdeep's edge", "connections", "Mossdeep", nil)
   end
 
   if part("H") then

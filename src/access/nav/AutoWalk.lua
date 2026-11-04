@@ -341,6 +341,8 @@ function AutoWalk.start(nav, game, adapter, opts)
     targetId = item.id, targetType = item.type,
     targetX = item.x, targetY = item.y,
     quiet = opts.quiet,
+    areaSelection = item.type == "area" and item.id or nil,
+    areaFilter = item.type == "area" and nav.browseFilter or nil,
     -- the map a warp target leads to: reaching it is the arrival even when
     -- a fast game speed moved the player past the last step between two
     -- updates (several tiles per real frame at 200X)
@@ -535,6 +537,10 @@ end
 -- The walk ends and this floor's puzzle takes over, when it has one that helps.
 local function journeyPuzzle()
   local nav, game, adapter, overworld = walk.nav, walk.game, walk.adapter, walk.overworld
+  -- a new floor cleared the selection: the walk's Area target is still the one asked for
+  if walk.areaSelection and nav.browseSelectionId == nil then
+    nav.browseFilter, nav.browseSelectionId = walk.areaFilter, walk.areaSelection
+  end
   local item = nav:selectedRouteGoals()
   if type(item) ~= "table" then return false end
   local saved = walk
