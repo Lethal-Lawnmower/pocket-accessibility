@@ -258,6 +258,15 @@ run on a second PC, so a PC with no .NET, no LÖVE and no Visual C++ runtime is 
 | Prism | `prism.dll` loaded from the package (`speech ready: OneCore` on the second desktop, with silent runs on). Choosing NVDA from the package and audible speech are **not** tested. |
 | Not tested | A real play session or save from the package; Gold, Silver, Yellow, LeafGreen, Ruby, Sapphire imports; a mod running from the package; a second PC. |
 
+## Verification: release 0.0.1 (2026-11-04)
+
+Self-contained, from commit 6085a86d, 115.0 MiB unzipped. By script only, on a disposable profile, on a second Windows desktop, with the package's own LÖVE. No one has played or heard it,
+and it was not run on a second PC. All eleven games, with their newest revisions in Gen 3: import exit 0, then a 600-frame boot through the driver, packaged, updater off, no traceback, and the ready check
+says ready for each. The launcher stayed open for 25 seconds. Its window could not be read on that desktop, so its list and Play were not driven this time.
+
+Owner's calls, recorded 2026-11-04 ("do whatever you need to do"; name: "release 0.0.1"): self-contained .NET, so nothing else needs installing; upstream's Discord rich presence left on as upstream ships it; 61 upstream
+files and `mods/` left out as above; Prism 0.17.3; the source is the package's game folder plus the tagged commit. If the ready check cannot run, the list falls back to the marker and Play's refusal message is the safety net.
+
 ## Next
 
 Settings (game options before start,
