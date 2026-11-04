@@ -78,31 +78,17 @@ third-generation GBA games.
 
 ### Puzzles
 
-With AUTO-WALK PUZZLES on, which is the default in every supported game, auto-walk can do
-these for you. For those who want to solve them, turn it off in the Accessibility page of the
-game's options. You still get the hints.
+With AUTO-WALK PUZZLES on, which is the default, auto-walk can do these for you. If you'd rather solve them yourself, turn it off in the Accessibility page of the game's options. You still get the hints.
 
-- **Boulders:** auto-walk to a boulder, hole or pressure switch on a floor like Ice Path
-  B1F, Blackthorn Gym, Seafoam Islands or Victory Road, or to a target only boulders are
-  blocking, like Chuck in Cianwood Gym or the Rare Candy in the Warden's House. You need a Pokémon
-  with Strength. Each Seafoam floor has its own boulders, and those on the lower floors fall from
-  above, so do the floors from the top.
-- **Switches:** when a target has no route, it tries the switches, such as Goldenrod
-  Underground's and Pokémon Mansion's, and watches what opens. This can take a while. Cinnabar
-  Gym's quiz machines are yours to answer: auto-walk says when a target is behind their doors.
-- **Lt. Surge's trash cans (Red, Blue, Yellow, FireRed):** auto-walk to Lt. Surge, and it searches the
-  cans until the door opens. The game resets the locks after a wrong second can, so this took 11 to
-  41 presses in our FireRed test runs. In Red, Blue and Yellow it took 7, 10 and about 70 presses in three test runs.
-- **Cut and Surf on a walk (Red, Blue, Yellow):** these games have no prompt for them, only the party
-  menu, so auto-walk uses them for you when the route needs them and the party can. Press A through
-  the game's text.
-- **The Farfetch'd in Ilex Forest (Gold, Silver, Crystal):** auto-walk to it, press A once,
-  then auto-walk again without moving, and it keeps after the bird by itself. It learns by
-  trying each side, and the wrong side can send the bird backwards, so this can take a
-  while: 19 to 36 attempts in our test runs. It gives up after 64. Press A through each
-  "Kwaa!" message.
+- **Boulders:** auto-walk to a boulder, hole or pressure switch on a floor like Ice Path, Seafoam Islands or Victory Road, or to something only boulders are blocking. You need a Pokémon with Strength. In Seafoam, lower floors' boulders fall from above, so start at the top.
+- **Switches:** when a target has no route, it tries the switches, like Goldenrod Underground's and Pokémon Mansion's, and watches what opens. This can take a while. Cinnabar Gym's quiz machines are yours to answer.
+- **Lt. Surge's trash cans (Red, Blue, Yellow, FireRed, LeafGreen):** auto-walk to Lt. Surge and it searches the cans until the door opens. The game resets the locks after a wrong second can, so this can take a while.
+- **Cut and Surf (Red, Blue, Yellow):** these games only offer them from the party menu, so auto-walk uses them for you when the route needs them. Press A through the game's text.
+- **The Farfetch'd in Ilex Forest (Gold, Silver, Crystal):** auto-walk to it, press A once, then auto-walk again without moving, and it keeps after the bird. It learns by trying each side, so this can take a while. Press A through each "Kwaa!" message.
+- **Hoenn gyms (Ruby, Sapphire, Emerald):** Mauville and Mossdeep's switches, Fortree's spinning gates and Sootopolis's ice. Auto-walk works these out, but they've only been tested by script.
+- **Trick House (Ruby, Sapphire, Emerald):** most rooms work. Room 5 is a quiz, so that's yours. Room 7 doesn't work yet in Ruby or Sapphire.
 
-Not everything is covered. The docs linked below list what has only been tested by script.
+Not everything is covered. If auto-walk says there's no route, the way may really be closed by the story.
 
 ## Running from source (Windows)
 
