@@ -96,11 +96,11 @@ local function loveDirectories()
   return dirs
 end
 
--- LÖVE names the system; LuaJIT calls Android plain "Linux".
+-- LuaJIT's name, except that it calls Android plain "Linux" and only LÖVE can tell.
 local function systemName()
   if love and love.system and love.system.getOS then
     local ok, name = pcall(love.system.getOS)
-    if ok and name then return name end
+    if ok and name == "Android" then return name end
   end
   return (jit and jit.os) or "Windows"
 end
