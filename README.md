@@ -69,7 +69,7 @@ You supply your own ROMs. No game data is included.
 2. Open `PocketLauncher.exe`.
 3. Choose Import ROM, pick your game's ROM, then Play.
 
-Windows only for now. Nothing else needs installing. To update later, choose Check for updates in the launcher. Your saves and imported games are kept outside that folder, so updating doesn't touch them.
+Windows only for now, with Android and Linux on the way. Nothing else needs installing. To update later, choose Check for updates in the launcher. Your saves and imported games are kept outside that folder, so updating doesn't touch them.
 
 ### Running from source
 
