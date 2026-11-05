@@ -30,7 +30,8 @@ final class SaveBackendClient {
     private int nextId = 1;
 
     SaveBackendClient() throws IOException {
-        server = new ServerSocket(0, 1, InetAddress.getLoopbackAddress());
+        // the same address the backend connects to; Android's default loopback can be IPv6
+        server = new ServerSocket(0, 1, InetAddress.getByAddress(new byte[] {127, 0, 0, 1}));
         byte[] random = new byte[16];
         new SecureRandom().nextBytes(random);
         StringBuilder hex = new StringBuilder();

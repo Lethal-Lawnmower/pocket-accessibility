@@ -34,7 +34,10 @@ local function activeSavePath(version)
   if exists(path) then return path end
   local flat = love.filesystem.getSaveDirectory() .. package.config:sub(1, 1) .. SaveData.saveFilename(version)
   if exists(flat) then return flat end
-  return path
+  -- No save yet and no slot: the flat file, which the game moves into a slot on its
+  -- next start.  Upstream's own default guesses the folder from HOME, which on Android
+  -- gives a relative path the editor cannot write.
+  return path or flat
 end
 
 local function loadPages()
