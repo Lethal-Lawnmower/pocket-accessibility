@@ -268,7 +268,7 @@ The download (decision 51) takes that project's current zip straight from its Gi
 
 Import takes a folder the player already has (decision 8: never shipped or hosted): the sounds folder or the folder above it, needing `common` and `gb`. `SoundPackImporter.cs` copies WAV files of 4 MiB or less to `pocket-access-sounds` in the save folder through a scratch folder, keeping the old pack until the new one is complete. `Earcons.new` uses it when no other path is set; a cue with no file there falls back to the built-in sound. Not bundled, not in the package.
 
-Owner's test, 2026-11-05, on their real profile with Crystal: "Yeah, it works great." Emerald next. This covers the notice, the download and the sounds as they heard them in Crystal.
+Owner's test, 2026-11-05, on their real profile with Crystal: "Yeah, it works great." Emerald too: "Emerald works. We're good." This covers the notice, the download and the sounds as they heard them in Crystal.
 
 ## Updates (2026-11-04)
 
