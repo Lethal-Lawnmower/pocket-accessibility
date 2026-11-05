@@ -186,7 +186,7 @@ and recorded in the topic file.
 ## Before any packaged release
 
 - Done by script (`launcher.md`, "Packaged release"): our own launcher, upstream's updater off, upstream's launcher files out, Term 1 credit.
-- Release 0.0.1 (2026-11-04): published at the owner's request (decision 49), tag `v0.0.1`. Tested by script only (`launcher.md`, "Verification: release 0.0.1"). The updater's first real test against GitHub is the next release. Owner, 2026-11-04: Android and Linux are going to be added; not started.
+- Release 0.0.1 (2026-11-04): published at the owner's request (decision 49), tag `v0.0.1`. Tested by script only (`launcher.md`, "Verification: release 0.0.1"). The updater's first real test against GitHub is the next release. Owner, 2026-11-04: Android and Linux are going to be added; not started. Online play: not in the package, because its screens are upstream's proprietary launcher (`launcher.md`).
 
 ## Gold, Silver and Crystal
 

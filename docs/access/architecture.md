@@ -128,3 +128,17 @@ checkout. A packaged build has no such path: it exits with code 40 (`launcher.md
 - Prism: MPL-2.0, compatible with GPLv3. Binaries are not committed.
 - Pokémon Access: no license. Use its features as ideas only. Its sounds are
   bring-your-own and never shipped.
+
+## Could this be a mod? (test, 2026-11-04)
+
+A throwaway mod (not in the repository) with the `engine_internals` permission ran on this repository's game with `POKEPORT_ACCESS=0`, in Red, Crystal and FireRed, by script. It was not run on an official upstream build.
+
+| Need | Result |
+|---|---|
+| Speech (Prism through FFI) | **Refused.** `require("ffi")` fails and the global is absent in all three. |
+| Reading engine modules | Allowed for the running generation's modules; other generations' are refused. |
+| Reading dialogue | Worked: Red's text boxes, including Oak's speech, from a mod; FireRed's messages. Crystal's text was not read, because the probe did not look in its Typer. Not a refusal. |
+| A hook every frame | `love.update` assignment works, with a warning that it is deprecated. |
+| Keys | `love.keypressed` assignment works, with the same warning; the keypress itself was not exercised. |
+
+Not established: how much of `src/access` (71 files, 96 uses of `package.loaded`) would run in the sandbox; the `engine_internals` label the mod manager shows ("PATCHES ENGINE CODE"); whether deprecated callbacks stay. Upstream's launcher remains unreadable by a screen reader. Needed from upstream: a speech function for mods, backed by Prism.

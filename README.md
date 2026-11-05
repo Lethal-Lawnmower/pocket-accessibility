@@ -100,6 +100,16 @@ Want another key? Ask, and I'll look at adding it.
 
 The original scripts by nuive, which build on Tyler Spivey's Pokécrystal Access Project, rely on VBA, which is built on old, outdated emulator technology. The audio and video quality are poor, and I feel the community deserves better.
 
+## Why Isn't This a Mod?
+
+For now, this has to be a fork. The original project has a good mod system, and a mod would be the better option if it could work. I tested what a mod can do, and most of what this project needs is possible, but a few things stand in the way:
+
+- **Speech:** this is the hard block. Speech goes through Prism, which is a native library, and loading one takes LuaJIT's FFI. The mod sandbox doesn't allow FFI, and for good reason, since it would let a mod run any native code. So a mod can read what's on screen but has no way to pass it to your screen reader.
+- **The launcher:** mods load inside the game, but the original launcher comes first, and it draws its own screens, which screen readers can't read. A blind player couldn't reliably get through importing a game and starting it, and a mod can't change that. The original launcher is also proprietary, so this project has its own.
+- **How deep it goes:** this reads a lot of the game's internal screens directly. Mods can do that in my testing, but only with a permission that's shown as patching engine code, and through hooks marked as deprecated. Moving over would be a big job, and it could break more easily.
+
+If mods get a built-in way to speak and there's an accessible way to start a game, I'd happily look at this again.
+
 ## A Note on AI
 
 For full transparency: these accessibility mods are built with AI. I'm blind,
