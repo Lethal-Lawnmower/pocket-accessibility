@@ -24,6 +24,7 @@ import java.io.OutputStream;
 final class GameStarter {
     private static final String[] IMPORT_VARIABLES = {
         "POKEPORT_IMPORT_ROM", "POKEPORT_VERSION", "POKEPORT_GAME", "POKEPORT_FORCE_IMPORT",
+        "POCKET_EDITOR_PORT", "POCKET_EDITOR_TOKEN",
     };
 
     private GameStarter() {}
@@ -57,6 +58,15 @@ final class GameStarter {
         for (GameCatalog.Game game : GameCatalog.ALL) {
             importCopy(context, game).delete();
         }
+    }
+
+    /** Starts the game's activity as the save backend instead of the game. */
+    static void startSaveBackend(Context context, int port, String token) throws ErrnoException {
+        for (String name : IMPORT_VARIABLES) Os.unsetenv(name);
+        Os.setenv("POKEPORT_PORTMASTER_MANAGED", "1", true);
+        Os.setenv("POCKET_EDITOR_PORT", String.valueOf(port), true);
+        Os.setenv("POCKET_EDITOR_TOKEN", token, true);
+        context.startActivity(new Intent(context, GameActivity.class));
     }
 
     /** Starts the game; importing it first when withImport is set. */

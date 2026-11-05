@@ -83,6 +83,11 @@ function PackagedBuild.install()
   -- a source run on the same save folder may have left one; it would turn the
   -- next Play into a start without a game
   love.filesystem.remove(RELAUNCH_MARKER)
+  -- Android's save editor runs the save backend in this program; it never returns
+  local editorPort = os.getenv("POCKET_EDITOR_PORT")
+  if editorPort then
+    require("src.access.AndroidSaveBackend").serve(editorPort, os.getenv("POCKET_EDITOR_TOKEN"))
+  end
   return PackagedBuild
 end
 

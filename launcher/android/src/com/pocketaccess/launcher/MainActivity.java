@@ -9,10 +9,12 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.system.ErrnoException;
+import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.FrameLayout;
@@ -50,6 +52,12 @@ public final class MainActivity extends Activity {
     private static final int MENU_REFRESH = 1;
     private static final int MENU_FOLDER = 2;
     private static final int MENU_CREDITS = 3;
+    private static final int MENU_EDIT_SAVE = 4;
+    private static final int MENU_DOWNLOAD_SOUNDS = 5;
+    private static final int MENU_IMPORT_SOUNDS = 6;
+    private static final int MENU_REMOVE_SOUNDS = 7;
+    private static final int REQUEST_SOUNDS_FOLDER = 2;
+    private static final String SOUNDS_NOTICE_FILE = "pocket-access-sounds-notice-shown";
     /** Long enough for TalkBack to say what is about to happen before the game's window opens. */
     private static final long IMPORT_NOTICE_MILLIS = 3000;
 
@@ -112,8 +120,118 @@ public final class MainActivity extends Activity {
         window.addView(root);
         setContentView(window);
 
+        // long press, which TalkBack offers too; the menu has the same thing for a controller
+        registerForContextMenu(list);
+
         Uri folder = savedFolder();
         if (folder != null && knownRoms().isEmpty()) scan(folder);
+        showSoundsNotice();
+    }
+
+    @Override
+    public void onCreateContextMenu(ContextMenu menu, View view, ContextMenu.ContextMenuInfo info) {
+        menu.add(Menu.NONE, MENU_EDIT_SAVE, Menu.NONE, "Edit save");
+    }
+
+    @Override
+    public boolean onContextItemSelected(MenuItem item) {
+        AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
+        if (item.getItemId() != MENU_EDIT_SAVE || info == null) return super.onContextItemSelected(item);
+        editSave(shown.get(info.position));
+        return true;
+    }
+
+    private void editSave(GameCatalog.Game game) {
+        if (busy) return;
+        if (!GameStarter.isImported(this, game)) {
+            say("Play " + game.name + " once first, so its data is imported.");
+            return;
+        }
+        busy = true;
+        startActivity(new Intent(this, SaveEditorActivity.class).putExtra(SaveEditorActivity.EXTRA_GAME, game.id));
+    }
+
+    private void chooseGameToEdit() {
+        List<GameCatalog.Game> imported = new ArrayList<>();
+        for (GameCatalog.Game game : GameCatalog.ALL) {
+            if (GameStarter.isImported(this, game)) imported.add(game);
+        }
+        if (imported.isEmpty()) {
+            say("Play a game once first, so its data is imported.");
+            return;
+        }
+        String[] names = new String[imported.size()];
+        for (int i = 0; i < names.length; i++) names[i] = imported.get(i).name;
+        new AlertDialog.Builder(this)
+            .setTitle("Edit which save?")
+            .setItems(names, (dialog, which) -> editSave(imported.get(which)))
+            .setNegativeButton("Cancel", null)
+            .show();
+    }
+
+    // ------------------------------------------------------------------ sounds
+
+    /** Once only: says the Pokémon Access sounds aren't included, and offers to fetch them. */
+    private void showSoundsNotice() {
+        File folder = GameStarter.saveFolder(this);
+        File marker = new File(folder, SOUNDS_NOTICE_FILE);
+        if (marker.exists() || SoundPacks.isImported(folder)) return;
+        folder.mkdirs();
+        try {
+            marker.createNewFile();
+        } catch (IOException error) {
+            return; // a notice shown on every start would be worse than none
+        }
+        new AlertDialog.Builder(this)
+            .setTitle("Pokémon Access sounds")
+            .setMessage("Pocket Accessibility doesn't come with the Pokémon Access sounds. The built-in sounds are "
+                + "only meant to hold you over until you get them. Want to download them now?\n\n"
+                + "They come straight from the Pokémon Access project on GitHub. You can also do this later "
+                + "from this screen's menu: choose Download Pokémon Access sounds.")
+            .setPositiveButton("Download sounds", (dialog, which) -> downloadSounds())
+            .setNegativeButton("Not now", null)
+            .show();
+    }
+
+    private void downloadSounds() {
+        if (busy) return;
+        busy = true;
+        File folder = GameStarter.saveFolder(this);
+        say("Downloading the Pokémon Access sounds.");
+        worker.execute(() -> {
+            int[] lastSaid = {0};
+            try {
+                int count = SoundPacks.download(folder, percent -> {
+                    if (percent >= lastSaid[0] + 25) {
+                        lastSaid[0] = percent;
+                        runOnUiThread(() -> say("Downloading the sounds, " + percent + " percent."));
+                    }
+                });
+                finishSounds("Done. " + count + " sounds are ready, and the game uses them from its next start.");
+            } catch (SoundPacks.SoundPackException error) {
+                finishSounds(error.getMessage());
+            }
+        });
+    }
+
+    private void finishSounds(String text) {
+        runOnUiThread(() -> {
+            busy = false;
+            say(text);
+        });
+    }
+
+    private void removeSounds() {
+        if (!SoundPacks.isImported(GameStarter.saveFolder(this))) {
+            say("No Pokémon Access sounds are installed.");
+            return;
+        }
+        try {
+            SoundPacks.remove(GameStarter.saveFolder(this));
+            say("Removed. The game goes back to the built-in sounds from its next start.");
+        } catch (SoundPacks.SoundPackException error) {
+            say(error.getMessage());
+        }
     }
 
     @Override
@@ -135,6 +253,10 @@ public final class MainActivity extends Activity {
     public boolean onCreateOptionsMenu(Menu menu) {
         menu.add(Menu.NONE, MENU_REFRESH, Menu.NONE, "Refresh game list");
         menu.add(Menu.NONE, MENU_FOLDER, Menu.NONE, "Choose ROM folder");
+        menu.add(Menu.NONE, MENU_EDIT_SAVE, Menu.NONE, "Edit a save");
+        menu.add(Menu.NONE, MENU_DOWNLOAD_SOUNDS, Menu.NONE, "Download Pokémon Access sounds");
+        menu.add(Menu.NONE, MENU_IMPORT_SOUNDS, Menu.NONE, "Import Pokémon Access sounds");
+        menu.add(Menu.NONE, MENU_REMOVE_SOUNDS, Menu.NONE, "Remove Pokémon Access sounds");
         menu.add(Menu.NONE, MENU_CREDITS, Menu.NONE, "Credits");
         return true;
     }
@@ -149,6 +271,18 @@ public final class MainActivity extends Activity {
                 return true;
             case MENU_FOLDER:
                 pickFolder();
+                return true;
+            case MENU_EDIT_SAVE:
+                chooseGameToEdit();
+                return true;
+            case MENU_DOWNLOAD_SOUNDS:
+                downloadSounds();
+                return true;
+            case MENU_IMPORT_SOUNDS:
+                if (!busy) startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), REQUEST_SOUNDS_FOLDER);
+                return true;
+            case MENU_REMOVE_SOUNDS:
+                removeSounds();
                 return true;
             case MENU_CREDITS:
                 new AlertDialog.Builder(this)
@@ -172,8 +306,22 @@ public final class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
-        if (request != REQUEST_FOLDER || result != RESULT_OK || data == null || data.getData() == null) return;
+        if (result != RESULT_OK || data == null || data.getData() == null) return;
         Uri folder = data.getData();
+        if (request == REQUEST_SOUNDS_FOLDER) {
+            busy = true;
+            say("Importing the sounds.");
+            worker.execute(() -> {
+                try {
+                    int count = SoundPacks.importFolder(getContentResolver(), folder, GameStarter.saveFolder(this));
+                    finishSounds("Done. " + count + " sounds are ready, and the game uses them from its next start.");
+                } catch (SoundPacks.SoundPackException error) {
+                    finishSounds(error.getMessage());
+                }
+            });
+            return;
+        }
+        if (request != REQUEST_FOLDER) return;
         getContentResolver().takePersistableUriPermission(folder, Intent.FLAG_GRANT_READ_URI_PERMISSION);
         prefs.edit().putString(PREF_FOLDER, folder.toString()).apply();
         scan(folder);

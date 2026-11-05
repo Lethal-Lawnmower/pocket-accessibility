@@ -31,6 +31,11 @@ LAUNCHER_ACTIVITY = """    <activity
         <category android:name="android.intent.category.LAUNCHER" />
       </intent-filter>
     </activity>
+    <activity
+        android:name="com.pocketaccess.launcher.SaveEditorActivity"
+        android:label="Save editor"
+        android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden"
+        android:theme="@android:style/Theme.DeviceDefault" />
 """
 
 
@@ -89,12 +94,19 @@ def prepare_project(shadow, prism_zip, app_id):
         (libs / "prism-release.aar").write_bytes(archive.read("release/prism-release.aar"))
 
 
-def copy_launcher(shadow):
+def copy_launcher(shadow, test_hooks):
     """Our Java and resources, refreshed on every build."""
     target = shadow / "app" / "src" / "main" / "java" / "com" / "pocketaccess" / "launcher"
     shutil.rmtree(target, ignore_errors=True)
     shutil.copytree(HERE / "src" / "com" / "pocketaccess" / "launcher", target)
     shutil.copytree(HERE / "res", shadow / "app" / "src" / "main" / "res", dirs_exist_ok=True)
+    if test_hooks:
+        shutil.copytree(HERE / "test-src" / "com" / "pocketaccess" / "launcher", target, dirs_exist_ok=True)
+        manifest = shadow / "app" / "src" / "main" / "AndroidManifest.xml"
+        if "TestStartActivity" not in manifest.read_text(encoding="utf-8"):
+            edit(manifest, ('    <activity\n        android:name="org.love2d.android.GameActivity"',
+                            '    <activity android:name="com.pocketaccess.launcher.TestStartActivity" android:exported="true" />\n'
+                            '    <activity\n        android:name="org.love2d.android.GameActivity"'))
 
 
 def pack_game(shadow):
@@ -102,7 +114,10 @@ def pack_game(shadow):
     with tempfile.TemporaryDirectory() as work:
         game = Path(work)
         commit, excluded = package_release.export_game(game)
-        shutil.rmtree(game / "launcher", ignore_errors=True)
+        # of launcher/, the game only needs what its save editor runs
+        for path in (game / "launcher").iterdir():
+            if path.name != "SaveBackend":
+                shutil.rmtree(path) if path.is_dir() else path.unlink()
         (game / MARKER).write_text(f"Packaged by launcher/android/build_apk.py from commit {commit}.\n", encoding="utf-8")
         missing = package_release.missing_requires(game)
         if missing:
@@ -123,6 +138,8 @@ def main():
     parser.add_argument("--prism-zip", required=True, type=Path)
     parser.add_argument("--app-id", default="com.pocketaccess.androidtest")
     parser.add_argument("--clean", action="store_true", help="start again from upstream's project")
+    parser.add_argument("--test-hooks", action="store_true",
+                        help="add the activity scripted runs start through; never for a build for players")
     parser.add_argument("--work", type=Path, default=Path(tempfile.gettempdir()) / "pa-android-app",
                         help="build folder; no spaces in its path")
     parser.add_argument("--jdk", default=os.environ.get("JAVA_HOME"))
@@ -137,7 +154,7 @@ def main():
         shutil.rmtree(args.work, ignore_errors=True)
     if not args.work.is_dir():
         prepare_project(args.work, args.prism_zip, args.app_id)
-    copy_launcher(args.work)
+    copy_launcher(args.work, args.test_hooks)
     (args.work / "local.properties").write_text(
         "sdk.dir=" + str(args.sdk).replace("\\", "/") + "\n", encoding="utf-8")
     commit = pack_game(args.work)
