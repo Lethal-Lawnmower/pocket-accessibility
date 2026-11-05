@@ -186,7 +186,7 @@ and recorded in the topic file.
 ## Before any packaged release
 
 - Done by script (`launcher.md`, "Packaged release"): our own launcher, upstream's updater off, upstream's launcher files out, Term 1 credit.
-- Release 0.0.1 (2026-11-04): packaged and tested by script (`launcher.md`, "Verification: release 0.0.1"). Publishing needs the owner's yes on the finished zip (decision 19).
+- Release 0.0.1 (2026-11-04): published at the owner's request (decision 49), tag `v0.0.1`. Tested by script only (`launcher.md`, "Verification: release 0.0.1"). The updater's first real test against GitHub is the next release.
 
 ## Gold, Silver and Crystal
 

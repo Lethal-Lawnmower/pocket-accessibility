@@ -471,3 +471,7 @@ Push, 2026-11-04: the owner approved publishing the README rewrite with their ow
 ## 48. A separate updater (2026-11-04)
 
 The owner, on updating: "for it to update the actual games and stuff like that", then, offered a single-program design that copies itself: "We could make a separate updater app then." So `launcher/PocketUpdater` replaces the whole program folder from this repository's releases, asked for by a button. The release waits for it, and for the owner's feedback Discord server's invite link.
+
+## 49. Release 0.0.1 (2026-11-04)
+
+The owner approved publishing ("Yeah, let's do it. Publish."): tag `v0.0.1` and the packaged zip on GitHub, with `main` pushed. Self-contained .NET; upstream's Discord presence left on. Covers this release only; not acceptance. By script only: nobody has played or heard it from the package. Feedback goes to the project's Discord server.
