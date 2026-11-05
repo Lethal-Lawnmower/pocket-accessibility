@@ -85,6 +85,7 @@ internal sealed class MainForm : Form
         Shown += async (_, _) =>
         {
             if (!await OnFirstShownAsync()) return;
+            ShowSoundsNotice();
             if (romToImport != null) await ImportFileAsync(romToImport);
         };
     }
@@ -104,12 +105,42 @@ internal sealed class MainForm : Form
         return menu;
     }
 
+    private const string SoundsNoticeFile = "pocket-access-sounds-notice-shown";
+    private const string PokemonAccessPage = "https://github.com/nuive/pokemon-access";
+
+    /// <summary>
+    /// Once only: says the Pokémon Access sounds are the player's to bring, and how.  A native
+    /// task dialog, which screen readers read like a message box, and which unlike one can hold
+    /// a button that opens the page without closing the notice.
+    /// </summary>
+    private void ShowSoundsNotice()
+    {
+        string marker = Path.Combine(paths.SaveDir, SoundsNoticeFile);
+        if (File.Exists(marker) || SoundPackImporter.IsImported(paths.SaveDir)) return;
+        var openPage = new TaskDialogButton("Open Pokémon Access page") { AllowCloseDialog = false };
+        openPage.Click += (_, _) =>
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(PokemonAccessPage) { UseShellExecute = true })?.Dispose();
+        var page = new TaskDialogPage
+        {
+            Caption = "Pocket Accessibility",
+            Heading = "Pokémon Access sounds",
+            Text = "Pocket Accessibility doesn't come with the Pokémon Access sounds. The built-in sounds are only meant to hold you over until you import them.\n\n"
+                + $"To get them, download Pokémon Access from {PokemonAccessPage} and unzip it. Then press Alt, open Tools, choose Import Pokémon Access sounds, and pick the unzipped folder.",
+            Buttons = { openPage, TaskDialogButton.OK },
+            DefaultButton = TaskDialogButton.OK,
+        };
+        TaskDialog.ShowDialog(this, page);
+        Directory.CreateDirectory(paths.SaveDir);
+        File.WriteAllText(marker, "");
+        gamesList.Focus();
+    }
+
     private void ImportSounds()
     {
         if (busy) return;
         using var dialog = new FolderBrowserDialog
         {
-            Description = "Choose your Pokémon Access sounds folder",
+            Description = "Choose the Pokémon Access folder you unzipped, or its sounds folder",
             UseDescriptionForTitle = true,
         };
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
