@@ -16,8 +16,9 @@ local bit = require("bit")
 local declared = false
 
 -- Only the calls we use, copied from Prism 0.17.3's include/prism.h.
--- Opaque handles stay opaque; the config struct must match field for field
--- because prism_config_init returns it by value.
+-- Opaque handles stay opaque; the config struct must be at least as large as
+-- the library's because prism_config_init returns it by value.  The last field
+-- arrived after 0.17.3: 0.17.3 leaves it zeroed and never reads it.
 local CDEF = [[
 typedef struct PrismContext PrismContext;
 typedef struct PrismBackend PrismBackend;
@@ -31,6 +32,7 @@ typedef struct {
   uint32_t availability_debounce_samples;
   uint32_t availability_backoff_max_ms;
   bool availability_auto_power_manage;
+  void *availability_baseline_callback;
 } PrismConfig;
 PrismConfig prism_config_init(void);
 PrismContext *prism_init(PrismConfig *cfg);
