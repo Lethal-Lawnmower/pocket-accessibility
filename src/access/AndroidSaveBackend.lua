@@ -27,7 +27,12 @@ function AndroidSaveBackend.serve(port, token)
     end
   end
   client:close()
-  os.exit(0)
+  -- _exit, not os.exit: exit's cleanup raced Android's render thread and aborted the
+  -- process on a destroyed mutex (seen on the emulator), which Android reports as a crash.
+  -- Nothing is left to flush: every save was written and closed when it was answered.
+  local ffi = require("ffi")
+  ffi.cdef("void _exit(int status);")
+  ffi.C._exit(0)
 end
 
 return AndroidSaveBackend
