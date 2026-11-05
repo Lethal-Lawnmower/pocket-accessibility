@@ -78,6 +78,8 @@ function PrismBackend.candidates(env, dirs, osName)
     end
   end
   add(env("POKEPORT_PRISM_DLL"))
+  -- Android installs the library with the app, where the loader finds it by name alone
+  if osName == "Android" then add(name) end
   for _, dir in ipairs(dirs) do add(joinPath(dir, name)) end
   for _, dir in ipairs(dirs) do add(joinPath(dir, "local-deps/prism/" .. name)) end
   return list
