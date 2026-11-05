@@ -90,10 +90,16 @@ screen. The icon is ours, not upstream's.
 Android's picker refuses the storage root and the Download folder itself; a folder inside either works.
 
 Not yet: Pokémon Access sounds, mods, the save editor, choosing a save slot, zipped ROMs, and a release app
-id and signing. Build and first screens checked on the Thor by script: the folder screen and the picker
-open. The picker with TalkBack, a scan, an import from this launcher and a return from the game are not yet tested.
+id and signing.
+
+Tested on the Thor, 2026-11-05: the owner chose the folder with the picker and started Red from the list,
+and reported "worded fine" (read as "worked fine", possibly dictation). The device agrees: Red's cache marker
+exists, no refusal file, the game loaded and is running, and the log shows about 1.6 seconds from speech ready
+to game loaded, so the launcher's "a minute or two" notice overstates Red. Not tested: returning from the
+game and starting again, Generations 2 and 3, a second import.
 
 ## Next
 
-1. Finish the launcher test on the Thor.
-2. Decide the app id and signing with the owner before any release.
+1. Return from the game to the launcher and start a game again.
+2. Try a Generation 2 and a Generation 3 game, and time their imports.
+3. Decide the app id and signing with the owner before any release.
