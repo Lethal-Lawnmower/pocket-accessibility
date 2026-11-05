@@ -4,6 +4,8 @@ I'm not really good at explaining things or writing introductions, but honestly,
 
 This might seem like a lazy, half-assed attempt, which it is not meant to be. I've been working on this project since July, and I did a rewrite of it along the way. Dumping 11 games on this project at once, I get it, can look like I just said "Claude, make me an accessibility mod", when that is far from the case. They're all here to get a firm baseline and then build off of. And to be completely honest, asking me to play through 11 games is not realistic.
 
+Most people don't know how to use GitHub issues, so I created a [Discord server](https://discord.gg/8NNev6PsB6) where you can post your issues. I'm not a fan of everyone having their own server, because that creates fragmentation and it's a lot for people to manage. However, for a fairly large and complex project like this, I feel like it's needed.
+
 Pocket Accessibility aims to cover the gaps and weird issues that the original [Pokémon Access](https://github.com/nuive/pokemon-access) couldn't, with the PC ports from the [Pokémon Gen 1 Recompilation Project](https://github.com/bryanthaboi/gen1recomp) by BOIS CLUB GAMES, LLC as its foundation.
 
 If you don't know Pokémon Access, it's a set of scripts by nuive that make the Pokémon games playable with a screen reader through the VBA-ReRecording emulator. It grew out of the Pokécrystal Access Project, which did the same for Crystal.
