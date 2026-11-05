@@ -41,4 +41,23 @@ for _, id in ipairs(expected) do
   end
 end
 
+-- The Android launcher's copy (launcher/android/.../GameCatalog.java), read the same way.
+local javaFile = assert(io.open("launcher/android/src/com/pocketaccess/launcher/GameCatalog.java", "rb"))
+local javaSource = javaFile:read("*a")
+javaFile:close()
+
+local javaOrder = {}
+for id, name, hashes in javaSource:gmatch('new Game%("(%w+)",%s*"([^"]+)",%s*(.-)%)[,)]') do
+  javaOrder[#javaOrder + 1] = id
+  local sha1s = {}
+  for sha1 in hashes:gmatch('"(%x+)"') do sha1s[#sha1s + 1] = sha1:lower() end
+  table.sort(sha1s)
+  local want = {}
+  for _, revision in ipairs(GameVersion.revisions(id)) do want[#want + 1] = revision.sha1:lower() end
+  table.sort(want)
+  eq(table.concat(sha1s, ","), table.concat(want, ","), id .. " Android ROM hashes match GameVersion")
+  check(name:find("Pok", 1, true) == 1, id .. " has a spoken name on Android")
+end
+eq(table.concat(javaOrder, ","), table.concat(expected, ","), "the Android launcher lists every upstream game in order")
+
 T.finish("launcher catalog")

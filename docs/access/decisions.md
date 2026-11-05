@@ -487,3 +487,7 @@ The owner, on telling players to download source code: "9 out of 10 people don't
 ## 52. Android: controller only, tested on the AYN Thor (2026-11-05)
 
 The owner: "this would be controller only"; touch controls are left to whoever wants to try them. The launcher is likely our own standard Android app, which the owner left for the agents to think about. Test device: the AYN Thor, with a Pixel Tablet also available. Android work is not part of a release until the owner says so. Details: `android.md`.
+
+## 53. Android launcher: a generic touch app, like melonDS (2026-11-05)
+
+The owner: "we can have the launcher be a generic Android touch interface one. If anything, I'd like to use something very similar to how Melon DS does its stuff." So the launcher is a standard Android app with touch; decision 52's controller-only applies to the game. Its flow follows melonDS on Android: choose a ROM folder, then a list of the games found. Written fresh; no melonDS code is used.

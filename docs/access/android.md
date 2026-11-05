@@ -1,6 +1,6 @@
 # Android
 
-Controller only (decision 52). Work is on the unpushed branch `android-test`. Nothing here is released.
+The game is controller only (decision 52); the launcher is an ordinary touch app (decision 53). Work is on the unpushed branch `android-test`. Nothing here is released.
 
 ## What the test build proves (2026-11-05)
 
@@ -62,9 +62,38 @@ our own app module, when the launcher design is settled.
 `ndk-build` cannot handle spaces in paths, so the build runs from a copy outside this folder. SDK API 36,
 NDK 25.2.9519653, JDK 21, task `assembleEmbedNoRecordDebug`.
 
+## Launcher
+
+`launcher/android` holds our Java and resources; `launcher/android/build_apk.py` builds the APK. The script
+copies upstream's `mobile/android` outside the repository and edits the copy (architectures, API 26, Prism,
+app name, manifest), so no upstream file changes, and it fails if upstream's text has moved. It also leaves
+out everything the Windows package leaves out, including every Term 2 file.
+
+```bash
+python launcher/android/build_apk.py --prism-zip <prism-android.zip> --clean
+```
+
+ANDROID_HOME and JAVA_HOME (JDK 21) must be set. The Prism zip is not in the repository.
+
+The flow follows melonDS on Android, written fresh (that app is GPL-3.0 and none of its code is used):
+
+1. First start: **Choose ROM folder** opens Android's folder picker.
+2. The launcher hashes each dump in the folder and below it, and lists the games it recognises.
+3. Selecting a game copies its dump to the app's cache if it needs importing, sets the `POKEPORT_*`
+   variables through `Os.setenv`, and starts the game's activity with the `game` extra. The copy is deleted
+   when the player returns.
+4. If the game refuses to start, its reason (`pocket-access-start-refused.txt`) appears in a dialog.
+
+The menu holds Refresh game list, Choose ROM folder and Credits. License Term 1's credit stays on the main
+screen. The icon is ours, not upstream's.
+
+Android's picker refuses the storage root and the Download folder itself; a folder inside either works.
+
+Not yet: Pokémon Access sounds, mods, the save editor, choosing a save slot, zipped ROMs, and a release app
+id and signing. Build and first screens checked on the Thor by script: the folder screen and the picker
+open. The picker with TalkBack, a scan, an import from this launcher and a return from the game are not yet tested.
+
 ## Next
 
-1. Run on the AYN Thor: USB debugging on, then hear speech and test the controller.
-2. Design our launcher: a standard Android app with ordinary controls. Upstream's cannot be used (term 2),
-   and term 1 requires its credit to be shown in ours. ROM picking, app id and signing are open. No
-   updater on Android.
+1. Finish the launcher test on the Thor.
+2. Decide the app id and signing with the owner before any release.
