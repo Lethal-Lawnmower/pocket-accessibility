@@ -483,3 +483,7 @@ The owner: "Remember the Pokemon Access sound effects? Can we have an installer 
 ## 51. One-click download of the Pokémon Access sounds (2026-11-05)
 
 The owner, on telling players to download source code: "9 out of 10 people don't. Can barely navigate to the releases tab." Then: "One click download." So the launcher can fetch the sounds from that project's public repository when a player asks. Decision 8 still holds in that we never ship, host or repackage them, and the package holds none. That repository has no license, so this was the owner's call, made knowing it; not legal advice.
+
+## 52. Android: controller only, tested on the AYN Thor (2026-11-05)
+
+The owner: "this would be controller only"; touch controls are left to whoever wants to try them. The launcher is likely our own standard Android app, which the owner left for the agents to think about. Test device: the AYN Thor, with a Pixel Tablet also available. Android work is not part of a release until the owner says so. Details: `android.md`.

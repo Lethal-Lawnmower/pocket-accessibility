@@ -55,7 +55,8 @@ Developing against Prism 0.17.3 (MPL-2.0, Windows x64), from the old
 project's local copy. The packaged folder ships this build: its DLL is byte-identical to the Prism
 0.17.3 Windows x64 release, whose `NOTICE` and `LICENSES` are shipped with it. Prism 0.18.3 exists (GitHub, checked
 2026-10-31). Moving to it, and re-verifying the C declarations, is left for after the first package.
-The declarations in `PrismBackend.lua` are copied from 0.17.3's `prism.h`.
+The declarations in `PrismBackend.lua` are copied from 0.17.3's `prism.h`, plus the one config field 0.18 added.
+Android uses 0.18.3 (`android.md`).
 
 ## Verification (2026-10-31)
 

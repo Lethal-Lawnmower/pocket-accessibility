@@ -186,7 +186,7 @@ and recorded in the topic file.
 ## Before any packaged release
 
 - Done by script (`launcher.md`, "Packaged release"): our own launcher, upstream's updater off, upstream's launcher files out, Term 1 credit.
-- Android (owner, 2026-11-05): next, controller only; touch controls left to whoever wants to try them. A standard Android app as the launcher is the idea to check. Not started. 0.0.2 is on hold until the owner says.
+- Android (owner, 2026-11-05): next, controller only; touch controls left to whoever wants to try them. A standard Android app as the launcher is the idea to check. 0.0.2 is on hold until the owner says. Test build on the branch `android-test`: on an emulator the game starts and Prism picks Android's text to speech; not heard, not yet on the AYN Thor (`android.md`).
 - Release 0.0.1 (2026-11-04): published at the owner's request (decision 49), tag `v0.0.1`. Tested by script only (`launcher.md`, "Verification: release 0.0.1"). The updater's first real test against GitHub is the next release. Owner, 2026-11-04: Android and Linux are going to be added; not started. Online play: not in the package, because its screens are upstream's proprietary launcher (`launcher.md`).
 
 ## Gold, Silver and Crystal
