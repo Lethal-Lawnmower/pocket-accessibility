@@ -21,6 +21,18 @@ Run on a headless x86_64 emulator, Android 16, no audio:
 | Screen reader output (TalkBack) | Not tried |
 | ARM, the AYN Thor, a controller, a ROM, gameplay | Not tried |
 
+Run on the AYN Thor over wireless debugging (Android 13, arm64, TalkBack on):
+
+| Check | Result |
+|---|---|
+| APK installs and the game starts | Yes |
+| Prism's choice of output | `Android screen reader` |
+| Red dump imports (copied to the app's save folder as a `.gb`) | Yes; upstream's picker was not used |
+| Game runs from a new save slot | Yes, title intro seen in a screenshot; started with scripted taps on upstream's touch screen |
+| Controller | The Thor reports `Xbox Wireless Controller`; the owner was asked to use it in the menus |
+| Speech and controller | Owner, asked whether the game speaks and the buttons respond: "Looks good, yeah." (2026-11-05). Brief test; battles, the map and navigation not reported |
+| Touch overlay | Upstream's on-screen controls are drawn over the game; not yet removed |
+
 ## What Android needs from Prism
 
 Prism's Windows build is 0.17.3 and has no Android release, so Android uses 0.18.3's `prism-android.zip`.
