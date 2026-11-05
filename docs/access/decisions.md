@@ -479,3 +479,7 @@ The owner approved publishing ("Yeah, let's do it. Publish."): tag `v0.0.1` and 
 ## 50. Pokémon Access sounds from the launcher (2026-11-05)
 
 The owner: "Remember the Pokemon Access sound effects? Can we have an installer for them? Not an actual installer, but something within the actual launcher." In an Alt menu with Check for updates. Decision 8 holds: the player brings the sounds; we never ship or host them.
+
+## 51. One-click download of the Pokémon Access sounds (2026-11-05)
+
+The owner, on telling players to download source code: "9 out of 10 people don't. Can barely navigate to the releases tab." Then: "One click download." So the launcher can fetch the sounds from that project's public repository when a player asks. Decision 8 still holds in that we never ship, host or repackage them, and the package holds none. That repository has no license, so this was the owner's call, made knowing it; not legal advice.

@@ -26,6 +26,10 @@ internal sealed class MainForm : Form
     private readonly Button exitButton = new();
     private readonly ToolStripStatusLabel status = new();
     private bool busy;
+    private readonly ProgressBar downloadBar = new()
+    {
+        AccessibleName = "Download progress", Dock = DockStyle.Top, Height = 22, Minimum = 0, Maximum = 100, Visible = false,
+    };
 
     private readonly string? romToImport;
 
@@ -69,6 +73,7 @@ internal sealed class MainForm : Form
         layout.Controls.Add(gamesList);
         layout.Controls.Add(buttons);
         layout.Controls.Add(credit);
+        layout.Controls.Add(downloadBar);
 
         // Named, or UI Automation names the bar after the label above it.
         var statusStrip = new StatusStrip { SizingGrip = false, AccessibleName = "Status" };
@@ -85,7 +90,7 @@ internal sealed class MainForm : Form
         Shown += async (_, _) =>
         {
             if (!await OnFirstShownAsync()) return;
-            ShowSoundsNotice();
+            await ShowSoundsNoticeAsync();
             if (romToImport != null) await ImportFileAsync(romToImport);
         };
     }
@@ -96,6 +101,7 @@ internal sealed class MainForm : Form
         var tools = new ToolStripMenuItem("&Tools");
         // a source checkout has no updater beside it: it updates with git
         if (File.Exists(UpdaterPath)) tools.DropDownItems.Add("Check for &updates", null, (_, _) => OpenUpdater());
+        tools.DropDownItems.Add("&Download Pokémon Access sounds...", null, async (_, _) => await AskToDownloadSoundsAsync());
         tools.DropDownItems.Add("&Import Pokémon Access sounds...", null, (_, _) => ImportSounds());
         var removeSounds = new ToolStripMenuItem("&Remove Pokémon Access sounds", null, (_, _) => RemoveSounds());
         tools.DropDownItems.Add(removeSounds);
@@ -106,32 +112,90 @@ internal sealed class MainForm : Form
     }
 
     private const string SoundsNoticeFile = "pocket-access-sounds-notice-shown";
-    private const string PokemonAccessPage = "https://github.com/nuive/pokemon-access";
 
     /// <summary>
-    /// Once only: says the Pokémon Access sounds are the player's to bring, and how.  A native
-    /// task dialog, which screen readers read like a message box, and which unlike one can hold
-    /// a button that opens the page without closing the notice.
+    /// Once only: says the Pokémon Access sounds aren't included, and offers to fetch them.  A
+    /// native task dialog, which screen readers read like a message box, and which unlike one
+    /// can name its buttons.
     /// </summary>
-    private void ShowSoundsNotice()
+    private async Task ShowSoundsNoticeAsync()
     {
         string marker = Path.Combine(paths.SaveDir, SoundsNoticeFile);
         if (File.Exists(marker) || SoundPackImporter.IsImported(paths.SaveDir)) return;
-        var openPage = new TaskDialogButton("Open Pokémon Access page") { AllowCloseDialog = false };
-        openPage.Click += (_, _) =>
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(PokemonAccessPage) { UseShellExecute = true })?.Dispose();
+        var download = new TaskDialogButton("Download sounds");
+        var notNow = new TaskDialogButton("Not now");
         var page = new TaskDialogPage
         {
             Caption = "Pocket Accessibility",
             Heading = "Pokémon Access sounds",
-            Text = "Pocket Accessibility doesn't come with the Pokémon Access sounds. The built-in sounds are only meant to hold you over until you import them.\n\n"
-                + $"To get them, download Pokémon Access from {PokemonAccessPage} and unzip it. Then press Alt, open Tools, choose Import Pokémon Access sounds, and pick the unzipped folder.",
-            Buttons = { openPage, TaskDialogButton.OK },
-            DefaultButton = TaskDialogButton.OK,
+            Text = "Pocket Accessibility doesn't come with the Pokémon Access sounds. The built-in sounds are only meant to hold you over until you get them. Want to download them now?\n\n"
+                + "They come straight from the Pokémon Access project on GitHub. You can also do this later: press Alt, open Tools, and choose Download Pokémon Access sounds.",
+            Buttons = { download, notNow },
+            DefaultButton = download,
         };
-        TaskDialog.ShowDialog(this, page);
+        TaskDialogButton answer = TaskDialog.ShowDialog(this, page);
         Directory.CreateDirectory(paths.SaveDir);
         File.WriteAllText(marker, "");
+        if (answer == download) await DownloadSoundsAsync();
+        else gamesList.Focus();
+    }
+
+    private async Task AskToDownloadSoundsAsync()
+    {
+        if (busy) return;
+        string replaces = SoundPackImporter.IsImported(paths.SaveDir) ? " This replaces the ones you have now." : "";
+        DialogResult answer = MessageBox.Show(this,
+            $"Download the Pokémon Access sounds from that project's GitHub page?{replaces}",
+            "Pocket Accessibility", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+        if (answer == DialogResult.Yes) await DownloadSoundsAsync();
+        else gamesList.Focus();
+    }
+
+    private async Task DownloadSoundsAsync()
+    {
+        int count = 0;
+        string? problem = null;
+        int quarter = -1;
+        downloadBar.Value = 0;
+        downloadBar.Visible = true;
+        var progress = new Progress<int?>(percent =>
+        {
+            downloadBar.Style = percent == null ? ProgressBarStyle.Marquee : ProgressBarStyle.Blocks;
+            if (percent is int value) downloadBar.Value = value;
+            string line = percent is int shown ? $"Downloading the sounds, {shown} percent." : "Downloading the sounds.";
+            status.Text = line;
+            int nowQuarter = (percent ?? 0) / 25;
+            if (nowQuarter <= quarter) return;
+            quarter = nowQuarter;
+            if (downloadBar.IsHandleCreated)
+            {
+                downloadBar.AccessibilityObject.RaiseAutomationNotification(
+                    System.Windows.Forms.Automation.AutomationNotificationKind.ActionCompleted,
+                    System.Windows.Forms.Automation.AutomationNotificationProcessing.ImportantMostRecent, line);
+            }
+        });
+        await RunBusyAsync("Downloading the sounds.", async () =>
+        {
+            try
+            {
+                count = await SoundPackImporter.DownloadAsync(paths.SaveDir, progress);
+            }
+            catch (SoundPackException error)
+            {
+                problem = error.Message;
+            }
+        });
+        downloadBar.Visible = false;
+        if (problem == null)
+        {
+            status.Text = "Pokémon Access sounds installed.";
+            ShowMessage($"Installed {count} Pokémon Access sounds. They'll play the next time you start a game. If a sound is missing, the built-in one plays instead.", MessageBoxIcon.Information);
+        }
+        else
+        {
+            status.Text = "Sounds were not installed.";
+            ShowMessage(problem, MessageBoxIcon.Error);
+        }
         gamesList.Focus();
     }
 

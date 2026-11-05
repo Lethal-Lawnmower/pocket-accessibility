@@ -262,7 +262,9 @@ run on a second PC, so a PC with no .NET, no LÖVE and no Visual C++ runtime is 
 
 The owner: "Can we have it be in the alt menu?... Have basically check for updates and import Pokemon Access sounds." A standard menu bar with Tools: Check for updates (packaged only), Import Pokémon Access sounds, Remove Pokémon Access sounds. The updates button moved here.
 
-The first time the launcher opens, unless sounds are already imported, a native task dialog says the sounds are not included and how to get them, with an Open Pokémon Access page button (owner, 2026-11-05: built-in sounds "are meant only to hold you over"; shown once). A marker in the save folder keeps it from showing again.
+The first time the launcher opens, unless sounds are already imported, a native task dialog says the sounds are not included and offers Download sounds or Not now (owner, 2026-11-05: built-in sounds "are meant only to hold you over"; shown once). A marker in the save folder keeps it from showing again. Tools has Download Pokémon Access sounds too, which asks first.
+
+The download (decision 51) takes that project's current zip straight from its GitHub repository to the player's PC, keeps only real WAV files of 4 MiB or less under its `sounds` folder, and shows a bar and announcements. If the repository is gone, it says so, and the built-in sounds stay.
 
 Import takes a folder the player already has (decision 8: never shipped or hosted): the sounds folder or the folder above it, needing `common` and `gb`. `SoundPackImporter.cs` copies WAV files of 4 MiB or less to `pocket-access-sounds` in the save folder through a scratch folder, keeping the old pack until the new one is complete. `Earcons.new` uses it when no other path is set; a cue with no file there falls back to the built-in sound. Not bundled, not in the package.
 

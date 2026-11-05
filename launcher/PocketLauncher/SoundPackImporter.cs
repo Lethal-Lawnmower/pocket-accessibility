@@ -1,20 +1,33 @@
+using System.IO.Compression;
+
 namespace PocketLauncher;
 
 /// <summary>A sound folder that could not be imported; the message is read to the player.</summary>
 internal sealed class SoundPackException(string message) : Exception(message);
 
 /// <summary>
-/// Copies a Pokémon Access sound folder the player already has into the save folder, where the
-/// game looks for it (src/access/nav/Earcons.lua).  The sounds are the player's own files, as
-/// ROMs are: this project never ships or hosts them (decision 8).  Only WAV files in the pack's
-/// own folders are copied, and the old pack stays until the new one is complete.
+/// Puts Pokémon Access sounds into the save folder, where the game looks for them
+/// (src/access/nav/Earcons.lua): from a folder the player has, or, when the player asks, from
+/// that project's own GitHub repository.  This project never ships or hosts them (decisions 8
+/// and 51).  Only WAV files in the pack's own folders are kept, and the old pack stays until the
+/// new one is complete.
 /// </summary>
 internal static class SoundPackImporter
 {
     public const string PackFolder = "pocket-access-sounds";
     private const string IncomingFolder = "pocket-access-sounds-incoming";
     private const long MaxWaveBytes = 4 * 1024 * 1024; // what the game agrees to load
+    private const long MaxDownloadBytes = 512L * 1024 * 1024;
+    private const string SourceZip = "https://github.com/nuive/pokemon-access/archive/refs/heads/master.zip";
     private static readonly string[] RequiredFolders = ["common", "gb"];
+    private static readonly HttpClient Http = CreateHttpClient();
+
+    private static HttpClient CreateHttpClient()
+    {
+        var client = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("PocketAccessibility-sounds");
+        return client;
+    }
 
     public static bool IsImported(string saveDir) =>
         RequiredFolders.All(folder => Directory.Exists(Path.Combine(saveDir, PackFolder, folder)));
@@ -52,20 +65,7 @@ internal static class SoundPackImporter
             {
                 throw new SoundPackException("That folder has no usable sound files, so nothing was imported.");
             }
-            Directory.CreateDirectory(saveDir);
-            string retired = target + "-old";
-            if (Directory.Exists(retired)) Directory.Delete(retired, true);
-            if (Directory.Exists(target)) Directory.Move(target, retired);
-            try
-            {
-                Directory.Move(incoming, target);
-            }
-            catch
-            {
-                if (Directory.Exists(retired)) Directory.Move(retired, target);
-                throw;
-            }
-            if (Directory.Exists(retired)) Directory.Delete(retired, true);
+            PutInPlace(incoming, target);
             return copied;
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
@@ -83,6 +83,113 @@ internal static class SoundPackImporter
                 // scratch only; the next import clears it
             }
         }
+    }
+
+    private static void PutInPlace(string incoming, string target)
+    {
+        string retired = target + "-old";
+        if (Directory.Exists(retired)) Directory.Delete(retired, true);
+        if (Directory.Exists(target)) Directory.Move(target, retired);
+        try
+        {
+            Directory.Move(incoming, target);
+        }
+        catch
+        {
+            if (Directory.Exists(retired)) Directory.Move(retired, target);
+            throw;
+        }
+        if (Directory.Exists(retired)) Directory.Delete(retired, true);
+    }
+
+    /// <summary>Downloads that project's zip and keeps only the sounds from it.</summary>
+    /// <param name="progress">A percent, or null while the size is unknown.</param>
+    /// <returns>How many sounds were installed.</returns>
+    public static async Task<int> DownloadAsync(string saveDir, IProgress<int?>? progress = null, string sourceUrl = SourceZip)
+    {
+        string zipPath = Path.Combine(saveDir, "pocket-access-sounds-download.zip");
+        string incoming = Path.Combine(saveDir, IncomingFolder);
+        Directory.CreateDirectory(saveDir);
+        try
+        {
+            progress?.Report(null);
+            using (HttpResponseMessage response = await Http.GetAsync(sourceUrl, HttpCompletionOption.ResponseHeadersRead))
+            {
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new SoundPackException($"The sounds aren't at their usual place on GitHub any more ({(int)response.StatusCode}). You still have the built-in sounds.");
+                }
+                long? size = response.Content.Headers.ContentLength;
+                await using Stream body = await response.Content.ReadAsStreamAsync();
+                await using FileStream file = File.Create(zipPath);
+                var buffer = new byte[81920];
+                long total = 0;
+                int reported = -1, read;
+                while ((read = await body.ReadAsync(buffer)) > 0)
+                {
+                    total += read;
+                    if (total > MaxDownloadBytes) throw new SoundPackException("The download is much larger than expected, so nothing was installed.");
+                    await file.WriteAsync(buffer.AsMemory(0, read));
+                    if (size is > 0)
+                    {
+                        int percent = (int)Math.Min(99, total * 99 / size.Value);
+                        if (percent != reported) progress?.Report(reported = percent);
+                    }
+                }
+            }
+            return await Task.Run(() => InstallFromZip(zipPath, incoming, Path.Combine(saveDir, PackFolder)));
+        }
+        catch (Exception error) when (error is HttpRequestException or TaskCanceledException)
+        {
+            throw new SoundPackException($"The download failed: {error.Message} You still have the built-in sounds.");
+        }
+        catch (Exception error) when (error is InvalidDataException or IOException or UnauthorizedAccessException)
+        {
+            throw new SoundPackException($"The sounds could not be installed: {error.Message} You still have the built-in sounds.");
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(zipPath)) File.Delete(zipPath);
+                if (Directory.Exists(incoming)) Directory.Delete(incoming, true);
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            {
+                // scratch only; the next run overwrites it
+            }
+        }
+    }
+
+    /// <summary>Takes only WAV files under the zip's sounds folder; nothing else in it is opened.</summary>
+    public static int InstallFromZip(string zipPath, string incoming, string target)
+    {
+        if (Directory.Exists(incoming)) Directory.Delete(incoming, true);
+        string root = Path.GetFullPath(incoming) + Path.DirectorySeparatorChar;
+        int copied = 0;
+        using (ZipArchive archive = ZipFile.OpenRead(zipPath))
+        {
+            foreach (ZipArchiveEntry entry in archive.Entries)
+            {
+                string name = entry.FullName.Replace('\\', '/');
+                int marker = name.IndexOf("/sounds/", StringComparison.OrdinalIgnoreCase);
+                if (marker < 0 || name.IndexOf('/') != marker) continue; // <top folder>/sounds/ only
+                string relative = name[(marker + "/sounds/".Length)..];
+                if (!relative.EndsWith(".wav", StringComparison.OrdinalIgnoreCase) || entry.Length > MaxWaveBytes) continue;
+                string destination = Path.GetFullPath(Path.Combine(root, relative));
+                if (relative.Contains(':') || !destination.StartsWith(root, StringComparison.OrdinalIgnoreCase)) continue;
+                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                entry.ExtractToFile(destination);
+                if (IsWave(destination)) copied++;
+                else File.Delete(destination);
+            }
+        }
+        if (copied == 0 || !RequiredFolders.All(folder => Directory.Exists(Path.Combine(incoming, folder))))
+        {
+            throw new SoundPackException("The download didn't have the sounds in it, so nothing was installed. You still have the built-in sounds.");
+        }
+        PutInPlace(incoming, target);
+        return copied;
     }
 
     /// <summary>Back to the built-in sounds.</summary>
