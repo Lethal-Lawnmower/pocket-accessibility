@@ -136,8 +136,36 @@ drivers run on Android. Never for a build for players. `tests/access/drivers/and
 pushed test folder and copies what drivers print to `driver.log`. The runs are silent and the emulator has
 no window or audio.
 
+## Emulator results (2026-11-05)
+
+Scripted, silent, on the headless x86_64 emulator (Android 16), test build of this branch. Run level only:
+nothing here was heard, and the emulator is not the Thor.
+
+| Check | Result |
+|---|---|
+| Import and boot, all 11 games (`packaged_boot`, 600 frames each) | All finished, no crash; right game and generation; no Term 2 module or file; updater off |
+| Imports | Every game imported from a plain ROM path; first driver output 8 s (Gen 1 and 2) to 33 s (Emerald) after start |
+| Red controller navigation (`nav_controller`) | PASS: trigger plus D-pad categories and objects, auto-walk took the stairs, guided navigation started and stopped |
+| Crystal keys and controller (`gen2_nav_controller`, run without `isolated.lua`) | Every step answered: categories, objects, auto-walk to 1F, guided navigation, stop |
+| FireRed navigation (`gen3_nav`) | 13 of 13 PASS, through Route 1 into Viridian City |
+| `gen3_nav` on Emerald | 3 FAIL: that driver expects FireRed's Pallet Town, so it does not apply; Emerald's own drivers are below |
+| Sounds | Download from the launcher's menu: 33 sounds in `common`, `gb`, `gba`. `sound_pack` on Red: the game's cues use the pack, 23 load from it, none fall back |
+| Save editor, Red | Opened, 8 pages; Trainer page fields with ranges and help; money set to 1234 and saved to the real save folder; Close returned to the launcher; reopened with 1234; then Red started |
+| Save editor, Crystal | Opened, Party page shown |
+| After a game or the editor | The launcher came back, and the next game started (new process each time) |
+
+Problems found and fixed on the way:
+
+- Java's loopback address could be IPv6 while the backend connected to 127.0.0.1: the editor now binds 127.0.0.1.
+- With no save yet, upstream's default save path is relative on Android: the backend now uses the save folder.
+- `os.exit` after the editor closed aborted on a destroyed mutex in Android's render thread, which Android
+  reports as a crash: the backend now uses `_exit`.
+- `isolated.lua` minimised the window, which on Android sends the app to the background, where SDL pauses
+  the game: it no longer does so on Android.
+- The game's first announcement named F7 and F8; on Android it now names the controller.
+
 ## Next
 
-1. Confirm a second game start from the launcher in the log.
-2. Try a Generation 2 and a Generation 3 game, and time their imports.
-3. Decide the app id and signing with the owner before any release.
+1. The owner's tests on the Thor: the new launcher menu, sounds, the save editor, and navigation with the
+   Thor's own controls.
+2. Decide the app id and signing with the owner before any release.

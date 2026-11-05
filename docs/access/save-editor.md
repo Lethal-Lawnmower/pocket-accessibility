@@ -19,6 +19,10 @@ Save logic stays in upstream's `tools/save-editor/`, unedited: ranges, undo, bac
 (`save.lua.bak-...` before each write) and `.sav` export all remain upstream's. The
 form cannot run with a game on the same save because it is modal over the launcher.
 
+On Android the same backend runs inside the game's activity and answers over a local socket; the screen is
+`launcher/android/.../SaveEditorActivity.java` (`android.md`, "Save editor"). `launcher/SaveBackend/service.lua`
+answers requests on both; `main.lua` is only the Windows stdin loop.
+
 ## Protocol
 
 One JSON object per line on stdin; one per line on stdout, prefixed `@@PA `. Other
