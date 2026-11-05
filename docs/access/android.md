@@ -95,11 +95,15 @@ id and signing.
 Tested on the Thor, 2026-11-05: the owner chose the folder with the picker and started Red from the list,
 and reported "worded fine" (read as "worked fine", possibly dictation). The device agrees: Red's cache marker
 exists, no refusal file, the game loaded and is running, and the log shows about 1.6 seconds from speech ready
-to game loaded, so the launcher's "a minute or two" notice overstates Red. Not tested: returning from the
-game and starting again, Generations 2 and 3, a second import.
+to game loaded, so the launcher's "a minute or two" notice overstates Red.
+
+Asked to close Red and start it again, the owner reported "So works fine. We're good." The device shows the
+first game's process ended and the launcher came back in a new process (the import copy was deleted as
+designed), but its log holds no second game start, so a second start from the launcher is not established.
+Not tested: Generations 2 and 3, a second import.
 
 ## Next
 
-1. Return from the game to the launcher and start a game again.
+1. Confirm a second game start from the launcher in the log.
 2. Try a Generation 2 and a Generation 3 game, and time their imports.
 3. Decide the app id and signing with the owner before any release.
