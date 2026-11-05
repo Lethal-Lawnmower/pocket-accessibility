@@ -475,3 +475,7 @@ The owner, on updating: "for it to update the actual games and stuff like that",
 ## 49. Release 0.0.1 (2026-11-04)
 
 The owner approved publishing ("Yeah, let's do it. Publish."): tag `v0.0.1` and the packaged zip on GitHub, with `main` pushed. Self-contained .NET; upstream's Discord presence left on. Covers this release only; not acceptance. By script only: nobody has played or heard it from the package. Feedback goes to the project's Discord server.
+
+## 50. Pokémon Access sounds from the launcher (2026-11-05)
+
+The owner: "Remember the Pokemon Access sound effects? Can we have an installer for them? Not an actual installer, but something within the actual launcher." In an Alt menu with Check for updates. Decision 8 holds: the player brings the sounds; we never ship or host them.

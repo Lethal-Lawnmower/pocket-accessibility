@@ -23,7 +23,6 @@ internal sealed class MainForm : Form
     private readonly Button modsButton = new();
     private readonly Button importButton = new();
     private readonly Button creditsButton = new();
-    private readonly Button updatesButton = new();
     private readonly Button exitButton = new();
     private readonly ToolStripStatusLabel status = new();
     private bool busy;
@@ -57,14 +56,11 @@ internal sealed class MainForm : Form
         ConfigureButton(modsButton, "&Mods...", () => { OpenMods(); return Task.CompletedTask; });
         ConfigureButton(importButton, "&Import ROM...", async () => await ImportAsync());
         ConfigureButton(creditsButton, "&Credits", () => { using var credits = new CreditsForm(paths); credits.ShowDialog(this); return Task.CompletedTask; });
-        ConfigureButton(updatesButton, "Check for &updates", () => { OpenUpdater(); return Task.CompletedTask; });
         ConfigureButton(exitButton, "E&xit", () => { Close(); return Task.CompletedTask; });
         AcceptButton = playButton; // Enter on the list plays the selected game
 
         var buttons = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, WrapContents = false };
-        // a source checkout has no updater beside it: it updates with git
-        updatesButton.Visible = File.Exists(UpdaterPath);
-        buttons.Controls.AddRange([playButton, editButton, modsButton, importButton, creditsButton, updatesButton, exitButton]);
+        buttons.Controls.AddRange([playButton, editButton, modsButton, importButton, creditsButton, exitButton]);
 
         var credit = new Label { Text = UpstreamCredit, AutoSize = true, MaximumSize = new Size(480, 0) };
 
@@ -82,12 +78,69 @@ internal sealed class MainForm : Form
 
         Controls.Add(layout);
         Controls.Add(statusStrip);
+        MenuStrip menu = BuildMenu();
+        Controls.Add(menu);
+        MainMenuStrip = menu; // Alt opens it
         ActiveControl = gamesList;
         Shown += async (_, _) =>
         {
             if (!await OnFirstShownAsync()) return;
             if (romToImport != null) await ImportFileAsync(romToImport);
         };
+    }
+
+    /// <summary>Things most people need once in a while, out of the way of the game list.</summary>
+    private MenuStrip BuildMenu()
+    {
+        var tools = new ToolStripMenuItem("&Tools");
+        // a source checkout has no updater beside it: it updates with git
+        if (File.Exists(UpdaterPath)) tools.DropDownItems.Add("Check for &updates", null, (_, _) => OpenUpdater());
+        tools.DropDownItems.Add("&Import Pokémon Access sounds...", null, (_, _) => ImportSounds());
+        var removeSounds = new ToolStripMenuItem("&Remove Pokémon Access sounds", null, (_, _) => RemoveSounds());
+        tools.DropDownItems.Add(removeSounds);
+        tools.DropDownOpening += (_, _) => removeSounds.Enabled = SoundPackImporter.IsImported(paths.SaveDir);
+        var menu = new MenuStrip { AccessibleName = "Menu" };
+        menu.Items.Add(tools);
+        return menu;
+    }
+
+    private void ImportSounds()
+    {
+        if (busy) return;
+        using var dialog = new FolderBrowserDialog
+        {
+            Description = "Choose your Pokémon Access sounds folder",
+            UseDescriptionForTitle = true,
+        };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        try
+        {
+            int count = SoundPackImporter.Import(dialog.SelectedPath, paths.SaveDir);
+            status.Text = "Pokémon Access sounds imported.";
+            ShowMessage($"Imported {count} Pokémon Access sounds. They'll play the next time you start a game. If a sound is missing, the built-in one plays instead.", MessageBoxIcon.Information);
+        }
+        catch (SoundPackException error)
+        {
+            status.Text = "Sounds were not imported.";
+            ShowMessage(error.Message, MessageBoxIcon.Error);
+        }
+        gamesList.Focus();
+    }
+
+    private void RemoveSounds()
+    {
+        if (busy) return;
+        try
+        {
+            SoundPackImporter.Remove(paths.SaveDir);
+            status.Text = "Pokémon Access sounds removed.";
+            ShowMessage("Removed the Pokémon Access sounds. The built-in sounds will play the next time you start a game.", MessageBoxIcon.Information);
+        }
+        catch (SoundPackException error)
+        {
+            ShowMessage(error.Message, MessageBoxIcon.Error);
+        }
+        gamesList.Focus();
     }
 
     private void ConfigureButton(Button button, string text, Func<Task> action)

@@ -258,10 +258,16 @@ run on a second PC, so a PC with no .NET, no LÖVE and no Visual C++ runtime is 
 | Prism | `prism.dll` loaded from the package (`speech ready: OneCore` on the second desktop, with silent runs on). Choosing NVDA from the package and audible speech are **not** tested. |
 | Not tested | A real play session or save from the package; Gold, Silver, Yellow, LeafGreen, Ruby, Sapphire imports; a mod running from the package; a second PC. |
 
+## Tools menu and Pokémon Access sounds (2026-11-05)
+
+The owner: "Can we have it be in the alt menu?... Have basically check for updates and import Pokemon Access sounds." A standard menu bar with Tools: Check for updates (packaged only), Import Pokémon Access sounds, Remove Pokémon Access sounds. The updates button moved here.
+
+Import takes a folder the player already has (decision 8: never shipped or hosted): the sounds folder or the folder above it, needing `common` and `gb`. `SoundPackImporter.cs` copies WAV files of 4 MiB or less to `pocket-access-sounds` in the save folder through a scratch folder, keeping the old pack until the new one is complete. `Earcons.new` uses it when no other path is set; a cue with no file there falls back to the built-in sound. Not bundled, not in the package.
+
 ## Updates (2026-11-04)
 
-The owner: "We could make a separate updater app then." `launcher/PocketUpdater` is a second small program with standard controls. The launcher's Check for updates (Alt+U, shown only when
-`PocketUpdater.exe` is beside it) starts it with `--from-launcher` and closes, so the launcher can be replaced; the updater reopens the launcher when it closes.
+The owner: "We could make a separate updater app then." `launcher/PocketUpdater` is a second small program with standard controls. The launcher's Tools menu, Check for updates (shown only when
+`PocketUpdater.exe` is beside it), starts it with `--from-launcher` and closes, so the launcher can be replaced; the updater reopens the launcher when it closes.
 
 - **Asks** this repository's `releases/latest`. It takes only an asset named `PocketAccessibility-*-windows-x64.zip`, only from this repository's download address over https, and only if GitHub reports its SHA-256 (the asset's `digest`).
 - **Installs** after the player presses Update now, with no launcher or game from this folder running: download, checksum, unpack to `update-incoming`, check the required files and that `version.txt` matches the release, then move each packaged item into `update-old` and the new one in. Any failure puts every item back. Files the package does not hold are left alone. Saves, imports and mods are in the save folder.

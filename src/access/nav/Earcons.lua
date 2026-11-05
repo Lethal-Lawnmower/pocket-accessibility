@@ -128,11 +128,18 @@ local function loadWaveFromDisk(root, relative, pan)
   return source
 end
 
+-- The pack the launcher's Tools menu imported into the save folder, if any.
+local function importedPack()
+  if not (love and love.filesystem and love.filesystem.getInfo and love.filesystem.getSaveDirectory) then return nil end
+  if not love.filesystem.getInfo("pocket-access-sounds/common", "directory") then return nil end
+  return love.filesystem.getSaveDirectory() .. "/pocket-access-sounds"
+end
+
 function Earcons.new(opts)
   opts = opts or {}
   return setmetatable({
     sink = opts.sink,
-    soundPackPath = opts.soundPackPath or os.getenv("POKEPORT_ACCESS_SOUND_DIR"),
+    soundPackPath = opts.soundPackPath or os.getenv("POKEPORT_ACCESS_SOUND_DIR") or importedPack(),
     assetLoader = opts.assetLoader,
     cache = {},
     history = {},
