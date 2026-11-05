@@ -96,6 +96,15 @@ local function loveDirectories()
   return dirs
 end
 
+-- LÖVE names the system; LuaJIT calls Android plain "Linux".
+local function systemName()
+  if love and love.system and love.system.getOS then
+    local ok, name = pcall(love.system.getOS)
+    if ok and name then return name end
+  end
+  return (jit and jit.os) or "Windows"
+end
+
 local function errorText(lib, code)
   local ok, text = pcall(function() return ffi.string(lib.prism_error_string(code)) end)
   return ok and text or ("Prism error " .. tostring(code))
@@ -111,7 +120,7 @@ function PrismBackend.open(opts)
   end
 
   local paths = PrismBackend.candidates(opts.env or os.getenv,
-    opts.dirs or loveDirectories(), opts.os or (jit and jit.os) or "Windows")
+    opts.dirs or loveDirectories(), opts.os or systemName())
   local lib, tried = nil, {}
   for _, path in ipairs(paths) do
     local ok, loaded = pcall(ffi.load, path)
