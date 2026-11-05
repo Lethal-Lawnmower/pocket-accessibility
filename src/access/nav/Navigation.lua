@@ -187,8 +187,11 @@ function Accessibility.new(game, opts)
   self:setEnabled(opts.enabled ~= false, { silent = true })
   self:subscribeWorldEvents()
   if self.enabled and self.speech and self.speech:isAvailable() then
-    self:announce(
-      "Screen reader ready. Press F7 for accessibility command mode. Press F8 for help.",
+    -- Android has no keyboard commands: it is played with a controller (decision 52)
+    local android = love and love.system and love.system.getOS and love.system.getOS() == "Android"
+    self:announce(android
+      and "Screen reader ready. Hold the left trigger and use the D-pad to choose where to go."
+      or "Screen reader ready. Press F7 for accessibility command mode. Press F8 for help.",
       { remember = true })
   end
   return self

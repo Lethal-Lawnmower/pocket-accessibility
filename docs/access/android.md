@@ -102,6 +102,40 @@ first game's process ended and the launcher came back in a new process (the impo
 designed), but its log holds no second game start, so a second start from the launcher is not established.
 Not tested: Generations 2 and 3, a second import.
 
+## Sounds
+
+The launcher's menu has Download, Import and Remove Pokémon Access sounds, and the once-only notice
+offers the download, as on Windows (decisions 50 and 51). `SoundPacks.java` follows `SoundPackImporter.cs`:
+only WAV files of at most 4 MiB from the pack's own folders, a zip's names checked so none lands outside the
+folder, the old pack kept until the new one is complete. Import takes a folder from Android's picker. The
+pack lands in the save folder as `pocket-access-sounds`, where `Earcons.lua` already looks.
+
+## Save editor
+
+The same backend as Windows (`launcher/SaveBackend`, now split: `service.lua` answers, `main.lua` is the
+Windows stdin loop). Android has no second program to talk to, so:
+
+1. `SaveEditorActivity` opens a socket on this device only, with a one-time token, and starts the game's
+   activity with `POCKET_EDITOR_PORT` and `POCKET_EDITOR_TOKEN` set.
+2. `PackagedBuild.install`, on `main.lua`'s first line, sees them and runs
+   `src/access/AndroidSaveBackend.lua`, which connects, presents the token and answers until the socket
+   closes, then exits. It blocks before anything of the game starts, and because it never pumps events,
+   SDL does not pause it behind the editor screen.
+3. The editor screen comes back in front. The game's activity shows for a moment first.
+4. Closing finishes both activities, then closes the socket; the backend's exit ends the process and Android
+   brings back the launcher.
+
+The screen (`SaveEditorPage.java`, after `PagePanel.cs`): a Page dropdown; the list on one side and the
+pickers, summary, fields and buttons on the other; Save, Undo, Redo, Reload and Close in the menu; Back asks
+about unsaved changes. Opened from the menu's Edit a save, or a long press on a game.
+
+## Scripted tests on the emulator
+
+`build_apk.py --test-hooks` adds `TestStartActivity`, which sets environment variables from an intent, so
+drivers run on Android. Never for a build for players. `tests/access/drivers/android_run.lua` moves to the
+pushed test folder and copies what drivers print to `driver.log`. The runs are silent and the emulator has
+no window or audio.
+
 ## Next
 
 1. Confirm a second game start from the launcher in the log.

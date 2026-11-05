@@ -9,7 +9,11 @@
 return function(game)
   -- a log redirected to a file keeps its lines when the run is closed at a time limit
   pcall(function() io.stdout:setvbuf("line") end)
-  pcall(function() love.window.minimize() end)
+  -- On Android, minimising sends the app to the background, where SDL pauses the game.
+  -- The emulator test runs have no window or audio anyway.
+  if not (love.system and love.system.getOS() == "Android") then
+    pcall(function() love.window.minimize() end)
+  end
   for _, callback in ipairs({ "keypressed", "keyreleased", "textinput", "gamepadpressed",
       "gamepadreleased", "gamepadaxis", "joystickpressed", "joystickreleased",
       "joystickaxis", "joystickhat", "mousepressed", "mousereleased" }) do

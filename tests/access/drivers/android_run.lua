@@ -19,6 +19,10 @@ return function(game)
     log:flush()
     plainPrint(...)
   end
+  -- run straight from POKEPORT_DRIVER, without isolated.lua, for drivers that press
+  -- through the real love callbacks: driver runs skip where the layer normally sees the game
+  local CurrentGame = package.loaded["src.access.CurrentGame"]
+  if CurrentGame then CurrentGame.set(game) end
   local ok, failure = xpcall(function()
     return dofile(os.getenv("ANDROID_DRIVER"))(game)
   end, debug.traceback)
