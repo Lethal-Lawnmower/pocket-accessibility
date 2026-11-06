@@ -166,8 +166,13 @@ Problems found and fixed on the way:
   the game: it no longer does so on Android.
 - The game's first announcement named F7 and F8; on Android it now names the controller.
 
+Installed on the Thor 2026-11-05 at the owner's request ("push it to the Thor ... So I can test it"): the
+player build (no test hooks) of `main` at `df2b3259`, over the earlier test install, keeping its data. Its
+version name is still upstream's `11.5a`.
+
 ## Next
 
 1. The owner's tests on the Thor: the new launcher menu, sounds, the save editor, and navigation with the
    Thor's own controls.
-2. Decide the app id and signing with the owner before any release.
+2. Before an Android release: the owner's app id and a release signing key (a lost key means players
+   cannot update), our own version name, and Prism's MPL-2.0 notice and `LICENSES` in the app's credits.
