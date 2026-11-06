@@ -212,4 +212,6 @@ python launcher/android/build_apk.py --release --app-id com.pocketaccessibility.
   FreeType, OpenAL Soft, mpg123, Ogg, Vorbis, Theora, ModPlug, Oboe/Apache-2.0, AnimaEngine, Prism and its
   parts) to `assets/licenses.txt`, with where the source is. The launcher shows them under Credits, Licenses.
 - The test release build: 31 MiB, verified with `apksigner` (signed by this key) and `aapt` (id, version,
-  label). Not yet run on a device.
+  label). Run on the Thor 2026-11-05 as its own app: launcher opened, the sounds download worked, the owner
+  chose the ROM folder and started Emerald, which imported (`rom-cache.complete`) and is running with
+  TalkBack speaking, no crash. Owner: "looks good". So shrinking did not break Prism.
