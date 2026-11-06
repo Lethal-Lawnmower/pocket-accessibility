@@ -152,6 +152,8 @@ nothing here was heard, and the emulator is not the Thor.
 | Sounds | Download from the launcher's menu: 33 sounds in `common`, `gb`, `gba`. `sound_pack` on Red: the game's cues use the pack, 23 load from it, none fall back |
 | Save editor, Red | Opened, 8 pages; Trainer page fields with ranges and help; money set to 1234 and saved to the real save folder; Close returned to the launcher; reopened with 1234; then Red started |
 | Save editor, Crystal | Opened, Party page shown |
+| Emerald menus (`rse_menus`) | Finished, no BAD or FAIL |
+| Emerald story (`rse_story`, stopped at its 40-minute limit) | 238 journeys planned, 68 refused, as on Windows; 3 FAIL, the same 3 as on Windows from the same commit: story doors and guards that a new game's flags keep shut (`ruby-sapphire-emerald-navigation.md`, Known gaps) |
 | After a game or the editor | The launcher came back, and the next game started (new process each time) |
 
 Problems found and fixed on the way:
