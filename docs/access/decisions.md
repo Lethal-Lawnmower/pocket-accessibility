@@ -491,3 +491,7 @@ The owner: "this would be controller only"; touch controls are left to whoever w
 ## 53. Android launcher: a generic touch app, like melonDS (2026-11-05)
 
 The owner: "we can have the launcher be a generic Android touch interface one. If anything, I'd like to use something very similar to how Melon DS does its stuff." So the launcher is a standard Android app with touch; decision 52's controller-only applies to the game. Its flow follows melonDS on Android: choose a ROM folder, then a list of the games found. Written fresh; no melonDS code is used.
+
+## 54. Android release identity, handled by the agents (2026-11-05)
+
+Asked to choose the app id and keep the signing key, the owner: "Should I trust you with it? If so, then I'll let you handle it." Chosen: app id `com.pocketaccessibility.app`; a release key made once and kept outside the repository, which the owner is asked to back up somewhere they control (a lost key means players must uninstall, losing saves, to update). Details: `android.md`, "Release builds". Publishing an Android build still needs the owner's go-ahead.

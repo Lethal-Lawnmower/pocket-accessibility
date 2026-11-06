@@ -189,5 +189,27 @@ Next time: capture `dumpsys audio` during a missed line, and try with the game's
 
 1. The owner's tests on the Thor: the new launcher menu, sounds, the save editor, and navigation with the
    Thor's own controls.
-2. Before an Android release: the owner's app id and a release signing key (a lost key means players
-   cannot update), our own version name, and Prism's MPL-2.0 notice and `LICENSES` in the app's credits.
+2. Run a release build on the Thor before publishing one (the emulator cannot run it: arm64 only).
+
+## Release builds (set up 2026-11-05, decision 54)
+
+```bash
+python launcher/android/build_apk.py --release --app-id com.pocketaccessibility.app --keystore <key folder> --version-name 0.0.2 --version-code 2 --work <path without spaces> --prism-zip <prism-android.zip>
+```
+
+- **App id** `com.pocketaccessibility.app`. Test builds keep `com.pocketaccess.androidtest`, a separate app
+  with separate saves. Never change the release id: Android would treat it as a new app, and saves stay behind.
+- **Signing key**: RSA 4096, alias `pocket-accessibility`, made once and kept by the owner outside the
+  repository with its password. Upstream's `app/build.gradle` reads it through the `GEN1RECOMP_ANDROID_*`
+  variables, which the script sets. It refuses a key folder inside the repository. Every release must use
+  this key, or Android refuses the update. Certificate SHA-256
+  `fc4af609f7d84c8cc5874cd4c1abd7cf6bdcd8929806c03dcfa8349b882d5956`.
+- **Version**: `--version-name` is what players see; `--version-code` must grow with every release.
+- **Release type**: not debuggable, Java code shrunk. `proguard-rules.pro` keeps Prism's and djinni's
+  classes, which native code calls by name; the mapping showed only compiler-made helper classes renamed.
+- **No speech in the log**: a release build does not set `POKEPORT_ACCESS_TRACE`.
+- **Licenses**: `build_apk.py` writes every bundled library's license (LÖVE, love-android, SDL2, LuaJIT,
+  FreeType, OpenAL Soft, mpg123, Ogg, Vorbis, Theora, ModPlug, Oboe/Apache-2.0, AnimaEngine, Prism and its
+  parts) to `assets/licenses.txt`, with where the source is. The launcher shows them under Credits, Licenses.
+- The test release build: 31 MiB, verified with `apksigner` (signed by this key) and `aapt` (id, version,
+  label). Not yet run on a device.
