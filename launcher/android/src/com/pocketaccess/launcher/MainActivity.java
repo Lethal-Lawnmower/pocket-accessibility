@@ -291,11 +291,36 @@ public final class MainActivity extends Activity {
                         + "Pokémon recompilation games.\n\n" + UPSTREAM_CREDIT
                         + "\n\nSpeech by Prism (MPL-2.0).")
                     .setPositiveButton("Close", null)
+                    .setNeutralButton("Licenses", (dialog, which) -> showLicenses())
                     .show();
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
+    }
+
+    /** The licenses of everything bundled (build_apk.py writes them): a list, then one text at a time. */
+    private void showLicenses() {
+        String all;
+        try (java.io.InputStream input = getAssets().open("licenses.txt")) {
+            all = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException error) {
+            say("The licenses could not be read: " + error.getMessage());
+            return;
+        }
+        String[] sections = all.split("\n=== ");
+        String[] names = new String[sections.length];
+        names[0] = "About these licenses";
+        for (int i = 1; i < sections.length; i++) names[i] = sections[i].substring(0, sections[i].indexOf('\n'));
+        new AlertDialog.Builder(this)
+            .setTitle("Licenses")
+            .setItems(names, (dialog, which) -> new AlertDialog.Builder(this)
+                .setTitle(names[which])
+                .setMessage(which == 0 ? sections[0] : sections[which].substring(sections[which].indexOf('\n') + 1))
+                .setPositiveButton("Back", (inner, button) -> showLicenses())
+                .show())
+            .setNegativeButton("Close", null)
+            .show();
     }
 
     private void pickFolder() {

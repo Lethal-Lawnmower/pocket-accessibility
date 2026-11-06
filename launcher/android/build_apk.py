@@ -129,6 +129,47 @@ def copy_launcher(shadow, test_hooks):
                             '    <activity\n        android:name="org.love2d.android.GameActivity"'))
 
 
+# What the app holds besides our own code, and the license text each needs shipped with it.
+# Paths are relative to the repository; Prism's come from its release zip.
+BUNDLED_LICENSES = [
+    ("Pocket Accessibility and the Pokémon Gen 1 Recompilation Project", "LICENSE.MD"),
+    ("AnimaEngine", "src/import/gen5/ANIMAENGINE_LICENSE"),
+    ("LÖVE", "mobile/android/love/src/jni/love/license.txt"),
+    ("LÖVE for Android", "mobile/android/license.txt"),
+    ("SDL2", "mobile/android/love/src/jni/SDL2/LICENSE.txt"),
+    ("LuaJIT", "mobile/android/love/src/jni/LuaJIT-2.1/COPYRIGHT"),
+    ("FreeType", "mobile/android/love/src/jni/freetype2/docs/FTL.TXT"),
+    ("OpenAL Soft", "mobile/android/love/src/jni/openal-soft/COPYING"),
+    ("OpenAL Soft: PFFFT", "mobile/android/love/src/jni/openal-soft/LICENSE-pffft"),
+    ("mpg123", "mobile/android/love/src/jni/mpg123-1.17.0/COPYING"),
+    ("libogg", "mobile/android/love/src/jni/libogg-1.3.2/COPYING"),
+    ("libvorbis", "mobile/android/love/src/jni/libvorbis-1.3.5/COPYING"),
+    ("libtheora", "mobile/android/love/src/jni/libtheora-1.2.0alpha1/COPYING"),
+    ("libmodplug", "mobile/android/love/src/jni/libmodplug-0.8.8.4/COPYING"),
+    ("Oboe, and Apache-2.0 for AndroidX and the Java library desugaring", "mobile/android/love/src/jni/oboe/LICENSE"),
+]
+LICENSE_HEADER = """Licenses of what this app contains. The source of this app, including the unmodified
+libraries above, is at https://github.com/Lethal-Lawnmower/pocket-accessibility, and Prism's at
+https://github.com/ethindp/prism. Pokémon game data is never included: it comes from your own cartridge dump.
+"""
+
+
+def write_licenses(shadow, prism_zip):
+    """One text file the launcher's Licenses screen reads; sections start with a === line."""
+    parts = [LICENSE_HEADER]
+    for name, path in BUNDLED_LICENSES:
+        parts.append(f"=== {name}\n" + (REPO / path).read_text(encoding="utf-8", errors="replace").strip() + "\n")
+    with zipfile.ZipFile(prism_zip) as archive:
+        for entry in sorted(archive.namelist()):
+            if entry.startswith("LICENSES/") and not entry.endswith("/"):
+                part = entry.split("/")[1]
+                name = "Prism" if part == "prism" else f"Prism: {part}"
+                parts.append(f"=== {name}\n" + archive.read(entry).decode("utf-8", "replace").strip() + "\n")
+    assets = shadow / "app" / "src" / "main" / "assets"
+    assets.mkdir(parents=True, exist_ok=True)
+    (assets / "licenses.txt").write_text("\n".join(parts), encoding="utf-8")
+
+
 def pack_game(shadow):
     """The committed game, leaving out what the Windows package leaves out."""
     with tempfile.TemporaryDirectory() as work:
@@ -198,6 +239,7 @@ def main():
         prepare_project(args.work, args.prism_zip)
     set_identity(args.work, args.app_id, args.version_name, args.version_code)
     copy_launcher(args.work, args.test_hooks)
+    write_licenses(args.work, args.prism_zip)
     (args.work / "local.properties").write_text(
         "sdk.dir=" + str(args.sdk).replace("\\", "/") + "\n", encoding="utf-8")
     commit = pack_game(args.work)
