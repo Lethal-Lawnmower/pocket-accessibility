@@ -174,8 +174,16 @@ Owner, 2026-11-05, during the first full setup on the Thor (Emerald imported): "
 otherwise "the import looks good". Checked so far: the Thor's log has no refused or failed speech, so this
 is not the Crystal problem (Prism refusing text as invalid UTF-8, which `Speech.lua` speaks again as ASCII).
 Prism's TalkBack backend sends each line as an announcement and, for an interrupting line, first stops
-TalkBack's speech. Which lines are missing is not known yet. Launches from the launcher now set
-`POKEPORT_ACCESS_TRACE=1`, so every line sent is in Android's log for comparison (decide before a release).
+TalkBack's speech. Launches from the launcher now set `POKEPORT_ACCESS_TRACE=1`, so every line sent is in Android's log for
+comparison (decide before a release).
+
+**Open, owner's report outranks the log.** In Emerald's opening, the owner did not hear the line on screen,
+"But everyone calls me the POKéMON PROFESSOR.", and insists speech is not working there. The log shows that
+line sent, TalkBack requesting it from Google's voice, and about 1.5 s of audio played on the accessibility
+stream, the same length per word as lines the owner did hear; nothing stopped it. So the cause is after the
+log's reach (audio routing, focus, ducking against the game's sound, or TalkBack itself) and is not found. The
+owner chose not to pursue it for now ("Not worth fixing something that might be good for other people").
+Next time: capture `dumpsys audio` during a missed line, and try with the game's music off.
 
 ## Next
 
