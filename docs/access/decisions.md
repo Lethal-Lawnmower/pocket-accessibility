@@ -495,3 +495,7 @@ The owner: "we can have the launcher be a generic Android touch interface one. I
 ## 54. Android release identity, handled by the agents (2026-11-05)
 
 Asked to choose the app id and keep the signing key, the owner: "Should I trust you with it? If so, then I'll let you handle it." Chosen: app id `com.pocketaccessibility.app`; a release key made once and kept outside the repository, which the owner is asked to back up somewhere they control (a lost key means players must uninstall, losing saves, to update). Details: `android.md`, "Release builds". Publishing an Android build still needs the owner's go-ahead.
+
+## 55. Release 0.0.2 with the first Android build (2026-11-05)
+
+The owner, after the Android release build ran on the Thor: "go ahead and start building", then, offered an update test on the Thor first: "Publish now." Published as `v0.0.2` with the Windows zip and the signed APK; notes and checks in `status.md`.
