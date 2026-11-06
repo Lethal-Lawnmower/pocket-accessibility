@@ -8,6 +8,7 @@ path with spaces.  Prints the finished APK's path.  See docs/access/android.md.
 """
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -21,6 +22,10 @@ import package_release  # noqa: E402  (shares what the Windows package leaves ou
 
 REPO = HERE.parent.parent
 MARKER = "pocket-access-package.txt"
+TEST_APP_ID = "com.pocketaccess.androidtest"
+RELEASE_APP_ID = "com.pocketaccessibility.app"
+KEYSTORE_FILE = "pocket-accessibility-release.jks"
+KEY_ALIAS = "pocket-accessibility"
 LAUNCHER_ACTIVITY = """    <activity
         android:name="com.pocketaccess.launcher.MainActivity"
         android:exported="true"
@@ -53,7 +58,17 @@ def edit(path, *pairs):
         file.write(text.replace("\n", "\r\n") if crlf else text)
 
 
-def prepare_project(shadow, prism_zip, app_id):
+def set_identity(shadow, app_id, version_name, version_code):
+    """App id and version, on every build, so one copy serves test and release builds."""
+    properties = shadow / "gradle.properties"
+    text = properties.read_text(encoding="utf-8")
+    text = re.sub(r"(?m)^app\.application_id=.*$", f"app.application_id={app_id}", text)
+    text = re.sub(r"(?m)^app\.version_name=.*$", f"app.version_name={version_name or 'test'}", text)
+    text = re.sub(r"(?m)^app\.version_code=.*$", f"app.version_code={version_code or 1}", text)
+    properties.write_text(text, encoding="utf-8")
+
+
+def prepare_project(shadow, prism_zip):
     """First build only: the copy and every edit to it."""
     shutil.copytree(REPO / "mobile" / "android", shadow,
                     ignore=shutil.ignore_patterns(".gradle", "build", "local.properties"))
@@ -70,9 +85,14 @@ def prepare_project(shadow, prism_zip, app_id):
           "    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'\n"
           # a flatDir dependency keeps the AAR's manifest, which declares PrismInitProvider
           "    implementation(name: 'prism-release', ext: 'aar')\n"))
-    edit(shadow / "gradle.properties",
-         ("app.application_id=com.theboisclub.pokemonred.dev", f"app.application_id={app_id}"),
-         ("app.name=gen1recomp (dev)", "app.name=Pocket Accessibility"))
+    edit(shadow / "gradle.properties", ("app.name=gen1recomp (dev)", "app.name=Pocket Accessibility"))
+    # A release build shrinks the Java code; Prism's classes are reached from native code by name.
+    with open(shadow / "app" / "proguard-rules.pro", "a", encoding="utf-8") as rules:
+        rules.write("\n# Pocket Accessibility: Prism and the library it uses are called through JNI\n"
+                    "-keep class com.github.ethindp.prism.** { *; }\n"
+                    "-keep class com.dropbox.djinni.** { *; }\n"
+                    "-keep class com.snapchat.djinni.** { *; }\n"
+                    "-keep class com.pocketaccess.launcher.** { *; }\n")
     edit(shadow / "app" / "src" / "main" / "AndroidManifest.xml",
          # Upstream's self-updater and step counter: off or absent here.
          ('  <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />\n', ""),
@@ -136,7 +156,14 @@ def pack_game(shadow):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--prism-zip", required=True, type=Path)
-    parser.add_argument("--app-id", default="com.pocketaccess.androidtest")
+    parser.add_argument("--app-id", default=TEST_APP_ID,
+                        help=f"the test id by default; a release uses {RELEASE_APP_ID}")
+    parser.add_argument("--release", action="store_true",
+                        help="a signed release build: needs --keystore, --version-name and --version-code")
+    parser.add_argument("--keystore", type=Path,
+                        help="the folder holding the release key and its password.txt; never inside the repository")
+    parser.add_argument("--version-name", help="the version players see, for example 0.0.2")
+    parser.add_argument("--version-code", type=int, help="a whole number that grows with every release")
     parser.add_argument("--clean", action="store_true", help="start again from upstream's project")
     parser.add_argument("--test-hooks", action="store_true",
                         help="add the activity scripted runs start through; never for a build for players")
@@ -150,21 +177,39 @@ def main():
     if " " in str(args.work):
         sys.exit("ndk-build cannot handle spaces: choose a --work path without any")
 
+    environment = dict(os.environ, ANDROID_HOME=str(args.sdk), JAVA_HOME=str(args.jdk))
+    if args.release:
+        if args.test_hooks or args.app_id == TEST_APP_ID:
+            sys.exit("a release uses its own app id and no test hooks")
+        if not (args.keystore and args.version_name and args.version_code):
+            sys.exit("a release needs --keystore, --version-name and --version-code")
+        if REPO in args.keystore.resolve().parents:
+            sys.exit("the release key must stay outside the repository")
+        password = (args.keystore / "password.txt").read_text(encoding="ascii").strip()
+        # upstream's app/build.gradle reads these four
+        environment.update(GEN1RECOMP_ANDROID_KEYSTORE=str(args.keystore / KEYSTORE_FILE),
+                           GEN1RECOMP_ANDROID_KEYSTORE_PASSWORD=password,
+                           GEN1RECOMP_ANDROID_KEY_ALIAS=KEY_ALIAS,
+                           GEN1RECOMP_ANDROID_KEY_PASSWORD=password)
+
     if args.clean:
         shutil.rmtree(args.work, ignore_errors=True)
     if not args.work.is_dir():
-        prepare_project(args.work, args.prism_zip, args.app_id)
+        prepare_project(args.work, args.prism_zip)
+    set_identity(args.work, args.app_id, args.version_name, args.version_code)
     copy_launcher(args.work, args.test_hooks)
     (args.work / "local.properties").write_text(
         "sdk.dir=" + str(args.sdk).replace("\\", "/") + "\n", encoding="utf-8")
     commit = pack_game(args.work)
 
     wrapper = args.work / ("gradlew.bat" if os.name == "nt" else "gradlew")
-    environment = dict(os.environ, ANDROID_HOME=str(args.sdk), JAVA_HOME=str(args.jdk))
-    subprocess.run([str(wrapper), "--no-daemon", "assembleEmbedNoRecordDebug", "--console=plain"],
+    kind = "release" if args.release else "debug"
+    subprocess.run([str(wrapper), "--no-daemon", f"assembleEmbedNoRecord{kind.capitalize()}", "--console=plain"],
                    cwd=args.work, env=environment, check=True,
                    creationflags=0x08000000 if os.name == "nt" else 0)
-    apk = args.work / "app" / "build" / "outputs" / "apk" / "embedNoRecord" / "debug" / "app-embed-noRecord-debug.apk"
+    apk = args.work / "app" / "build" / "outputs" / "apk" / "embedNoRecord" / kind / f"app-embed-noRecord-{kind}.apk"
+    if not apk.is_file():
+        sys.exit(f"no APK at {apk}: a release built without signing is written under another name")
     print(f"game from commit {commit}\n{apk}")
 
 

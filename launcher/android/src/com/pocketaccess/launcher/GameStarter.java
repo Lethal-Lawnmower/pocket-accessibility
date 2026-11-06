@@ -3,6 +3,7 @@ package com.pocketaccess.launcher;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
 import android.net.Uri;
 import android.system.ErrnoException;
 import android.system.Os;
@@ -81,10 +82,12 @@ final class GameStarter {
             Os.setenv("POKEPORT_FORCE_IMPORT", "1", true);
         }
         Os.setenv("POKEPORT_GAME", game.id, true);
-        // Testing period: every spoken line goes to Android's log, so a line the owner
+        // Test builds only: every spoken line goes to Android's log, so a line the owner
         // did not hear can be compared with what was sent (docs/access/android.md).
-        // Decide before a release whether this stays.
-        Os.setenv("POKEPORT_ACCESS_TRACE", "1", true);
+        // A release build is not debuggable and keeps players' speech out of the log.
+        if ((context.getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            Os.setenv("POKEPORT_ACCESS_TRACE", "1", true);
+        }
         // GameActivity hands this extra to love.system.getLaunchGame
         context.startActivity(new Intent(context, GameActivity.class).putExtra("game", game.id));
     }
