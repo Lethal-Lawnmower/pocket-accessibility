@@ -64,13 +64,28 @@ Not everything is covered. If auto-walk says there's no route, the way may reall
 
 ## Getting Started
 
-You supply your own ROMs. No game data is included.
+You supply your own ROMs. No game data is included. Downloads are on this repository's [Releases page](https://github.com/Lethal-Lawnmower/pocket-accessibility/releases).
 
-1. Download the zip from this repository's [Releases page](https://github.com/Lethal-Lawnmower/pocket-accessibility/releases) and unzip it anywhere.
+### Windows
+
+1. Download the Windows zip and unzip it anywhere.
 2. Open `PocketLauncher.exe`.
 3. Choose Import ROM, pick your game's ROM, then Play.
 
-Windows only for now, with Android and Linux on the way. Nothing else needs installing. To update later, press Alt in the launcher and choose Check for updates under Tools. Your saves and imported games are kept outside that folder, so updating doesn't touch them.
+Nothing else needs installing. To update later, press Alt in the launcher and choose Check for updates under Tools. Your saves and imported games are kept outside that folder, so updating doesn't touch them.
+
+### Android
+
+Android is new and has had much less testing. It's played with a controller, using the controls below; the touch controls are left as they are. It needs Android 8 or later on a 64-bit device, and speaks through TalkBack.
+
+1. Download the APK on your device and install it. Android will ask you to allow installing apps from your browser or file manager.
+2. Put your ROMs in a folder on the device, such as one inside Downloads.
+3. Open Pocket Accessibility, choose Choose ROM folder, and pick that folder. Your games appear in a list.
+4. Select a game. The first time, it's imported, then it starts.
+
+The launcher's menu also has the Pokémon Access sounds, the save editor and the licenses. A long press on a game opens its save editor. To update, install the newer APK over the old one; your saves are kept.
+
+Linux is on the way.
 
 ### Running from source
 
@@ -93,7 +108,7 @@ The game's own controls are arrow keys or WASD to move, Z or Enter for A, X or B
 
 The navigation keys only work on the map, so they never get in the way of menus or battles.
 
-**On a controller,** hold the left trigger and use the D-pad: up and down change the category, and left and right move through it. Click the right stick for spoken directions, and the left stick to auto-walk. Click again to stop.
+**On a controller,** including on Android, hold the left trigger and use the D-pad: up and down change the category, and left and right move through it. Click the right stick for spoken directions, and the left stick to auto-walk. Click again to stop.
 
 Want another key? Ask, and I'll look at adding it.
 
