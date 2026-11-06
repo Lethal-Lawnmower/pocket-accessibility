@@ -81,6 +81,10 @@ final class GameStarter {
             Os.setenv("POKEPORT_FORCE_IMPORT", "1", true);
         }
         Os.setenv("POKEPORT_GAME", game.id, true);
+        // Testing period: every spoken line goes to Android's log, so a line the owner
+        // did not hear can be compared with what was sent (docs/access/android.md).
+        // Decide before a release whether this stays.
+        Os.setenv("POKEPORT_ACCESS_TRACE", "1", true);
         // GameActivity hands this extra to love.system.getLaunchGame
         context.startActivity(new Intent(context, GameActivity.class).putExtra("game", game.id));
     }
