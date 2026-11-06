@@ -170,6 +170,13 @@ Installed on the Thor 2026-11-05 at the owner's request ("push it to the Thor ..
 player build (no test hooks) of `main` at `df2b3259`, over the earlier test install, keeping its data. Its
 version name is still upstream's `11.5a`.
 
+Owner, 2026-11-05, during the first full setup on the Thor (Emerald imported): "some lines aren't reading",
+otherwise "the import looks good". Checked so far: the Thor's log has no refused or failed speech, so this
+is not the Crystal problem (Prism refusing text as invalid UTF-8, which `Speech.lua` speaks again as ASCII).
+Prism's TalkBack backend sends each line as an announcement and, for an interrupting line, first stops
+TalkBack's speech. Which lines are missing is not known yet. Launches from the launcher now set
+`POKEPORT_ACCESS_TRACE=1`, so every line sent is in Android's log for comparison (decide before a release).
+
 ## Next
 
 1. The owner's tests on the Thor: the new launcher menu, sounds, the save editor, and navigation with the
