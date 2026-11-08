@@ -26,9 +26,11 @@
 local M = {
   id = "items",
   questions = {
-    { key = "items", kind = "yesno", text = "Shuffle the items\non the ground?" },
+    -- Both on in either setup (owner, 2026-11-08).
+    { key = "items", kind = "yesno", text = "Shuffle the items\non the ground?",
+      recommended = true, everything = true },
     { key = "items_hidden", kind = "yesno", onlyIf = "items",
-      text = "Shuffle hidden\nitems too?" },
+      text = "Shuffle hidden\nitems too?", recommended = true, everything = true },
   },
 }
 

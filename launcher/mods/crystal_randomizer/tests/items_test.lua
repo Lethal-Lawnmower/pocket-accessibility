@@ -96,6 +96,28 @@ local function protectedSpots(data)
   return out
 end
 
+-- ------------------------------------------------------------ questions
+do
+  -- Oak's box: two lines of at most 18 characters, \v scrolls, \f starts a box.
+  local function fitsOak(text)
+    for box in (text .. "\f"):gmatch("(.-)\f") do
+      for line in (box:gsub("\v", "\n") .. "\n"):gmatch("(.-)\n") do
+        if #line > 18 then return false, line end
+      end
+    end
+    return true
+  end
+  local keys = {}
+  for _, q in ipairs(Items.questions) do
+    keys[#keys + 1] = q.key
+    eq(q.recommended, true, "question " .. q.key .. " is on in RECOMMENDED")
+    eq(q.everything, true, "question " .. q.key .. " is on in EVERYTHING")
+    local fits, line = fitsOak(q.text)
+    ok(fits, "question " .. q.key .. " fits Oak's box (" .. tostring(line) .. ")")
+  end
+  eq(table.concat(keys, ","), "items,items_hidden", "the items questions")
+end
+
 -- ------------------------------------------------------------ vanilla
 do
   local data = syntheticData()
