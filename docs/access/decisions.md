@@ -509,3 +509,7 @@ Then, the same day: "actually make that a default for everyone." Built into the 
 ## 57. A Crystal randomizer mod, set up at New Game (2026-11-08)
 
 The owner: a randomizer mod "able to be customized from day one ... you don't need to patch the ROM every time." Offered a first version of wild, trainers and starters, the owner chose "everything on the list. We can wait. Use subagents. 4 of them." Details: `gold-silver-crystal.md`, "Crystal Randomizer mod".
+
+## 58. Randomizer version 2: everything from the research (2026-11-08)
+
+After seed 876506 felt "kind of normal", the owner asked for research on how other randomizers work, then: "use up to 10 sub-agents to build all of that." Oak now offers RECOMMENDED, EVERYTHING or CHOOSE EACH; the HM shuffle is offered only in CHOOSE EACH. Details: `gold-silver-crystal.md`, "Randomizer version 2".

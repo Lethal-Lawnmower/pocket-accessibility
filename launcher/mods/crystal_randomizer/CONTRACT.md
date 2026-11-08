@@ -71,8 +71,11 @@ reads them again on every switch.
 
 **Shared values** (in `ctx.shared`, rebuilt on every switch):
 - `starters`: as above.
-- `starterRivalPairs` (starters module): which replacement the rival's ball holds for each ball the player can
-  take, so the trainers module can check the rival's starter is strong against the player's.
+- `starterRivalPairs` (starters module), keyed by the ball the player takes:
+  `{ CHIKORITA = { player = <species>, rivalBall = "CYNDAQUIL", rival = <species>, strong = true|false }, ... }`.
+  The trainers module reads `rival`.
+- `wild` (wild module): `[scope][original] = replacement`, and `wild.report` with coverage figures.
+- `keyitems` (keyitems module): where each HM was placed.
 
 ## Rules
 

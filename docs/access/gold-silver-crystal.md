@@ -327,3 +327,25 @@ What they do that this mod does not:
 - Larger: key item and map randomizers (Archipelago, a Crystal map randomizer), which need logic so the
   game stays winnable.
 
+### Randomizer version 2 (2026-11-08, decision 58)
+
+The owner: "use up to 10 sub-agents to build all of that" (the research list). Nine agents built or
+extended one module each against `CONTRACT.md`; the core gained Oak's setup choice (RECOMMENDED, EVERYTHING,
+CHOOSE EACH), so a player is not asked thirty questions. The mod's `README.md` lists every question and what
+each does. New modules: `stats`, `evolutions`, `tms`, `shops`, `qol`, `keyitems`. Engine files: none edited;
+the `tms` module wraps `Game2:consumeItem` on the running game for reusable TMs (Gen 2 has no item hook),
+and `qol` sets map trainers' `sight` to 0 per save for blind trainers. Our own layer: navigation now names a
+TM or HM ball by its number and current move (`src/access/nav/gen2/WorldSnapshot.lua` `machineLabel`).
+
+Module tests, all passing together: core 7, pokemon, stats, evolutions 26846, starters 4167, items 76,
+tms 141, shops 625, wild 14979, trainers 1558, qol 88, keyitems 2176 checks; each also passed on the real
+imported Crystal tables, and each agent's own silent game run passed. Saves started with version 1 keep
+their version 1 world (wild module legacy path). The HM shuffle model (`keyitems`) is the agent's reading of
+the scripts with deliberately strict rules; it found 288 beatable HM orders of 5040 and has not been proved
+by a playthrough, which is why only CHOOSE EACH offers it.
+
+Known gaps beyond the README's list: the Pack still says the old quantity after an item is used on a
+Pokémon (seen with METAL COAT; probably the Pack not refreshing, not checked with a stone); UP-GRADE and the
+other trade items may be hard to find; legendaries can appear on ordinary trainers; day-care experience is
+not multiplied; an exported cartridge save made on a map with blind trainers carries their sight as 0.
+
