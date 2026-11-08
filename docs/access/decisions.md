@@ -499,3 +499,7 @@ Asked to choose the app id and keep the signing key, the owner: "Should I trust 
 ## 55. Release 0.0.2 with the first Android build (2026-11-05)
 
 The owner, after the Android release build ran on the Thor: "go ahead and start building", then, offered an update test on the Thor first: "Publish now." Published as `v0.0.2` with the Windows zip and the signed APK; notes and checks in `status.md`.
+
+## 56. A PC Clock mod for Gold, Silver and Crystal (2026-11-08)
+
+The owner asked for "an actual mod" that uses the system clock, with daylight saving and the day of the week, and, told the port already reads the clock through the player's answer: "we can just have the mod answer it with the actual correct stuff ... That way it's not an option." Details: `gold-silver-crystal.md`, "PC Clock mod".

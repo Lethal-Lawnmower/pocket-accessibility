@@ -260,3 +260,22 @@ Chase bug found in this check and fixed: it compared names, so walking from one 
 started a chase. It now needs the same object, or the old id gone and one object with that name.
 Gold's chase rerun after the fix.
 
+## PC Clock mod (2026-11-08, decision 56)
+
+`launcher/mods/pc_clock` is a real mod (api 2, `engine_internals`), installed into a save folder's `mods`
+as `pocket_pc_clock`; it is not loaded unless installed. Upstream already reads the host clock through the
+offset taken when Oak's and Mom's questions are answered (`src/core/gen2/Clock.lua`), so the time already
+followed daylight saving and the weekday; the mod removes the answers:
+
+- `InitClock.new` opens on the device's hour, minute and weekday with `autoConfirm`, the screen's own
+  walk-through, and the layer says "Clock set from your device: ..." or "Day set from your device: ...".
+- `Clock.minutes` and `Clock.weekday` read with the offset at zero and put it back, so the save keeps the
+  player's own setting when the mod is off.
+- Mom's daylight saving question still appears: the port stores `rtc.dst` and never moves the clock with it.
+
+Tested by script (`tests/access/drivers/pc_clock_mod.lua`), Crystal and Gold, disposable profiles: both
+screens answered themselves within 8 frames with the device's values; the game's time and weekday equalled
+the device's after a new game, after both screens and after a forced 6-hour offset; the save kept that
+offset. Without the mod the same run reads 10:00 and the screens wait. Not played by the owner yet; Silver
+and Android not tried.
+
