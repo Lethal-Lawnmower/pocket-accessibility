@@ -2,6 +2,8 @@
 -- the driver builds the modules' ctx from tests/fake_ctx.lua (a fixed seed,
 -- every question answered YES), hands them the live game and the engine's own
 -- hook table, and then
+--   0. logs the three starters, each ball's rival pair (three stages and the
+--      type triangle are on) and the size of the live type chart;
 --   1. runs Elm's CYNDAQUIL ball script in the VM, answers YES and declines a
 --      nickname, and logs what Elm said and what species joined the party;
 --   2. teleports beside an item ball whose contents the shuffle changed, logs
@@ -40,7 +42,8 @@ return function(game)
 
   local seed = os.getenv("RAND_SEED") or "driver-seed"
   local ctx = Fake.new({ seed = seed,
-    options = { starters = true, gifts = true, items = true, items_hidden = true } })
+    options = { starters = true, starters_stages = true, starters_triangle = true, gifts = true,
+      gifts_legendary = true, items = true, items_hidden = true } })
   local mod = { game = game, hooks = {
     wrap = function(_, name, fn) return Runtime.hooks:wrap(name, fn, 0, "crystal_randomizer_driver") end,
   } }
@@ -59,6 +62,17 @@ return function(game)
   if not s then U.log("FAIL", "no starters published") return end
   U.log("RESULT", "starters", "CHIKORITA>" .. s.CHIKORITA, "CYNDAQUIL>" .. s.CYNDAQUIL,
     "TOTODILE>" .. s.TOTODILE)
+  -- the live game's type chart and evolutions: three stages, and each rival
+  -- ball strong against the player's
+  local pairs_ = ctx.shared.starterRivalPairs
+  U.log("RESULT", "type chart rows", #((data.type_chart or {}).matchups or {}))
+  for _, ball in ipairs(Starters.STARTERS) do
+    local pair = pairs_ and pairs_[ball]
+    if not pair then U.log("FAIL", "no rival pair for", ball) return end
+    U.log("RESULT", "pair", "player " .. ball .. "=" .. pair.player, "rival " .. pair.rivalBall .. "=" .. pair.rival,
+      "strong", tostring(pair.strong), "stages", Starters.lineLength(data.pokemon, pair.player),
+      "types", tostring(Starters.typePhrase(data.pokemon[pair.player])))
+  end
 
   -- ------------------------------------------------------------ the starter
   local species = Starters.species(data.pokemon)
