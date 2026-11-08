@@ -2,7 +2,8 @@
 -- stand-in ctx (the randomizer's core is not needed), then drives the real
 -- World encounter paths -- a grass step on ROUTE_29, the three rods on
 -- ROUTE_30, a headbutt tree and a ROCK SMASH rock -- first on a vanilla save,
--- then randomized, then vanilla again, and logs what each path produced.
+-- then randomized (version 2 options: per route, about as strong, catch 'em
+-- all, levels at 150%), then vanilla again, and logs what each path produced.
 -- Only the first randomized grass encounter is allowed to open a battle.
 -- Run silently with a disposable identity, for example:
 --   POKEPORT_IDENTITY=pocket-access-rand-wild-run POKEPORT_ACCESS_SILENT=1
@@ -169,12 +170,37 @@ return function(game)
     return grass
   end
 
+  -- Version 2 options: per route, about as strong, catch 'em all, levels at 150%.
+  local OPTIONS = { wild = true, wild_mode = "route", wild_similar = true, wild_catch_all = true, wild_level = 150 }
+  local vanillaDay = {}
+  for _, slot in ipairs(world.encounters.grass.ROUTE_29.slots.DAY) do
+    vanillaDay[#vanillaDay + 1] = { species = slot.species, level = slot.level }
+  end
+  local vanillaGrass = {}
+  for _, tod in ipairs({ "MORN", "DAY", "NITE" }) do
+    for _, slot in ipairs(world.encounters.grass.ROUTE_29.slots[tod]) do vanillaGrass[slot.species] = true end
+  end
   survey("VANILLA")
-  setSave(true, "driver-seed", { wild = true, wild_similar = true })
+  setSave(true, "driver-seed", OPTIONS)
   local randomized = survey("RANDOM")
+  -- No-reuse and levels, read from the table the game itself rolls.
+  local tableOk = true
+  for i, slot in ipairs(world.encounters.grass.ROUTE_29.slots.DAY) do
+    local want = math.max(2, math.min(100, math.floor(vanillaDay[i].level * 1.5 + 0.5)))
+    if vanillaGrass[slot.species] or slot.level ~= want then tableOk = false end
+  end
+  local rolledOk = #randomized > 0
+  for _, species in ipairs(randomized) do if vanillaGrass[species] then rolledOk = false end end
+  U.log("CHECK ROUTE_29 DAY table no-reuse and 150% levels:", tostring(tableOk),
+    "| rolled grass avoids vanilla ROUTE_29 species:", tostring(rolledOk))
   setSave(false)
   survey("RESTORED")
-  setSave(true, "driver-seed", { wild = true, wild_similar = true })
+  local restoredOk = true
+  for i, slot in ipairs(world.encounters.grass.ROUTE_29.slots.DAY) do
+    if slot.species ~= vanillaDay[i].species or slot.level ~= vanillaDay[i].level then restoredOk = false end
+  end
+  U.log("CHECK restored ROUTE_29 DAY equals vanilla:", tostring(restoredOk))
+  setSave(true, "driver-seed", OPTIONS)
   -- One real battle from the randomized grass.
   world:setMap("ROUTE_29", 0, 0, "down")
   U.wait(5)
@@ -197,5 +223,5 @@ return function(game)
     "top screen phase", tostring(top and top.phase),
     "enemy", tostring(type(enemy) == "table" and (enemy.species or (enemy.mon and enemy.mon.species))))
   setSave(false)
-  finish(#randomized > 0)
+  finish(tableOk and rolledOk and restoredOk, "a CHECK line failed")
 end

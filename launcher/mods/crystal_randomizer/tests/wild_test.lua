@@ -4,9 +4,11 @@
 -- the checks on the real Crystal tables (pokemon.lua, encounters.lua,
 -- maps.lua), for example a disposable identity's
 --   %APPDATA%/LOVE/<identity>/crystal/data/generated
+-- and prints coverage and band figures for each setup.
 package.path = "./?.lua;./?/init.lua;" .. package.path
 
 local Fake = dofile("launcher/mods/crystal_randomizer/tests/fake_ctx.lua")
+local Encounter = require("src.battle.gen2.Encounter")
 local MODULE = "launcher/mods/crystal_randomizer/modules/wild.lua"
 
 local failures, checks = 0, 0
@@ -42,7 +44,16 @@ local function deepEqual(a, b, path)
   return true
 end
 
+local function sortedKeys(t)
+  local keys = {}
+  for k in pairs(t) do keys[#keys + 1] = k end
+  table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
+  return keys
+end
+
 -- ------------------------------------------------------------ the fixture
+
+local FIXTURE_TYPES = { "NORMAL", "BUG", "ROCK", "WATER", "FIRE" }
 
 local function fixture()
   local pokemon = {}
@@ -50,6 +61,7 @@ local function fixture()
     local each = math.floor(bst / 6)
     local def = { id = id, name = id, index = index, genderRatio = 127,
       eggGroups = { "EGG_FIELD", "EGG_FIELD" }, eggGroupsRaw = 0x55,
+      types = { FIXTURE_TYPES[index % 5 + 1], FIXTURE_TYPES[(index * 3) % 5 + 1] },
       baseStats = { hp = bst - each * 5, attack = each, defense = each, speed = each,
         specialAttack = each, specialDefense = each } }
     for k, v in pairs(extra or {}) do def[k] = v end
@@ -78,7 +90,11 @@ local function fixture()
       ROUTE_B = { map = "ROUTE_B", rates = { MORN = 10, DAY = 10, NITE = 10 },
         slots = { MORN = seven("MON30", "MON31", "MON32", 30),
                   DAY = seven("MON30", "MON31", "MON32", 30),
-                  NITE = seven("MON33", "MON31", "MON32", 30) } },
+                  NITE = seven("MON33", "MON31", "MON32", 90) } },
+      NATIONAL_PARK = { map = "NATIONAL_PARK", rates = { MORN = 10, DAY = 10, NITE = 10 },
+        slots = { MORN = seven("MON19", "MON20", "MON21", 12),
+                  DAY = seven("MON19", "MON20", "MON21", 12),
+                  NITE = seven("MON19", "MON20", "MON21", 12) } },
     },
     water = {
       ROUTE_A = { map = "ROUTE_A", rate = 10,
@@ -107,16 +123,16 @@ local function fixture()
         rare = { { chance = 100, level = 10, species = "MON14" } } },
       TREEMON_SET_ROCK = {
         common = { { chance = 90, level = 15, species = "MON15" },
-                   { chance = 10, level = 15, species = "MON16" } }, rare = {} },
+                   { chance = 10, level = 1, species = "MON16" } }, rare = {} },
     },
     trees = { ROUTE_A = "TREEMON_SET_ROUTE" },
     rocks = { ROUTE_B = "TREEMON_SET_ROCK" },
     bugContest = { { chance = 50, min = 7, max = 18, species = "MON17" },
-                   { chance = 50, min = 7, max = 18, species = "MON18" } },
+                   { chance = 50, min = 7, max = 60, species = "MON18" } },
     roamMons = { { species = "LEGEND", level = 40 } },
   }
   local maps = { ROUTE_A = { fishGroup = "FISHGROUP_SHORE" }, ROUTE_B = { fishGroup = "FISHGROUP_NONE" },
-    RUINS = {} }
+    RUINS = {}, NATIONAL_PARK = {} }
   return { pokemon = pokemon, gen2Encounters = encounters, gen2Maps = maps }
 end
 
@@ -137,7 +153,6 @@ end
 
 -- ------------------------------------------------------------ harness
 
--- A fresh copy of the module, installed against `data` with a fake mod.
 local function install(data, seed, options)
   local Wild = dofile(MODULE)
   local hooks = {}
@@ -148,37 +163,14 @@ local function install(data, seed, options)
   return { Wild = Wild, ctx = ctx, hooks = hooks, mod = mod }
 end
 
--- The engine's vanilla fishing link, standing in for World's fishVanilla.
-local function vanillaFish(row)
-  return function() return { species = row.species, level = row.level } end
-end
+local ROD_NAME = { old = "OLD_ROD", good = "GOOD_ROD", super = "SUPER_ROD" }
 
-local function fish(h, mapId, species)
+-- One rod roll through the hook, the engine's vanilla link giving `species`.
+local function fish(h, mapId, species, level, rod)
   local fn = h.hooks["encounter.fishing"]
-  local roll = fn(vanillaFish({ species = species, level = 10 }), "OLD_ROD", mapId, {}, {})
-  return roll and roll.species
-end
-
--- Every (scope, original) -> replacement visible in the rewritten tables.
-local function tableMapping(vanilla, data)
-  local out = {}
-  local function walk(scope, a, b)
-    if type(a) ~= "table" then return end
-    if type(a.species) == "string" and type(b.species) == "string" then
-      out[#out + 1] = { scope = scope, from = a.species, to = b.species,
-        levelSame = a.level == b.level and a.min == b.min and a.max == b.max }
-    end
-    for k, v in pairs(a) do
-      if type(v) == "table" then walk(scope, v, b[k]) end
-    end
-  end
-  local ve, de = vanilla.gen2Encounters, data.gen2Encounters
-  for _, kind in ipairs({ "grass", "water", "swarmGrass", "swarmWater" }) do
-    for mapId, entry in pairs(ve[kind] or {}) do walk(mapId, entry, de[kind][mapId]) end
-  end
-  for setName, set in pairs(ve.treeSets or {}) do walk("tree:" .. setName, set, de.treeSets[setName]) end
-  walk("bug_contest", ve.bugContest or {}, de.bugContest or {})
-  return out
+  local roll = fn(function() return { species = species, level = level or 10 } end,
+    rod or "OLD_ROD", mapId, {}, {})
+  return roll and roll.species, roll and roll.level
 end
 
 local function isLegendaryShape(def)
@@ -186,17 +178,328 @@ local function isLegendaryShape(def)
     or (def.eggGroups and def.eggGroups[1] == "EGG_NONE" and def.eggGroups[2] == "EGG_NONE"))
 end
 
+local function isReal(def)
+  if type(def) ~= "table" or type(def.index) ~= "number" or def.index < 1 then return false end
+  local s = def.baseStats
+  return type(s) == "table" and type(s.hp) == "number" and type(s.attack) == "number"
+    and type(s.defense) == "number" and type(s.speed) == "number"
+    and type(s.specialAttack) == "number" and type(s.specialDefense) == "number"
+end
+
 local function bst(def)
   local s = def.baseStats
   return s.hp + s.attack + s.defense + s.speed + s.specialAttack + s.specialDefense
 end
 
+local function poolOf(pokemon)
+  local pool = {}
+  for id, def in pairs(pokemon) do
+    if isReal(def) and type(def.name) == "string" and not isLegendaryShape(def) then pool[id] = true end
+  end
+  return pool
+end
+
+-- The vanilla world, worked out here independently of the module:
+-- every slot { scope, habitat, path, species, level } in table order, fish
+-- rows per map, each scope's species and the no-reuse sets.
+local function vanillaWorld(data)
+  local e, slots = data.gen2Encounters, {}
+  local function add(scope, habitat, row, path)
+    if type(row) == "table" and type(row.species) == "string" then
+      slots[#slots + 1] = { scope = scope, habitat = habitat, row = row, path = path,
+        species = row.species, level = row.level, min = row.min, max = row.max }
+    end
+  end
+  for _, kind in ipairs({ "grass", "swarmGrass" }) do
+    for mapId, entry in pairs(e[kind] or {}) do
+      for tod, list in pairs(entry.slots or {}) do
+        for i, row in ipairs(list) do add(mapId, "land", row, { kind, mapId, "slots", tod, i }) end
+      end
+    end
+  end
+  for _, kind in ipairs({ "water", "swarmWater" }) do
+    for mapId, entry in pairs(e[kind] or {}) do
+      for i, row in ipairs(entry.slots or {}) do add(mapId, "water", row, { kind, mapId, "slots", i }) end
+    end
+  end
+  for setName, set in pairs(e.treeSets or {}) do
+    for _, half in ipairs({ "common", "rare" }) do
+      for i, row in ipairs(set[half] or {}) do add("tree:" .. setName, "land", row, { "treeSets", setName, half, i }) end
+    end
+  end
+  for i, row in ipairs(e.bugContest or {}) do add("bug_contest", "land", row, { "bugContest", i }) end
+
+  local fishRows = {}
+  for mapId, def in pairs(data.gen2Maps or {}) do
+    local base = def.fishGroup
+    if type(base) == "string" and base ~= "FISHGROUP_NONE" then
+      local list, seen = {}, {}
+      for _, swarm in ipairs({ Encounter.FISHSWARM_NONE, Encounter.FISHSWARM_QWILFISH,
+          Encounter.FISHSWARM_REMORAID }) do
+        local group = e.fishGroups[Encounter.fishGroupFor(e, base, swarm)]
+        for rod, rows in pairs(group or {}) do
+          if type(rows) == "table" and ROD_NAME[rod] then
+            for _, row in ipairs(rows) do
+              local timed = row.timeGroup and e.timeFishGroups and e.timeFishGroups[row.timeGroup] or {}
+              for _, s in ipairs({ row, row.day or false, row.nite or false, timed.day or false, timed.nite or false }) do
+                if s and type(s.species) == "string" and s.species ~= "NO_ITEM" then
+                  local key = rod .. s.species .. tostring(s.level)
+                  if not seen[key] then
+                    seen[key] = true
+                    list[#list + 1] = { rod = rod, species = s.species, level = s.level }
+                  end
+                end
+              end
+            end
+          end
+        end
+      end
+      if #list > 0 then fishRows[mapId] = list end
+    end
+  end
+
+  local scopeSpecies = {}
+  local function note(scope, species)
+    scopeSpecies[scope] = scopeSpecies[scope] or {}
+    scopeSpecies[scope][species] = true
+  end
+  for _, s in ipairs(slots) do note(s.scope, s.species) end
+  for mapId, list in pairs(fishRows) do for _, f in ipairs(list) do note(mapId, f.species) end end
+  local banned = {}
+  for scope, set in pairs(scopeSpecies) do banned[scope] = deepCopy(set) end
+  for _, kind in ipairs({ "trees", "rocks" }) do
+    for mapId, setName in pairs(e[kind] or {}) do
+      local tree = scopeSpecies["tree:" .. setName]
+      if banned[mapId] and tree then for id in pairs(tree) do banned[mapId][id] = true end end
+      if banned["tree:" .. setName] and scopeSpecies[mapId] then
+        for id in pairs(scopeSpecies[mapId]) do banned["tree:" .. setName][id] = true end
+      end
+    end
+  end
+  if banned.bug_contest and scopeSpecies.NATIONAL_PARK then
+    for id in pairs(scopeSpecies.NATIONAL_PARK) do banned.bug_contest[id] = true end
+  end
+  -- habitat species per scope, for the theme check
+  local habitat = {}
+  for _, s in ipairs(slots) do
+    habitat[s.scope] = habitat[s.scope] or { land = {}, water = {} }
+    habitat[s.scope][s.habitat][s.species] = true
+  end
+  for mapId, list in pairs(fishRows) do
+    habitat[mapId] = habitat[mapId] or { land = {}, water = {} }
+    for _, f in ipairs(list) do habitat[mapId].water[f.species] = true end
+  end
+  return { slots = slots, fish = fishRows, species = scopeSpecies, banned = banned, habitat = habitat }
+end
+
+local function rowAt(data, path)
+  local t = data.gen2Encounters
+  for _, k in ipairs(path) do t = t[k] end
+  return t
+end
+
+-- Every (scope, habitat, original, replacement, level before/after) in the
+-- randomized world: table slots plus one rod roll per vanilla fish row.
+local function observed(h, data, world)
+  local out = {}
+  for _, s in ipairs(world.slots) do
+    local row = rowAt(data, s.path)
+    out[#out + 1] = { scope = s.scope, habitat = s.habitat, from = s.species, to = row.species,
+      slot = table.concat(s.path, "|"), level = s.level, newLevel = row.level,
+      min = s.min, max = s.max, newMin = row.min, newMax = row.max }
+  end
+  for _, mapId in ipairs(sortedKeys(world.fish)) do
+    for _, f in ipairs(world.fish[mapId]) do
+      local to, level = fish(h, mapId, f.species, f.level, ROD_NAME[f.rod])
+      out[#out + 1] = { scope = mapId, habitat = "water", from = f.species, to = to,
+        slot = mapId .. "|fish|" .. f.rod .. "|" .. f.species .. "|" .. tostring(f.level),
+        level = f.level, newLevel = level, fish = true }
+    end
+  end
+  return out
+end
+
+-- The theme a place must keep (the module header's definition, rewritten).
+local function themeFits(pokemon, world, scope, habitat, original, to)
+  local types = {}
+  for _, t in ipairs(pokemon[to].types or {}) do types[t] = true end
+  if habitat == "water" then return types.WATER == true end
+  local counts, n, best = {}, 0, 0
+  for id in pairs(world.habitat[scope].land) do
+    local def = pokemon[id]
+    if isReal(def) then
+      n = n + 1
+      local seen = {}
+      for _, t in ipairs(def.types or {}) do
+        if not seen[t] then seen[t] = true; counts[t] = (counts[t] or 0) + 1 end
+      end
+    end
+  end
+  local theme = {}
+  for t, c in pairs(counts) do
+    if c * 3 >= n then theme[t] = true end
+    best = math.max(best, c)
+  end
+  if next(theme) == nil then for t, c in pairs(counts) do if c == best then theme[t] = true end end end
+  for _, t in ipairs(pokemon[original].types or {}) do theme[t] = true end
+  for t in pairs(types) do if theme[t] then return true end end
+  return false
+end
+
+-- ------------------------------------------------------------ the questions
+
+do
+  local Wild = dofile(MODULE)
+  local keys = {}
+  local function glyphs(s) return #(s:gsub("é", "e")) end
+  for _, q in ipairs(Wild.questions) do
+    keys[q.key] = q
+    local lines = {}
+    for line in (q.text .. "\n"):gmatch("([^\n]*)\n") do lines[#lines + 1] = line end
+    check(#lines <= 2, "question %s has %d lines", q.key, #lines)
+    for _, line in ipairs(lines) do
+      check(glyphs(line) <= 18, "question %s line %q is %d characters", q.key, line, glyphs(line))
+    end
+    check(q.recommended ~= nil and q.everything ~= nil, "question %s lacks recommended/everything", q.key)
+    if q.kind == "choice" then
+      local values = {}
+      for _, o in ipairs(q.options) do
+        check(#o.label <= 12 and o.label == o.label:upper(), "label %q of %s", o.label, q.key)
+        values[o.value] = true
+      end
+      check(values[q.recommended] and values[q.everything], "question %s presets are not options", q.key)
+    else
+      check(type(q.recommended) == "boolean" and type(q.everything) == "boolean",
+        "question %s presets are not booleans", q.key)
+    end
+    if q.onlyIf then check(keys[q.onlyIf] ~= nil, "question %s gates on a later key", q.key) end
+  end
+  for _, key in ipairs({ "wild", "wild_mode", "wild_similar", "wild_theme", "wild_catch_all", "wild_level" }) do
+    check(keys[key] ~= nil, "question %s missing", key)
+  end
+end
+
+local SETUPS = {}
+do
+  local Wild = dofile(MODULE)
+  for _, preset in ipairs({ "recommended", "everything" }) do
+    local opts = {}
+    for _, q in ipairs(Wild.questions) do opts[q.key] = q[preset] end
+    SETUPS[preset] = opts
+  end
+end
+
 -- ------------------------------------------------------------ the checks
 
-local function runSuite(label, makeData, fishMap, fishOne, fishTwo)
+local function checkWorld(tag, h, data, vanilla, world, opts)
+  local pokemon = data.pokemon
+  local pool = poolOf(pokemon)
+  local obs = observed(h, data, world)
+  local mode = opts.wild_mode
+  local perScope, global, globalFrom, used = {}, {}, {}, {}
+  local changed, worst = 0, 0
+  for _, m in ipairs(obs) do
+    local def = pokemon[m.to]
+    check(def ~= nil and isReal(def), "%s %s %s became invalid %s", tag, m.slot, m.from, tostring(m.to))
+    if def then
+      used[m.to] = true
+      local keep = not pool[m.from]
+      if keep then
+        check(m.to == m.from, "%s %s: kept species %s was replaced", tag, m.slot, m.from)
+      else
+        check(m.to ~= m.from, "%s %s: %s replaced by itself", tag, m.slot, m.from)
+        check(not world.banned[m.scope][m.to], "%s %s: %s became %s, already on that route",
+          tag, m.slot, m.from, m.to)
+        if mode == "game" then
+          for scope, set in pairs(world.species) do
+            if set[m.from] then
+              check(not world.banned[scope][m.to], "%s game: %s became %s, vanilla on %s",
+                tag, m.from, m.to, scope)
+            end
+          end
+        end
+        check(not isLegendaryShape(def), "%s %s: became legendary/UNOWN %s", tag, m.slot, m.to)
+        changed = changed + 1
+        if opts.wild_similar then
+          local a = bst(pokemon[m.from])
+          worst = math.max(worst, math.abs(bst(def) - a) / a)
+        end
+        if opts.wild_theme and mode ~= "game" then
+          check(themeFits(pokemon, world, m.scope, m.habitat, m.from, m.to),
+            "%s %s: %s became %s, off the %s theme", tag, m.slot, m.from, m.to, m.habitat)
+        end
+        if opts.wild_theme and m.habitat == "water" and mode ~= "game" then
+          local water = false
+          for _, t in ipairs(def.types or {}) do if t == "WATER" then water = true end end
+          check(water, "%s %s: water slot got non-water %s", tag, m.slot, m.to)
+        end
+      end
+      if mode == "route" or mode == "game" then
+        perScope[m.scope] = perScope[m.scope] or {}
+        local seen = perScope[m.scope][m.from]
+        check(seen == nil or seen == m.to, "%s %s %s maps to both %s and %s", tag, m.scope, m.from,
+          tostring(seen), m.to)
+        perScope[m.scope][m.from] = m.to
+      end
+      if mode == "game" and not keep then
+        check(global[m.from] == nil or global[m.from] == m.to, "%s game: %s maps to %s and %s",
+          tag, m.from, tostring(global[m.from]), m.to)
+        global[m.from] = m.to
+        check(globalFrom[m.to] == nil or globalFrom[m.to] == m.from,
+          "%s game: %s replaces both %s and %s", tag, m.to, tostring(globalFrom[m.to]), m.from)
+        globalFrom[m.to] = m.from
+      end
+    end
+    -- levels
+    local pct = opts.wild_level or 100
+    local function scaled(v)
+      if v == nil or pct == 100 then return v end
+      return math.max(2, math.min(100, math.floor(v * pct / 100 + 0.5)))
+    end
+    check(m.newLevel == scaled(m.level), "%s %s level %s became %s at %d%%", tag, m.slot,
+      tostring(m.level), tostring(m.newLevel), pct)
+    check(m.newMin == scaled(m.min) and m.newMax == scaled(m.max), "%s %s contest range wrong", tag, m.slot)
+  end
+  check(changed > 0, "%s nothing was randomized", tag)
+  -- route mode: originals in one scope differ while the pool allows it
+  if mode == "route" then
+    for scope, map in pairs(perScope) do
+      local back = {}
+      for from, to in pairs(map) do
+        if from ~= to then
+          check(back[to] == nil or h.ctx.shared.wild.report.sharedTaken > 0,
+            "%s %s: %s and %s share %s", tag, scope, from, tostring(back[to]), to)
+          back[to] = from
+        end
+      end
+    end
+  end
+  -- coverage as the player meets it equals the module's report
+  local covered = 0
+  for id in pairs(pool) do if used[id] then covered = covered + 1 end end
+  local r = h.ctx.shared.wild.report
+  check(r.covered == covered, "%s coverage report %d, counted %d", tag, r.covered, covered)
+  if mode == "game" then
+    local originals = 0
+    for _ in pairs(global) do originals = originals + 1 end
+    check(covered == originals, "%s game: %d species for %d originals", tag, covered, originals)
+  end
+  -- the roamers' roster is untouched
+  check(deepEqual(vanilla.gen2Encounters.roamMons, data.gen2Encounters.roamMons), "%s roamers changed", tag)
+  return { covered = covered, pool = r.poolSize, worst = worst, report = r }
+end
+
+local function snapshot(h, data, world)
+  local out = {}
+  for _, m in ipairs(observed(h, data, world)) do out[#out + 1] = m.slot .. "=" .. tostring(m.to) .. ":" .. tostring(m.newLevel) end
+  return table.concat(out, ",")
+end
+
+local function runSuite(label, makeData, fishMap, fishOne)
+  local summary = {}
   local function tag(fmt) return "[" .. label .. "] " .. fmt end
 
-  -- 1. Inactive (a vanilla save): nothing changes, fishing passes through.
+  -- 1. Inactive, wild = NO, and level-only saves.
   do
     local data = makeData()
     local vanilla = deepCopy(data)
@@ -205,140 +508,157 @@ local function runSuite(label, makeData, fishMap, fishOne, fishTwo)
     local ok, where = deepEqual(vanilla, data)
     check(ok, tag("inactive save changed the tables at %s"), tostring(where))
     check(fish(h, fishMap, fishOne) == fishOne, tag("inactive fishing was changed"))
-    -- Active, but wild answered NO.
-    h.ctx.setActive(true, "seed-no", { wild = false })
+    h.ctx.setActive(true, "seed-no", { wild = false, wild_level = 100 })
     ok, where = deepEqual(vanilla, data)
     check(ok, tag("wild = NO changed the tables at %s"), tostring(where))
     check(fish(h, fishMap, fishOne) == fishOne, tag("wild = NO fishing was changed"))
+    -- levels without shuffling
+    h.ctx.setActive(true, "seed-no", { wild = false, wild_level = 150 })
+    local world = vanillaWorld(vanilla)
+    for _, s in ipairs(world.slots) do
+      local row = rowAt(data, s.path)
+      check(row.species == s.species, tag("level-only save changed species at %s"), table.concat(s.path, "|"))
+      if s.level then
+        check(row.level == math.max(2, math.min(100, math.floor(s.level * 1.5 + 0.5))),
+          tag("level-only save: level %d became %s"), s.level, tostring(row.level))
+      end
+    end
+    local sp, lv = fish(h, fishMap, fishOne, 10)
+    check(sp == fishOne and lv == 15, tag("level-only fishing gave %s L%s"), tostring(sp), tostring(lv))
+    h.ctx.setActive(false)
+    ok, where = deepEqual(vanilla, data)
+    check(ok, tag("level-only save did not restore at %s"), tostring(where))
   end
 
-  for _, similar in ipairs({ false, true }) do
-    local opts = { wild = true, wild_similar = similar }
-    local sub = similar and "similar" or "any"
+  local cases = {}
+  for _, mode in ipairs({ "route", "game", "slot" }) do
+    for _, flags in ipairs({ { false, false, false }, { true, false, true }, { true, true, true },
+        { false, true, false } }) do
+      cases[#cases + 1] = { name = mode .. (flags[1] and "+similar" or "") .. (flags[2] and "+theme" or "")
+          .. (flags[3] and "+catch" or ""),
+        opts = { wild = true, wild_mode = mode, wild_similar = flags[1], wild_theme = flags[2],
+          wild_catch_all = flags[3], wild_level = 100 } }
+    end
+  end
+  cases[#cases + 1] = { name = "recommended", opts = SETUPS.recommended }
+  cases[#cases + 1] = { name = "everything", opts = SETUPS.everything }
+  cases[#cases + 1] = { name = "route+125%", opts = { wild = true, wild_mode = "route", wild_similar = true,
+    wild_level = 125 } }
+  cases[#cases + 1] = { name = "slot+200%", opts = { wild = true, wild_mode = "slot", wild_level = 200 } }
 
-    -- 2. Active: valid species only, levels kept, one replacement per scope.
+  for _, case in ipairs(cases) do
+    local opts = case.opts
+    local sub = "[" .. label .. " " .. case.name .. "]"
     local data = makeData()
     local vanilla = deepCopy(data)
+    local world = vanillaWorld(vanilla)
     local h = install(data, "seed-one", opts)
     h.ctx.setActive(true)
-    local pokemon = data.pokemon
-    local perScope, changed, worstBand = {}, 0, 0
-    for _, m in ipairs(tableMapping(vanilla, data)) do
-      local def = pokemon[m.to]
-      check(def ~= nil, tag("%s: %s %s became unknown species %s"), sub, m.scope, m.from, tostring(m.to))
-      if def then
-        check(type(def.index) == "number" and def.index >= 1 and def.baseStats ~= nil,
-          tag("%s: %s became invalid species %s"), sub, m.scope, m.to)
-        if m.to ~= m.from then
-          check(not isLegendaryShape(def), tag("%s: %s %s became legendary/UNOWN %s"),
-            sub, m.scope, m.from, m.to)
-          changed = changed + 1
-          if similar then
-            local a, b = bst(pokemon[m.from]), bst(def)
-            worstBand = math.max(worstBand, math.abs(a - b) / a)
-          end
-        end
-      end
-      check(m.levelSame, tag("%s: %s %s level changed"), sub, m.scope, m.from)
-      if m.from == "UNOWN" then
-        check(m.to == "UNOWN", tag("%s: UNOWN was replaced on %s"), sub, m.scope)
-      end
-      perScope[m.scope] = perScope[m.scope] or {}
-      local seen = perScope[m.scope][m.from]
-      check(seen == nil or seen == m.to, tag("%s: %s %s maps to both %s and %s"),
-        sub, m.scope, m.from, tostring(seen), m.to)
-      perScope[m.scope][m.from] = m.to
-    end
-    check(changed > 0, tag("%s: nothing was randomized"), sub)
-    if similar then
-      check(worstBand <= 0.5, tag("similar: a replacement is %.0f%% off the original's total"), worstBand * 100)
-      print(("[%s] similar: worst base-stat-total difference %.1f%%"):format(label, worstBand * 100))
-    end
-    -- The roamers' roster is not touched.
-    local ok = deepEqual(vanilla.gen2Encounters.roamMons, data.gen2Encounters.roamMons)
-    check(ok, tag("%s: the roaming roster changed"), sub)
+    local result = checkWorld(sub, h, data, vanilla, world, opts)
+    summary[#summary + 1] = { name = case.name, result = result }
 
-    -- Fishing: same map and species, same answer; valid and not legendary.
-    local fishA = fish(h, fishMap, fishOne)
-    check(fishA == fish(h, fishMap, fishOne), tag("%s: fishing is not stable"), sub)
-    check(pokemon[fishA] and not isLegendaryShape(pokemon[fishA]), tag("%s: fishing gave %s"), sub, tostring(fishA))
-    -- A species shared by grass and rod on one map has one replacement.
-    local anyGrass = next(perScope)
-    for scope, mapping in pairs(perScope) do
-      for from, to in pairs(mapping) do
-        if not scope:find("^tree:") and scope ~= "bug_contest" then
-          check(fish(h, scope, from) == to, tag("%s: %s %s differs between tables and rod"), sub, scope, from)
-        end
-      end
-    end
-    check(anyGrass ~= nil, tag("no scopes found"))
-
-    -- 3. Determinism: a second install, fishing asked in a different order.
+    -- Determinism: a second install, fishing asked in reverse order first.
     local data2 = makeData()
     local h2 = install(data2, "seed-one", opts)
-    local f2 = fish(h2, fishMap, fishTwo) -- before the save is known: vanilla
-    check(f2 == fishTwo, tag("%s: fishing changed before any save"), sub)
+    check(fish(h2, fishMap, fishOne) == fishOne, "%s fishing changed before any save", sub)
     h2.ctx.setActive(true)
-    local fishOrder = { fish(h2, fishMap, fishTwo), fish(h2, fishMap, fishOne) }
-    check(fishOrder[2] == fishA, tag("%s: fishing depends on call order"), sub)
-    check(fishOrder[1] == fish(h, fishMap, fishTwo), tag("%s: fishing depends on call order (2)"), sub)
+    local rev = {}
+    for _, mapId in ipairs(sortedKeys(world.fish)) do
+      for i = #world.fish[mapId], 1, -1 do
+        local f = world.fish[mapId][i]
+        rev[#rev + 1] = fish(h2, mapId, f.species, f.level, ROD_NAME[f.rod])
+      end
+    end
+    check(snapshot(h, data, world) == snapshot(h2, data2, world), "%s same seed, different world", sub)
     local same, where = deepEqual(data.gen2Encounters, data2.gen2Encounters)
-    check(same, tag("%s: same seed gave different tables at %s"), sub, tostring(where))
+    check(same, "%s same seed gave different tables at %s", sub, tostring(where))
 
-    -- 4. Switching saves: another seed, then a vanilla save, then back.
-    local one = deepCopy(data.gen2Encounters)
+    -- Switching: another seed, then vanilla, then back.
+    local one = snapshot(h, data, world)
     h.ctx.setActive(true, "seed-two", opts)
     local data3 = makeData()
     local h3 = install(data3, "seed-two", opts)
     h3.ctx.setActive(true)
-    same, where = deepEqual(data.gen2Encounters, data3.gen2Encounters)
-    check(same, tag("%s: switching seeds kept the old seed's picks at %s"), sub, tostring(where))
-    check(not deepEqual(one, data.gen2Encounters), tag("%s: two seeds gave identical tables"), sub)
+    check(snapshot(h, data, world) == snapshot(h3, data3, world), "%s switching seeds kept old picks", sub)
+    check(snapshot(h, data, world) ~= one, "%s two seeds gave the same world", sub)
     h.ctx.setActive(false)
     same, where = deepEqual(vanilla, data)
-    check(same, tag("%s: returning to a vanilla save did not restore at %s"), sub, tostring(where))
-    check(fish(h, fishMap, fishOne) == fishOne, tag("%s: fishing not restored"), sub)
-    check(h.ctx.shared.wild == nil, tag("%s: shared mapping left behind"), sub)
+    check(same, "%s returning to a vanilla save did not restore at %s", sub, tostring(where))
+    check(fish(h, fishMap, fishOne) == fishOne, "%s fishing not restored", sub)
+    check(h.ctx.shared.wild == nil, "%s shared state left behind", sub)
     h.ctx.setActive(true, "seed-one", opts)
-    same, where = deepEqual(one, data.gen2Encounters)
-    check(same, tag("%s: loading the first save again differs at %s"), sub, tostring(where))
+    check(snapshot(h, data, world) == one, "%s loading the first save again differs", sub)
+    h.ctx.setActive(false)
+  end
+
+  -- A save from before version 2 (no wild_mode): round one's rules, stable,
+  -- restored, and it may reuse a vanilla species (which v2 never does).
+  do
+    local opts = { wild = true, wild_similar = true }
+    local data = makeData()
+    local vanilla = deepCopy(data)
+    local world = vanillaWorld(vanilla)
+    local h = install(data, "seed-one", opts)
+    h.ctx.setActive(true)
+    check(h.ctx.shared.wild.mode == "route (before version 2)", tag("legacy save not recognised"))
+    local data2 = makeData()
+    local h2 = install(data2, "seed-one", opts)
+    h2.ctx.setActive(true)
+    check(snapshot(h, data, world) == snapshot(h2, data2, world), tag("legacy save not deterministic"))
+    h.ctx.setActive(false)
+    check(deepEqual(vanilla, data), tag("legacy save did not restore"))
+  end
+  return summary
+end
+
+local function printSummary(label, summary)
+  for _, s in ipairs(summary) do
+    local r = s.result.report
+    print(("[%s] %-22s coverage %3d/%d (%d before catch 'em all); picks %d, band past 10%% %d,"
+      .. " past 25%% %d, past 50%% %d, widest band %d%%, worst slot %.0f%%; catch moves %d, widened %d;"
+      .. " theme main-place %d"):format(label, s.name, s.result.covered, s.result.pool, r.coveredBefore,
+      r.positions, r.widened, r.over25, r.over50, math.floor(r.worstBand * 100 + 0.5), s.result.worst * 100,
+      r.catchMoved, r.catchWidened, r.themeMain))
   end
 end
 
-runSuite("fixture", fixture, "ROUTE_A", "MON07", "MON09")
-
--- Fixture-only: the distinctness rule on a map with room for it.
-do
-  local data = fixture()
-  local h = install(data, "distinct", { wild = true })
-  h.ctx.setActive(true)
-  local map = h.ctx.shared.wild.ROUTE_A
-  local seen, dup = {}, nil
-  for from, to in pairs(map) do
-    if seen[to] then dup = from .. "/" .. seen[to] end
-    seen[to] = from
+local fixtureSummary = runSuite("fixture", fixture, "ROUTE_A", "MON07")
+printSummary("fixture", fixtureSummary)
+-- On the fixture, slot mode has more slots than species: full coverage.
+for _, s in ipairs(fixtureSummary) do
+  if s.name == "slot+catch" or s.name == "slot+similar+catch" then
+    check(s.result.covered == s.result.pool, "[fixture] %s covered %d of %d", s.name, s.result.covered, s.result.pool)
   end
-  check(dup == nil, "[fixture] two species on ROUTE_A share a replacement: %s", tostring(dup))
 end
 
 local realDir = os.getenv("WILD_TEST_DATA")
 if realDir and realDir ~= "" then
   local probe = loadReal(realDir)
   if probe then
-    runSuite("crystal", function() return loadReal(realDir) end, "ROUTE_30", "POLIWAG", "MAGIKARP")
-    -- Every pool species the module could pick is real and not legendary.
-    local data = loadReal(realDir)
-    local h = install(data, "coverage", { wild = true })
-    h.ctx.setActive(true)
-    local scopes, kinds = 0, {}
-    for scope in pairs(h.ctx.shared.wild) do
-      scopes = scopes + 1
-      local kind = scope:match("^tree:") and "tree" or (scope == "bug_contest" and "contest" or "map")
-      kinds[kind] = (kinds[kind] or 0) + 1
+    local summary = runSuite("crystal", function() return loadReal(realDir) end, "ROUTE_30", "POLIWAG")
+    printSummary("crystal", summary)
+    for _, s in ipairs(summary) do
+      if s.name == "route+similar+catch" or s.name == "recommended" or s.name == "slot+similar+catch" then
+        check(s.result.covered == s.result.pool, "[crystal] %s covered %d of %d", s.name,
+          s.result.covered, s.result.pool)
+      end
     end
-    print(("[crystal] %d scopes: %d maps, %d tree sets, %d contest"):format(scopes,
-      kinds.map or 0, kinds.tree or 0, kinds.contest or 0))
-    for _, line in ipairs(h.ctx.lines) do print("[crystal] log: " .. line) end
+    -- Seed 876506 with the recommended setup: early routes, then and now.
+    local data = loadReal(realDir)
+    local vanilla = deepCopy(data)
+    local h = install(data, "876506", SETUPS.recommended)
+    h.ctx.setActive(true)
+    for _, mapId in ipairs({ "ROUTE_29", "ROUTE_30", "ROUTE_31", "ROUTE_32", "ROUTE_33" }) do
+      local function line(d)
+        local seen, out = {}, {}
+        for _, row in ipairs(d.gen2Encounters.grass[mapId].slots.DAY) do
+          if not seen[row.species] then seen[row.species] = true; out[#out + 1] = row.species end
+        end
+        return table.concat(out, " ")
+      end
+      print(("[crystal] seed 876506 recommended %s DAY: was %s; now %s"):format(mapId, line(vanilla), line(data)))
+    end
+    for _, l in ipairs(h.ctx.lines) do print("[crystal] log: " .. l) end
   else
     check(false, "WILD_TEST_DATA=%s has no pokemon.lua/encounters.lua", realDir)
   end
