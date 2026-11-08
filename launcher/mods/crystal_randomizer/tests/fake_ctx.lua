@@ -11,7 +11,7 @@ function Fake.new(opts)
   opts = opts or {}
   local state = { seed = opts.seed, options = opts.options or {}, active = opts.seed ~= nil }
   local listeners = {}
-  local ctx = { shared = {}, lines = {} }
+  local ctx = { shared = {}, lib = {}, lines = {} }
   function ctx.active() return state.active end
   function ctx.seed() return state.active and state.seed or nil end
   function ctx.option(key) if state.active then return state.options[key] end end

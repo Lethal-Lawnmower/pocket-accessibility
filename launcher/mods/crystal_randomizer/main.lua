@@ -8,9 +8,9 @@
 
 -- Installed in this order: starters before trainers, which reads its results.
 local MODULES = { "pokemon", "stats", "evolutions", "starters", "items", "tms", "shops", "wild", "trainers",
-  "qol", "keyitems" }
+  "qol", "keyitems", "mapgraph", "maprules", "mapplacer", "maps", "mapmoves" }
 -- Oak asks in the order a player thinks about a run, which is not install order.
-local QUESTION_ORDER = { "wild", "trainers", "starters", "evolutions", "items", "keyitems", "tms", "shops",
+local QUESTION_ORDER = { "wild", "trainers", "starters", "evolutions", "items", "keyitems", "maps", "tms", "shops",
   "pokemon", "stats", "qol" }
 -- The setups Oak offers.  Anything but "custom" fills every answer from the
 -- questions' own `recommended` / `everything` values instead of asking each.
@@ -39,7 +39,9 @@ return function(mod)
   local state = { seed = nil, options = {} }
   local listeners = {}
 
-  local ctx = { shared = {} }
+  -- shared: per-save results, cleared on every switch.  lib: functions a module
+  -- offers the others at install time; never cleared (MAPS.md).
+  local ctx = { shared = {}, lib = {} }
   function ctx.active() return state.seed ~= nil end
   function ctx.seed() return state.seed end
   function ctx.option(key) if state.seed then return state.options[key] end end
