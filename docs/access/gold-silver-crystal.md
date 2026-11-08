@@ -302,3 +302,28 @@ installed in a disposable profile: a New Game through Oak's real speech asked ev
 seed the save kept; Route 29's grass, its item ball and Chikorita's types and moves changed; Continue from a
 copy of the save gave the same world; a copy without the randomizer's data was vanilla; the randomized copy
 came back the same. Installed in the owner's own save folder's `mods` at their request (2026-11-08, "Yep, let's do it"), for their next Crystal New Game; not yet played or heard by the owner. Known gaps are in the mod's README.
+
+### Randomizer research (2026-11-08, for the next version; nothing built yet)
+
+The owner, after seed 876506 felt "kind of normal" (with "keep them about as strong", early routes swap
+common early species for other common early species, often familiar ones): look at how other randomizers
+do it first, including mechanics not yet thought of. Read: the Universal Pokémon Randomizer ZX and FVX
+release notes and feature summary (upr-fvx.github.io), a PokéCommunity settings guide, the Archipelago
+Crystal option template (a community gist) and Archipelago's Red/Blue and Emerald option pages. Web search
+summaries only; the FVX wiki's full feature list was not read.
+
+What they do that this mod does not:
+
+- Wild: three replacement modes, random per slot, one replacement per map (ours) and global one-to-one,
+  where each species is used once across the game; "catch 'em all" so every species can be found; keep a
+  route's type theme. Similar strength there starts at a 10% band and widens to a minimum pool, as ours.
+- Trainers: the rival's starter is the one strong against yours; gym leaders and the Elite Four keep one
+  type each; force fully evolved Pokémon from a chosen level; a level percentage for trainers and wild.
+- Starters: choose exactly, or three-stage starters, or a type triangle.
+- Evolutions randomized; trade evolutions turned into level or item evolutions (useful even without the
+  randomizer: most players here cannot trade).
+- TMs: their contents and compatibility; reusable TMs. Move data, base stats, shops ("better marts").
+- Quality: experience modifier, blind trainers (only battle when spoken to), minimum catch rate.
+- Larger: key item and map randomizers (Archipelago, a Crystal map randomizer), which need logic so the
+  game stays winnable.
+
