@@ -7,9 +7,15 @@
 -- nothing is stored per choice and nothing is patched in the ROM.
 
 -- Installed in this order: starters before trainers, which reads its results.
-local MODULES = { "pokemon", "starters", "items", "wild", "trainers" }
+local MODULES = { "pokemon", "stats", "evolutions", "starters", "items", "tms", "shops", "wild", "trainers",
+  "qol", "keyitems" }
 -- Oak asks in the order a player thinks about a run, which is not install order.
-local QUESTION_ORDER = { "wild", "trainers", "starters", "items", "pokemon" }
+local QUESTION_ORDER = { "wild", "trainers", "starters", "evolutions", "items", "keyitems", "tms", "shops",
+  "pokemon", "stats", "qol" }
+-- The setups Oak offers.  Anything but "custom" fills every answer from the
+-- questions' own `recommended` / `everything` values instead of asking each.
+local SETUPS = { labels = { "RECOMMENDED", "EVERYTHING", "CHOOSE EACH" },
+  values = { "recommended", "everything", "custom" } }
 local KEY_PREFIX = "rand_"
 
 local function loadFile(mod, relative)
@@ -101,6 +107,11 @@ return function(mod)
     local added = {
       { id = "rand_on", kind = "yesno", pic = "oak", saveKey = KEY_PREFIX .. "on",
         text = "Before you go...\nDo you want your\vadventure shuffled?" },
+      gate("rand_q_setup", function() return true end, function()
+        return { id = "rand_ask_setup", kind = "choice", pic = "oak", saveKey = KEY_PREFIX .. "setup",
+          text = "How shuffled?\nRECOMMENDED is a\vgood first run.", choices = SETUPS.labels,
+          values = SETUPS.values, tx = 0, ty = 0, tw = 14 }
+      end),
     }
     local byId = {}
     for _, module in ipairs(modules) do byId[module.id] = module end
@@ -114,12 +125,19 @@ return function(mod)
     for _, module in ipairs(ordered) do
       for _, question in ipairs(module.questions or {}) do
         added[#added + 1] = gate("rand_q_" .. question.key, function(answers)
+          if answers[KEY_PREFIX .. "setup"] ~= "custom" then return false end
           return question.onlyIf == nil or answers[KEY_PREFIX .. question.onlyIf] == true
         end, function()
           local step = { id = "rand_ask_" .. question.key, kind = question.kind or "yesno", pic = "oak",
             text = question.text, saveKey = KEY_PREFIX .. question.key }
-          if question.options then step.options = question.options end
-          if question.values then step.values = question.values end
+          if question.kind == "choice" then
+            local labels, values, wide = {}, {}, 8
+            for i, option in ipairs(question.options or {}) do
+              labels[i], values[i] = option.label, option.value
+              wide = math.max(wide, #option.label + 3)
+            end
+            step.choices, step.values, step.tx, step.ty, step.tw = labels, values, 0, 0, math.min(wide, 20)
+          end
           return step
         end)
       end
@@ -127,11 +145,24 @@ return function(mod)
     -- The seed is made and kept the moment the questions end, and Oak says it.
     added[#added + 1] = gate("rand_seed", function() return true end, function(answers)
       local options = {}
-      for key, value in pairs(answers) do
-        if key:sub(1, #KEY_PREFIX) == KEY_PREFIX and key ~= KEY_PREFIX .. "on" then
-          options[key:sub(#KEY_PREFIX + 1)] = value
+      local setup = answers[KEY_PREFIX .. "setup"] or "recommended"
+      if setup == "custom" then
+        for key, value in pairs(answers) do
+          if key:sub(1, #KEY_PREFIX) == KEY_PREFIX and key ~= KEY_PREFIX .. "on"
+              and key ~= KEY_PREFIX .. "setup" then
+            options[key:sub(#KEY_PREFIX + 1)] = value
+          end
+        end
+      else
+        for _, module in ipairs(modules) do
+          for _, question in ipairs(module.questions or {}) do
+            local value = question[setup]
+            if value == nil then value = false end
+            options[question.key] = value
+          end
         end
       end
+      options.setup = setup
       local seed = newSeed()
       mod.save:set("seed", seed)
       mod.save:set("options", options)

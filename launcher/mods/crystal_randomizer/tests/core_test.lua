@@ -38,6 +38,8 @@ local function walk(answerOn)
     if not step then break end
     if step.kind == "fn" then
       step.run(speech, function() end)
+    elseif step.kind == "choice" and step.saveKey then
+      speech.answers[step.saveKey] = "custom"
     elseif step.kind == "yesno" and step.saveKey then
       if step.id == "rand_on" then
         speech.answers[step.saveKey] = answerOn

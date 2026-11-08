@@ -45,6 +45,35 @@ Shared values:
 - `ctx.shared.starters`: set by the starters module, `{ CHIKORITA = "X", CYNDAQUIL = "Y", TOTODILE = "Z" }`
   (vanilla starter id to the species given instead), read by the trainers module for the rival.
 
+## Version 2 additions (2026-11-08)
+
+**Setups.** After "Do you want your adventure shuffled?", Oak asks for a setup: RECOMMENDED, EVERYTHING or
+CHOOSE EACH. Only CHOOSE EACH asks the questions one by one. The other two take each question's own value,
+so every question must carry both:
+
+```lua
+{ key = "wild", kind = "yesno", text = "Shuffle wild\nPOKéMON?", recommended = true, everything = true },
+{ key = "wild_mode", kind = "choice", onlyIf = "wild", text = "One swap per\nroute or game?",
+  options = { { label = "PER ROUTE", value = "route" }, { label = "WHOLE GAME", value = "game" },
+              { label = "ANY SLOT", value = "slot" } },
+  recommended = "route", everything = "game" },
+```
+
+A choice label is at most 12 characters, uppercase like the game's menus. A missing value counts as false.
+Oak's text boxes hold two lines of at most 18 characters each, with `\n` between lines, `\v` to scroll a
+line and `\f` for a new box.
+
+**Modules, in install and save-switch order:** `pokemon`, `stats`, `evolutions`, `starters`, `items`, `tms`,
+`shops`, `wild`, `trainers`, `qol`, `keyitems`. A module that changes tables changes only its own fields and
+restores exactly those. A module later in the order reads earlier modules' results from the current data at
+`ctx.onSave` time (for example, starters read evolutions after the evolutions module has changed them), and
+reads them again on every switch.
+
+**Shared values** (in `ctx.shared`, rebuilt on every switch):
+- `starters`: as above.
+- `starterRivalPairs` (starters module): which replacement the rival's ball holds for each ball the player can
+  take, so the trainers module can check the rival's starter is strong against the player's.
+
 ## Rules
 
 - Species, moves, items and types use the game's own ids, from the game's data (`Data`), never a list
