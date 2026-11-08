@@ -106,7 +106,7 @@ return function(mod)
     end
     local added = {
       { id = "rand_on", kind = "yesno", pic = "oak", saveKey = KEY_PREFIX .. "on",
-        text = "Before you go...\nDo you want your\vadventure shuffled?" },
+        text = "Before you go...\nDo you want your\vjourney shuffled?" },
       gate("rand_q_setup", function() return true end, function()
         return { id = "rand_ask_setup", kind = "choice", pic = "oak", saveKey = KEY_PREFIX .. "setup",
           text = "How shuffled?\nRECOMMENDED is a\vgood first run.", choices = SETUPS.labels,
