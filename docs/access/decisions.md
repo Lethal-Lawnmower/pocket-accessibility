@@ -503,3 +503,5 @@ The owner, after the Android release build ran on the Thor: "go ahead and start 
 ## 56. A PC Clock mod for Gold, Silver and Crystal (2026-11-08)
 
 The owner asked for "an actual mod" that uses the system clock, with daylight saving and the day of the week, and, told the port already reads the clock through the player's answer: "we can just have the mod answer it with the actual correct stuff ... That way it's not an option." Details: `gold-silver-crystal.md`, "PC Clock mod".
+
+Then, the same day: "actually make that a default for everyone." Built into the layer (`src/access/PcClock.lua`); the separate mod was removed.
