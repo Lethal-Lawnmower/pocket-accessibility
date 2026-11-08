@@ -58,8 +58,11 @@ local SAME_TYPE_CHANCE = 0.5
 local M = {
   id = "pokemon",
   questions = {
-    { key = "pokemon_types", kind = "yesno", text = "Shuffle POKéMON\ntypes?" },
-    { key = "pokemon_moves", kind = "yesno", text = "Shuffle moves\nlearned by level?" },
+    -- A first run keeps types and learnsets familiar; EVERYTHING shuffles both.
+    { key = "pokemon_types", kind = "yesno", text = "Shuffle POKéMON\ntypes?",
+      recommended = false, everything = true },
+    { key = "pokemon_moves", kind = "yesno", text = "Shuffle moves\nlearned by level?",
+      recommended = false, everything = true },
   },
 }
 
