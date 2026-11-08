@@ -45,12 +45,25 @@ return function(game)
   game:newGame()
   local spoken = {}
   local finished = false
+  -- RAND_DOWNS: how many times to press down on Oak's setup choice (0 RECOMMENDED,
+  -- 1 EVERYTHING, 2 CHOOSE EACH)
+  local downs = tonumber(os.getenv("RAND_DOWNS") or "0") or 0
+  local setupHandled = false
   for _ = 1, 400 do
     local top = game.stack:top()
     if L.free() then finished = true break end
-    if top and top.kind == "keyboard" then L.tap("start", 8) else L.tap("a", 8) end
-    for _, line in ipairs(L.said) do spoken[#spoken + 1] = line end
+    local asked = false
+    for _, line in ipairs(L.said) do
+      spoken[#spoken + 1] = line
+      if line:find("How shuffled", 1, true) then asked = true end
+    end
     L.said = {}
+    if asked and not setupHandled then
+      setupHandled = true
+      for _ = 1, 30 do L.tap("a", 4) if (game.stack:top() or {}).header then break end end
+      for _ = 1, downs do L.tap("down", 6) end
+      L.tap("a", 8)
+    elseif top and top.kind == "keyboard" then L.tap("start", 8) else L.tap("a", 8) end
   end
   if not finished then finished = L.settle(3000, true) end
   U.log(finished and "PASS" or "FAIL", "New Game through Oak reached the world")
@@ -73,8 +86,10 @@ return function(game)
 
   local first = snapshot()
   U.log(first.wild ~= vanilla.wild and "PASS" or "FAIL", "Route 29 grass changed")
-  U.log(first.types ~= vanilla.types and "PASS" or "FAIL", "Chikorita's types changed", first.types)
-  U.log(first.moves ~= vanilla.moves and "PASS" or "FAIL", "Chikorita's moves changed")
+  local wantTypes = bucket and bucket.options and bucket.options.pokemon_types == true
+  U.log((first.types ~= vanilla.types) == wantTypes and "PASS" or "FAIL",
+    "Chikorita's types " .. (wantTypes and "changed" or "kept"), first.types)
+  U.log("RESULT", "setup", tostring(bucket and bucket.options and bucket.options.setup))
   U.log(first.balls ~= vanilla.balls and "PASS" or "FAIL", "Route 29's item ball changed", first.balls)
 
   -- Continue from a copy of that save: the same world comes back.

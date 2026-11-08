@@ -339,7 +339,7 @@ TM or HM ball by its number and current move (`src/access/nav/gen2/WorldSnapshot
 
 Module tests, all passing together: core 7, pokemon, stats, evolutions 26846, starters 4167, items 76,
 tms 141, shops 625, wild 14979, trainers 1558, qol 88, keyitems 2176 checks; each also passed on the real
-imported Crystal tables, and each agent's own silent game run passed. Saves started with version 1 keep
+imported Crystal tables, and each agent's own silent game run passed. The whole mod then passed `tests/full_driver.lua` through Oak's real New Game twice, RECOMMENDED (seed 191463: wild and items changed, Chikorita's types kept) and EVERYTHING (seed 647304: types changed too), with Continue, a plain save and back all as expected; seed 876506, a version 1 save, kept its version 1 world exactly. Saves started with version 1 keep
 their version 1 world (wild module legacy path). The HM shuffle model (`keyitems`) is the agent's reading of
 the scripts with deliberately strict rules; it found 288 beatable HM orders of 5040 and has not been proved
 by a playthrough, which is why only CHOOSE EACH offers it.

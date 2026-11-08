@@ -109,7 +109,7 @@ return function(mod)
         text = "Before you go...\nDo you want your\vjourney shuffled?" },
       gate("rand_q_setup", function() return true end, function()
         return { id = "rand_ask_setup", kind = "choice", pic = "oak", saveKey = KEY_PREFIX .. "setup",
-          text = "How shuffled?\nRECOMMENDED is a\vgood first run.", choices = SETUPS.labels,
+          text = "How shuffled?\nPick a setup.", choices = SETUPS.labels,
           values = SETUPS.values, tx = 0, ty = 0, tw = 14 }
       end),
     }
