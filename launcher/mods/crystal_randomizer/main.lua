@@ -8,6 +8,8 @@
 
 -- Installed in this order: starters before trainers, which reads its results.
 local MODULES = { "pokemon", "starters", "items", "wild", "trainers" }
+-- Oak asks in the order a player thinks about a run, which is not install order.
+local QUESTION_ORDER = { "wild", "trainers", "starters", "items", "pokemon" }
 local KEY_PREFIX = "rand_"
 
 local function loadFile(mod, relative)
@@ -100,7 +102,16 @@ return function(mod)
       { id = "rand_on", kind = "yesno", pic = "oak", saveKey = KEY_PREFIX .. "on",
         text = "Before you go...\nDo you want your\vadventure shuffled?" },
     }
+    local byId = {}
+    for _, module in ipairs(modules) do byId[module.id] = module end
+    local ordered = {}
+    for _, id in ipairs(QUESTION_ORDER) do
+      if byId[id] then ordered[#ordered + 1] = byId[id]; byId[id] = nil end
+    end
     for _, module in ipairs(modules) do
+      if byId[module.id] then ordered[#ordered + 1] = module end
+    end
+    for _, module in ipairs(ordered) do
       for _, question in ipairs(module.questions or {}) do
         added[#added + 1] = gate("rand_q_" .. question.key, function(answers)
           return question.onlyIf == nil or answers[KEY_PREFIX .. question.onlyIf] == true

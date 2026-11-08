@@ -279,3 +279,26 @@ Tested by script (`tests/access/drivers/pc_clock.lua`) on Crystal, Gold and Silv
 game's time and weekday equalled the device's after a new game, after both screens and after a forced
 6-hour offset; the save kept that offset. Without it (the earlier mod run with the mod removed) the clock
 read 10:00 and the screens waited. Not played by the owner yet; Android not tried.
+
+## Crystal Randomizer mod (2026-11-08, decision 57)
+
+`launcher/mods/crystal_randomizer`: a mod (api 2, `engine_internals`, Crystal only), set up at New Game by
+Oak's questions, one seed per save in `mod.save`; a save without a seed is vanilla. The player-facing
+summary and its limits are in its `README.md`; how the core and modules fit is `CONTRACT.md`. Built by four
+agents (wild, trainers, starters and items, types and moves) against that contract, with the core and the
+integration done here.
+
+How each module changes the game: wild rewrites `data.gen2Encounters` per save and wraps
+`encounter.fishing`; trainers wrap the `trainer.party` hook (no data changed); starters and gifts wrap
+`script.command` and pass rewritten copies of rows, with Elm's text under new text keys; items rewrite the
+item ball and hidden item ids in `data.gen2Maps` per save; types and moves swap `def.types` and
+`def.levelMoves` per save. Every module keeps the vanilla values and restores them exactly. No engine file
+was edited.
+
+Verified by script only: each module's own luajit test (pokemon 7914 checks, wild 1000, trainers 401,
+starters 82, items 69, core 7, all passing; the module tests also passed on the real imported Crystal
+tables), each agent's silent game run, and `tests/full_driver.lua` in a silent Crystal run with the mod
+installed in a disposable profile: a New Game through Oak's real speech asked every question and said the
+seed the save kept; Route 29's grass, its item ball and Chikorita's types and moves changed; Continue from a
+copy of the save gave the same world; a copy without the randomizer's data was vanilla; the randomized copy
+came back the same. Not played or heard by the owner. Known gaps are in the mod's README.
