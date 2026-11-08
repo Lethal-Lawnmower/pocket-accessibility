@@ -2,15 +2,19 @@
 -- with a fake ctx (the randomizer core is not part of this check), then opens
 -- real trainer battles through World:trainerParty + World:startScriptedBattle,
 -- the path a `loadtrainer` / `startbattle` script takes, and logs the party
--- each battle actually fights:
---   1. FALKNER, randomized (seed "drive", similar strength on);
---   2. the Cherrygrove rival (RIVAL1_1_CHIKORITA) with ctx.shared.starters set,
---      whose mon must be the CHIKORITA ball's replacement (MAREEP);
---   3. FALKNER again with the save switched to vanilla: the vanilla party.
+-- each battle actually fights.  Options: similar strength, type themes, fully
+-- evolved from level 40, trainer levels 120 percent.
+--   1. FALKNER, randomized: every mon FLYING in the game's current data, at
+--      120 percent of his vanilla levels;
+--   2. a BIRD_KEEPER in his gym (Violet Gym's map data): FLYING too;
+--   3. the Cherrygrove rival (RIVAL1_1_CHIKORITA, the player took TOTODILE)
+--      with a fake ctx.shared.starterRivalPairs: his mon must be the pair's
+--      GEODUDE, strong against the player's (fake) MAREEP;
+--   4. FALKNER again with the save switched to vanilla: the vanilla party.
 -- The battles are fought with a level 100 MEWTWO pressing the first move.
 --
 -- Run silently and isolated, with a disposable identity:
---   POKEPORT_IDENTITY=pocket-access-rand-trainers-run POKEPORT_ACCESS_SILENT=1
+--   POKEPORT_IDENTITY=pocket-access-rand2-trainers-run POKEPORT_ACCESS_SILENT=1
 --   POKEPORT_BACKGROUND=1 POKEPORT_VERSION=crystal POKEPORT_GAME=crystal
 --   POKEPORT_DRIVER=tests/access/drivers/isolated.lua
 --   ISOLATED_DRIVER=launcher/mods/crystal_randomizer/tests/trainers_driver.lua
@@ -43,8 +47,10 @@ return function(game)
     hooks = Hooks.new()
     Runtime.install(Runtime.events, hooks, Runtime.errors)
   end
-  local ctx = Fake.new({ seed = "drive", options = { trainers = true, trainers_similar = true } })
+  local ctx = Fake.new({ seed = "drive", options = { trainers = true, trainers_similar = true,
+    trainers_themes = true, trainers_evolved = 40, trainers_level = 120 } })
   ctx.shared.starters = { CHIKORITA = "MAREEP", CYNDAQUIL = "LARVITAR", TOTODILE = "EEVEE" }
+  ctx.shared.starterRivalPairs = { CHIKORITA = "LARVITAR", CYNDAQUIL = "EEVEE", TOTODILE = "GEODUDE" }
   module.install({ game = game, hooks = { wrap = function(_, name, fn)
     return hooks:wrap(name, fn, 0, "crystal_randomizer_test")
   end } }, ctx)
@@ -63,6 +69,12 @@ return function(game)
     return table.concat(out, "; ")
   end
 
+  local function memberOf(classId, rowId)
+    for member, row in ipairs(data.gen2Trainers.classes[classId].trainers) do
+      if row.id == rowId then return member end
+    end
+  end
+
   local function fight(label, classId, member)
     for _, mon in ipairs(game.save.party) do Mon.restoreAllPp(mon, data) mon.hp = mon.maxHp end
     local class = data.gen2Trainers.classes[classId]
@@ -70,6 +82,7 @@ return function(game)
     if not record then U.log("FAIL", label, "no trainer record") return nil end
     U.log("ROSTER", label, record.id, describe(record.roster))
     local finished, outcome = false, nil
+    local party
     game.world:startScriptedBattle(record, nil, function(result) finished, outcome = true, result end)
     local logged, seen = nil, nil
     for _ = 1, 30000 do
@@ -78,6 +91,8 @@ return function(game)
       if isBattle(t) then
         seen = t
         if not logged and t.battle and t.battle.enemyParty then
+          party = {}
+          for i, mon in ipairs(t.battle.enemyParty) do party[i] = { species = mon.species, level = mon.level } end
           logged = describe(t.battle.enemyParty)
           U.log("FIGHTS", label, logged)
           U.log("TRAINER-PARTY", label, describe(t.battle.trainer and t.battle.trainer.party))
@@ -93,19 +108,46 @@ return function(game)
     end
     U.log("RESULT", label, "finished", tostring(finished), "outcome", tostring(outcome))
     U.wait(60)
-    return logged
+    return logged, party, record
   end
 
-  local randomized = fight("falkner-randomized", "FALKNER", 1)
-  local rival = fight("rival-cherrygrove", "RIVAL1", 1)
+  local function allOfType(party, typeId)
+    if not party or #party == 0 then return false end
+    for _, mon in ipairs(party) do
+      local t = data.pokemon[mon.species].types
+      if t[1] ~= typeId and t[2] ~= typeId then return false end
+    end
+    return true
+  end
+  local function levelsScaled(party, record)
+    for i, mon in ipairs(party or {}) do
+      if mon.level ~= module.scaleLevel(record.roster[i].level, 120) then return false end
+    end
+    return party ~= nil
+  end
+
+  local falkner, fParty, fRecord = fight("falkner-randomized", "FALKNER", 1)
+  local keeperMember = memberOf("BIRD_KEEPER", "ROD")
+  local keeper, kParty = fight("bird-keeper-rod", "BIRD_KEEPER", keeperMember or 1)
+  local rival, rParty = fight("rival-cherrygrove", "RIVAL1", memberOf("RIVAL1", "RIVAL1_1_CHIKORITA") or 1)
   ctx.setActive(false)
   local vanilla = fight("falkner-vanilla", "FALKNER", 1)
 
-  local vanillaRoster = describe(game.world:trainerParty(data.gen2Trainers.classes.FALKNER.index, 1).roster)
-  local ok = randomized ~= nil and vanilla ~= nil and randomized ~= vanilla
-    and rival ~= nil and rival:find("^MAREEP ") ~= nil
-    and vanilla:find("^PIDGEY ") ~= nil
-  U.log(ok and "PASS" or "FAIL", "randomized", tostring(randomized), "| vanilla", tostring(vanilla),
-    "| rival", tostring(rival), "| roster", vanillaRoster)
+  local checks = {
+    { "falkner all FLYING", allOfType(fParty, "FLYING") },
+    { "falkner levels 120 percent", levelsScaled(fParty, fRecord) },
+    { "bird keeper all FLYING", keeperMember ~= nil and allOfType(kParty, "FLYING") },
+    { "rival is the pair's GEODUDE", rParty ~= nil and rParty[1].species == "GEODUDE" },
+    { "GEODUDE strong against MAREEP", module.strongAgainst(data, "GEODUDE", "MAREEP") },
+    { "vanilla after switch", vanilla ~= nil and vanilla:find("^PIDGEY L7 ") ~= nil },
+    { "randomized differs from vanilla", falkner ~= nil and falkner ~= vanilla },
+  }
+  local ok = true
+  for _, c in ipairs(checks) do
+    U.log(c[2] and "OK" or "FAIL", c[1])
+    ok = ok and c[2]
+  end
+  U.log(ok and "PASS" or "FAIL", "falkner", tostring(falkner), "| keeper", tostring(keeper),
+    "| rival", tostring(rival), "| vanilla", tostring(vanilla))
   love.event.quit()
 end
