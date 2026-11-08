@@ -301,4 +301,4 @@ tables), each agent's silent game run, and `tests/full_driver.lua` in a silent C
 installed in a disposable profile: a New Game through Oak's real speech asked every question and said the
 seed the save kept; Route 29's grass, its item ball and Chikorita's types and moves changed; Continue from a
 copy of the save gave the same world; a copy without the randomizer's data was vanilla; the randomized copy
-came back the same. Not played or heard by the owner. Known gaps are in the mod's README.
+came back the same. Installed in the owner's own save folder's `mods` at their request (2026-11-08, "Yep, let's do it"), for their next Crystal New Game; not yet played or heard by the owner. Known gaps are in the mod's README.
