@@ -1924,7 +1924,9 @@ function Accessibility:areaBrowse(overworld)
       local mapName = self:regionalDestinationName(mapId)
       for _, object in ipairs(maps[mapId].objects or {}) do
         if object.item and regionalObjectVisible(save, mapId, object) then
-          local label = tostring(self.worldSnapshot.humanize(object.item) or object.item)
+          local machine = self.worldSnapshot.machineLabel
+            and self.worldSnapshot.machineLabel({ game = self.game }, object.item)
+          local label = tostring(machine or self.worldSnapshot.humanize(object.item) or object.item)
             .. ", " .. tostring(mapName)
           items[#items + 1] = {
             id = "area:" .. mapId .. ":" .. tostring(object.index),

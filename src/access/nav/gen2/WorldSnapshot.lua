@@ -342,6 +342,22 @@ local function itemBallItem(world, def)
   return nil
 end
 
+-- A TM or HM is named by its number and the move it teaches now ("TM02 Fury
+-- Cutter"), read from the item data: its id keeps the cart's move name, which a
+-- randomizer may have changed (launcher/mods/crystal_randomizer).  nil for
+-- anything else.
+function Snapshot.machineLabel(world, id)
+  if type(id) ~= "string" or not (id:match("^TM_") or id:match("^HM_")) then return nil end
+  local native = type(world) == "table" and (world.native or world) or nil
+  local game = type(native) == "table" and native.game or nil
+  local items = game and game.data and game.data.items
+  local record = type(items) == "table" and items[id] or nil
+  local number = record and record.name
+  local teaches = record and record.teaches
+  if type(number) ~= "string" or type(teaches) ~= "string" then return nil end
+  return number .. " " .. tostring(Shared.humanize(teaches) or teaches)
+end
+
 -- Person sheets whose name is not who stands there: the player's own sheet
 -- (reused for link partners and the Trainer House trainer; "Chris" is not a
 -- character in Gold and Silver at all), and pose or size variants.
@@ -427,7 +443,10 @@ local function projectActor(world, actor, opts)
   end
   local relabel = {}
   local item = def.item == nil and itemBallItem(world, def) or nil
-  if item then relabel.item = item end
+  if item then
+    relabel.item = item
+    relabel.accessibilityLabel = Snapshot.machineLabel(world, item)
+  end
   -- A sprite slot number (variable sprites, decorations) names the sheet the
   -- game resolved for it.
   if type(def.sprite) ~= "string" then
