@@ -108,7 +108,8 @@ Parts:
 - `launcher/ModBackend`: windowless LÖVE program, like the save backend, with the same `@@PA ` JSON lines
   through `BackendClient.cs`. Commands: `index` (`version`, `force`), `installed` (`version`), `setEnabled`
   (`version`, `modId`, `enabled`), `check` (`folder`, `version`), `sources`, `addSource` (`input`),
-  `removeSource` (`feed`). Carts in the feed are left out.
+  `removeSource` (`feed`). Carts in the feed are left out. The answers live in `modservice.lua`, which
+  Android's Mods screen also uses (`android.md`, "Mods"); `main.lua` is only the stdin loop.
 - `ModInstaller.cs`: https only; the shallowest `manifest.json` marks the mod's root (of 25 real zips
   sampled, 20 at the top, 5 one folder down); anything that climbs out is refused and nothing is written
   outside a scratch folder (`mods-incoming`) until the game's own manifest check passes and the id matches

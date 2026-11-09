@@ -84,13 +84,13 @@ The flow follows melonDS on Android, written fresh (that app is GPL-3.0 and none
    when the player returns.
 4. If the game refuses to start, its reason (`pocket-access-start-refused.txt`) appears in a dialog.
 
-The menu holds Refresh game list, Choose ROM folder and Credits. License Term 1's credit stays on the main
-screen. The icon is ours, not upstream's.
+The menu holds Refresh game list, Choose ROM folder, Edit a save, Mods, the three sounds items and Credits.
+License Term 1's credit stays on the main screen. The icon is ours, not upstream's.
 
 Android's picker refuses the storage root and the Download folder itself; a folder inside either works.
 
-Not yet: Pokémon Access sounds, mods, the save editor, choosing a save slot, zipped ROMs, and a release app
-id and signing.
+Not yet: choosing a save slot and zipped ROMs. (Sounds, the save editor, mods and release signing were added
+later; their sections are below.)
 
 Tested on the Thor, 2026-11-05: the owner chose the folder with the picker and started Red from the list,
 and reported "worded fine" (read as "worked fine", possibly dictation). The device agrees: Red's cache marker
@@ -128,6 +128,43 @@ Windows stdin loop). Android has no second program to talk to, so:
 The screen (`SaveEditorPage.java`, after `PagePanel.cs`): a Page dropdown; the list on one side and the
 pickers, summary, fields and buttons on the other; Save, Undo, Redo, Reload and Close in the menu; Back asks
 about unsaved changes. Opened from the menu's Edit a save, or a long press on a game.
+
+Back on Android 16: the app targets API 36, so Android uses predictive Back and no longer calls
+`onBackPressed`; the screen simply finished and left the game's blank activity (the backend) in front.
+Found on the emulator on 2026-11-08 while testing the Mods screen; the save editor's earlier test used the
+menu's Close. `BackKey.java` registers a Back callback, and both screens also close their backend in
+`onDestroy` however they end.
+
+## Mods (2026-11-08)
+
+The owner asked whether Android had the mod browser, and on hearing it did not: "Yes, please. Don't have a
+device to test, so it's probably something worth noting." So this screen is **not tested by the owner on a
+device**, and no real device (the Thor included) has run it.
+
+It follows the Windows Mods window (`ModsForm.cs`) with standard controls, through the same backend route as
+the save editor:
+
+- `launcher/ModBackend` is split like the save backend: `modservice.lua` answers (`installed`, `index`,
+  `sources`, `addSource`, `removeSource`, `setEnabled`, `check`), `main.lua` is the Windows stdin loop.
+  `AndroidSaveBackend.serve` picks the service from `POCKET_BACKEND` (`save` or `mods`).
+- `ModsActivity.java`: a Game dropdown (games imported at least once; on and off are per game, as upstream
+  stores them), a Show dropdown (Installed mods or Browse the mod index), a status line read out politely,
+  and the list. Selecting a mod opens its actions: Turn on or off for the game, Remove, Details; in the index,
+  Install (or Install again or update) and Details. Install asks first and lists any warnings from the index.
+- The first time, the same warning as Windows, with the same marker file
+  (`pocket-access-mods-warning-accepted`); Cancel closes the screen.
+- `ModInstaller.java`, written for this launcher (upstream's installer is in its Term 2 code): https only;
+  the zip goes to `mods-incoming`, only files under its shallowest `manifest.json` are unpacked, and a name
+  that points outside the folder, more than one mod, or over 4 GiB unpacked refuses the install. Then
+  upstream's own manifest check runs through the backend (`check`), the id must match the index's, and the
+  new copy replaces `mods/<id>` keeping its `baseroms`. Progress is read out at quarter steps.
+- A change takes effect the next time a game starts, as on Windows.
+
+Emulator, 2026-11-08, test build of `main` (run level; nothing heard, not the Thor): the warning, then
+"No mods installed"; the index listed 204 mods; 0 EXP Challenge 1.0.1 downloaded and installed, showed as
+"installed 1.0.1" in the index and "On" in Installed mods; turned off and shown "Off"; Details listed its
+games; Remove emptied `mods`. Back returned to the launcher, and Red then started. Not checked: that an
+installed mod loads in a game on Android, and TalkBack reading of this screen.
 
 ## Scripted tests on the emulator
 
@@ -187,8 +224,8 @@ Next time: capture `dumpsys audio` during a missed line, and try with the game's
 
 ## Next
 
-1. The owner's tests on the Thor: the new launcher menu, sounds, the save editor, and navigation with the
-   Thor's own controls.
+1. The owner's tests on the Thor: the new launcher menu, sounds, the save editor, the Mods screen (the owner
+   noted they have no device to test it on, 2026-11-08), and navigation with the Thor's own controls.
 2. Run a release build on the Thor before publishing one (the emulator cannot run it: arm64 only).
 
 ## Release builds (set up 2026-11-05, decision 54)

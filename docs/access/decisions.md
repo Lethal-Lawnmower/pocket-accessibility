@@ -517,3 +517,7 @@ After seed 876506 felt "kind of normal", the owner asked for research on how oth
 ## 59. A door randomizer in the Crystal randomizer (2026-11-08)
 
 Asked "Do we have the map randomizer?", told no and what it would take, the owner: "Yup, use the same 10 subagents." It is offered only in CHOOSE EACH until played. Details: `launcher/mods/crystal_randomizer/MAPS.md`.
+
+## 60. A Mods screen on Android, untested on a device (2026-11-08)
+
+Asked "Does Android have the mod launcher? Or the mod browser?", told no, the owner: "Yes, please. Don't have a device to test, so it's probably something worth noting." Built to match the Windows Mods window; tested on the emulator only. Not pushed. Details: `android.md`, "Mods".
