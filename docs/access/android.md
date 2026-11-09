@@ -244,6 +244,15 @@ Decision 66 sets touch gestures for the game with TalkBack kept on. What was fou
 - **Not yet tested.** Upstream's on-screen touch controls are still drawn over the game (see above), so a
   first device check needs no new build: with the bridge on, does a tap reach upstream's touch buttons
   while TalkBack runs.
+- **Installed on the Pixel Tablet (2026-11-09, owner approved "yeah, grab it"):** NVGT Bridge 1.2 from its
+  GitHub release (`com.nvgt.bridge`, sha256 `c5dc2611…7d6411`, signed CN=Aryan Choudhary, the original
+  NVGTBridge author; permissions only QUERY_ALL_PACKAGES and VIBRATE, no INTERNET), and Pocket Accessibility
+  0.0.3 (sha256 matches the release). Neither is switched on; enabling the service and TalkBack is the
+  owner's step. The tablet has no ROM yet.
+- **A concern to test:** the bridge works per app, and our launcher (an ordinary TalkBack app) and the game
+  are one package, so with the bridge on the launcher may lose Explore by Touch too. Our own service could
+  tell the game's activity from the launcher's; the bridge's open pull request #185 (per-view marking)
+  would also do it.
 
 ## Next
 
