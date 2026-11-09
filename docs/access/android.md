@@ -84,7 +84,8 @@ The flow follows melonDS on Android, written fresh (that app is GPL-3.0 and none
    when the player returns.
 4. If the game refuses to start, its reason (`pocket-access-start-refused.txt`) appears in a dialog.
 
-The menu holds Refresh game list, Choose ROM folder, Edit a save, Mods, the three sounds items and Credits.
+The menu holds Refresh game list, Choose ROM folder, Edit a save, Mods, Touch controls (see "Touch
+service"), the three sounds items and Credits.
 License Term 1's credit stays on the main screen. The icon is ours, not upstream's.
 
 Android's picker refuses the storage root and the Download folder itself; a folder inside either works.
@@ -270,6 +271,55 @@ Decision 66 sets touch gestures for the game with TalkBack kept on. What was fou
   upstream's on-screen D-pad worked: down moved the cursor to OPTION and spoke it, then the owner moved
   back to NEW GAME on purpose (which the later screenshot showed). Passthrough with TalkBack 17.1 on the
   Pixel Tablet is confirmed by the owner.
+
+## Touch service (built 2026-11-09, decision 66)
+
+Our own accessibility service, "Pocket Accessibility touch", in the APK: the game screen's touches go to
+the game while TalkBack stays on for everything else. Fresh code; NVGT Bridge (MIT) is credited for the
+approach in the service's description and the launcher page, and none of its code is used.
+
+- **Files:** `TouchPassthroughService.java`, `TouchControlsActivity.java` (both in
+  `launcher/android/src/com/pocketaccess/launcher/`), `res/xml/pocket_touch_service.xml`,
+  `res/values/pocket_touch_strings.xml`, `res/values-v30/pocket_touch_bools.xml`; manifest entries in
+  `build_apk.py` (`LAUNCHER_ACTIVITY`). A work folder prepared before the service existed is refused:
+  build with `--clean` once.
+- **Which window is the game:** a window id does not name its activity, but a window-state event from our
+  package carries the activity's class name. The service remembers window ids seen with
+  `org.love2d.android.GameActivity` (and marks our launcher screens' windows as not the game).
+- **Region rule:** on every window event, screen on or off, unlock, and (API 33+) a change in enabled
+  services, per display (display 0 always): the game window's bounds only when it is the active, focused
+  application window; less every system window drawn above it (status bar, navigation bar, a heads-up
+  notification), which stay with TalkBack. Empty while the keyboard is shown, while any other app's window,
+  dialog or overlay (other services' overlays and the magnifier included) is above the game, while the
+  screen is off or locked, and whenever the game window is not known. A system dialog or the notification
+  shade takes focus, which empties the region.
+- **Touch exploration:** the region counts only while this service requests touch exploration, and it
+  requests it only while another enabled service (TalkBack) does, so the service alone never puts a player
+  without a screen reader into touch exploration.
+- **Asks for:** window-state and windows-changed events, the window list (`flagRetrieveInteractiveWindows`,
+  which Android ties to `canRetrieveWindowContent`), `canRequestTouchExplorationMode`, and
+  `isAccessibilityTool`. No permission is added. It reads no screen text and has no network code, but the
+  app as a whole already holds INTERNET (upstream's link play, our sounds download), and Android grants
+  permissions per app, so the wording says the service "never uses the internet", not that it cannot.
+  Offered on Android 11 (API 30) and later only (`android:enabled` from `pocket_touch_supported`).
+- **Launcher:** the menu's **Touch controls** opens a page that explains the service, says whether it is on
+  (checked on every return), opens Android's accessibility list with Settings' highlight hint for our
+  entry (the action for one service's own page, `ACCESSIBILITY_DETAILS_SETTINGS`, is not in the public
+  SDK's `android.jar` for API 36, so it was not used), explains "Allow restricted settings" for sideloaded installs, and
+  opens our App info. Plain text and standard buttons only. The page is also the service's settings
+  activity in Android's settings.
+- **Checked (2026-11-09):** a debug build with the test id (`build_apk.py --prism-zip <zip> --work <folder>
+  --clean`) compiled; `aapt dump xmltree` shows the service with `BIND_ACCESSIBILITY_SERVICE`, its intent
+  filter, its config (events `0x400020`, flag `0x40`, touch exploration capability, accessibility tool,
+  settings activity) and the exported Touch controls page; `pocket_touch_supported` is false by default and
+  true from v30. `dump badging` permissions are unchanged: VIBRATE, BLUETOOTH, INTERNET (upstream's) and
+  AndroidX's own receiver permission. **Not run on any device:** whether Android names the game
+  activity in window-state events for this SDL window, whether passthrough works with our service as it did
+  with the bridge, whether TalkBack's double tap works on the page's buttons, the details-settings intent,
+  edge gestures (back, home) with passthrough on, flapping when TalkBack explores the status bar (the game
+  stops being the active window for a moment), and other displays.
+- **Open:** the game side (gestures) is separate work. If the service is switched on while the game is
+  already in front, passthrough starts only at the game's next window-state event.
 
 ## Next
 

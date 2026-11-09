@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pocket Accessibility touch (TouchPassthroughService.java).  Window events and the
+     window list only: it needs to know when the game's window is in front, nothing more.
+     Touch exploration is requested at run time, and only while TalkBack requests it too.
+     canRetrieveWindowContent is required by Android for the window list; no screen text is read. -->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/pocket_touch_description"
+    android:summary="@string/pocket_touch_summary"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowsChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagRetrieveInteractiveWindows"
+    android:canRetrieveWindowContent="true"
+    android:canRequestTouchExplorationMode="true"
+    android:isAccessibilityTool="true"
+    android:notificationTimeout="0"
+    android:settingsActivity="com.pocketaccess.launcher.TouchControlsActivity" />

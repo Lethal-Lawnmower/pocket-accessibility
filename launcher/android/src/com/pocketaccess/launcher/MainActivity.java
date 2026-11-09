@@ -57,6 +57,7 @@ public final class MainActivity extends Activity {
     private static final int MENU_IMPORT_SOUNDS = 6;
     private static final int MENU_REMOVE_SOUNDS = 7;
     private static final int MENU_MODS = 8;
+    private static final int MENU_TOUCH = 9;
     private static final int REQUEST_SOUNDS_FOLDER = 2;
     private static final String SOUNDS_NOTICE_FILE = "pocket-access-sounds-notice-shown";
     /** Long enough for TalkBack to say what is about to happen before the game's window opens. */
@@ -256,6 +257,7 @@ public final class MainActivity extends Activity {
         menu.add(Menu.NONE, MENU_FOLDER, Menu.NONE, "Choose ROM folder");
         menu.add(Menu.NONE, MENU_EDIT_SAVE, Menu.NONE, "Edit a save");
         menu.add(Menu.NONE, MENU_MODS, Menu.NONE, "Mods");
+        menu.add(Menu.NONE, MENU_TOUCH, Menu.NONE, "Touch controls");
         menu.add(Menu.NONE, MENU_DOWNLOAD_SOUNDS, Menu.NONE, "Download Pokémon Access sounds");
         menu.add(Menu.NONE, MENU_IMPORT_SOUNDS, Menu.NONE, "Import Pokémon Access sounds");
         menu.add(Menu.NONE, MENU_REMOVE_SOUNDS, Menu.NONE, "Remove Pokémon Access sounds");
@@ -281,6 +283,12 @@ public final class MainActivity extends Activity {
                 if (!busy) {
                     busy = true;
                     startActivity(new Intent(this, ModsActivity.class));
+                }
+                return true;
+            case MENU_TOUCH:
+                if (!busy) {
+                    busy = true;
+                    startActivity(new Intent(this, TouchControlsActivity.class));
                 }
                 return true;
             case MENU_DOWNLOAD_SOUNDS:

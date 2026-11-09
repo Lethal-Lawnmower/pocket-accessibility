@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- What Android's accessibility settings show for TouchPassthroughService. -->
+<resources>
+    <string name="pocket_touch_label">Pocket Accessibility touch</string>
+    <string name="pocket_touch_summary">Lets your touches reach the Pocket Accessibility game screen while TalkBack handles everything else.</string>
+    <string name="pocket_touch_description">Pocket Accessibility touch lets your touches reach the Pocket Accessibility game screen while TalkBack stays on and handles everything else: the launcher, the keyboard, notifications, system pop-ups and other apps. Use it together with TalkBack; without TalkBack it does nothing.\n\nTo know when the game is in front, it reads only the layout of the windows on screen: which window is in front, its type and its size. It does not read what is on screen, does not record anything, and never uses the internet. It comes with Pocket Accessibility; you do not need to install anything else.\n\nThe idea comes from the NVGT Bridge project; this is Pocket Accessibility\'s own code.</string>
+    <!-- Android 11 added the call this service needs; on older Android it is not offered. -->
+    <bool name="pocket_touch_supported">false</bool>
+</resources>

@@ -46,7 +46,29 @@ LAUNCHER_ACTIVITY = """    <activity
         android:label="Mods"
         android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden"
         android:theme="@android:style/Theme.DeviceDefault" />
+    <!-- exported: Android's accessibility settings open it as the touch service's settings -->
+    <activity
+        android:name="com.pocketaccess.launcher.TouchControlsActivity"
+        android:exported="true"
+        android:label="Touch controls"
+        android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden"
+        android:theme="@android:style/Theme.DeviceDefault" />
+    <!-- Pocket Accessibility touch (decision 66): only the system can bind it -->
+    <service
+        android:name="com.pocketaccess.launcher.TouchPassthroughService"
+        android:label="@string/pocket_touch_label"
+        android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+        android:enabled="@bool/pocket_touch_supported"
+        android:exported="true">
+      <intent-filter>
+        <action android:name="android.accessibilityservice.AccessibilityService" />
+      </intent-filter>
+      <meta-data
+          android:name="android.accessibilityservice"
+          android:resource="@xml/pocket_touch_service" />
+    </service>
 """
+TOUCH_SERVICE = "com.pocketaccess.launcher.TouchPassthroughService"
 
 
 def edit(path, *pairs):
@@ -121,13 +143,15 @@ def prepare_project(shadow, prism_zip):
 
 def copy_launcher(shadow, test_hooks):
     """Our Java and resources, refreshed on every build."""
+    manifest = shadow / "app" / "src" / "main" / "AndroidManifest.xml"
+    if TOUCH_SERVICE not in manifest.read_text(encoding="utf-8"):
+        sys.exit(f"{shadow} was prepared before the touch service was added: build again with --clean")
     target = shadow / "app" / "src" / "main" / "java" / "com" / "pocketaccess" / "launcher"
     shutil.rmtree(target, ignore_errors=True)
     shutil.copytree(HERE / "src" / "com" / "pocketaccess" / "launcher", target)
     shutil.copytree(HERE / "res", shadow / "app" / "src" / "main" / "res", dirs_exist_ok=True)
     if test_hooks:
         shutil.copytree(HERE / "test-src" / "com" / "pocketaccess" / "launcher", target, dirs_exist_ok=True)
-        manifest = shadow / "app" / "src" / "main" / "AndroidManifest.xml"
         if "TestStartActivity" not in manifest.read_text(encoding="utf-8"):
             edit(manifest, ('    <activity\n        android:name="org.love2d.android.GameActivity"',
                             '    <activity android:name="com.pocketaccess.launcher.TestStartActivity" android:exported="true" />\n'
