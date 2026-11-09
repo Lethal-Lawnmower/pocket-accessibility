@@ -1040,11 +1040,27 @@ function Navigation:regionalTilesetFor(def)
   return (def and tilesets) and tilesets[def.tileset] or nil
 end
 
+-- Whether a planned map still indexes the warps its definition holds now.  A map
+-- randomizer (launcher/mods/crystal_randomizer, MAPS.md) rewrites warps per save;
+-- written in place, the cached map already sees them, but a warp list or record
+-- replaced outright would leave the cached map on the old ones.
+local function indexesCurrentWarps(map, def)
+  local warps = def.warps or {}
+  if def.warps and map.warps ~= def.warps then return false end
+  for _, warp in ipairs(warps) do
+    -- (two warps on one cell: the map keeps the later, as the game does)
+    local entry = map:warpAt(warp.x, warp.y)
+    if not entry or warps[entry.index] ~= entry.def then return false end
+  end
+  return true
+end
+
 function Navigation:regionalMap(def)
   if not def then return nil end
   self.regionalMapCache = self.regionalMapCache or setmetatable({}, { __mode = "k" })
   local cached = self.regionalMapCache[def]
-  if cached ~= nil then return cached or nil end
+  if cached == false then return nil end
+  if cached and indexesCurrentWarps(cached, def) then return cached end
   local tileset = self:regionalTilesetFor(def)
   local ok, map = false, nil
   if tileset then ok, map = pcall(Gen2Map.new, def, tileset) end
@@ -1130,9 +1146,19 @@ end
 -- world resolves it through the backup warp it recorded (World:resolveWarp).
 -- Unresolved, the warp gives no edge: before the game has recorded one there
 -- is genuinely nothing to go back to.
-function Navigation:regionalResolveWarp(warp)
+--
+-- The backup warp is where the player came in to the map they are on, so it
+-- answers only for that map (`mapId`, when given).  On a map a plan only passes
+-- through, the way back leads to where the plan came in, which never shortens a
+-- route; read from the backup it was an edge to wherever the player last came
+-- in, a door that does not go there (a Pokemon Center's 2F "leading" to another
+-- town's center, which shuffled doors make easier to hit).
+function Navigation:regionalResolveWarp(warp, mapId)
   if type(warp) ~= "table" then return nil, nil end
   if warp.destWarp ~= 0xff then return warp.destMap, warp.destWarp end
+  if mapId ~= nil and mapId ~= self:currentMapIdOf(self.game and self.game.world) then
+    return nil, nil
+  end
   local destMap, destWarp = Snapshot.returnWarpDestination(self.game and self.game.world, warp)
   if destMap and destWarp and destWarp ~= 0xff then return destMap, destWarp end
   return nil, nil
@@ -1152,7 +1178,7 @@ function Navigation:regionalTransitions(mapId)
       local ok, coll = pcall(sourceMap.cellCollision, sourceMap, warp.x, warp.y)
       active = ok and Permissions.isWarpCollision(coll)
     end
-    local destMap, destWarp = self:regionalResolveWarp(warp)
+    local destMap, destWarp = self:regionalResolveWarp(warp, mapId)
     local destination = destMap and self:regionalMapDef(destMap)
     local arrival = destination and destination.warps and destWarp
       and destination.warps[destWarp]

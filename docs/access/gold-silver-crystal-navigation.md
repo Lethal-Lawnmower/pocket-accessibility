@@ -103,6 +103,21 @@ paths are unchanged.
   when they block ("push right to clear the way for Boulder 3"); stone-table
   boulders are never pushed into dead cells. The instruction also says what
   is missing (a Strength user, the Plain Badge, Strength switched on).
+- **Shuffled doors (map randomizer, 2026-11-08):** the Crystal Randomizer's `maps` module rewrites
+  `destMap`/`destWarp` in `data.gen2Maps` in place, per save (`launcher/mods/crystal_randomizer/MAPS.md`). The
+  object list, door labels, auto-walk's arrival map and the journey planner already read the live warps on every
+  capture and plan, so a door is named by where it leads now with no refresh. Two fixes: a planned map
+  (`Navigation:regionalMap`, cached per map) is rebuilt when its warp list or records were replaced rather than
+  rewritten; and a 0xFF "back" warp gives a planner edge only on the map the player is on, since the backup warp
+  says where the player came in to that map only (elsewhere it was an edge to the last door used, such as a
+  Pokemon Center 2F "leading" to another town). On the player's map it is still named and planned by the backup
+  warp. Crystal has six 0xFF warps (Pokemon Center 2F, both elevators, Fast Ship 1F); house exits are explicit.
+  `tests/access/gen2_map_shuffle_test.lua` 28/28 (4 fail without the fixes); `drivers/gen2_map_shuffle.lua` in
+  Crystal swaps New Bark's neighbours' and Elm's house doors by hand: both named by their new houses, auto-walk
+  through 3,11 arrives in Elm's house, a journey from there to the neighbours' house leaves by 3,11 and enters by
+  11,13, vanilla names return after the swap is undone. By script, silent; not heard, not run with the mod itself.
+  Not covered: a randomizer that replaced the records of the map the player stands on would leave the game's own
+  live map firing the old warps; labels follow `def.warps`, so the two would disagree until the map reloads.
 
 H and Shift+H read the Gen 2 battle's shown health (`battle.md`).
 

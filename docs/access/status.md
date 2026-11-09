@@ -220,6 +220,9 @@ and recorded in the topic file.
   out, Saffron's pads are walked, signs named, unusable targets not listed. Table and numbers in
   `gold-silver-crystal-navigation.md`. By script; not heard. Gold and Silver not played.
   Driver note: `gen2_story_spots` needs about 12 minutes per game.
+- **Shuffled doors (2026-11-08):** navigation follows the map randomizer's rewritten warps: labels, auto-walk
+  and journeys; two small planner fixes. Unit test and a Crystal run with two New Bark doors swapped by hand
+  pass; not run with the randomizer mod itself, not heard. Details: `gold-silver-crystal-navigation.md`.
 - **Open product questions:** listed in `gold-silver-crystal.md`.
 
 ## Open questions for the owner
