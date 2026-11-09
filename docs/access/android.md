@@ -325,7 +325,11 @@ approach in the service's description and the launcher page, and none of its cod
 `com.pocketaccess.androidtest`, label "Pocket Accessibility" (same as the release app, which stays installed with its
 data), built with `build_apk.py --prism-zip <scratch prism-android.zip> --work %TEMP%\pa-touch-main --clean` and
 installed on the owner's Pixel Tablet with `adb install -r`. NVGT Bridge stays installed but is set only for the
-release app. Not yet tried by the owner.
+release app. The owner suspected a conflict with NVGT Bridge when both services were on (both enabled, checked
+with `settings get secure enabled_accessibility_services`). Likely cause, not proven: Android keeps one
+passthrough region per display, and the bridge sets an empty one whenever an app outside its list (here the test
+app) is in front, overwriting ours. For players: the launcher's Touch controls page should warn that NVGT Bridge
+or Backtalk direct touch must not be on for this app at the same time.
 
 ## Next
 
