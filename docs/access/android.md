@@ -253,6 +253,12 @@ Decision 66 sets touch gestures for the game with TalkBack kept on. What was fou
   are one package, so with the bridge on the launcher may lose Explore by Touch too. Our own service could
   tell the game's activity from the launcher's; the bridge's open pull request #185 (per-view marking)
   would also do it.
+- **Built in (decision 66, 2026-11-09):** the owner wants our own service in the APK, not a separate
+  install. NVGT Bridge is used only to check on the tablet that passthrough works with TalkBack 17.1.
+  Players who sideload our APK will still meet Android's "Allow restricted settings" step before the
+  service can be switched on; the launcher must explain it.
+- **ROMs on the tablet (2026-11-09, owner's request):** all 17 dumps from `red/` copied to
+  `Download/Pokemon ROMs` for the owner's own play.
 
 ## Next
 
