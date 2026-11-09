@@ -520,4 +520,4 @@ Asked "Do we have the map randomizer?", told no and what it would take, the owne
 
 ## 60. A Mods screen on Android, untested on a device (2026-11-08)
 
-Asked "Does Android have the mod launcher? Or the mod browser?", told no, the owner: "Yes, please. Don't have a device to test, so it's probably something worth noting." Built to match the Windows Mods window; tested on the emulator only. Not pushed. Details: `android.md`, "Mods".
+Asked "Does Android have the mod launcher? Or the mod browser?", told no, the owner: "Yes, please. Don't have a device to test, so it's probably something worth noting." Built to match the Windows Mods window; tested on the emulator only. Pushed at the owner's request the same day ("Yes"), with the PC Clock and randomizer work: 47 commits, `87c029eb..f77de973`, after a scan for private material, paths, credentials and binaries. Details: `android.md`, "Mods".
