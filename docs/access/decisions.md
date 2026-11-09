@@ -513,3 +513,7 @@ The owner: a randomizer mod "able to be customized from day one ... you don't ne
 ## 58. Randomizer version 2: everything from the research (2026-11-08)
 
 After seed 876506 felt "kind of normal", the owner asked for research on how other randomizers work, then: "use up to 10 sub-agents to build all of that." Oak now offers RECOMMENDED, EVERYTHING or CHOOSE EACH; the HM shuffle is offered only in CHOOSE EACH. Details: `gold-silver-crystal.md`, "Randomizer version 2".
+
+## 59. A door randomizer in the Crystal randomizer (2026-11-08)
+
+Asked "Do we have the map randomizer?", told no and what it would take, the owner: "Yup, use the same 10 subagents." It is offered only in CHOOSE EACH until played. Details: `launcher/mods/crystal_randomizer/MAPS.md`.

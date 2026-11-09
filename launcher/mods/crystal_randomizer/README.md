@@ -26,6 +26,7 @@ randomized world stays the same all game. Other saves are not affected.
 | Starters and gifts | Shuffle the starters? Three stages? A type triangle? Shuffle gift and static POKéMON? Legendaries stay legendary? |
 | Evolutions | Trade evolutions without trading? Shuffle what POKéMON evolve to? Keep a type in common? |
 | Items | Shuffle items on the ground? Hidden items too? Shuffle where HMs are found? |
+| Doors | Shuffle where doors lead? Off, houses, caves, or everything |
 | TMs | Shuffle what TMs teach? Who can learn each? Use TMs more than once? |
 | Shops | Shuffle what marts sell? Better marts? |
 | POKéMON | Shuffle types? Moves learned by level? Base stats (reorder or reroll)? Attacks' power, accuracy and type? |
@@ -52,6 +53,12 @@ randomized world stays the same all game. Other saves are not affected.
   never move with them.
 - **HMs (CHOOSE EACH only):** the seven HMs swap places among their own seven spots, only in orders that
   keep the game beatable, and the person who gives one names the one you get.
+- **Doors (CHOOSE EACH only):** houses swap with houses; caves also swap with caves; everything swaps any
+  door with any other. Story places never move (Elm's lab, gyms, the Radio Tower, the towers, Ilex Forest,
+  Victory Road, the League and more), and only arrangements that keep the game beatable through the
+  League are used. Leaving a building returns you to the door you came in by, and Escape Rope, Dig,
+  blacking out and Teleport follow the shuffled doors. Navigation names each door by where it leads now.
+  Kanto after the League is not checked.
 - **TMs:** each TM teaches a new move (HMs never change); HEADBUTT and ROCK SMASH stay on some TM so trees
   and rocks still work. Navigation names a TM by its number and the move it teaches now.
 - **Shops:** every general mart sells POKé BALLs and POTIONs, even Cherrygrove's from the start.

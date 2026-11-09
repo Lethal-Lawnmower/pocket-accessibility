@@ -349,3 +349,12 @@ Pokémon (seen with METAL COAT; probably the Pack not refreshing, not checked wi
 other trade items may be hard to find; legendaries can appear on ordinary trainers; day-care experience is
 not multiplied; an exported cartridge save made on a map with blind trainers carries their sight as 0.
 
+### Door randomizer (2026-11-08, decision 59)
+
+The owner asked whether a map randomizer existed, then: "use the same 10 subagents." Seven agents built
+`mapgraph`, `maprules`, `mapplacer`, `maps`, `mapmoves`, navigation changes in `src/access/nav/gen2/Navigation.lua`
+(test `tests/access/gen2_map_shuffle_test.lua`) and the end-to-end test `tests/maps_e2e.py`, against
+`launcher/mods/crystal_randomizer/MAPS.md`, which holds the design, what was built and the verification. Oak's
+question "Shuffle where doors lead?" (OFF, HOUSES, CAVES, EVERYTHING) is off in both setups. The end-to-end
+test found one real fault (Tohjo Falls placed behind the closed Safari Zone gate's wall); fixed in `maprules`,
+then 12 of 12 silent runs passed. Not played by the owner.

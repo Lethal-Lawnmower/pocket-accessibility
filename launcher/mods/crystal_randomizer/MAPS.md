@@ -79,3 +79,39 @@ the shuffled doors.
 - Never strand: if no placement passes `canWin` within a bounded search, place nothing for that save and log
   it; the save plays with vanilla doors.
 - Everything per save, deterministic, restored exactly; nothing written to the save but the seed and answers.
+
+## As built (2026-11-08)
+
+- **Entrances.** A doorway can be two tiles; `mapgraph` groups adjacent outdoor tiles into one entrance
+  (`graph.entrances`, `door.entrance`), and `complex.deadEnd` counts entrances. The placer moves whole
+  entrances and returns `placement.entrances[E] = E'`, plus `placement[doorId]` = the target entrance's first
+  door for every tile. `maps` rewrites every tile of E to the target, and the target complex's explicit
+  exits to E's first tile; `0xff` exits already return to the tile used.
+- **The Center upstairs** (`POKECENTER_2F` and its link rooms) is an annex shared by every center, not a
+  complex. The Goldenrod Dept Store complex includes the Underground; the Indigo center includes the Elite
+  Four rooms.
+- **Crystal's counts:** 290 door tiles in 247 entrances into 188 complexes; 145 dead ends.
+- **Fixed** (`maprules`, 49 complexes): New Bark's lab and house, all gyms, the Radio Tower and Dept Store
+  with the Underground, the flower shop, the Magnet Train, the Mahogany mart and hideout, Ilex Forest and its
+  gates, the Slowpoke Well, Kurt's house, the Ruins, Tin and Burned Towers, the National Park gates, the
+  lighthouse, the Cianwood pharmacy, the S.S. Aqua and ports, Mr. Pokémon's house, the Dragon's Den, Victory
+  Road and its gate, the Indigo center, the Battle Tower, Kanto's story places and the closed Safari Zone
+  gate (its Fuchsia door is a wall; found by the end-to-end test).
+- **canWin** walks the Johto story from the starter to the League through the placed doors, in the keyitems
+  module's strict style, and agrees with it on all 5040 HM orders with vanilla doors. Kanto is closed to it,
+  so post-game Kanto is not guaranteed. One-way ledges, Rock Smash and darkness are not modelled; Dark Cave is
+  never a route.
+- **mapmoves** wraps `World:escapeRopeTarget` (the door used wins), `World:healPoint` (blackout and Teleport
+  land at the moved door of the center last used) and observes `recordWarpBackup`, only while a placement is
+  active. Fly, elevators and the Center upstairs needed nothing.
+- **Navigation** already read warps live; `src/access/nav/gen2/Navigation.lua` now rebuilds a planned map
+  whose warps changed, and applies a `0xff` return warp only on the map the player stands on.
+
+## Verification
+
+Each module's luajit test passes, also on the real Crystal data. `tests/maps_e2e.py` runs the whole mod in
+silent Crystal runs: 12 of 12 passed (houses, caves and full, seeds 424242, 190731, 777001, 555123), 83 to
+89 checks each. Every shuffled door walked arrived where the placement said and led back out to the door
+used; navigation named every shuffled town door by its new destination; the Escape Rope landed at the door
+used; `canWin` held; the save switch took about 0.1 s at most. Doors were walked from a teleport, not by
+auto-walk, and nothing was heard; not played by the owner.
