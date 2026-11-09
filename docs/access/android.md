@@ -222,6 +222,29 @@ log's reach (audio routing, focus, ducking against the game's sound, or TalkBack
 owner chose not to pursue it for now ("Not worth fixing something that might be good for other people").
 Next time: capture `dumpsys audio` during a missed line, and try with the game's music off.
 
+## Touch with TalkBack on (research, 2026-11-09)
+
+Decision 66 sets touch gestures for the game with TalkBack kept on. What was found before building:
+
+- **No app-side passthrough.** The public SDK (checked `android.jar` for API 36 and 37) has no way for an
+  app to ask TalkBack to pass its touches through, unlike iOS's direct interaction. The only API is
+  `AccessibilityService.setTouchExplorationPassthroughRegion` (API 30), which only an accessibility
+  service can call. An earlier claim in this session that Android 14 added an app-side request was wrong.
+- **Stock TalkBack** (17.1 on the Pixel Tablet) offers games nothing else; Unity's accessibility plugin
+  tells players to turn TalkBack off.
+- **NVGT Bridge** (github.com/trypsynth/nvgt-bridge, MIT, release 1.2 of 2026-01-27) is a separate
+  accessibility service, enabled alongside stock TalkBack. For games switched on in its list it sets that
+  passthrough region over the game and gives touch back to TalkBack for dialogs, the keyboard, the
+  notification shade, apps on top and screen off. An app declares support with manifest meta-data
+  `dev.nvgt.capability.DIRECT_TOUCH` = `true`, and the bridge then switches it on by itself.
+- **Backtalk** (a TalkBack fork) has the same direct touch built in.
+- **Options:** support NVGT Bridge and Backtalk (the meta-data line, players install the bridge once), or
+  write our own service into the APK (players enable it in Accessibility settings; same sideloading
+  restriction). Not decided.
+- **Not yet tested.** Upstream's on-screen touch controls are still drawn over the game (see above), so a
+  first device check needs no new build: with the bridge on, does a tap reach upstream's touch buttons
+  while TalkBack runs.
+
 ## Next
 
 1. The owner's tests on the Thor: the new launcher menu, sounds, the save editor, the Mods screen (the owner
