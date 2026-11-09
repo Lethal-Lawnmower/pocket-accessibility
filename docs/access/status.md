@@ -98,6 +98,9 @@ and recorded in the topic file.
   `DPAD_UP`/`DOWN`/`LEFT`/`RIGHT`/`ANY`, which were dropped. Unit test 147/147;
   heard in the trace of a silent FireRed `gen3_menus` run; not heard by a
   person; LeafGreen shares the code, not run.
+  Pushed to `main` on 2026-11-09 at the owner's request ("Push it"), with the
+  Hoenn polish; not released. The owner said to hold the release; touch
+  support is next.
 - **State (2026-11-01):** started. Upstream runs Gen 3 through
   `src/core/Game3.lua` with no StateStack: menus are layers on
   `src/ui/game3/stack.lua` (singleton modules), dialogue is
