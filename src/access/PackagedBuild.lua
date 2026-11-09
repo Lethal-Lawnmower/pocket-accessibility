@@ -63,6 +63,53 @@ local function replaceRestart()
   end
 end
 
+-- On a computer the games start the way the owner set them up for streaming
+-- (decisions 62 and 63): borderless (desktop fullscreen), battles filling the screen
+-- over the map, the layout that uses the whole window, and the richest Gen 1 colours.
+-- These are upstream's own options; only their defaults change, so a player's saved
+-- choice wins and every one of them is still in the options menu.  Speed, frame
+-- rate, zoom, sound and accessibility settings stay upstream's (or ours).
+-- Scripted runs (silent) keep upstream's defaults, so a test never covers the
+-- screen and drivers see the layout they were written for.
+PackagedBuild.DESKTOP_DEFAULTS = {
+  -- Gen 1 and the options Gen 3 shares (src/core/SaveData.lua)
+  shared = {
+    videoMode = "borderless",
+    battleFit = "fill", battleBg = "world", uiLayout = "dynamic",
+    voidFill = "map", colors = "redpp",
+  },
+  -- Gen 2 keeps its own (src/core/gen2/Save.lua DEFAULT_OPTIONS); videoMode is shared
+  gen2 = {
+    battleFit = "fill", battleBg = "world", battleHud = "extended", uiLayout = "dynamic",
+    voidFill = "trees",
+  },
+}
+
+local GEN2_SAVE = "src.core.gen2.Save"
+
+local function useDesktopDefaults()
+  local SaveData = require("src.core.SaveData")
+  local upstreamDefaults = SaveData.defaultOptions
+  SaveData.defaultOptions = function(...)
+    local options = upstreamDefaults(...)
+    for key, value in pairs(PackagedBuild.DESKTOP_DEFAULTS.shared) do options[key] = value end
+    return options
+  end
+  -- Gen 2's save module pulls in half the game, so it is changed when the game
+  -- first loads it, not here.  The loader steps aside and lets require find the file.
+  if package.loaded[GEN2_SAVE] == nil and package.preload[GEN2_SAVE] == nil then
+    package.preload[GEN2_SAVE] = function(name)
+      package.preload[name] = nil
+      package.loaded[name] = nil
+      local Save = require(name)
+      if type(Save) == "table" and type(Save.DEFAULT_OPTIONS) == "table" then
+        for key, value in pairs(PackagedBuild.DESKTOP_DEFAULTS.gen2) do Save.DEFAULT_OPTIONS[key] = value end
+      end
+      return Save
+    end
+  end
+end
+
 function PackagedBuild.install()
   if PackagedBuild.active or not love.filesystem.getInfo(PackagedBuild.MARKER, "file") then
     return PackagedBuild
@@ -83,18 +130,8 @@ function PackagedBuild.install()
   -- a source run on the same save folder may have left one; it would turn the
   -- next Play into a start without a game
   love.filesystem.remove(RELAUNCH_MARKER)
-  -- On a computer the games start borderless (desktop fullscreen), so a stream of
-  -- the game looks right without setting anything (owner, 2026-11-08, decision 62).
-  -- Only the default: a player's saved choice, and the options menu, still decide.
-  -- Scripted runs keep upstream's window, so a silent test never covers the screen.
   if not require("src.core.VideoMode").fixedDisplay() and os.getenv("POKEPORT_ACCESS_SILENT") ~= "1" then
-    local SaveData = require("src.core.SaveData")
-    local upstreamDefaults = SaveData.defaultOptions
-    SaveData.defaultOptions = function(...)
-      local options = upstreamDefaults(...)
-      options.videoMode = "borderless"
-      return options
-    end
+    useDesktopDefaults()
   end
   -- the mods that come with the package; a failure here must never stop the game
   local copied, result = pcall(require("src.access.BundledMods").install)

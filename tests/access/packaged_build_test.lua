@@ -49,6 +49,19 @@ local SaveData = require("src.core.SaveData")
 if os.getenv("POKEPORT_ACCESS_SILENT") ~= "1" then
   eq(SaveData.defaultOptions().videoMode, "borderless", "a computer starts borderless by default")
   eq(SaveData.defaultOptions().textSpeed, 3, "the other defaults are upstream's")
+  eq(SaveData.defaultOptions().battleFit, "fill", "battles fill the screen by default")
+  eq(SaveData.defaultOptions().uiLayout, "dynamic", "the layout uses the whole window")
+  -- Gen 2's defaults change when the game first loads its save module
+  local fakeGen2 = { DEFAULT_OPTIONS = { battleFit = "fixed", textSpeed = "MID" } }
+  table.insert(package.loaders, 2, function(name)
+    if name == "src.core.gen2.Save" then return function() return fakeGen2 end end
+  end)
+  local Gen2Save = require("src.core.gen2.Save")
+  eq(Gen2Save, fakeGen2, "Gen 2's own module is loaded")
+  eq(Gen2Save.DEFAULT_OPTIONS.battleFit, "fill", "Gen 2 battles fill the screen by default")
+  eq(Gen2Save.DEFAULT_OPTIONS.battleHud, "extended", "Gen 2 battle HUD extended")
+  eq(Gen2Save.DEFAULT_OPTIONS.textSpeed, "MID", "Gen 2's other defaults are upstream's")
+  table.remove(package.loaders, 2)
 end
 
 -- Android keeps upstream's defaults (its display is fixed)

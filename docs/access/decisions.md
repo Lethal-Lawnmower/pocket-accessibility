@@ -529,3 +529,7 @@ The owner: "maybe for now we can make an exception for the two mods, since they 
 ## 62. Computers start the games borderless (2026-11-08)
 
 The owner: "performance and all that can be selectable. But can we have the games on PC start in borderless windowed mode, please? ... something that's visually nice for streams to look at." Only the default changes; the VIDEO MODE option stays. Details: `launcher.md`, "Packaged release".
+
+## 63. Computers start with the owner's display settings (2026-11-08)
+
+The owner: "Can you do the rest of the nice settings I have enabled? You know, the UI stuff and the battle taking up the entire screen, stuff like that?" Copied from the owner's options as defaults on a computer: battles filling the screen with the map behind them, the dynamic layout, the extended Gen 2 battle HUD, the map's own border fill and the ADVANCED Gen 1 colours. Zoom, frame rate, performance, volumes, text speed and accessibility settings were left out. Every one stays in the options menu. Details: `launcher.md`, "Packaged release".

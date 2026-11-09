@@ -213,11 +213,18 @@ launcher-only screens that are not on the Term 2 list by name but cannot work wi
   tables from the player's imported game at run time, and its text is our own. Map, item and Pokémon names appear
   as references, as in the navigation layer. Test: `tests/access/bundled_mods_test.lua` 18/18. Emulator, 2026-11-08:
   the copy happened on first start, and the Mods screen showed PC Clock on and Crystal Randomizer off.
-- **Borderless by default on a computer (decision 62).** `PackagedBuild` makes upstream's own `videoMode`
-  default `borderless` (desktop fullscreen) when the display is not fixed, so new players start borderless. It only
-  changes the default: a player's saved choice wins, and the options menu's VIDEO MODE still switches. Scripted runs
+- **The owner's display settings by default on a computer (decisions 62 and 63).** `PackagedBuild` changes
+  the defaults of upstream's own options when the display is not fixed (`PackagedBuild.DESKTOP_DEFAULTS`), copied
+  from the owner's options on 2026-11-08: `videoMode` borderless (desktop fullscreen); `battleFit` fill, `battleBg`
+  world, `uiLayout` dynamic, `voidFill` map and `colors` redpp (ADVANCED) for Gen 1 and the options Gen 3 shares;
+  for Gen 2 (its own `DEFAULT_OPTIONS`, changed when the game first loads `src/core/gen2/Save.lua`) `battleFit`
+  fill, `battleBg` world, `battleHud` extended, `uiLayout` dynamic, `voidFill` trees. Not copied: zoom (depends on
+  the screen), frame rate and performance (the owner: "performance and all that can be selectable"), volumes,
+  text speed, and accessibility settings. Gen 3's own void fill already defaults to map. It only changes
+  the default: a player's saved choice wins, and the options menu's VIDEO MODE still switches. Scripted runs
   (`POKEPORT_ACCESS_SILENT=1`) keep upstream's default, so a silent test never covers the screen. Checked by
-  `tests/access/packaged_build_test.lua`; not yet seen in a real packaged start. A save folder that already wrote
+  `tests/access/packaged_build_test.lua` (28/28) and against the real Gen 2 save module; not yet seen in a real
+  packaged start. A save folder that already wrote
   `videoMode = "windowed"` keeps it.
 - **Routes that opened upstream's launcher now end the program.** A cache failing the full check at Play, or a start
   with no game: the game writes the reason to `pocket-access-start-refused.txt` in the save folder and exits with code 40;
