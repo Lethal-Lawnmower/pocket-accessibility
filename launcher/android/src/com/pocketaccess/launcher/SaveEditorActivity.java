@@ -85,6 +85,7 @@ public final class SaveEditorActivity extends Activity implements SaveEditorPage
         window.setFitsSystemWindows(true);
         window.addView(root);
         setContentView(window);
+        BackKey.route(this, this::requestClose);
 
         startBackend();
     }
@@ -265,6 +266,13 @@ public final class SaveEditorActivity extends Activity implements SaveEditorPage
     }
 
     /** Finishes both activities first: the backend's exit ends this process, and what is left is the launcher. */
+    /** However this screen ends, the backend behind it must not stay in front. */
+    @Override
+    protected void onDestroy() {
+        if (isFinishing() && !closing) closeEditor();
+        super.onDestroy();
+    }
+
     private void closeEditor() {
         if (closing) return;
         closing = true;

@@ -100,6 +100,7 @@ public final class ModsActivity extends Activity {
         window.setFitsSystemWindows(true);
         window.addView(root);
         setContentView(window);
+        BackKey.route(this, this::onBackPressed);
 
         if (games.isEmpty()) {
             fail("Play a game once first, so its data is imported; mods are turned on per game.");
@@ -386,6 +387,13 @@ public final class ModsActivity extends Activity {
             if (backend != null) backend.close();
         });
         worker.shutdown();
+    }
+
+    /** However this screen ends, the backend behind it must not stay in front. */
+    @Override
+    protected void onDestroy() {
+        if (isFinishing() && !closing) closeScreen();
+        super.onDestroy();
     }
 
     private void fail(String message) {
