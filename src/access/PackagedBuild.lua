@@ -83,6 +83,26 @@ function PackagedBuild.install()
   -- a source run on the same save folder may have left one; it would turn the
   -- next Play into a start without a game
   love.filesystem.remove(RELAUNCH_MARKER)
+  -- On a computer the games start borderless (desktop fullscreen), so a stream of
+  -- the game looks right without setting anything (owner, 2026-11-08, decision 62).
+  -- Only the default: a player's saved choice, and the options menu, still decide.
+  -- Scripted runs keep upstream's window, so a silent test never covers the screen.
+  if not require("src.core.VideoMode").fixedDisplay() and os.getenv("POKEPORT_ACCESS_SILENT") ~= "1" then
+    local SaveData = require("src.core.SaveData")
+    local upstreamDefaults = SaveData.defaultOptions
+    SaveData.defaultOptions = function(...)
+      local options = upstreamDefaults(...)
+      options.videoMode = "borderless"
+      return options
+    end
+  end
+  -- the mods that come with the package; a failure here must never stop the game
+  local copied, result = pcall(require("src.access.BundledMods").install)
+  if not copied then
+    print("[access] bundled mods: " .. tostring(result))
+  elseif #result > 0 then
+    print("[access] bundled mods: " .. table.concat(result, "; "))
+  end
   -- Android's save editor and Mods screen run their backend in this program; it never returns
   local editorPort = os.getenv("POCKET_EDITOR_PORT")
   if editorPort then

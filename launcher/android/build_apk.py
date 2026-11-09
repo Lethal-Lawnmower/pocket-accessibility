@@ -180,9 +180,10 @@ def pack_game(shadow):
     with tempfile.TemporaryDirectory() as work:
         game = Path(work)
         commit, excluded = package_release.export_game(game)
-        # of launcher/, the game only needs what its save editor and Mods screen run
+        # of launcher/, the game only needs what its save editor and Mods screen run,
+        # and the bundled mods (src/access/BundledMods.lua)
         for path in (game / "launcher").iterdir():
-            if path.name not in ("SaveBackend", "ModBackend"):
+            if path.name not in ("SaveBackend", "ModBackend", "mods"):
                 shutil.rmtree(path) if path.is_dir() else path.unlink()
         (game / MARKER).write_text(f"Packaged by launcher/android/build_apk.py from commit {commit}.\n", encoding="utf-8")
         missing = package_release.missing_requires(game)

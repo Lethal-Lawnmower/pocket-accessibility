@@ -12,7 +12,11 @@ love = {
     write = function(path, text) written[path] = text; return true end,
   },
   event = { quit = function(code) quitCode = code or 0 end },
+  system = { getOS = function() return osName end },
 }
+osName = "Windows"
+local function upstreamDefaults() return { videoMode = "windowed", textSpeed = 3 } end
+package.loaded["src.core.SaveData"] = { defaultOptions = upstreamDefaults }
 package.loaded["src.core.HostShell"] = { restart = function() error("upstream restart ran") end }
 package.loaded["src.update.Boot"] = { canUpdateInPlace = function() return true end }
 package.loaded["src.core.GameVersion"] = { VERSIONS = { red = {} } }
@@ -41,6 +45,18 @@ check(package.preload["src.mods.LauncherMods"]().translationStrings() == nil, "L
 eq(package.preload["src.import.LauncherSplash"]().new(), nil, "no splash")
 check(removed["relaunch_to_launcher.txt"], "a stale relaunch marker is removed")
 check(not require("src.update.Boot").canUpdateInPlace(), "updater off")
+local SaveData = require("src.core.SaveData")
+if os.getenv("POKEPORT_ACCESS_SILENT") ~= "1" then
+  eq(SaveData.defaultOptions().videoMode, "borderless", "a computer starts borderless by default")
+  eq(SaveData.defaultOptions().textSpeed, 3, "the other defaults are upstream's")
+end
+
+-- Android keeps upstream's defaults (its display is fixed)
+SaveData.defaultOptions = upstreamDefaults
+osName = "Android"
+fresh().install()
+eq(SaveData.defaultOptions().videoMode, "windowed", "Android: video mode default untouched")
+osName = "Windows"
 
 removed = {}
 require("src.core.HostShell").restart()
