@@ -325,7 +325,17 @@ Menus.saveError = {
 
 -- The controls guide's pages 2 and 3 print three strings each from a cart
 -- table whose name and window list the scene keeps in file-locals
--- (Scene.drawBg0Text: CONTROLS_PAGES, CONTROLS_WINDOWS).
+-- (Scene.drawBg0Text: CONTROLS_PAGES, CONTROLS_WINDOWS).  The button each
+-- string describes is a picture in the page's background, not text, so its
+-- name is said first, in the cart's order (pokefirered/src/oak_speech.c,
+-- sControlsGuide_Pages2And3_Strings): Control Pad, A, B, then START,
+-- SELECT, L and R.
+local GUIDE_BUTTONS = {
+  [2] = { "Control Pad", "A Button", "B Button" },
+  [3] = { "START Button", "SELECT Button", "L and R Buttons" },
+}
+Menus.GUIDE_BUTTONS = GUIDE_BUTTONS
+
 local function guideText(scene, page)
   if page == 1 then return rom("gControlsGuide_Text_Intro") end
   local draw = scene.drawBg0Text
@@ -335,7 +345,13 @@ local function guideText(scene, page)
   if type(name) ~= "string" or type(list) ~= "table" then return nil end
   local base = (page - 2) * 3
   local lines = {}
-  for i = 1, #list do lines[#lines + 1] = romAt(name, base + i - 1) end
+  local buttons = GUIDE_BUTTONS[page] or {}
+  for i = 1, #list do
+    local text = romAt(name, base + i - 1)
+    -- a sentence break after the name; the text's own line breaks are joined later
+    if text and buttons[i] then text = buttons[i] .. ".\n" .. text end
+    lines[#lines + 1] = text
+  end
   return table.concat(lines, "\n")
 end
 

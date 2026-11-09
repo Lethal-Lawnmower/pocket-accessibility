@@ -132,6 +132,9 @@ text("gControlsGuide_Text_Intro", "The various buttons will be\nexplained.")
 text("sControlsGuide_Pages2And3_Strings[0]", "Moves the character.")
 text("sControlsGuide_Pages2And3_Strings[1]", "Confirms.")
 text("sControlsGuide_Pages2And3_Strings[2]", "Cancels.")
+text("sControlsGuide_Pages2And3_Strings[3]", "Opens the MENU.")
+text("sControlsGuide_Pages2And3_Strings[4]", "Uses an item.")
+text("sControlsGuide_Pages2And3_Strings[5]", "Opens help.")
 reset("boot")
 local scene = setmetatable({ section = "controls", win = {} }, Scene)
 game.boot = { phase = "controls", newGame = scene }
@@ -144,8 +147,13 @@ update()
 scene.win.topbar = { hint = "gText_ABUTTONNext_BBUTTONBack" }
 scene.win.guide = { page = 2 }
 update()
-eq(last(), "Moves the character. Confirms. Cancels. A button NEXT B button BACK",
-  "guide page 2 reads the scene's own string table")
+eq(last(), "Control Pad. Moves the character. A Button. Confirms. B Button. Cancels. A button NEXT B button BACK",
+  "guide page 2 names each pictured button before its string")
+scene.win.guide = nil
+scene.win.guide = { page = 3 }
+update()
+eq(last(), "START Button. Opens the MENU. SELECT Button. Uses an item. L and R Buttons. Opens help. A button NEXT B button BACK",
+  "guide page 3 names START, SELECT and L and R")
 scene.win.guide = nil
 scene.win.pika = { text = "In the world which you are\nabout to enter…" }
 update()
@@ -727,5 +735,7 @@ eq(Settings.dialogueWhole(bare), false, "no block: page by page")
 eq(bare.options.firered, nil, "the block is not created by reading")
 
 eq(Menus.speakable("{A_BUTTON}NEXT"), "A button NEXT", "button tags keep a space after them")
+eq(Menus.speakable("{DPAD_ANY}MOVE {DPAD_UP}{DPAD_DOWN}{DPAD_LEFT}{DPAD_RIGHT}"), "the control pad MOVE up down left right",
+  "every pad glyph TextIR decodes has words")
 
 T.finish("gen3 menus")

@@ -64,7 +64,11 @@ local TAG_WORDS = {
   -- collapsed later
   A_BUTTON = "A button ", B_BUTTON = "B button ", START_BUTTON = "START ",
   SELECT_BUTTON = "SELECT ", L_BUTTON = "L button ", R_BUTTON = "R button ",
-  DPAD_UPDOWN = "up and down ", DPAD_LEFTRIGHT = "left and right ", DPAD_NONE = "the control pad ",
+  -- names as TextIR.KEYGFX decodes them (charmap F8 06 to F8 0C); the
+  -- cart's DPAD_NONE is DPAD_ANY there, both are kept
+  DPAD_UP = "up ", DPAD_DOWN = "down ", DPAD_LEFT = "left ", DPAD_RIGHT = "right ",
+  DPAD_UPDOWN = "up and down ", DPAD_LEFTRIGHT = "left and right ",
+  DPAD_ANY = "the control pad ", DPAD_NONE = "the control pad ",
   UP_ARROW = "up ", DOWN_ARROW = "down ", LEFT_ARROW = "left ", RIGHT_ARROW = "right ",
 }
 

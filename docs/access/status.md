@@ -90,6 +90,14 @@ and recorded in the topic file.
 
 ## FireRed and LeafGreen
 
+- **Controls guide buttons (2026-11-09):** a player report said the button
+  glyphs in the new-game controls guide were not read. Pages 2 and 3 draw each
+  button as a picture in the background, so only the descriptions were spoken.
+  Each description now starts with its button (Control Pad, A, B, START,
+  SELECT, L and R, in the cart's order). Also gave words to the pad glyphs
+  `DPAD_UP`/`DOWN`/`LEFT`/`RIGHT`/`ANY`, which were dropped. Unit test 147/147;
+  heard in the trace of a silent FireRed `gen3_menus` run; not heard by a
+  person; LeafGreen shares the code, not run.
 - **State (2026-11-01):** started. Upstream runs Gen 3 through
   `src/core/Game3.lua` with no StateStack: menus are layers on
   `src/ui/game3/stack.lua` (singleton modules), dialogue is
