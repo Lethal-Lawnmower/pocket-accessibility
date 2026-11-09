@@ -46,6 +46,37 @@ return function(game)
       "after", frames, "frames")
   end
   check("after both screens")
+
+  -- Mom's Pokegear scene on 1F: the day wheel and the daylight saving question.
+  -- Arrive down the stairs the way the player does, then press A through her
+  -- lines; with the mod, both DST yes/no prompts answer themselves.
+  if game.world and game.world.warpToMapId then
+    game.save.rtc = game.save.rtc or {}
+    game.save.rtc.dst = nil
+    local said = {}
+    pcall(game.world.warpToMapId, game.world, "PLAYERS_HOUSE_1F", 9, 0, "down")
+    U.wait(30)
+    local def = game.data.gen2Maps and game.data.gen2Maps.PLAYERS_HOUSE_1F
+    for _, event in ipairs(def and (def.coordEvents or def.coords) or {}) do
+      U.log("RESULT", "coord event", event.x, event.y, tostring(event.scene), tostring(event.script))
+    end
+    -- the scene starts as the player steps off the stairs
+    for _ = 1, 6 do L.tap("down", 16) end
+    for _ = 1, 300 do
+      L.tap("a", 6)
+      for _, line in ipairs(L.said) do said[#said + 1] = line end
+      L.said = {}
+      if L.free() then break end
+    end
+    local text = table.concat(said, " | ")
+    local wantDst = os.date("*t").isdst == true
+    U.log("RESULT", "Mom's scene said", text:sub(1, 600))
+    U.log(text:find("Daylight saving time", 1, true) and "PASS" or "FAIL", "the DST question answered itself")
+    U.log((game.save.rtc.dst == wantDst) and "PASS" or "FAIL", "saved DST matches the device",
+      tostring(game.save.rtc.dst), "device", tostring(wantDst))
+  else
+    U.log("FAIL", "no world to reach Mom")
+  end
   game.save.rtc = game.save.rtc or {}
   game.save.rtc.startMinute = 6 * 60
   game.save.rtc.startDay = 3

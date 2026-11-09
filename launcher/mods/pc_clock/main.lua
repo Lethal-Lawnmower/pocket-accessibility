@@ -5,8 +5,9 @@
 -- (src/core/gen2/Clock.lua).  This mod makes both answers the device's own and
 -- keeps that offset at zero, so the game can never drift from the device, an
 -- old save included.  Daylight saving needs nothing extra: the device's local
--- time already includes it.  Mom's daylight saving question still appears; in
--- this port its answer is stored but never moves the clock.
+-- time already includes it.  Mom's daylight saving question is answered from the
+-- device too, and so is her "is that OK?" after it; in this port that answer is
+-- stored (rtc.dst) but never moves the clock.
 --
 -- Nothing is written that outlives the mod: switch it off and a save reads the
 -- offset it had before.
@@ -77,6 +78,46 @@ return function(mod)
     end
     return newScreen(game, answered)
   end
+
+  -- Mom's daylight saving question (maps/PlayersHouse1F.asm): a `yesorno` whose
+  -- script goes on to `special InitialSetDSTFlag`, then a second `yesorno` after
+  -- that special (or InitialClearDSTFlag) that confirms it.  Each is replaced by
+  -- `setval` with the device's answer, so the script takes the same branch a
+  -- player answering truthfully would, and nothing waits for a button.
+  -- A special's operand is the cart's number; the VM names it (Vm:specialName).
+  local function specialName(vm, row)
+    if type(row) ~= "table" or row.op ~= "special" then return nil end
+    if type(vm.specialName) == "function" then
+      local ok, name = pcall(vm.specialName, vm, row.id)
+      if ok and name then return tostring(name) end
+    end
+    return tostring(row.id)
+  end
+  local function dstQuestion(vm, list, index)
+    for i = index + 1, math.min(#list, index + 3) do
+      if specialName(vm, list[i]) == "InitialSetDSTFlag" then return true end
+    end
+    return false
+  end
+  local function dstConfirm(vm, list, index)
+    local name = specialName(vm, list[index - 1])
+    return name == "InitialSetDSTFlag" or name == "InitialClearDSTFlag"
+  end
+  mod.hooks:wrap("script.command", function(nextFn, sctx, name, args, cmd)
+    local vm = type(sctx) == "table" and sctx.vm or nil
+    local list, index = vm and vm.cmdList, vm and vm.cmdIndex
+    if name ~= "yesorno" or type(list) ~= "table" or type(index) ~= "number" then
+      return nextFn(sctx, name, args, cmd)
+    end
+    if dstQuestion(vm, list, index) then
+      local dst = os.date("*t").isdst == true
+      say(dst and "Daylight saving time: yes, from your device." or "Daylight saving time: no, from your device.")
+      return nextFn(sctx, "setval", {}, { op = "setval", value = dst and 1 or 0 })
+    elseif dstConfirm(vm, list, index) then
+      return nextFn(sctx, "setval", {}, { op = "setval", value = 1 })
+    end
+    return nextFn(sctx, name, args, cmd)
+  end)
 
   mod.log:info("Gold, Silver and Crystal follow the device clock")
 end

@@ -271,7 +271,14 @@ saving and the weekday; the mod removes the answers:
   walk-through, and the layer says "Clock set from your device: ..." or "Day set from your device: ...".
 - `Clock.minutes` and `Clock.weekday` read with the offset at zero and put it back, so the save keeps its
   own setting when the mod is off.
-- Mom's daylight saving question still appears: upstream stores `rtc.dst` and never moves the clock with it.
+- Mom's daylight saving question is answered from the device (`os.date("*t").isdst`), and her "is that OK?"
+  after it with YES: the mod wraps `script.command` and replaces those two `yesorno` rows with `setval`. The
+  question is the `yesorno` a few rows before `special InitialSetDSTFlag`, the confirmation the one right
+  after `InitialSetDSTFlag` or `InitialClearDSTFlag`; special operands are the cart's numbers, named through
+  `Vm:specialName`. Upstream stores the answer in `rtc.dst` and never moves the clock with it. Added at the
+  owner's request: "see if you can answer the daylight savings time as well." Crystal, silent: Mom asked,
+  the layer said "Daylight saving time: no, from your device.", her "17:25, is that OK?" was confirmed,
+  and `rtc.dst` was saved as the device's answer (11 of 11 checks with the Mom scene added).
 
 History: built as a mod, made part of the layer for everyone after the owner said "make that a default for
 everyone", then made a mod again: "make the clock a mod. That's what I was saying." (both 2026-11-08). The
