@@ -535,3 +535,7 @@ The owner: "Let's just publish a release. Users who are testing it will let me k
 ## 65. Hoenn polish: blocked routes, Trick House 7, a Berry Blender tone (2026-11-09)
 
 Asked which Hoenn gaps to take next ("Person" labels, story-blocked routes, Trick House 7 in Ruby and Sapphire, the silent Berry Blender), the owner: "all of the above. See if you can catch anything else like that, or, you know, just polish it up." This answers the open question in `ruby-sapphire-emerald.md` on a cue for the blender's timing game: a short tone before the arrow reaches the player's BEST range (a sound, not speech). Details in `ruby-sapphire-emerald.md` and `ruby-sapphire-emerald-navigation.md`.
+
+## 66. Touch on Android: TalkBack stays on (2026-11-09)
+
+The owner proposed touch controls for Android, tested on the Pixel Tablet: the screen split in half in any orientation and size, the bottom half taking swipes for the D-pad and walking, the top half for navigation, with two-finger clockwise and counterclockwise turns cycling navigation points like VoiceOver's rotor. Confirm and back are not decided. TalkBack should hand the game screen's touches to the game, like iOS's direct interaction, and keep working for everything else. Suspending TalkBack while playing is ruled out: "if somebody has a notification, a call, an Android pop-up, a low battery pop-up... Having them just blindly be like, oh, okay, I tapped on this is not a good idea." Not yet built or tested.
