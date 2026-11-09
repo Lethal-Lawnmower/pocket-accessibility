@@ -45,15 +45,9 @@ Upstream's save editor (`tools/save-editor/`) is GPL, not part of the
 proprietary launcher, so we use it with credit. Our launcher opens it
 (upstream's launcher Edit button is proprietary).
 
-## 6. Distribution channel (2026-10-31)
+## 6. Distribution channel (2026-10-31, replaced 2026-11-04)
 
-A third-party Accessibility Mod Manager may later distribute our complete build.
-It installs, updates and starts the program; our launcher still picks the game.
-Using it to patch upstream's official release instead is not possible: the
-Windows release is a single fused executable (checked at v0.3.98), and
-upstream's updater mounts newer payloads above any loose files. The manager's
-source-available license allows publishing plugins but not modifying or reusing it.
-Not authorized: publishing to it or contacting anyone about it.
+Releases are published as this repository's GitHub releases (decision 49). The earlier wording of this entry was withdrawn on 2026-11-08.
 
 ## 7. Pokémon Access redone our own way (2026-10-31)
 
