@@ -336,6 +336,9 @@ The owner asked for upstream's on-screen D-pad and buttons to be removed. Since 
 wrapped at runtime: false while gestures own the touches (`TouchInput.ownsTouches`), unchanged otherwise and in
 the layout editor's preview. Checked in a silent Crystal run with `POKEPORT_TOUCH=1`: hidden with gestures on,
 drawn with them off, drawn in preview; `touch_gestures_test` 139/139.
+Second tablet build (2026-11-09), from `a6d58186`: hidden on-screen controls, landscape cut left (move) and right
+(navigate), longer three-finger taps; `touch_gestures_test` 145/145; installed over the test app with
+`adb install -r` (data kept). Not yet tried by the owner.
 
 ## Next
 
