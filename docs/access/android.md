@@ -264,6 +264,11 @@ Decision 66 sets touch gestures for the game with TalkBack kept on. What was fou
   "Pocket Accessibility, off" row with TalkBack changed nothing (the haptics row did change). A settings
   file enabling `com.pocketaccessibility.app` was pushed to `Download/nvgt-bridge-settings.json` for the
   bridge's restore option. Note for our own service: its switch must work with TalkBack's double tap.
+- **First device result (2026-11-09, owner's report):** after the restore, TalkBack worked normally in
+  the launcher and the bridge took over on the game screen (`org.love2d.android.GameActivity`, Crystal,
+  portrait), so the launcher concern above did not happen with the bridge. The owner reported a tap on
+  upstream's on-screen D-pad worked; a screenshot taken afterwards showed the cursor on NEW GAME, so
+  the move was not confirmed from the PC.
 
 ## Next
 
