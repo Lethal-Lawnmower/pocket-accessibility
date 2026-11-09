@@ -259,6 +259,11 @@ Decision 66 sets touch gestures for the game with TalkBack kept on. What was fou
   service can be switched on; the launcher must explain it.
 - **ROMs on the tablet (2026-11-09, owner's request):** all 17 dumps from `red/` copied to
   `Download/Pokemon ROMs` for the owner's own play.
+- **Bridge setup on the tablet (2026-11-09):** the owner enabled the service (it has no launcher icon;
+  its settings were opened with `am start -n com.nvgt.bridge/.SettingsActivity`). Double-tapping the
+  "Pocket Accessibility, off" row with TalkBack changed nothing (the haptics row did change). A settings
+  file enabling `com.pocketaccessibility.app` was pushed to `Download/nvgt-bridge-settings.json` for the
+  bridge's restore option. Note for our own service: its switch must work with TalkBack's double tap.
 
 ## Next
 
