@@ -10,6 +10,7 @@
 -- a game keep their touches either way.
 --
 -- Gestures (Gestures.lua recognises them):
+--   (Halves: portrait top / bottom; landscape right navigates, left moves.)
 --   On the map, top half (the navigation half):
 --     swipe left / right   previous / next navigation point in the category
 --     swipe up / down      previous / next category

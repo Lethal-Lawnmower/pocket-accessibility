@@ -393,7 +393,9 @@ handed it over). A desktop mouse never comes this way.
 
 Off the map (menus, battles, dialogue, the title screen) the whole screen is the bottom half. The halves
 split at the middle of `love.graphics.getDimensions()` (upstream's touch layout uses the same space), so
-any orientation and size works. Taps and turns in the map's top half do nothing. While a walk runs, any
+any size works. Upright (portrait) the cut is across: top navigates, bottom moves. On its side (landscape,
+wider than tall) the cut is down the middle at the owner's request (2026-11-09): the left half moves ("bottom"
+in the tables), the right half navigates ("top"); left for moving matches a controller's D-pad. Taps and turns in the map's top half do nothing. While a walk runs, any
 gesture but the clockwise turn stops it, as any controller button does. Holding a direction is not
 decided and not recognised.
 

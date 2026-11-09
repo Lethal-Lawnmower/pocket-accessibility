@@ -60,8 +60,10 @@ r = Gestures.new({ size = size })
 eq(only(stroke(r, 20, { { 800, 600, 300, 0 } }, 0.15), "portrait top").half, "top", "portrait: y 600 of 2560 is top")
 eq(only(stroke(r, 21, { { 800, 1400, 300, 0 } }, 0.15), "portrait bottom").half, "bottom", "portrait: y 1400 of 2560 is bottom")
 W, H = 2560, 1600 -- turned on its side
-eq(only(stroke(r, 22, { { 800, 700, 300, 0 } }, 0.15), "landscape top").half, "top", "landscape: y 700 of 1600 is top")
-eq(only(stroke(r, 23, { { 800, 900, 300, 0 } }, 0.15), "landscape bottom").half, "bottom", "landscape: y 900 of 1600 is bottom")
+-- landscape is cut down the middle: left moves ("bottom"), right navigates ("top")
+eq(only(stroke(r, 22, { { 1400, 300, 0, 300 } }, 0.15), "landscape right").half, "top", "landscape: x 1400 of 2560 navigates")
+eq(only(stroke(r, 23, { { 1100, 300, 0, 300 } }, 0.15), "landscape left").half, "bottom", "landscape: x 1100 of 2560 moves")
+eq(only(stroke(r, 24, { { 600, 1400, 0, -300 } }, 0.15), "landscape low left").half, "bottom", "landscape: height does not matter")
 -- the threshold follows the shorter side: 6% of 1600 = 96
 eq(#stroke(r, 24, { { 800, 1200, 90, 0 } }, 0.15), 0, "90 px is neither tap nor swipe on a 1600 px side")
 eq(only(stroke(r, 25, { { 800, 1200, 100, 0 } }, 0.15), "100 px").kind, "swipe", "100 px is a swipe")

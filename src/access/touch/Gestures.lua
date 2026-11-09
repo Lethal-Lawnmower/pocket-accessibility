@@ -21,9 +21,12 @@
 -- Anything else (a long press, a slow drag) is no gesture.  Holding a
 -- direction is not decided by the owner and is deliberately not recognised.
 --
--- Every gesture says which half of the screen it started in ("top" when the
--- fingers' starting average is above the middle, otherwise "bottom"), in
--- whatever orientation and size the screen has.
+-- Every gesture says which half of the screen it started in, from the
+-- fingers' starting average.  "top" is the navigation half and "bottom" the
+-- movement half (decision 66).  Upright (portrait) the screen is cut across:
+-- top and bottom as named.  On its side (landscape, wider than tall) it is
+-- cut down the middle (the owner, 2026-11-09): the left half moves, like a
+-- controller's D-pad, and the right half navigates.
 --
 -- Gestures:
 --   { kind = "swipe",  direction = "up"|"down"|"left"|"right", fingers, half, x, y }
@@ -72,8 +75,12 @@ function Gestures.new(opts)
   }, Recogniser)
 end
 
--- Which half of a w x h screen a point is in.
-function Gestures.half(y, h)
+-- Which half of a w x h screen a point is in: "top" (navigation) or
+-- "bottom" (movement).  Landscape is cut left and right, left moving.
+function Gestures.half(x, y, w, h)
+  if type(w) == "number" and type(h) == "number" and w > h then
+    return x >= w / 2 and "top" or "bottom"
+  end
   return (type(h) == "number" and h > 0 and y < h / 2) and "top" or "bottom"
 end
 
@@ -82,7 +89,7 @@ local function shorterSide(self)
   w, h = tonumber(w) or 1, tonumber(h) or 1
   local short = math.min(w, h)
   if short <= 0 then short = 1 end
-  return short, h
+  return short, h, w
 end
 
 -- The angle of the line from the stroke's first finger to its second.
@@ -158,7 +165,7 @@ end
 -- Classifies a finished stroke.
 local function classify(self, stroke, t, out)
   local th = self.thresholds
-  local short, h = shorterSide(self)
+  local short, h, w = shorterSide(self)
   local n = stroke.maxFingers
   local duration = t - stroke.startTime
   local sx, sy, dx, dy, maxMove = 0, 0, 0, 0, 0
@@ -172,7 +179,7 @@ local function classify(self, stroke, t, out)
   end
   local count = #stroke.order
   sx, sy, dx, dy = sx / count, sy / count, dx / count, dy / count
-  local half = Gestures.half(sy, h)
+  local half = Gestures.half(sx, sy, w, h)
 
   -- screen y grows downwards, so a growing angle turns clockwise as seen
   local degrees = math.deg(stroke.rotation)
