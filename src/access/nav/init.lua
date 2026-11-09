@@ -107,7 +107,12 @@ local function build(game, adapter)
     end)
     -- steer tile by tile inside the game's step (fast AUTO-WALK SPEED)
     pcall(Runtime.events.on, Runtime.events, "world.stepped", function(payload)
-      if type(payload) == "table" then AutoWalk.stepped(payload.x, payload.y) end
+      if type(payload) == "table" then
+        AutoWalk.stepped(payload.x, payload.y)
+        -- a touch swipe's single step ends here (src/access/touch/TouchInput.lua)
+        local TouchInput = package.loaded["src.access.touch.TouchInput"]
+        if TouchInput then TouchInput.stepped(payload.x, payload.y) end
+      end
     end)
     pcall(Runtime.events.on, Runtime.events, "map.entered", function(payload)
       if type(payload) == "table" then AutoWalk.mapEntered(payload.mapId or payload.id) end
@@ -271,6 +276,43 @@ end
 function Nav.gamepadreleased(_, button)
   if consumedButtons[button] then
     consumedButtons[button] = nil
+    return true
+  end
+  return false
+end
+
+-- ---------------------------------------------------------------- touch
+-- For touch gestures (src/access/touch/TouchInput.lua, decision 66).
+
+-- The coordinator, adapter and game, created if needed; nil without a world.
+function Nav.context()
+  return ensure()
+end
+
+-- Any walk running on the open map (auto-walk, a chase, boulders, switches,
+-- thin ice); a walk paused for a battle does not count.
+function Nav.walking()
+  local nav, adapter, game = ensure()
+  if not nav then return false end
+  if AutoWalk.walking() then return true end
+  if not adapter.onMap(game) then return false end
+  return Chase.active() or BoulderWalk.active() or IceWalk.active() or SwitchWalk.active()
+end
+
+-- Stops the walk Nav.walking reports, as any controller button does.
+-- Returns true when one stopped.
+function Nav.stopWalks()
+  local nav, adapter, game = ensure()
+  if not nav then return false end
+  local onMap = adapter.onMap(game)
+  for _, walk in ipairs({ Chase, BoulderWalk, IceWalk, SwitchWalk }) do
+    if onMap and walk.active() then
+      walk.stop("Auto walk stopped")
+      return true
+    end
+  end
+  if AutoWalk.walking() then
+    AutoWalk.stop("Auto walk stopped")
     return true
   end
   return false

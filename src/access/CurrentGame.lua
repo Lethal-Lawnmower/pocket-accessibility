@@ -12,6 +12,14 @@ local CurrentGame = {}
 -- collected normally.
 local ref = setmetatable({}, { __mode = "v" })
 local installed = false
+-- When main.lua last updated the game (love.timer seconds), and whether a
+-- driver handed it over (CurrentGame.set), for CurrentGame.live.
+local lastUpdate, pinned = nil, false
+
+local function now()
+  local timer = love and love.timer
+  return timer and timer.getTime and timer.getTime() or os.clock()
+end
 
 -- Scripted driver runs step the game directly and never call
 -- PlatformHooks.update (main.lua love.update); tests/access/drivers/
@@ -27,6 +35,18 @@ end
 
 function CurrentGame.set(game)
   ref.game = game
+  pinned = game ~= nil
+end
+
+-- The game only while main.lua is running it: updated within the last
+-- second, or handed over by a driver.  Touch gestures use this so that the
+-- launcher, which main.lua shows after dropping its game, keeps its touches
+-- (the weak reference above can outlive the game until a collection).
+function CurrentGame.live()
+  if not ref.game then return nil end
+  if pinned then return ref.game end
+  if lastUpdate and now() - lastUpdate < 1 then return ref.game end
+  return nil
 end
 
 function CurrentGame.install()
@@ -37,6 +57,7 @@ function CurrentGame.install()
   local original = PlatformHooks.update
   PlatformHooks.update = function(game, dt, ...)
     ref.game = game
+    lastUpdate = now()
     return original(game, dt, ...)
   end
 end

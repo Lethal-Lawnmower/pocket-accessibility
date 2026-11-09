@@ -22,6 +22,9 @@
 --   accessAutoWalkSpeed  nil = the game's own speed, else a GameSpeed level
 --   accessDialogue       nil = page by page (chunk as shown), "whole" = all
 --                        of a dialogue box at once
+--   accessTouchGestures  nil = the platform default (on for Android), else
+--                        true / false (decision 66, src/access/touch/)
+--   accessTouchWalk      nil = manual, "hybrid" or "auto" (touch walking mode)
 
 local GameSpeed = require("src.core.GameSpeed")
 
@@ -77,6 +80,38 @@ function Settings.dialogueWhole(game)
   return options(game).accessDialogue == "whole"
 end
 
+-- Touch gestures (decision 66): on by default on Android, where TalkBack
+-- passes the game screen's touches through; off elsewhere, so a computer
+-- keeps upstream's mouse and on-screen buttons.  POKEPORT_ACCESS_TOUCH=1
+-- makes them the default on a computer too (scripted tests).
+function Settings.touchDefault()
+  if os.getenv("POKEPORT_ACCESS_TOUCH") == "1" then return true end
+  local system = love and love.system
+  if not (system and system.getOS) then return false end
+  local ok, os_ = pcall(system.getOS)
+  return ok and os_ == "Android"
+end
+
+-- The touch rows are shown only where touch gestures can be used.
+Settings.touchAvailable = Settings.touchDefault
+
+function Settings.touchGestures(game)
+  local value = options(game).accessTouchGestures
+  if value == nil then return Settings.touchDefault() end
+  return value == true
+end
+
+local TOUCH_WALK = { "manual", "hybrid", "auto" }
+local TOUCH_WALK_LABELS = { manual = "MANUAL", hybrid = "HYBRID", auto = "AUTO" }
+
+-- "manual" (each swipe one step), "hybrid" (one swipe walks the route's
+-- next straight leg) or "auto" (swipes step; the two-finger turn walks).
+function Settings.touchWalking(game)
+  local value = options(game).accessTouchWalk
+  if value == "hybrid" or value == "auto" then return value end
+  return "manual"
+end
+
 -- GAME SPEED, then the game's own speed ladder (NORMAL, 2X ... 200X).
 local function stepAutoWalkSpeed(game, dir)
   local choices = { false }
@@ -116,6 +151,24 @@ function Settings.rows()
       o.accessAutoWalkBoulders = o.accessAutoWalkBoulders == false and true or false
       return true
     end }
+  if Settings.touchAvailable() then
+    rows[#rows + 1] = { id = "accessTouchGestures", label = "TOUCH GESTURES",
+      value = function(g) return Settings.touchGestures(g) and "ON" or "OFF" end,
+      step = function(g)
+        options(g).accessTouchGestures = not Settings.touchGestures(g)
+        return true
+      end }
+    rows[#rows + 1] = { id = "accessTouchWalk", label = "TOUCH WALKING",
+      value = function(g) return TOUCH_WALK_LABELS[Settings.touchWalking(g)] end,
+      step = function(g, dir)
+        local current = Settings.touchWalking(g)
+        local index = 1
+        for i, mode in ipairs(TOUCH_WALK) do if mode == current then index = i end end
+        index = (index - 1 + (dir or 1)) % #TOUCH_WALK + 1
+        options(g).accessTouchWalk = TOUCH_WALK[index] ~= "manual" and TOUCH_WALK[index] or nil
+        return true
+      end }
+  end
   return rows
 end
 

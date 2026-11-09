@@ -53,9 +53,11 @@ function Access.install(opts)
     local Nav = require("src.access.nav")
     -- the ACCESSIBILITY page in OPTIONS (decision 26)
     require("src.access.Settings").install()
+    local TouchInput = require("src.access.touch.TouchInput")
     after("update", function()
       ScreenReader.update()
       Nav.update()
+      TouchInput.update()
     end)
     -- Pokemon Access command keys (F7 command layer, F8 help) reach the
     -- router before the game; recognised commands are consumed.
@@ -73,6 +75,19 @@ function Access.install(opts)
     end)
     before("gamepadreleased", function(joystick, button)
       return Nav.gamepadreleased(joystick, button)
+    end)
+    -- Touch gestures (decision 66): with TOUCH GESTURES on and a game
+    -- running, every touch is a gesture and upstream's on-screen buttons
+    -- never see it.  A mouse never comes this way (Game3 routes its
+    -- POKEPORT_TOUCH stand-in finger to the game directly).
+    before("touchpressed", function(id, x, y)
+      return TouchInput.touchpressed(id, x, y)
+    end)
+    before("touchmoved", function(id, x, y)
+      return TouchInput.touchmoved(id, x, y)
+    end)
+    before("touchreleased", function(id, x, y)
+      return TouchInput.touchreleased(id, x, y)
     end)
   end
 
