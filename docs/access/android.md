@@ -338,7 +338,8 @@ the layout editor's preview. Checked in a silent Crystal run with `POKEPORT_TOUC
 drawn with them off, drawn in preview; `touch_gestures_test` 139/139.
 Second tablet build (2026-11-09), from `a6d58186`: hidden on-screen controls, landscape cut left (move) and right
 (navigate), longer three-finger taps; `touch_gestures_test` 145/145; installed over the test app with
-`adb install -r` (data kept). Not yet tried by the owner.
+`adb install -r` (data kept). Owner's verdict: "feels good for the most part"; START and SELECT (three-finger
+double and single tap) "still feel kind of funky", so their gestures are not settled.
 
 ## Next
 
