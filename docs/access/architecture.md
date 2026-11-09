@@ -54,6 +54,7 @@ check exactly these places.
 | `tools/save-editor/` (used, no edit) | From the windowless backend: `App.load`, `App.save`, `App.reload`, `App.getState`, `History`, `Ops`, `Gen`, `Catalog` and the rest of its logic | Native save editor (`save-editor.md`) | 2026-11-02 |
 | `main.lua` (runtime wrappers, no edit) | `love.keypressed` (ours first, may consume), `love.keyreleased` | Navigation command keys (`navigation.md`) | 2026-10-31 |
 | `main.lua` (runtime wrappers, no edit) | `love.gamepadaxis`, `gamepadpressed`, `gamepadreleased` (ours first, may consume) | Controller navigation (`navigation.md`) | 2026-10-31 |
+| `main.lua` (runtime wrappers, no edit) | `love.touchpressed`, `touchmoved`, `touchreleased` (ours first; consumed while TOUCH GESTURES is on and a game is running) | Touch gestures (`android.md`, "Touch gestures (game side)") | 2026-11-09 |
 | `src/core/Input.lua` (input injection) | Auto-walk holds directions in `sources`, `pressQueue`, `state` under its own source; `padEventSeen` marks D-pad presses used for navigation | Auto-walk, controller navigation | 2026-10-31 |
 | `src/mods/Runtime.lua` events (subscribe only) | `map.entered`, `world.stepped`, `world.trainer_engaged` through `Runtime.events:on` | Navigation world events; auto-walk steers on `world.stepped` and pauses on `world.trainer_engaged` | 2026-10-31 |
 | `BattleState.lua` local `StatBox` (read only) | Recognised by `debug.getinfo(mt.draw).source`; fields `mon.stats`, `mon.level`, `mon.species` | Level-up stats speech (`battle.md`) | 2026-10-31 |

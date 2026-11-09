@@ -252,3 +252,79 @@ python launcher/android/build_apk.py --release --app-id com.pocketaccessibility.
   label). Run on the Thor 2026-11-05 as its own app: launcher opened, the sounds download worked, the owner
   chose the ROM folder and started Emerald, which imported (`rom-cache.complete`) and is running with
   TalkBack speaking, no crash. Owner: "looks good". So shrinking did not break Prism.
+
+## Touch gestures (game side)
+
+Decision 66. The Android accessibility service (separate work, `launcher/`) passes the game screen's
+touches through while TalkBack stays on, so the game gets ordinary `love.touchpressed`, `touchmoved`
+and `touchreleased`. `src/access/init.lua` hands them to our layer before upstream. While TOUCH
+GESTURES is on and a game is running, every touch is consumed, so upstream's on-screen buttons
+(`src/core/TouchControls.lua`) never also fire; off, upstream gets its touches back. The launcher keeps
+its touches either way (`CurrentGame.live`: the game only while `main.lua` updates it, or a driver
+handed it over). A desktop mouse never comes this way.
+
+| Where | Gesture | Does |
+|---|---|---|
+| Map, top half | Swipe left / right | Previous / next navigation point in the category |
+| Map, top half | Swipe up / down | Previous / next category (decision 23's trigger plus D-pad) |
+| Map, bottom half | Swipe | One step that way (see TOUCH WALKING) |
+| Off the map, whole screen | Swipe | One D-pad press |
+| Bottom half; whole screen off the map | Double tap | A |
+| same | Two-finger double tap | B |
+| same | Three-finger double tap | START |
+| same | Three-finger tap | SELECT (once the double-tap window has passed) |
+| Map, bottom half | Two-finger turn clockwise | Auto-walk to the selected point, as the left stick click |
+| Map, bottom half | Two-finger turn counterclockwise | Stops any walk ("Auto walk stopped"), or says "Not walking" |
+
+Off the map (menus, battles, dialogue, the title screen) the whole screen is the bottom half. The halves
+split at the middle of `love.graphics.getDimensions()` (upstream's touch layout uses the same space), so
+any orientation and size works. Taps and turns in the map's top half do nothing. While a walk runs, any
+gesture but the clockwise turn stops it, as any controller button does. Holding a direction is not
+decided and not recognised.
+
+**ACCESSIBILITY rows**, shown only on Android or with `POKEPORT_ACCESS_TOUCH=1`, stored per generation
+like the other rows (`accessTouchGestures`, `accessTouchWalk`):
+- TOUCH GESTURES: ON / OFF. Default on for Android (or with the variable), off elsewhere. OFF restores
+  upstream's on-screen buttons.
+- TOUCH WALKING: MANUAL (default; each swipe one step), HYBRID, AUTO. AUTO behaves as MANUAL for swipes;
+  the turn starts auto-walk in every mode.
+- HYBRID: when a point is chosen and after every move, the game says the route's next straight leg
+  ("2 right", queued after the point's own line). A swipe that way walks the whole leg as a quiet
+  auto-walk to the leg's end (battles pause and resume it as usual); then the next leg is said, or
+  "<point> is here" with its hint. A swipe any other way takes one step and plans again (the owner's
+  choice). With no route, a swipe steps and the reason is said. The route is `AutoWalk.plan`, the one
+  auto-walk takes; an Area target plans the leg to this map's way out.
+
+**Modules.** `src/access/touch/Gestures.lua` recognises gestures (pure, explicit timestamps).
+`src/access/touch/TouchInput.lua` maps them. Buttons go on upstream's `Input` (one module, the same
+button names in all three engines) as the source `access_touch`, held for 2 game updates and released by
+`TouchInput.update` after the game's update. A map step holds the direction until the step is under way
+(the player moving that way, the cell changing, or upstream's `world.stepped`, which lets go inside the
+game's step so one swipe is one cell at any speed); a step not started after 24 updates was blocked and is
+let go. Up to 4 quick swipes queue. `Nav.context`, `Nav.walking` and `Nav.stopWalks` in
+`src/access/nav/init.lua` give the layer the coordinator and the controller's stop rules.
+
+**Thresholds** (`Gestures.THRESHOLDS`; distances are fractions of the shorter screen side; none tuned on a
+device): swipe at least 6% and under 1 s; tap moves under 4% and lasts under 0.35 s; a double tap's second
+tap starts within 0.3 s of the first ending; a turn is two fingers whose line turns 45 degrees or more; a
+stroke open 5 s has lost its releases and is dropped.
+
+**Verified 2026-11-09, run level only.** `tests/access/touch_gestures_test.lua` 136/136: every gesture,
+the halves in portrait and landscape, tap / swipe / turn told apart, three-finger single and double,
+consumption and hand-back, the modes, the hybrid leg and wrong-way step, the rows. Game runs with
+`tests/access/drivers/touch_gestures.lua` (silent, isolated, `POKEPORT_ACCESS_TOUCH=1`, synthetic touches
+through the real `love.touch*` callbacks, a 1024 x 768 window):
+
+| Check | Crystal | FireRed | Red |
+|---|---|---|---|
+| Bottom swipe takes one step | 3,3 to 3,4 | 6,6 to 6,7 | 3,6 to 3,7 |
+| Top swipes: points and categories | "PC, 3 up 1 left", "Warps", "All" | "PC, 6 up 5 left", "Warps", "All" | "PC, 6 up 3 left", "Warps", "All" |
+| Three-finger double tap, swipes, two-finger double tap | Start menu opened, cursor moved, closed | same | same |
+| Clockwise / counterclockwise turn | "Walking to PC" / "Auto walk stopped" | walk arrived before the stop turn; then "Not walking" | "Walking to PC" / "Auto walk stopped" |
+| Hybrid leg | "2 right", walked 3,2 to 5,2, "Bookshelf is here. Face up and interact" | "1 left", walked, "4 up" | "4 up", walked 2,6 to 2,2, "1 right" |
+| Upstream button sources seen | none | none | none |
+
+**Not done:** nothing has run on a real touchscreen, with TalkBack, or on Android; the thresholds and the
+double-tap window may need the owner's tuning; no speech heard. A double tap on the map (A) is
+unit-tested only. If a player turns TOUCH GESTURES off by accident, getting it back needs upstream's
+on-screen buttons or a controller.
