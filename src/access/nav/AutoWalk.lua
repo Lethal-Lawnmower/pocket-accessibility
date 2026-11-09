@@ -436,6 +436,26 @@ function AutoWalk.start(nav, game, adapter, opts)
   return true
 end
 
+-- The route auto-walk would take to the selected object from here, without
+-- walking it, for touch's hybrid walking (src/access/touch/TouchInput.lua),
+-- which says and walks it one straight leg at a time.  Returns
+-- { item, steps, goal, interaction, connection }, or nil and a sentence
+-- saying why not.  An Area target plans the leg to this map's way out.
+function AutoWalk.plan(nav)
+  local item, goals, interaction, connection = nav:selectedRouteGoals()
+  if not item then return nil, goals or "Select an object from the list" end
+  if item.type == "area" then
+    local leg, legErr = nav:regionalNextLeg({ targetMapId = item.mapId, targetGoals = goals })
+    if not leg then return nil, spokenReason(legErr or "no regional path", item.label) end
+    goals = leg.goals
+  end
+  if type(goals) ~= "table" or #goals == 0 then return nil, "No route to " .. tostring(item.label) end
+  local result, err = findRoute(nav, goals)
+  if not result then return nil, spokenReason(err or "no path", item.label) end
+  return { item = item, steps = result.steps, goal = result.goal,
+           interaction = interaction, connection = connection }
+end
+
 -- Whether a route to these cells exists right now (SwitchWalk).
 function AutoWalk.routeExists(nav, goals)
   return (findRoute(nav, goals)) ~= nil
