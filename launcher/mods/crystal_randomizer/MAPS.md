@@ -114,4 +114,4 @@ silent Crystal runs: 12 of 12 passed (houses, caves and full, seeds 424242, 1907
 89 checks each. Every shuffled door walked arrived where the placement said and led back out to the door
 used; navigation named every shuffled town door by its new destination; the Escape Rope landed at the door
 used; `canWin` held; the save switch took about 0.1 s at most. Doors were walked from a teleport, not by
-auto-walk, and nothing was heard; not played by the owner.
+auto-walk, and nothing was heard. Installed in the owner's save folder for testing at their request (2026-11-08, "update it so I can test"); not yet played.
