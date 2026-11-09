@@ -267,8 +267,9 @@ Decision 66 sets touch gestures for the game with TalkBack kept on. What was fou
 - **First device result (2026-11-09, owner's report):** after the restore, TalkBack worked normally in
   the launcher and the bridge took over on the game screen (`org.love2d.android.GameActivity`, Crystal,
   portrait), so the launcher concern above did not happen with the bridge. The owner reported a tap on
-  upstream's on-screen D-pad worked; a screenshot taken afterwards showed the cursor on NEW GAME, so
-  the move was not confirmed from the PC.
+  upstream's on-screen D-pad worked: down moved the cursor to OPTION and spoke it, then the owner moved
+  back to NEW GAME on purpose (which the later screenshot showed). Passthrough with TalkBack 17.1 on the
+  Pixel Tablet is confirmed by the owner.
 
 ## Next
 
