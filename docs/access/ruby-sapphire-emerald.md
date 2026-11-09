@@ -46,7 +46,7 @@ draws and drives FireRed's module, `boot` names the boot objects.
 | Trainer card | Lines of the card, badges counted, stars | Back side (Ruby's labels are images: our words) |
 | Bag (all five pockets) | "<pocket> pocket", row with position, description; TM rows with move, type, power, accuracy, PP | Row and description; action grid; toss, deposit, yes/no, results |
 | Party | FireRed's presenter; Ruby and Sapphire prompts through their own text | |
-| Summary | Header, page title, "page N of 4" (info, skills, battle moves, contest moves), page | Page; move detail; contest appeal and jam as numbers (hearts on screen); moving a move |
+| Summary | Header, page title, "page N of 4" (info, skills, battle moves, contest moves), page | Page; move detail; contest appeal and jam as numbers (hearts on screen); moving a move. Forgetting a move (level up, TM, move tutor): every row "N of 5", the fifth "new move" (choosing it gives up) |
 | Pokédex | "POKéDEX. seen N, owned M", row, position | Row ("not seen" for dashes); START menu; entry (with HT and WT in feet and inches); bar; AREA places or AREA UNKNOWN; CRY; SIZE; search rows and parameters with descriptions; registration after a catch |
 | Shop (and decoration shops) | Clerk line, BUY/SELL/QUIT with position | Rows with price and description; quantity, cost, IN BAG; yes/no; money; selling through the bag |
 | Player's PC, item storage, box storage | Question or row with description | Rows; quantities; deposit through the bag; boxes by FireRed's presenter |
@@ -191,6 +191,18 @@ Run in game in Emerald (`drivers/rse_battle.lua`): wild catch with Pokédex page
 and nickname question, level up with learn-move questions, SHIFT trainer battle,
 run, Safari, double battle with both menus and targets, weather; every scene
 TALLY missed=0.
+
+Forgetting a move (2026-11-09; the owner noted the old Access scripts could not
+do this), run in game on Emerald and Ruby, silent, read from logs: a level up in
+battle answered YES and a move chosen (`rse_battle` scene `forget`), the move
+tutor teaching over a known move (`rse_screens_field` `tutor_forget`, cursor down
+to the new move's row and back), and a TM from the party screen (`tm_forget`).
+Each said the questions, every row with its position, the new move as "new
+move", "1, 2 and... Poof!", the forgotten and learned lines, and the moves
+changed. Before this, the drivers only answered NO or pressed B on the forget
+screen, so the choosing itself had never run in Hoenn; the rows had no position
+after the first and the fifth was not marked (fixed in `HoennItems.lua` and
+FireRed's `Items.lua`). "new move" is our wording, open to the owner.
 
 ## Verification
 

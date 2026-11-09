@@ -167,6 +167,7 @@ and recorded in the topic file.
   Hideouts, New Mauville, Seafloor Cavern's entrance), Emerald's Shoal Cave Ice Room (one run), Trick House 7 in Ruby and Sapphire, Sky Pillar on foot (correctly "Needs Mach Bike"); Emerald's move
   tutor did not finish in `rse_screens_field` once, and the test's cleanup then failed. FireRed `gen3_battle` hit its 600-second limit once in a loaded sweep and passed alone (status has an earlier 1-in-6 hang there).
   Owner's first look, 2026-11-04: "It looks good. Emerald feels okay, but this is very early testing." Not acceptance.
+  Forgetting a move (2026-11-09, the owner asked: the old Access scripts could not): level up, move tutor and TM run in game on Emerald and Ruby, silent; every forget-screen row now says "N of 5" and the fifth "new move" (FireRed too). Not heard. `ruby-sapphire-emerald.md`, Battle.
   For the owner: Dewford Gym is not "dark" under decision 37, because Flash is refused there and its level falls as trainers lose; and the wording questions at the end of `ruby-sapphire-emerald.md`.
 
 ## Launcher

@@ -1155,11 +1155,16 @@ end
 
 -- The move detail row under the cursor: name, type, PP, then power,
 -- accuracy and description, or the HM notice when it is shown.
+-- While a move is being learned the fifth row is the new move (choosing it
+-- gives up learning), so every row says its position and the fifth says it
+-- is the new one (our words: the screen shows it below a line).
 function Summary.detail(S, mon, withPosition)
   local cursor = S._moveCursor or 1
   local row, def = Summary.move(S, mon, cursor)
   if not row then row = say(rom("gText_PokeSum_OneHyphen")) end
-  local parts = { withPosition and join({ row, position(cursor, 5) }) or row }
+  local learning = S._mode == "select_move" and not S._forgetMove and S._moveToLearn ~= nil
+  if learning and cursor == 5 then row = join({ "new move", row }) end
+  local parts = { (withPosition or learning) and join({ row, position(cursor, 5) }) or row }
   if def then
     local P = pokemon()
     local id = Summary.moveId(S, mon, cursor)

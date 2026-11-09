@@ -6,6 +6,7 @@
 --
 --   wild     a wild POOCHYENA (Intimidate): menu grid, move list, SELECT swap, balls until caught;
 --   level    a level up with learn-move questions;
+--   forget   the same level up, a move forgotten through the summary;
 --   trainer  a trainer with two Pokémon, SHIFT style;
 --   run      a wild battle run from;
 --   safari   ROCK, BAIT, RUN;
@@ -27,7 +28,7 @@ return function(game)
 
   local scenesEnv = os.getenv("POKEPORT_BATTLE_SCENES")
   local wanted = {}
-  for name in (scenesEnv or "wild,level,trainer,run,safari,doubles,weather"):gmatch("[^,]+") do
+  for name in (scenesEnv or "wild,level,forget,trainer,run,safari,doubles,weather"):gmatch("[^,]+") do
     wanted[name] = true
   end
 
@@ -286,7 +287,9 @@ return function(game)
       elseif Stack.top() then
         local id = Stack.top().id
         U.log("LAYER", id)
-        if id == "party" then
+        if opts.onLayer and opts.onLayer(id) then
+          -- the scene answered this screen itself
+        elseif id == "party" then
           local PM = package.loaded["src.ui.game3.party_menu"]
           wait(30)
           if PM then PM.cursor = 2 end
@@ -360,12 +363,50 @@ return function(game)
     mon.exp = Experience.expForLevel(mon, 13) - 1
     if not startWild({ species = 19, level = 2 }) then return end
     settle()
-    fight(1)
-    -- "delete a move?" NO, then "stop learning?" YES
-    settle({ onChoice = function(n, question)
+    -- "delete a move?" NO, then "stop learning?" YES; attacks again if the
+    -- first hit did not knock the RATTATA out (damage is random)
+    local opts = { onChoice = function(n, question)
       U.log("QUESTION", n, question)
       return n >= 2
-    end })
+    end }
+    for _ = 1, 6 do
+      if not atMenu() then break end
+      fight(1)
+      settle(opts)
+    end
+  end)
+
+  -- the same level up, answered YES: the summary's forget mode, a move chosen
+  -- (cursor moved down to the second move first), "1, 2 and... Poof!"
+  scene("forget", function()
+    local mons = party({ { 4, 12 } })
+    local mon = mons[1]
+    mon.moves = { 10, 45, 52, 43 }
+    mon.pp = { 35, 40, 25, 30 }
+    mon.maxPp = { 35, 40, 25, 30 }
+    mon.exp = Experience.expForLevel(mon, 13) - 1
+    if not startWild({ species = 19, level = 2 }) then return end
+    settle()
+    local opts = { onChoice = function(n, question)
+      U.log("QUESTION", n, question)
+      return n == 1
+    end, onLayer = function(id)
+      if id ~= "summary" then return false end
+      wait(40)
+      tap("down", 25) tap("down", 25) tap("up", 25)
+      tap("a", 30)
+      for _ = 1, 10 do
+        if not (Stack.top() and Stack.top().id == "summary") then break end
+        tap("a", 25)
+      end
+      U.log("FORGOT", table.concat(mon.moves, ","))
+      return true
+    end }
+    for _ = 1, 6 do
+      if not atMenu() then break end
+      fight(1)
+      settle(opts)
+    end
   end)
 
   scene("trainer", function()

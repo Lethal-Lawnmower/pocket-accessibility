@@ -538,7 +538,12 @@ eq(last(), "BULBA, level 7, male. KNOWN MOVES. TACKLE, NORMAL, PP 30 of 35, 1 of
   "forget-a-move mode entry")
 SummaryMenu._moveCursor = 5
 poll(summaryScreen)
-eq(last(), "CUT, NORMAL, PP 30 of 30. power 50, accuracy 95. Description of CUT", "the move to learn as the fifth row")
+eq(last(), "new move, CUT, NORMAL, PP 30 of 30, 5 of 5. power 50, accuracy 95. Description of CUT",
+  "the move to learn as the fifth row, marked new, with its position")
+SummaryMenu._moveCursor = 1
+poll(summaryScreen)
+eq(last(), "TACKLE, NORMAL, PP 30 of 35, 1 of 5. power 35, accuracy 95. Description of TACKLE",
+  "a known move keeps its position while a move is being learned")
 SummaryMenu._hmNotice = true
 poll(summaryScreen)
 eq(last(), "HM moves can't be forgotten now.", "HM notice")

@@ -421,12 +421,16 @@ local function movesPage(S, mon, contest)
   return "moves: " .. table.concat(rows, "; ")
 end
 
+-- While a move is being learned the screen has five rows, the fifth the new
+-- move (choosing it gives up learning), so every row says its position and the
+-- fifth says it is the new one (our words: the screen shows it below a line).
 local function moveDetail(S, mon, slot, contest, learnId, withPosition)
   local row, id, def = moveRow(S, mon, slot, contest, learnId)
-  local where = withPosition and position(slot, 5) or nil
+  local where = (withPosition or learnId ~= nil) and position(slot, 5) or nil
   if not row then
     return join({ H.first({ "gText_Cancel2", "gOtherText_CancelNoTerminator" }), where })
   end
+  if learnId ~= nil and slot == 5 then row = join({ "new move", row }) end
   row = join({ row, where })
   local D = H.loaded("src.core.game3.summary_data")
   if contest then

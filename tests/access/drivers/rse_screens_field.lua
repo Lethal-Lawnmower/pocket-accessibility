@@ -779,7 +779,65 @@ return function(game)
       if L.top() == "summary" then tap("b", 40) else tap("a", 25) end
     end
     L.log("FINISHED", tostring(finished))
-    if not finished then screens.reset() end
+    L.closeAll()
+  end)
+
+  -- the tutor again, a move taught over one the Pokémon knows: the summary's
+  -- forget mode, the cursor moved to the second move, chosen
+  section("tutor_forget", function()
+    local mon = session.party[1]
+    local screens = isRs and require("src.ui.game3.rs.move_relearner") or require("src.ui.game3.rse.move_relearner")
+    local before = table.concat(mon.moves or {}, ",")
+    local finished
+    screens.show(mon, { session = session, onDone = function(learned) finished = learned == true and "learned" or "no" end })
+    wait(30)
+    tap("a", 25)                        -- teach?
+    tap("a", 25)                        -- YES
+    for _ = 1, 12 do
+      if finished then break end
+      if L.top() == "summary" then
+        wait(30)
+        -- down to the new move's own row (the fifth), then back up to the second
+        taps({ "down", "down", "down", "down" }, 25)
+        taps({ "up", "up", "up" }, 25)
+        tap("a", 30)
+      else
+        tap("a", 25)
+      end
+    end
+    L.log("FINISHED", tostring(finished))
+    L.log("MOVES", before .. " -> " .. table.concat(mon.moves or {}, ","))
+    L.closeAll()
+  end)
+
+  -- a TM taught from the bag's party screen to a Pokémon with four moves:
+  -- YES to forget, the summary's forget mode, the second move chosen
+  section("tm_forget", function()
+    local mon = session.party[1]
+    mon.moves = { 33, 45, 55, 189 }     -- TACKLE, GROWL, WATER GUN, MUD-SLAP
+    local okTm, tm = pcall(item, "ITEM_TM06")
+    if not okTm then tm = item("ITEM_TM06_TOXIC") end
+    Bag.add(session.bag, tm, 1)
+    local before = table.concat(mon.moves, ",")
+    local PartyMenu = require("src.ui.game3.party_menu")
+    PartyMenu.show(session.party, nil, { session = session, bag = session.bag, item = tm, mode = "use" })
+    wait(30)
+    tap("a", 60)                        -- this Pokémon
+    for _ = 1, 8 do                     -- the messages, YES to forget a move
+      if L.top() == "summary" then break end
+      tap("a", 40)
+    end
+    L.log("TOP", tostring(L.top()))
+    if L.top() == "summary" then
+      wait(30)
+      tap("down", 25) tap("down", 25) tap("up", 25)
+      tap("a", 40)
+    end
+    for _ = 1, 8 do                     -- "1, 2 and... Poof!" and the learned line
+      if L.top() ~= "summary" and not require("src.ui.game3.message").isOpen() then break end
+      tap("a", 40)
+    end
+    L.log("MOVES", before .. " -> " .. table.concat(mon.moves, ","))
     L.closeAll()
   end)
 
