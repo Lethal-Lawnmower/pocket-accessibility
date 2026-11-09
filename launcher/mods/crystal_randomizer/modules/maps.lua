@@ -2,29 +2,38 @@
 --
 -- This module owns the `maps` question and applies a placement; it does not
 -- decide one.  Three libraries other modules offer in `ctx.lib` do that:
---   mapGraph.build(data)        the doors and complexes of the vanilla maps
+--   mapGraph.build(data)        the doors, entrances and complexes of the vanilla maps
 --   mapRules.model(data, graph) what is fixed and what keeps the game winnable
 --   mapPlacer.place(graph, rules, level, rng, hmPlacement)
---                               placement[doorId] = doorId' (door A now leads
---                               where door A' led), and a report
+--                               placement[doorId] = doorId' and
+--                               placement.entrances[entranceId] = entranceId',
+--                               and a report
 --
--- How a door is changed.  A door is an outdoor warp `{ x, y, destMap,
+-- Doors and entrances.  A door is one outdoor warp `{ x, y, destMap,
 -- destWarp }` in data.gen2Maps[map].warps (warp numbers are 1-based list
--- indexes, as World:takeWarp reads them).  When door A takes door A'
--- destination, A's outdoor warp gets the vanilla destMap and destWarp of A'
--- outdoor warp, so the player arrives where A' used to lead.
+-- indexes, as World:takeWarp reads them).  Many doorways are two warp tiles
+-- wide, so the graph groups the tiles of one doorway into an ENTRANCE
+-- (graph.entrances[id] = { id, map, complex, doors, inside }, door.entrance;
+-- the id and the first of `doors` is the doorway's first tile).  The placer
+-- moves whole entrances; this module applies them per entrance:
+--   * every tile of entrance A gets the vanilla destMap and destWarp of the
+--     target entrance T's first tile, so both tiles of a wide doorway arrive
+--     at the same place;
+--   * every explicit exit in T.inside (a complex warp that led back to any
+--     tile of T) is pointed at A's first tile;
+--   * exits with destWarp 0xff are left alone: World:recordWarpBackup notes
+--     the warp stepped on whenever the warp arrived on says 0xff, and
+--     World:resolveWarp sends the 0xff warp back there, so they already
+--     return to the tile used.
+-- Which entrance A goes to comes from placement.entrances when the placer
+-- gives it, else from placement[tile] of A's tiles; every tile of A must
+-- agree, or the placement is refused.  A graph without `entrances` is read
+-- as one entrance per door.
 --
--- How leaving comes back to the door used.  The complex warps that lead back
--- out (graph.doors[A'].inside) come in two kinds:
---   * destWarp 0xff: World:recordWarpBackup notes the warp stepped on and the
---     map left whenever the warp arrived on says 0xff, and World:resolveWarp
---     sends the 0xff warp back there.  Those already return to door A and are
---     left alone.
---   * an explicit destMap and destWarp naming A' outdoor side: those are
---     pointed at door A instead.
--- A placement that would point one explicit warp at two different doors (two
--- doors sharing a destination) is refused as a whole, because one of those
--- doors would let its player out somewhere else.
+-- An exit that would have to lead to two different entrances (two entrances
+-- sent to one target, or one sent onto an entrance that stays) refuses the
+-- whole placement, because one of those doorways would let its player out
+-- somewhere else.  Entrances that stay claim their own exits for this check.
 --
 -- Every switch of save puts every changed field back to its vanilla value
 -- first (in reverse order of change), whatever the new save asks for.  The
@@ -70,22 +79,98 @@ local function warpOf(data, mapId, index)
 end
 M.warpOf = warpOf
 
+-- The graph's entrances, and which entrance each door belongs to.  A graph
+-- without `entrances` gets one entrance per door, named after it.
+function M.entrancesOf(graph)
+  local entrances, of = {}, {}
+  if type(graph.entrances) == "table" and next(graph.entrances) ~= nil then
+    for id, e in pairs(graph.entrances) do
+      if type(e) ~= "table" or type(e.doors) ~= "table" or #e.doors == 0 then
+        return nil, nil, "entrance " .. tostring(id) .. " has no doors"
+      end
+      entrances[id] = e
+      for _, did in ipairs(e.doors) do
+        if type(graph.doors[did]) ~= "table" then
+          return nil, nil, "entrance " .. tostring(id) .. " names a door the graph lacks: " .. tostring(did)
+        end
+        if of[did] and of[did] ~= id then
+          return nil, nil, "door " .. tostring(did) .. " is in two entrances"
+        end
+        of[did] = id
+      end
+    end
+    for did in pairs(graph.doors) do
+      if not of[did] then return nil, nil, "door " .. tostring(did) .. " is in no entrance" end
+    end
+  else
+    for did, door in pairs(graph.doors) do
+      entrances[did] = { id = did, map = door.map, complex = door.complex, doors = { did },
+        inside = door.inside or {} }
+      of[did] = did
+    end
+  end
+  return entrances, of
+end
+
+-- Where each entrance goes under `placement`: target[entranceId] =
+-- entranceId' (itself when it stays).  Or nil and the reason.
+function M.entranceTargets(graph, placement, entrances, of)
+  for _, key in ipairs(sortedKeys(placement)) do
+    if key ~= "entrances" then
+      if type(graph.doors[key]) ~= "table" then return nil, "no door " .. tostring(key) end
+      local to = placement[key]
+      if to ~= nil and type(graph.doors[to]) ~= "table" then return nil, "no door " .. tostring(to) end
+    end
+  end
+  local byEntrance = type(placement.entrances) == "table" and placement.entrances or nil
+  if byEntrance then
+    for _, id in ipairs(sortedKeys(byEntrance)) do
+      if not entrances[id] then return nil, "no entrance " .. tostring(id) end
+      if not entrances[byEntrance[id]] then return nil, "no entrance " .. tostring(byEntrance[id]) end
+    end
+  end
+  local target = {}
+  for _, id in ipairs(sortedKeys(entrances)) do
+    local e = entrances[id]
+    local to = byEntrance and byEntrance[id] or nil
+    -- every tile must agree with the entrance's target (or stay, if none is given)
+    for _, did in ipairs(e.doors) do
+      local tileTo = placement[did]
+      local tileEntrance = (tileTo == nil or tileTo == did) and id or of[tileTo]
+      if to == nil then to = tileEntrance end
+      if tileEntrance ~= to and not (tileTo == nil and byEntrance) then
+        return nil, ("the tiles of entrance %s lead to different entrances (%s and %s)")
+          :format(tostring(id), tostring(to), tostring(tileEntrance))
+      end
+    end
+    target[id] = to or id
+  end
+  return target
+end
+
 -- The writes that make `placement` true on `data` (still vanilla), as a list
 -- of { target = warp, field = "destMap" | "destWarp", value = ... } in a fixed
--- order, plus how many doors moved.  Or nil and the reason, changing nothing.
+-- order, plus { entrances = n, doors = n } moved.  Or nil and the reason,
+-- changing nothing.
 function M.plan(data, graph, placement)
   if type(graph) ~= "table" or type(graph.doors) ~= "table" then
     return nil, "the graph has no doors"
   end
   if type(placement) ~= "table" then return nil, "the placement is not a table" end
-  local writes, wanted, moved = {}, {}, 0
+  local entrances, of, err = M.entrancesOf(graph)
+  if not entrances then return nil, err end
+  local target, why = M.entranceTargets(graph, placement, entrances, of)
+  if not target then return nil, why end
+
+  local writes, wanted = {}, {}
+  local moved = { entrances = 0, doors = 0 }
   -- wanted[warp][field] = { value, by }: one value per field, or a conflict
   local function want(warp, field, value, by)
     wanted[warp] = wanted[warp] or {}
     local had = wanted[warp][field]
     if had then
       if had.value ~= value then
-        return ("a warp would lead to two doors (%s and %s)"):format(had.by, by)
+        return ("an exit would have to lead to two entrances (%s and %s)"):format(had.by, by)
       end
       return nil
     end
@@ -95,47 +180,54 @@ function M.plan(data, graph, placement)
     end
     return nil
   end
-  for _, doorId in ipairs(sortedKeys(placement)) do
-    if type(graph.doors[doorId]) ~= "table" then return nil, "no door " .. tostring(doorId) end
+  local function insideWarps(e)
+    local list = {}
+    for _, spot in ipairs(e.inside or {}) do
+      local w = type(spot) == "table" and warpOf(data, spot.map, spot.warp) or nil
+      if not w then return nil, "entrance " .. tostring(e.id) .. " names an inside warp that does not exist" end
+      list[#list + 1] = w
+    end
+    return list
   end
-  -- every door, so one that stays claims its own way out and a door moved
-  -- onto its complex is caught as a conflict instead of stealing that exit
-  for _, doorId in ipairs(sortedKeys(graph.doors)) do
-    local targetId = placement[doorId]
-    if targetId == nil or targetId == doorId then
-      for _, spot in ipairs(graph.doors[doorId].inside or {}) do
-        local inside = type(spot) == "table" and warpOf(data, spot.map, spot.warp) or nil
-        if inside and inside.destWarp ~= M.RETURN_WARP then
-          local why = want(inside, "destMap", inside.destMap, doorId)
-            or want(inside, "destWarp", inside.destWarp, doorId)
+
+  for _, id in ipairs(sortedKeys(entrances)) do
+    local e, toId = entrances[id], target[id]
+    if toId == id then
+      -- staying: its explicit exits keep leading to it
+      local list, bad = insideWarps(e)
+      if not list then return nil, bad end
+      for _, w in ipairs(list) do
+        if w.destWarp ~= M.RETURN_WARP then
+          why = want(w, "destMap", w.destMap, id) or want(w, "destWarp", w.destWarp, id)
           if why then return nil, why end
         end
       end
     else
-      local door, target = graph.doors[doorId], graph.doors[targetId]
-      if type(door) ~= "table" then return nil, "no door " .. tostring(doorId) end
-      if type(target) ~= "table" then return nil, "no door " .. tostring(targetId) end
-      local outside = warpOf(data, door.map, door.warp)
-      local targetOutside = warpOf(data, target.map, target.warp)
-      if not outside then return nil, "door " .. tostring(doorId) .. " has no warp in the map data" end
-      if not targetOutside then return nil, "door " .. tostring(targetId) .. " has no warp in the map data" end
-      if not warpOf(data, targetOutside.destMap, targetOutside.destWarp) then
-        return nil, "door " .. tostring(targetId) .. " leads to a warp that does not exist"
+      local to = entrances[toId]
+      local rep = graph.doors[to.doors[1]]
+      local repOutside = warpOf(data, rep.map, rep.warp)
+      if not repOutside then return nil, "door " .. tostring(rep.id) .. " has no warp in the map data" end
+      if not warpOf(data, repOutside.destMap, repOutside.destWarp) then
+        return nil, "door " .. tostring(rep.id) .. " leads to a warp that does not exist"
       end
-      local why = want(outside, "destMap", targetOutside.destMap, doorId)
-        or want(outside, "destWarp", targetOutside.destWarp, doorId)
-      if why then return nil, why end
-      for _, spot in ipairs(target.inside or {}) do
-        local inside = type(spot) == "table" and warpOf(data, spot.map, spot.warp) or nil
-        if not inside then
-          return nil, "door " .. tostring(targetId) .. " names an inside warp that does not exist"
-        end
-        if inside.destWarp ~= M.RETURN_WARP then
-          why = want(inside, "destMap", door.map, doorId) or want(inside, "destWarp", door.warp, doorId)
+      for _, did in ipairs(e.doors) do
+        local door = graph.doors[did]
+        local outside = warpOf(data, door.map, door.warp)
+        if not outside then return nil, "door " .. tostring(did) .. " has no warp in the map data" end
+        why = want(outside, "destMap", repOutside.destMap, id) or want(outside, "destWarp", repOutside.destWarp, id)
+        if why then return nil, why end
+        moved.doors = moved.doors + 1
+      end
+      local first = graph.doors[e.doors[1]]
+      local list, bad = insideWarps(to)
+      if not list then return nil, bad end
+      for _, w in ipairs(list) do
+        if w.destWarp ~= M.RETURN_WARP then
+          why = want(w, "destMap", first.map, id) or want(w, "destWarp", first.warp, id)
           if why then return nil, why end
         end
       end
-      moved = moved + 1
+      moved.entrances = moved.entrances + 1
     end
   end
   return writes, moved
@@ -206,14 +298,15 @@ function M.install(mod, ctx)
       return ctx.log("maps: %s; doors stay where they are",
         placeErr or "no placement passed the rules (mapPlacer.place gave none)")
     end
-    local writes, movedOrWhy = M.plan(data, graph, placement)
+    local okPlan, writes, movedOrWhy = pcall(M.plan, data, graph, placement)
+    if not okPlan then writes, movedOrWhy = nil, "the plan failed: " .. tostring(writes) end
     if not writes then
       return ctx.log("maps: placement not applied, %s; doors stay where they are", movedOrWhy)
     end
     for _, w in ipairs(writes) do set(w.target, w.field, w.value) end
     ctx.shared.maps = { placement = placement, report = report }
-    ctx.log("maps: level %s, %d doors lead elsewhere, %d warp fields changed",
-      level, movedOrWhy, #writes)
+    ctx.log("maps: level %s, %d entrances (%d door tiles) lead elsewhere, %d warp fields changed",
+      level, movedOrWhy.entrances, movedOrWhy.doors, #writes)
   end
 
   ctx.onSave(function(active)

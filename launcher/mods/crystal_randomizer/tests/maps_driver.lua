@@ -9,15 +9,16 @@
 -- logging each map arrived at, then loads a plain copy and checks every warp
 -- is vanilla again.
 --
--- Part B, the module alone on the real data and the real world, whatever the
--- other libraries' state: maps.lua installed with tests/fake_ctx.lua and three
--- small libraries written here, whose placement is a fixed cycle of three
--- Cherrygrove houses (gym speech house, guide gent, evolution speech house:
--- door 3 leads where 4 led, 4 where 5 led, 5 where 3 led).  Their exits are
--- explicit warps, so this is the case the module rewrites.  For each door the
--- player is put on the street below it, walks up through the door, logs where
--- they arrived, walks down out over the mat, and logs where they came out.
--- Then a vanilla save, and the warps are checked against the start.
+-- Part B, the module on the real data and the real world: maps.lua installed
+-- with tests/fake_ctx.lua, the real mapgraph's graph, a permissive rules stub
+-- and a fixed entrance placement: the one-tile CHERRYGROVE_CITY:3 (gym speech
+-- house) swaps with the two-tile ROUTE_23:1/:2 doorway (Indigo Plateau
+-- centre), and CHERRYGROVE_CITY:4 and :5 swap.  All their exits are explicit
+-- warps, the case the module rewrites.  For each tile the player is put on the
+-- ground below it, walks up through the door, logs where they arrived, walks
+-- down out over the mat, and logs where they came out (for ROUTE_23:2, the
+-- entrance's first tile ROUTE_23:1).  Then a vanilla save, and the warps are
+-- checked against the start.
 --
 --   POKEPORT_ACCESS_SILENT=1 POKEPORT_BACKGROUND=1 POKEPORT_VERSION=crystal
 --   POKEPORT_IDENTITY=pocket-access-maps-apply
@@ -86,13 +87,18 @@ return function(game)
     return inMap, outMap, ox, oy, w
   end
 
-  local function checkWalk(label, mapId, index, wantInside)
-    local inMap, outMap, ox, oy, w = walkThrough(mapId, index, label)
+  -- `returnIndex`: the outdoor warp leaving should come out at (the first tile
+  -- of the entrance used; default the door itself).  The player comes out on
+  -- that tile or the one below it.
+  local function checkWalk(label, mapId, index, wantInside, returnIndex)
+    local inMap, outMap, ox, oy = walkThrough(mapId, index, label)
     U.log(inMap == wantInside and "PASS" or "FAIL", label, "door", mapId .. ":" .. index, "leads into",
       tostring(inMap), "want", tostring(wantInside))
-    local back = outMap == mapId and math.abs(ox - w.x) <= 1 and math.abs(oy - w.y) <= 1
-    U.log(back and "PASS" or "FAIL", label, "leaving", tostring(inMap), "returns to the door used",
-      mapId .. ":" .. index, "(" .. outMap .. " " .. ox .. "," .. oy .. ")")
+    local r = maps[mapId].warps[returnIndex or index]
+    local back = outMap == mapId and ox == r.x and (oy == r.y or oy == r.y + 1)
+    U.log(back and "PASS" or "FAIL", label, "leaving", tostring(inMap), "comes out at",
+      mapId .. ":" .. (returnIndex or index), "(" .. r.x .. "," .. r.y .. ")",
+      "(got " .. outMap .. " " .. ox .. "," .. oy .. ")")
   end
 
   -- ------------------------------------------------------------ part A: the whole mod
@@ -132,52 +138,57 @@ return function(game)
   U.log(n == 0 and "PASS" or "FAIL", "A: a plain save after the shuffled one has vanilla warps", n)
 
   -- ------------------------------------------------------------ part B: the module alone
+  -- The real mapgraph builds the graph; the placement is fixed by entrance:
+  -- the one-tile Cherrygrove gym speech house door (CHERRYGROVE_CITY:3) swaps
+  -- with the two-tile Indigo Plateau centre doorway (ROUTE_23:1 and :2), and
+  -- the guide gent and evolution speech houses (:4, :5) swap with each other.
   local Fake = dofile("launcher/mods/crystal_randomizer/tests/fake_ctx.lua")
   local Maps = dofile("launcher/mods/crystal_randomizer/modules/maps.lua")
-  local CYCLE = { ["CHERRYGROVE_CITY:3"] = "CHERRYGROVE_CITY:4", ["CHERRYGROVE_CITY:4"] = "CHERRYGROVE_CITY:5",
-    ["CHERRYGROVE_CITY:5"] = "CHERRYGROVE_CITY:3" }
-  local function build(d)
-    local graph = { doors = {}, complexes = {}, outdoor = {} }
-    for id, m in pairs(d.gen2Maps) do if OUTDOOR[m.environment] then graph.outdoor[id] = true end end
-    for doorId in pairs(CYCLE) do
-      local mapId, index = doorId:match("^(.-):(%d+)$")
-      index = tonumber(index)
-      local w = d.gen2Maps[mapId].warps[index]
-      local inside = {}
-      for j, x in ipairs(d.gen2Maps[w.destMap].warps) do
-        if (x.destMap == mapId and x.destWarp == index) or x.destWarp == FF then
-          inside[#inside + 1] = { map = w.destMap, warp = j }
-        end
-      end
-      graph.complexes[w.destMap] = { id = w.destMap, maps = { w.destMap }, environment = "INDOOR",
-        doors = { doorId }, deadEnd = true, story = false, kind = "house" }
-      graph.doors[doorId] = { id = doorId, map = mapId, warp = index, complex = w.destMap, inside = inside }
-    end
-    return graph
+  local ctx = Fake.new({ seed = "maps-driver", options = { maps = "full" } })
+  local graphModule = dofile("launcher/mods/crystal_randomizer/modules/mapgraph.lua")
+  graphModule.install({ game = game }, ctx)
+  if not (ctx.lib.mapGraph and ctx.lib.mapGraph.build) then U.log("FAIL", "B: mapgraph offers no build") return end
+  local graph = ctx.lib.mapGraph.build(data)
+  local SWAP = { ["CHERRYGROVE_CITY:3"] = "ROUTE_23:1", ["ROUTE_23:1"] = "CHERRYGROVE_CITY:3",
+    ["CHERRYGROVE_CITY:4"] = "CHERRYGROVE_CITY:5", ["CHERRYGROVE_CITY:5"] = "CHERRYGROVE_CITY:4" }
+  for eid in pairs(SWAP) do
+    if not (graph.entrances and graph.entrances[eid]) then U.log("FAIL", "B: no entrance", eid) return end
   end
-  local ctx = Fake.new({ seed = "maps-driver", options = { maps = "houses" } })
-  ctx.lib.mapGraph = { build = build }
+  U.log("RESULT", "B: ROUTE_23:1 entrance tiles", table.concat(graph.entrances["ROUTE_23:1"].doors, " "))
+  local placement = { entrances = {} }
+  for did in pairs(graph.doors) do placement[did] = did end
+  for eid in pairs(graph.entrances) do placement.entrances[eid] = eid end
+  for eid, tid in pairs(SWAP) do
+    placement.entrances[eid] = tid
+    for _, did in ipairs(graph.entrances[eid].doors) do placement[did] = graph.entrances[tid].doors[1] end
+  end
   ctx.lib.mapRules = { model = function() return { fixed = {}, canWin = function() return true end } end }
-  ctx.lib.mapPlacer = { place = function() return copy(CYCLE), { note = "fixed driver cycle" } end }
-  local before = {}
-  for doorId in pairs(CYCLE) do
-    local mapId, index = doorId:match("^(.-):(%d+)$")
-    before[doorId] = maps[mapId].warps[tonumber(index)].destMap
+  ctx.lib.mapPlacer = { place = function() return placement, { note = "fixed driver swaps" } end }
+  local inside = {}
+  for eid in pairs(SWAP) do
+    local d = graph.doors[graph.entrances[eid].doors[1]]
+    inside[eid] = maps[d.map].warps[d.warp].destMap
   end
   Maps.install({ game = game }, ctx)
   ctx.setActive(true)
   for _, line in ipairs(ctx.lines) do U.log("MODLOG", line) end
   U.log(ctx.shared.maps and "PASS" or "FAIL", "B: placement published")
-  local order = { "CHERRYGROVE_CITY:3", "CHERRYGROVE_CITY:4", "CHERRYGROVE_CITY:5" }
-  for _, doorId in ipairs(order) do
-    local mapId, index = doorId:match("^(.-):(%d+)$")
-    checkWalk("B " .. doorId, mapId, tonumber(index), before[CYCLE[doorId]])
+  local walks = {
+    { "CHERRYGROVE_CITY", 3, "ROUTE_23:1", 3 },
+    { "ROUTE_23", 1, "CHERRYGROVE_CITY:3", 1 },
+    { "ROUTE_23", 2, "CHERRYGROVE_CITY:3", 1 },  -- second tile: comes out at the first
+    { "CHERRYGROVE_CITY", 4, "CHERRYGROVE_CITY:5", 4 },
+    { "CHERRYGROVE_CITY", 5, "CHERRYGROVE_CITY:4", 5 },
+  }
+  for _, w in ipairs(walks) do
+    checkWalk("B " .. w[1] .. ":" .. w[2], w[1], w[2], inside[w[3]], w[4])
   end
   ctx.setActive(false)
   local m = differences(vanilla, snapshot())
   U.log(m == 0 and "PASS" or "FAIL", "B: a vanilla save restores every warp", m)
   -- and the vanilla doors walk as vanilla
-  checkWalk("B vanilla", "CHERRYGROVE_CITY", 3, before["CHERRYGROVE_CITY:3"])
+  checkWalk("B vanilla", "CHERRYGROVE_CITY", 3, inside["CHERRYGROVE_CITY:3"])
+  checkWalk("B vanilla", "ROUTE_23", 2, inside["ROUTE_23:1"], 2)
   U.log("DONE")
   love.event.quit()
 end
