@@ -1,6 +1,7 @@
--- The device clock for Gold, Silver and Crystal (src/access/PcClock.lua), on a
--- disposable profile.  With POKEPORT_ACCESS=0 the same run shows upstream's own
--- behaviour, where the screens wait and the clock opens on 10 AM.  Starts a new game
+-- The PC Clock mod (launcher/mods/pc_clock), on a disposable Gold, Silver or
+-- Crystal profile with the mod in its mods folder.  Without the mod the same run
+-- shows upstream's own behaviour: the screens wait and the clock opens on 10 AM.
+-- Starts a new game
 -- through the real intro, so Oak's clock screen runs, then compares the game's
 -- clock with the device's, sets a wrong offset the way a wrong answer would, and
 -- reads again.  Silent; read the RESULT, PASS and FAIL lines.

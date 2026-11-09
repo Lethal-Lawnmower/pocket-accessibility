@@ -504,7 +504,7 @@ The owner, after the Android release build ran on the Thor: "go ahead and start 
 
 The owner asked for "an actual mod" that uses the system clock, with daylight saving and the day of the week, and, told the port already reads the clock through the player's answer: "we can just have the mod answer it with the actual correct stuff ... That way it's not an option." Details: `gold-silver-crystal.md`, "PC Clock mod".
 
-Then, the same day: "actually make that a default for everyone." Built into the layer (`src/access/PcClock.lua`); the separate mod was removed.
+Then, the same day: "actually make that a default for everyone." It was built into the layer (`src/access/PcClock.lua`). That was a misreading, corrected the same day: "make the clock a mod. That's what I was saying." It is a mod again (`launcher/mods/pc_clock`), and the built-in version is gone.
 
 ## 57. A Crystal randomizer mod, set up at New Game (2026-11-08)
 

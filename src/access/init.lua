@@ -40,8 +40,6 @@ function Access.install(opts)
   if os.getenv("POKEPORT_ACCESS") == "0" then return false end
   installed = true
   opts = opts or {}
-  -- Gold, Silver and Crystal follow the device clock (decision 56), speech or not
-  require("src.access.PcClock").install()
 
   if Speech.start(opts.speech) then
     Speech.say("Pocket Accessibility ready.", { interrupt = true })

@@ -260,25 +260,28 @@ Chase bug found in this check and fixed: it compared names, so walking from one 
 started a chase. It now needs the same object, or the old id gone and one object with that name.
 Gold's chase rerun after the fix.
 
-## Device clock (2026-11-08, decision 56)
+## PC Clock mod (2026-11-08, decision 56)
 
-Built into the layer for everyone (`src/access/PcClock.lua`, installed first thing in `Access.install`, with
-or without speech). It began as a separate mod; the owner made it the default the same day, and the mod was
-removed. Upstream already reads the host clock through the offset taken when Oak's and Mom's questions are
-answered (`src/core/gen2/Clock.lua`), so the time already followed daylight saving and the weekday; this
-removes the answers:
+A mod, `launcher/mods/pc_clock` (id `pocket_pc_clock`, `engine_internals`), installed into a save folder's
+`mods`; nothing changes without it. Upstream already reads the host clock through the offset taken when
+Oak's and Mom's questions are answered (`src/core/gen2/Clock.lua`), so the time already followed daylight
+saving and the weekday; the mod removes the answers:
 
 - `InitClock.new` opens on the device's hour, minute and weekday with `autoConfirm`, the screen's own
-  walk-through, and says "Clock set from your device: ..." or "Day set from your device: ...".
+  walk-through, and the layer says "Clock set from your device: ..." or "Day set from your device: ...".
 - `Clock.minutes` and `Clock.weekday` read with the offset at zero and put it back, so the save keeps its
-  own setting and `POKEPORT_ACCESS=0` still plays it.
+  own setting when the mod is off.
 - Mom's daylight saving question still appears: upstream stores `rtc.dst` and never moves the clock with it.
 
-Tested by script (`tests/access/drivers/pc_clock.lua`) on Crystal, Gold and Silver, disposable profiles,
-9 of 9 each: both screens answered themselves within 8 frames with the device's values and said so; the
-game's time and weekday equalled the device's after a new game, after both screens and after a forced
-6-hour offset; the save kept that offset. Without it (the earlier mod run with the mod removed) the clock
-read 10:00 and the screens waited. Not played by the owner yet; Android not tried.
+History: built as a mod, made part of the layer for everyone after the owner said "make that a default for
+everyone", then made a mod again: "make the clock a mod. That's what I was saying." (both 2026-11-08). The
+built-in `src/access/PcClock.lua` was removed.
+
+Tested by script (`tests/access/drivers/pc_clock.lua`): with the mod on Crystal, Gold and Silver, 9 of 9 each
+(both screens answered themselves with the device's values and said so; time and weekday equalled the
+device's after a new game, both screens and a forced 6-hour offset; the save kept that offset). After the
+change back to a mod, Crystal again: 9 of 9 with the mod, and 3 of 9 without it (upstream's own clock).
+Installed in the owner's save folder. Not played by the owner yet; Android not tried.
 
 ## Crystal Randomizer mod (2026-11-08, decision 57)
 

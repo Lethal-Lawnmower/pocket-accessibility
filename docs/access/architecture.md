@@ -43,7 +43,6 @@ check exactly these places.
 | `main.lua` | `makeLauncher`, first line | Packaged: `PackagedBuild.noLauncher` ends the program instead of opening upstream's launcher. Every launcher route passes here | 2026-11-03 |
 | `main.lua` | `returnToLauncher`, after its guard | Packaged: a Discord invite or launch request is ignored; other returns end the process | 2026-11-03 |
 | `main.lua` | `bootGame`, failed box recovery | Packaged: refuses the start with the recovery message, since `BoxPanel` is left out | 2026-11-03 |
-| `src/core/gen2/Clock.lua`, `src/ui/gen2/InitClock.lua` (runtime wrap, no edit) | `Clock.minutes` and `Clock.weekday` read with the offset at zero; `InitClock.new` opens on the device's time and day with `autoConfirm` (`src/access/PcClock.lua`, decision 56) | Gold, Silver and Crystal follow the device clock, and the questions answer themselves |
 | `src/core/HostShell.lua`, `src/update/Boot.lua` (runtime replacement, packaged only, no edit) | `HostShell.restart` only quits; `Boot.canUpdateInPlace` returns false | No restart into a launcher, no updater | 2026-11-03 |
 | `main.lua` (runtime wrapper, no edit) | `love.update`, `love.quit` | `Access.install` wraps both; ours runs after upstream's and passes its return value through | 2026-10-31 |
 | `src/core/StateStack.lua` (read only) | `StateStack.states` | Top screen each frame; relies on Gen 1 `Game` using the module as its stack | 2026-10-31 |
