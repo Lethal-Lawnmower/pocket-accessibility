@@ -196,6 +196,8 @@ function Snapshot.objectLabel(actor, opts)
   local name = gfxName(gfx)
   if not name then return nil end
   name = name:gsub("^OBJ_EVENT_GFX_", "")
+  -- a sheet with its own label first: LINK_RECEPTIONIST is no link partner
+  if GFX_LABELS[name] then return GFX_LABELS[name] end
   local sheet = name:match("^(%u+)_") or name
   if PLAYER_SHEETS[name] or PLAYER_SHEETS[sheet] or name:match("^RED_") or name:match("^GREEN_") then
     return "Trainer"

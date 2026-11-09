@@ -627,9 +627,45 @@ local function blenderYesNoCursor(yn)
   return nil
 end
 
--- The timing game itself is silent: its arrow, BEST, GOOD and MISS sprites and
--- changing speed digits are real time and have no text; a cue spoken for them
--- would arrive after the moment.  What it shows is said when play has ended.
+-- The timing game has no text: its arrow, BEST, GOOD and MISS sprites and
+-- changing speed digits are real time, and a cue spoken for them would arrive
+-- after the moment.  Instead a short tone (earcon "blender") plays a fixed time
+-- before the arrow reaches the middle of the player's BEST range, so a press on
+-- the tone lands there (owner request, 2026-11-09).  The range and the arrow are
+-- the game's own (core/game3/rse/berry_blender.lua arrowProximity: BEST while
+-- arrowPos / 256 is within 4 of the player's arrowHitRangeStart, so its middle
+-- is arrowPos = start * 256).  What the game shows is said when play has ended.
+-- Measured in Emerald, playing by ear only (drivers/rse_screens_contest.lua
+-- BLENDER_BY_TONE, 2026-11-09): a press as many frames after the tone as its lead
+-- lands mostly GOOD with some BEST and no MISS; four frames either way starts to miss.
+-- 14 frames (about a quarter second) is near a player's reaction to an expected
+-- sound, and a player can learn the beat from there.  Not tried by a person yet.
+Contest.BLENDER_LEAD_FRAMES = 14
+
+local function blenderCue(g, memo)
+  local speed = g and tonumber(g.speed) or 0
+  local playing = g and g.gameEndState == 0 and speed > 0 and type(g.playerIdToArrowId) == "table"
+    and type(g.T) == "table" and type(g.T.arrowHitRangeStart) == "table"
+  if not playing then memo.blenderCued = nil return end
+  local arrowId = g.playerIdToArrowId[g.localPlayerId or 0]
+  local start = arrowId and tonumber(g.T.arrowHitRangeStart[arrowId + 1])
+  if not start then return end
+  local ahead = (start * 256 - (tonumber(g.arrowPos) or 0)) % 0x10000
+  local frames = ahead / speed
+  if frames <= Contest.BLENDER_LEAD_FRAMES then
+    if not memo.blenderCued then
+      memo.blenderCued = true
+      local Nav = package.loaded["src.access.nav"]
+      local nav = Nav and Nav.coordinator and Nav.coordinator()
+      if nav and nav.cue then pcall(nav.cue, nav, "blender") end
+    end
+  elseif ahead > 0x8000 then
+    -- the arrow has passed the range: the next lap gets its own tone
+    memo.blenderCued = nil
+  end
+end
+Contest.blenderCue = blenderCue
+
 Contest.blender = {
   matches = function(state)
     return type(state) == "table" and (state.gen3 == "rse_berry_blender" or state.gen3 == "rs_berry_blender")
@@ -639,6 +675,7 @@ Contest.blender = {
     if type(s) ~= "table" or s.hidden or s.done then return nil end
     local parts = {}
     local g = s.game
+    if s.cb == "play" then blenderCue(g, memo) end
     if s.printer then
       local text = H.printerSay(s.printer, memo, state.game)
       if text then parts[#parts + 1] = text end

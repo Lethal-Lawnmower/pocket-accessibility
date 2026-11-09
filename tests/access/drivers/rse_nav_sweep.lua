@@ -26,7 +26,7 @@ return function(game)
   local listAll = os.getenv("RSE_SWEEP_LIST") == "1"
 
   local ids = L.mapIds()
-  local stats = { maps = 0, labels = 0, signposts = 0, generic = 0, bad = 0, warps = 0, unresolved = 0,
+  local stats = { maps = 0, labels = 0, signposts = 0, generic = 0, variable = 0, bad = 0, warps = 0, unresolved = 0,
     connections = 0, roles = {}, objects = {}, behaviours = {}, specials = {} }
   local function bad(label)
     if type(label) ~= "string" or label == "" then return true end
@@ -38,6 +38,26 @@ return function(game)
   local function generic(item)
     local label = tostring(item.label)
     return label:match("^Signpost %d") or label == "Person" or label == "Trainer" or label == "Exit"
+  end
+  -- an object event at the item's cell whose graphics a variable picks
+  local function variableSprite(def, item)
+    for _, obj in ipairs(def.objects or {}) do
+      local gfx = tonumber(obj.graphicsId or obj.graphics)
+      if gfx and gfx >= 240 and tonumber(obj.x) == tonumber(item.x) and tonumber(obj.y) == tonumber(item.y) then
+        return true
+      end
+    end
+    return false
+  end
+  -- a warp to the dynamic warp (map number 0x7F): it leads back where the player
+  -- came in, which the game records on the way in; a new game's flags have none
+  local function dynamicWarp(def, item)
+    for _, warp in ipairs(def.warps or {}) do
+      if tonumber(warp.mapNum) == 0x7F and tonumber(warp.x) == tonumber(item.x) and tonumber(warp.y) == tonumber(item.y) then
+        return true
+      end
+    end
+    return false
   end
   local puzzleFloors = {}
   for index, mapId in ipairs(ids) do
@@ -74,7 +94,14 @@ return function(game)
             stats.bad = stats.bad + 1
             U.log("BAD", mapId, item.type, tostring(item.label))
           end
-          if generic(item) then
+          if generic(item) and ((item.label == "Person" and variableSprite(def, item))
+              or (item.label == "Exit" and dynamicWarp(def, item))) then
+            -- the game picks this person's sheet when the map loads (OBJ_EVENT_GFX_VAR_*),
+            -- or this warp's destination as the player walks in; a live map says it
+            -- (checked on live maps, 2026-11-09), a map the player is not on cannot know
+            stats.variable = stats.variable + 1
+            U.log("VARIABLE", mapId, tostring(item.x) .. "," .. tostring(item.y))
+          elseif generic(item) then
             stats.generic = stats.generic + 1
             U.log("GENERIC", mapId, item.type, tostring(item.label), tostring(item.x) .. "," .. tostring(item.y))
           end
@@ -116,7 +143,7 @@ return function(game)
     end
     if index % 20 == 0 then U.wait(1) end
   end
-  U.log("SWEEP", "maps", stats.maps, "labels", stats.labels, "bad", stats.bad, "generic", stats.generic,
+  U.log("SWEEP", "maps", stats.maps, "labels", stats.labels, "bad", stats.bad, "generic", stats.generic, "variable", stats.variable,
     "signposts", stats.signposts, "active warps", stats.warps, "unresolved", stats.unresolved,
     "connections", stats.connections)
   local function sortedCounts(tbl)

@@ -549,6 +549,14 @@ function World.loadedView(game, def)
   return view
 end
 
+-- The planned view of `def` with `cells` drawn on it (as Scripts.loadState returns
+-- them): a floor as a run of switch presses would leave it (Navigation:leverPlan).
+function World.viewWithCells(game, def, cells)
+  if type(def) ~= "table" or not def.midLayout then return nil end
+  local shadow = setmetatable({ midLayout = loadedLayout(def, { cells = cells or {} }, nil) }, { __index = def })
+  return newView(game, shadow, def.id, false)
+end
+
 -- ------------------------------------------------------------ the facade
 
 -- The live player, with Gen 1's spelling of the fields the shared code

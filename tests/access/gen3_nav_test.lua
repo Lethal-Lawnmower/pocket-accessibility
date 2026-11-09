@@ -165,12 +165,15 @@ do
   eq(Snapshot.locationName({ id = "FR_RIVALS_HOUSE" }, nil, nil, "RED", "BLUE"), "BLUE's House", "rival's house named after the rival")
   eq(Snapshot.locationName({ id = "FR_ROUTE_1" }, nil, "Home Road"), "Home Road", "a rename wins")
   Snapshot.setGraphicsNames({ [72] = "OBJ_EVENT_GFX_BLUE", [23] = "OBJ_EVENT_GFX_WOMAN_1",
-    [0] = "OBJ_EVENT_GFX_RED_NORMAL", [71] = "OBJ_EVENT_GFX_PROF_OAK", [97] = "OBJ_EVENT_GFX_PUSHABLE_BOULDER" })
+    [0] = "OBJ_EVENT_GFX_RED_NORMAL", [71] = "OBJ_EVENT_GFX_PROF_OAK", [97] = "OBJ_EVENT_GFX_PUSHABLE_BOULDER",
+    [28] = "OBJ_EVENT_GFX_LINK_RECEPTIONIST" })
   eq(Snapshot.objectLabel({ graphicsId = 72, def = {} }, { rivalName = "GARY" }), "GARY", "Blue's sheet named as the rival")
   eq(Snapshot.objectLabel({ graphicsId = 23, def = {} }, {}), "Woman", "people named by graphics, number dropped")
   eq(Snapshot.objectLabel({ graphicsId = 0, def = {} }, {}), "Trainer", "the player's sheet on someone else is a Trainer")
   eq(Snapshot.objectLabel({ graphicsId = 71, def = {} }, {}), "Professor Oak", "Professor Oak")
   eq(Snapshot.objectLabel({ graphicsId = 240, def = {} }, {}), "Person", "an unresolved variable sprite is only a Person")
+  eq(Snapshot.objectLabel({ graphicsId = 28, def = {} }, {}), "Receptionist",
+    "the link receptionist is no link partner (its sheet starts with LINK)")
   eq(Snapshot.objectLabel({ graphicsId = 92, def = { scriptKey = "nope" } }, {}), "Pok\195\169 Ball", "an item ball without a readable item")
 end
 

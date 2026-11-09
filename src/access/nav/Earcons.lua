@@ -35,6 +35,8 @@ local PROFILES = {
   move_left = { 0.085, 410, 310, 410 },
   move_right = { 0.085, 650, 820, 650 },
   menu = { 0.035, 880 },
+  -- the Berry Blender's "press now" tone (screens/gen3/HoennContest.lua)
+  blender = { 0.050, 1320, 1760 },
 }
 
 -- File mapping for an explicitly configured external Pokemon Access sound

@@ -107,12 +107,31 @@ sparkles (the sheen number stands for them), marking symbols, gender signs,
 rematch marker, blue light, call icon, and Ruby and Sapphire's help bars (read
 off the images; only map, Trainer's Eyes, search graph, markings are said).
 
-Known gaps in contests and the blender (`gen3/HoennContest.lua`,
-`drivers/rse_screens_contest.lua`): the Berry Blender's timing game is silent by
-design. Its arrow, BEST, GOOD and MISS sprites and changing speed digits are real
-time with no readable text, and a spoken cue would arrive after the moment; a player
-hears only the game's own sounds, which come after a press. Whether a cue is wanted
-is the owner's decision. Pictures are not described: the painting, the winner's
+Berry Blender timing (decision 65, 2026-11-09): its arrow, BEST, GOOD and MISS
+sprites and speed digits are real time with no text, and speech would arrive after
+the moment, so a tone (earcon `blender`, `nav/Earcons.lua`) plays 14 frames (about a
+quarter second) before the arrow reaches the middle of the player's BEST range, once a
+lap. The range and the arrow are the game's own (`core/game3/rse/berry_blender.lua`
+`arrowProximity`). Measured in Emerald by a driver playing by ear only
+(`BLENDER_BY_TONE=<frames after the tone>`, `BLENDER_LEAD=<lead>`), one game each:
+
+| Lead | Press after | BEST | GOOD | MISS |
+|---|---|---|---|---|
+| 10 | 6 | 2 | 32 | 0 |
+| 10 | 10 | 4 | 30 | 0 |
+| 10 | 14 | 1 | 9 | 45 |
+| 14 | 12 | 15 | 12 | 0 |
+| 14 | 14 | 4 | 27 | 0 |
+| 14 | 16 | 1 | 31 | 3 |
+| 14 | 14 (Ruby) | 4 | 26 | 0 |
+| 16 | 8 | 1 | 7 | 55 |
+| 16 | 12 | 2 | 31 | 2 |
+| 16 | 16 | 9 | 22 | 0 |
+| 16 | 20 | 1 | 15 | 37 |
+
+A press near the lead lands GOOD or BEST; four frames off starts to miss. Not tried
+by a person; whether the timing suits a player is the owner's to judge. `tests/access/blender_cue_test.lua` checks one tone a lap at the
+lead. Pictures are not described: the painting, the winner's
 banner, the judge. Heart bars in the results are said as the stars and hearts they
 are built from, not as a length. Not run: link contest and link blender text, a
 contest entered from the reception script (the driver opens the modules the natives
@@ -238,6 +257,11 @@ playing there; each row above and the known gaps say what is not run.
   and the day-care STORE prompt its name ("Do what with ?"). Speech adds the number
   and the name from the screen's own fields.
 - `cable_car.lua` opened directly in Ruby never starts; through its script it rides.
+- Emerald's Strength boulder says "used STRENGTH!" and "'s STRENGTH made it possible to
+  move boulders around!" with no Pokémon name: `FLDEFF_USE_STRENGTH` does not copy the
+  Pokémon's nickname into STR_VAR_1 as pokeemerald's `FldEff_UseStrength` does
+  (`checkpartymove`, which upstream implements, never did). Heard in a silent story
+  run's speech log, 2026-11-09; the box shows the same printer tokens, not looked at.
 - Emerald's own string for the contest page title is spelled "C0NTEST MOVES"
   in the running data; the layer says CONTEST.
 - `PcMenu` root mode reads FireRed's `Text_AccessWhichPC` on B after `show()`

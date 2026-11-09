@@ -28,6 +28,7 @@ local World = require("src.access.nav.gen3.World")
 local GameData = require("src.access.nav.gen3.GameData")
 local WorldAdapter = require("src.access.nav.WorldAdapter")
 local Pathfinder = require("src.access.nav.Pathfinder")
+local bit = require("bit")
 
 local Gen3 = WorldAdapter.gen3
 
@@ -363,7 +364,7 @@ function Navigation:rotatingSwitchPlan(world, goals)
       trickHouse = rotation.trickHouse
     end
   end
-  if #cells == 0 then return nil end
+  if #cells == 0 then return self:leverPlan(world, goals) end
   local set = GameData.constants()
   local labels = set and set.metatile_labels and set.metatile_labels.byName
   local start = labels and labels[trickHouse and "METATILE_TrickHousePuzzle_Arrow_YellowOnWhite_Right"
@@ -527,6 +528,113 @@ end
 
 -- What a Hoenn floor switch can change beyond collision: where objects stand, and the
 -- arrows it turned.
+-- Ruby and Sapphire's Trick House 7: five levers (signs), each turning its own flag on
+-- or off and redrawing arrows to match, and the arrows carry the player.  Pressing one
+-- can leave the player where no other lever can be reached, so trying them one by one
+-- (SwitchWalk) gets stuck; here the presses are planned ahead.  What each lever draws
+-- is read from its script both ways (Scripts.pressCells), a floor is the levers that
+-- are on drawn over the layout, and a search over which levers are on and where the
+-- player stands finds the presses that open the way to the target.  The answer is the
+-- next lever to press, by the label SwitchWalk lists it under; nil when this floor has
+-- no such levers, a script cannot be read, or no answer turned up in time.
+local LEVER_LIMIT, LEVER_STATES, LEVER_SECONDS = 6, 4000, 2.0
+
+function Navigation:leverPlan(world, goals)
+  if not GameData.isHoenn() then return nil end
+  local def = world.map and world.map.def
+  if type(def) ~= "table" or not def.midLayout then return nil end
+  local Space = loaded("src.core.game3.scripting.space")
+  local Flags = loaded("src.core.game3.scripting.flags")
+  local function flagSet(id)
+    if not (Space and Space.store and Flags and Flags.getFlag) then return false end
+    return call(Flags.getFlag, Space.store, nil, id) == true
+  end
+  local levers = {}
+  for _, event in ipairs(def.bgEvents or {}) do
+    if event.type == "sign" and type(event.x) == "number"
+       and select(2, Scripts.signRole(event.scriptKey)) == "hidden_switch" then
+      local flag = Scripts.reach(event.scriptKey, 8).flagsChecked[1]
+      if flag then
+        local function answer(own)
+          return function(id) if id == flag then return own end return flagSet(id) end
+        end
+        local on = Scripts.pressCells(event.scriptKey, answer(false))
+        local off = Scripts.pressCells(event.scriptKey, answer(true))
+        if not (on and off) or next(on.cells) == nil then return nil end
+        levers[#levers + 1] = { event = event, flag = flag, on = on.cells, off = off.cells,
+          label = "Hidden Switch " .. event.x .. "," .. event.y }
+      end
+    end
+  end
+  if #levers == 0 or #levers > LEVER_LIMIT then return nil end
+  local views = {}
+  local function viewFor(mask)
+    if views[mask] then return views[mask] end
+    local merged = {}
+    for i, lever in ipairs(levers) do
+      local drawn = bit.band(mask, bit.lshift(1, i - 1)) ~= 0 and lever.on or lever.off
+      for key, cell in pairs(drawn) do merged[key] = cell end
+    end
+    views[mask] = World.viewWithCells(self.game, def, merged)
+    return views[mask]
+  end
+  local npcs = world.npcs or {}
+  local function worldAt(mask, x, y, live)
+    if live then return world end
+    local player = { cellX = x, cellY = y, facing = "down", surfing = false }
+    local entities = { player }
+    for _, actor in ipairs(npcs) do entities[#entities + 1] = actor end
+    return { isOverworld = true, map = viewFor(mask), player = player, npcs = npcs, entities = entities }
+  end
+  local function routeEnd(w, cellGoals, x, y)
+    local options = self:routeOptionsFor(w, cellGoals, 1)
+    if not options then return nil end
+    local ok, result = pcall(Pathfinder.find, options)
+    if not (ok and result and type(result.steps) == "table") then return nil end
+    local last = result.steps[#result.steps]
+    if not last then return x, y end
+    return last.x, last.y
+  end
+  local function leverCells(view, event)
+    local cells = {}
+    for kind, d in pairs({ { 0, -1 }, { 0, 1 }, { 1, 0 }, { -1, 0 } }) do
+      local x, y = event.x - d[1], event.y - d[2]
+      local side = tonumber(event.kind) or 0
+      if (side == 0 or side == kind) and view:isWalkableCell(x, y) and not view:warpAt(x, y) then
+        cells[#cells + 1] = { x = x, y = y }
+      end
+    end
+    return cells
+  end
+  local startMask = 0
+  for i, lever in ipairs(levers) do
+    if flagSet(lever.flag) then startMask = bit.bor(startMask, bit.lshift(1, i - 1)) end
+  end
+  local player = world.player
+  local queue = { { mask = startMask, x = player.cellX, y = player.cellY, live = true } }
+  local seen = { [startMask .. "@" .. player.cellX .. "," .. player.cellY] = true }
+  local deadline = os.clock() + LEVER_SECONDS
+  local head = 1
+  while head <= #queue and head <= LEVER_STATES and os.clock() < deadline do
+    local node = queue[head]
+    head = head + 1
+    local w = worldAt(node.mask, node.x, node.y, node.live)
+    if routeEnd(w, goals, node.x, node.y) then return node.first end
+    for i, lever in ipairs(levers) do
+      local ex, ey = routeEnd(w, leverCells(w.map, lever.event), node.x, node.y)
+      if ex then
+        local mask = bit.bxor(node.mask, bit.lshift(1, i - 1))
+        local key = mask .. "@" .. ex .. "," .. ey
+        if not seen[key] then
+          seen[key] = true
+          queue[#queue + 1] = { mask = mask, x = ex, y = ey, first = node.first or lever.label }
+        end
+      end
+    end
+  end
+  return nil
+end
+
 function Navigation:switchFloorExtra(map)
   if not GameData.isHoenn() then return nil end
   local parts = {}
@@ -1511,6 +1619,12 @@ function Navigation:routeOptionsFor(world, goals, policy)
   local canWaterfall = self:hmAllowed(world, "WATERFALL", policy)
   local useCardKey = policy >= 2 and (self:hasCardKey() or policy >= 3)
   local occupied = occupancy(world)
+  -- routeNeeds asks for the way with people set aside, to name who stands in it
+  if self.routeIgnoringPeople then
+    for key, entry in pairs(occupied) do
+      if entry.kind == "object" then occupied[key] = nil end
+    end
+  end
   -- on the Mach Bike a journey plans cracked floors and slopes as floor; the walk on the
   -- floor itself works out the speed (machRoute, which asks with machStrict set)
   local hoenn = GameData.isHoenn()
@@ -1810,6 +1924,31 @@ Navigation.stepOffWarpTargets = true
 -- a warp that lands on the same map (Saffron Gym's pads) moves the player off the route
 -- without a new map: the journey is planned again from there, not the old leg's cell
 Navigation.replanJourneyOffRoute = true
+
+-- What stands in the way, for auto-walk's refusal when there is no route: a
+-- person (or other object that is no cut tree, rock, boulder or item) in the
+-- only way through, such as the grunts the story moves later.  The route is
+-- planned again with them set aside; the first one on it is named, as FireRed's
+-- and Red's "Blocked by".  Nil when even that finds no way.
+function Navigation:routeNeeds(goals)
+  local world = self:worldForCommand()
+  if not world then return nil end
+  self.routeIgnoringPeople = true
+  local ok, options = pcall(self.routeOptionsFor, self, world, goals, 2)
+  self.routeIgnoringPeople = nil
+  if not (ok and options) then return nil end
+  local found, result = pcall(Pathfinder.find, options)
+  if not (found and result and type(result.steps) == "table") then return nil end
+  local occupied = occupancy(world)
+  for _, step in ipairs(result.steps) do
+    local entry = occupied[cellKey(step.x, step.y)]
+    if entry and entry.kind == "object" then
+      local okLabel, label = pcall(Snapshot.objectLabel, entry.actor, {})
+      return "Blocked by " .. tostring(okLabel and label or "someone")
+    end
+  end
+  return nil
+end
 
 function Navigation:worldRouteRequest(goals, policy)
   local world, reason = self:worldForCommand()
@@ -2505,6 +2644,37 @@ end
 -- uses what the party can (policy 2, as auto-walk does on one map); when
 -- only a field move or the Card Key the player lacks would open the way,
 -- the reason says so.
+-- Doors a script opens, which a journey cannot plan through.  New Mauville's
+-- (pokeemerald data/maps/NewMauville_Entrance/scripts.inc; the same in Ruby and
+-- Sapphire): while VAR_NEW_MAUVILLE_STATE is 0 the load script closes the door,
+-- and stepping in front of it with the Basement Key opens it.
+local STORY_DOORS = {
+  { maps = { NEW_MAUVILLE_ENTRANCE = true, NEW_MAUVILLE_INSIDE = true }, target = "NEW_MAUVILLE_INSIDE",
+    var = "VAR_NEW_MAUVILLE_STATE", closed = 0, item = "ITEM_BASEMENT_KEY",
+    withItem = "New Mauville's door is locked: walk up to it and the Basement Key opens it",
+    without = "New Mauville's door is locked: needs the Basement Key" },
+}
+
+function Navigation:storyDoor(fromMapId, targetMapId)
+  local target = GameData.bareMapId(targetMapId)
+  local Space = loaded("src.core.game3.scripting.space")
+  local Flags = loaded("src.core.game3.scripting.flags")
+  for _, door in ipairs(STORY_DOORS) do
+    if target == door.target or (door.maps[GameData.bareMapId(fromMapId)] and door.maps[target]) then
+      local varId = GameData.var(door.var)
+      local value = varId and Space and Space.store and Flags
+        and tonumber(call(Flags.getVar, Space.store, nil, varId)) or nil
+      if value == door.closed then
+        local set = GameData.constants()
+        local itemId = set and set.items and set.items.byName and set.items.byName[door.item]
+        local session = self:session()
+        return (itemId and bagHas(session and session.bag, itemId)) and door.withItem or door.without
+      end
+    end
+  end
+  return nil
+end
+
 function Navigation:regionalNextLeg(navigation)
   local live = self:worldForCommand()
   if not live then return nil, "Not on a map" end
@@ -2534,6 +2704,19 @@ function Navigation:regionalNextLeg(navigation)
       local everything = self:journeySearch(start, target, 3, allowed, nil, true)
       local needs = everything and self:journeyRequirement(everything)
       if needs then return nil, needs end
+      local door = self:storyDoor(mapId, target.mapId)
+      if door then return nil, door end
+      -- people the story moves later (the grunts at a hideout's door): the journey with
+      -- them set aside names the one in the way here, or says they are further on
+      self.routeIgnoringPeople = true
+      local okAside, aside = pcall(self.journeySearch, self, start, target, 2, allowed, nil, true)
+      self.routeIgnoringPeople = nil
+      if okAside and aside then
+        local way = aside.firstTransition
+        local here = (way and self:routeNeeds({ { x = way.x, y = way.y } }))
+          or (aside.final and self:routeNeeds(target.goals)) or nil
+        return nil, here or "Blocked by someone further on"
+      end
     end
     return nil, reason
   end

@@ -463,6 +463,26 @@ function Scripts.loadState(def, flag, var)
   return { cells = cells, layoutIndex = layoutIndex, key = table.concat(parts, ",") }
 end
 
+-- What pressing a switch draws: the setmetatile cells its script reaches with the
+-- flags as `flag` answers (Ruby and Sapphire's Trick House 7 levers: each checks its
+-- own flag and redraws arrows one way or the other).  Read as a load script is read,
+-- with the press's own pauses and sounds allowed; nil and the reason when the script
+-- does anything else.
+local PRESS_OPS = { delay = true, playse = true, waitse = true }
+function Scripts.pressCells(key, flag, var)
+  local added = {}
+  for op in pairs(PRESS_OPS) do
+    if not HARMLESS[op] then HARMLESS[op], added[#added + 1] = true, op end
+  end
+  local drew = HARMLESS_SPECIAL.DrawWholeMapView
+  HARMLESS_SPECIAL.DrawWholeMapView = true
+  local ok, state, why = pcall(Scripts.loadState, { mapScripts = { onLoad = key } }, flag, var)
+  for _, op in ipairs(added) do HARMLESS[op] = nil end
+  HARMLESS_SPECIAL.DrawWholeMapView = drew
+  if not ok then return nil, tostring(state) end
+  return state, why
+end
+
 -- ------------------------------------------------------------ elevators
 
 -- The floors an elevator's floor panel serves: every setdynamicwarp its

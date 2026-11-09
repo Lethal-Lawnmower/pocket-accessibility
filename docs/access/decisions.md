@@ -531,3 +531,7 @@ The owner: "Can you do the rest of the nice settings I have enabled? You know, t
 ## 64. Release 0.0.3 (2026-11-08)
 
 The owner: "Let's just publish a release. Users who are testing it will let me know if it's weird." Published as `v0.0.3` with the Windows zip and the signed APK: the bundled mods (decision 61), the PC display defaults (decisions 62 and 63) and the Android Mods screen (decision 60). Notes and checks in `status.md`.
+
+## 65. Hoenn polish: blocked routes, Trick House 7, a Berry Blender tone (2026-11-09)
+
+Asked which Hoenn gaps to take next ("Person" labels, story-blocked routes, Trick House 7 in Ruby and Sapphire, the silent Berry Blender), the owner: "all of the above. See if you can catch anything else like that, or, you know, just polish it up." This answers the open question in `ruby-sapphire-emerald.md` on a cue for the blender's timing game: a short tone before the arrow reaches the player's BEST range (a sound, not speech). Details in `ruby-sapphire-emerald.md` and `ruby-sapphire-emerald-navigation.md`.

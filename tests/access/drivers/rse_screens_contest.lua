@@ -358,6 +358,20 @@ return function(game)
     local answered = 0
     local cool = 0
     local B = require("src.core.game3.rse.berry_blender")
+    local byTone = tonumber(os.getenv("BLENDER_BY_TONE"))
+    -- BLENDER_LEAD=<frames>: the tone's lead, for measuring (HoennContest.BLENDER_LEAD_FRAMES)
+    if tonumber(os.getenv("BLENDER_LEAD")) then
+      require("src.access.screens.gen3.HoennContest").BLENDER_LEAD_FRAMES = tonumber(os.getenv("BLENDER_LEAD"))
+    end
+    local toneAt, tones = nil, 0
+    local nav = require("src.access.nav").coordinator()
+    local cue = nav and nav.cue
+    if nav and cue then
+      nav.cue = function(self, id, opts)
+        if id == "blender" then toneAt, tones = frames, tones + 1 end
+        return cue(self, id, opts)
+      end
+    end
     while not finished and frames < 60 * 180 do
       local top = L.top()
       if top == "rse_berry_tag" or top == "rs_berry_tag" then
@@ -378,6 +392,16 @@ return function(game)
         end
         L.log("STEP", "action " .. tostring(BagMenu.ACTIONS and BagMenu.ACTIONS[BagMenu.actionCursor]))
         tap("a", 60)
+      elseif screen.cb == "play" and byTone then
+        -- BLENDER_BY_TONE=<frames>: play by ear, A pressed that many frames after each
+        -- "press now" tone (a player's reaction time), never looking at the arrow
+        played = true
+        if toneAt and frames - toneAt >= byTone then
+          toneAt = nil
+          tap("a", 0)
+        else
+          wait(1)
+        end
       elseif screen.cb == "play" then
         played = true
         -- a press as the arrow reaches this player's marker (as tests/drivers/em_berry_blender.lua)
@@ -404,7 +428,9 @@ return function(game)
       end
       frames = frames + 1
     end
-    L.log("FINISHED", tostring(finished) .. " played " .. tostring(played) .. " frames " .. frames .. " answered " .. answered)
+    if nav and cue then nav.cue = cue end
+    L.log("FINISHED", tostring(finished) .. " played " .. tostring(played) .. " frames " .. frames .. " answered " .. answered
+      .. " tones " .. tones)
     wait(40)
   end)
 
