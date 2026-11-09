@@ -527,3 +527,7 @@ The owner: "performance and all that can be selectable. But can we have the game
 ## 63. Computers start with the owner's display settings (2026-11-08)
 
 The owner: "Can you do the rest of the nice settings I have enabled? You know, the UI stuff and the battle taking up the entire screen, stuff like that?" Copied from the owner's options as defaults on a computer: battles filling the screen with the map behind them, the dynamic layout, the extended Gen 2 battle HUD, the map's own border fill and the ADVANCED Gen 1 colours. Zoom, frame rate, performance, volumes, text speed and accessibility settings were left out. Every one stays in the options menu. Details: `launcher.md`, "Packaged release".
+
+## 64. Release 0.0.3 (2026-11-08)
+
+The owner: "Let's just publish a release. Users who are testing it will let me know if it's weird." Published as `v0.0.3` with the Windows zip and the signed APK: the bundled mods (decision 61), the PC display defaults (decisions 62 and 63) and the Android Mods screen (decision 60). Notes and checks in `status.md`.
