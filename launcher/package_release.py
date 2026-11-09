@@ -63,6 +63,7 @@ STAND_INS = {
     "src.import.LauncherSplash": "PackagedBuild preloads a stand-in",
     "src.import.BoxPanel": "main.lua, only after the bootGame hook has refused the start",
     "service": "launcher/SaveBackend/service.lua, on the require path AndroidSaveBackend sets",
+    "modservice": "launcher/ModBackend/modservice.lua, on the require path AndroidSaveBackend sets",
 }
 
 # Upstream's project marks (License Term 3), which the game does not draw;

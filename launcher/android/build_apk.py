@@ -41,6 +41,11 @@ LAUNCHER_ACTIVITY = """    <activity
         android:label="Save editor"
         android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden"
         android:theme="@android:style/Theme.DeviceDefault" />
+    <activity
+        android:name="com.pocketaccess.launcher.ModsActivity"
+        android:label="Mods"
+        android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden"
+        android:theme="@android:style/Theme.DeviceDefault" />
 """
 
 
@@ -175,9 +180,9 @@ def pack_game(shadow):
     with tempfile.TemporaryDirectory() as work:
         game = Path(work)
         commit, excluded = package_release.export_game(game)
-        # of launcher/, the game only needs what its save editor runs
+        # of launcher/, the game only needs what its save editor and Mods screen run
         for path in (game / "launcher").iterdir():
-            if path.name != "SaveBackend":
+            if path.name not in ("SaveBackend", "ModBackend"):
                 shutil.rmtree(path) if path.is_dir() else path.unlink()
         (game / MARKER).write_text(f"Packaged by launcher/android/build_apk.py from commit {commit}.\n", encoding="utf-8")
         missing = package_release.missing_requires(game)

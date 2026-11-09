@@ -44,7 +44,7 @@ public final class SaveEditorActivity extends Activity implements SaveEditorPage
     private final Map<String, SaveEditorPage> pages = new HashMap<>();
     private final List<String> pageIds = new ArrayList<>();
     private final List<String> pageLabels = new ArrayList<>();
-    private SaveBackendClient backend;
+    private BackendClient backend;
     private TextView status;
     private TextView pageLabel;
     private Spinner pagePicker;
@@ -92,7 +92,7 @@ public final class SaveEditorActivity extends Activity implements SaveEditorPage
     /** The game's activity comes up in front for a moment, then this screen returns on top of it. */
     private void startBackend() {
         try {
-            backend = new SaveBackendClient();
+            backend = new BackendClient();
             GameStarter.startSaveBackend(this, backend.port(), backend.token());
         } catch (IOException | ErrnoException error) {
             fail("The save editor could not start: " + error.getMessage());

@@ -14,12 +14,13 @@ import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 
 /**
- * The editor's end of the save backend (src/access/AndroidSaveBackend.lua): one JSON
+ * The launcher's end of a backend (src/access/AndroidSaveBackend.lua), the save
+ * editor's or the Mods screen's: one JSON
  * line each way over a socket on this device only.  Other apps can reach a local port,
  * so the backend must first present the one-time token it was started with, and the
  * port takes only one connection.  Methods block, so they are called off the UI thread.
  */
-final class SaveBackendClient {
+final class BackendClient {
     private static final int CONNECT_TIMEOUT_MILLIS = 60_000;
 
     private final ServerSocket server;
@@ -29,7 +30,7 @@ final class SaveBackendClient {
     private OutputStream writer;
     private int nextId = 1;
 
-    SaveBackendClient() throws IOException {
+    BackendClient() throws IOException {
         // the same address the backend connects to; Android's default loopback can be IPv6
         server = new ServerSocket(0, 1, InetAddress.getByAddress(new byte[] {127, 0, 0, 1}));
         byte[] random = new byte[16];

@@ -1,18 +1,27 @@
--- The save backend on Android (docs/access/android.md, "Save editor").  Android has no
--- second program to talk to over stdin, so the launcher's editor screen opens a socket
--- on this device only and starts the game's activity with its port and a one-time token.
--- This runs during main.lua's first line, before anything of the game has started, and
--- blocks there.  That also keeps SDL from pausing it behind the editor screen, because
--- SDL only pauses a program when it pumps events.  It exits when the socket closes.
+-- The launcher's backends on Android (docs/access/android.md, "Save editor" and
+-- "Mods").  Android has no second program to talk to over stdin, so a launcher
+-- screen opens a socket on this device only and starts the game's activity with
+-- its port, a one-time token and which backend it wants: the save editor's
+-- (launcher/SaveBackend/service.lua) or the Mods screen's
+-- (launcher/ModBackend/modservice.lua).  This runs during main.lua's first line,
+-- before anything of the game has started, and blocks there.  That also keeps SDL
+-- from pausing it behind the launcher's screen, because SDL only pauses a program
+-- when it pumps events.  It exits when the socket closes.
 
 local AndroidSaveBackend = {}
 
-function AndroidSaveBackend.serve(port, token)
+local SERVICES = {
+  save = { path = ";launcher/SaveBackend/?.lua;tools/save-editor/?.lua;tools/save-editor/panels/?.lua",
+           module = "service" },
+  mods = { path = ";launcher/ModBackend/?.lua", module = "modservice" },
+}
+
+function AndroidSaveBackend.serve(port, token, kind)
+  local service = SERVICES[kind or "save"] or SERVICES.save
   local socket = require("socket")
-  love.filesystem.setRequirePath(love.filesystem.getRequirePath()
-    .. ";launcher/SaveBackend/?.lua;tools/save-editor/?.lua;tools/save-editor/panels/?.lua")
+  love.filesystem.setRequirePath(love.filesystem.getRequirePath() .. service.path)
   local Json = require("src.link.Json")
-  local Service = require("service")
+  local Service = require(service.module)
 
   local client = assert(socket.connect("127.0.0.1", tonumber(port)))
   client:settimeout(nil)
@@ -29,7 +38,7 @@ function AndroidSaveBackend.serve(port, token)
   client:close()
   -- _exit, not os.exit: exit's cleanup raced Android's render thread and aborted the
   -- process on a destroyed mutex (seen on the emulator), which Android reports as a crash.
-  -- Nothing is left to flush: every save was written and closed when it was answered.
+  -- Nothing is left to flush: every save or options write was finished when answered.
   local ffi = require("ffi")
   ffi.cdef("void _exit(int status);")
   ffi.C._exit(0)

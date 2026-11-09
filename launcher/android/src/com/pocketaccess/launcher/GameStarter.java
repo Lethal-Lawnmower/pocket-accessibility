@@ -25,7 +25,7 @@ import java.io.OutputStream;
 final class GameStarter {
     private static final String[] IMPORT_VARIABLES = {
         "POKEPORT_IMPORT_ROM", "POKEPORT_VERSION", "POKEPORT_GAME", "POKEPORT_FORCE_IMPORT",
-        "POCKET_EDITOR_PORT", "POCKET_EDITOR_TOKEN",
+        "POCKET_EDITOR_PORT", "POCKET_EDITOR_TOKEN", "POCKET_BACKEND",
     };
 
     private GameStarter() {}
@@ -63,10 +63,19 @@ final class GameStarter {
 
     /** Starts the game's activity as the save backend instead of the game. */
     static void startSaveBackend(Context context, int port, String token) throws ErrnoException {
+        startBackend(context, "save", port, token);
+    }
+
+    /**
+     * Starts the game's activity as one of the launcher's backends instead of the game:
+     * "save" for the save editor, "mods" for the Mods screen (src/access/AndroidSaveBackend.lua).
+     */
+    static void startBackend(Context context, String kind, int port, String token) throws ErrnoException {
         for (String name : IMPORT_VARIABLES) Os.unsetenv(name);
         Os.setenv("POKEPORT_PORTMASTER_MANAGED", "1", true);
         Os.setenv("POCKET_EDITOR_PORT", String.valueOf(port), true);
         Os.setenv("POCKET_EDITOR_TOKEN", token, true);
+        Os.setenv("POCKET_BACKEND", kind, true);
         context.startActivity(new Intent(context, GameActivity.class));
     }
 
