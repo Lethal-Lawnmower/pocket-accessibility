@@ -124,6 +124,10 @@ fix("Tin Tower: the sages, the CLEAR BELL and Suicune", { "TIN_TOWER_1F", "TIN_T
 fix("the Burned Tower: the beasts' scene that opens the Ecruteak gym", { "BURNED_TOWER_1F",
   "BURNED_TOWER_B1F" })
 fix("Victory Road and its gate: the eight-badge check", { "VICTORY_ROAD", "VICTORY_ROAD_GATE" })
+-- Crystal's Safari Zone is closed: FUCHSIA_CITY warp 7 stands on a wall tile, so
+-- anything moved behind it could never be entered (found by tests/maps_e2e.py,
+-- caves level, seed 424242: Tohjo Falls behind it).
+fix("the closed Safari Zone: its Fuchsia door is a wall", { "SAFARI_ZONE_FUCHSIA_GATE_BETA" })
 fix("the Pokemon League: the Elite Four, Lance and the Hall of Fame",
   { "INDIGO_PLATEAU_POKECENTER_1F", "WILLS_ROOM", "KOGAS_ROOM", "BRUNOS_ROOM", "KARENS_ROOM",
     "LANCES_ROOM", "HALL_OF_FAME" })
