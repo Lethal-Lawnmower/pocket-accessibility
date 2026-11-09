@@ -50,6 +50,12 @@ Gestures.THRESHOLDS = {
   TAP_MAX_SECONDS = 0.35,
   -- a second tap must start this soon after the first one ended
   DOUBLE_TAP_SECONDS = 0.30,
+  -- three fingers land and lift less evenly, so their taps get more time to
+  -- finish and a longer wait for the second tap (the owner on the Pixel
+  -- Tablet, 2026-11-09: the three-finger double tap for START was "a little
+  -- too short").  A three-finger single tap (SELECT) waits this long too.
+  THREE_FINGER_TAP_MAX_SECONDS = 0.50,
+  THREE_FINGER_DOUBLE_TAP_SECONDS = 0.55,
   -- a two-finger turn of at least this many degrees is a rotation
   ROTATE_MIN_DEGREES = 45,
   -- a stroke still open this long has lost its releases (the app lost
@@ -59,6 +65,14 @@ Gestures.THRESHOLDS = {
 
 local Recogniser = {}
 Recogniser.__index = Recogniser
+
+-- The tap length and second-tap wait for a number of fingers.
+local function tapMax(th, fingers)
+  return (fingers or 1) >= 3 and th.THREE_FINGER_TAP_MAX_SECONDS or th.TAP_MAX_SECONDS
+end
+local function doubleWindow(th, fingers)
+  return (fingers or 1) >= 3 and th.THREE_FINGER_DOUBLE_TAP_SECONDS or th.DOUBLE_TAP_SECONDS
+end
 
 -- opts.size: function returning the screen's width and height, in the same
 -- units as the touch coordinates.  opts.thresholds: overrides for tests.
@@ -138,7 +152,7 @@ function Recogniser:pressed(id, x, y, t)
     self.stroke = stroke
     -- a stroke starting after the double-tap window cannot pair with the
     -- waiting tap
-    if self.pending and t - self.pending.endTime > self.thresholds.DOUBLE_TAP_SECONDS then
+    if self.pending and t - self.pending.endTime > doubleWindow(self.thresholds, self.pending.fingers) then
       flushPending(self, out)
     end
   end
@@ -190,9 +204,9 @@ local function classify(self, stroke, t, out)
     return
   end
 
-  if maxMove <= th.TAP_MAX_MOVE * short and duration <= th.TAP_MAX_SECONDS then
+  if maxMove <= th.TAP_MAX_MOVE * short and duration <= tapMax(th, n) then
     local p = self.pending
-    if p and p.fingers == n and stroke.startTime - p.endTime <= th.DOUBLE_TAP_SECONDS then
+    if p and p.fingers == n and stroke.startTime - p.endTime <= doubleWindow(th, n) then
       self.pending = nil
       out[#out + 1] = { kind = "tap", fingers = n, taps = 2, half = p.half, x = p.x, y = p.y }
       return
@@ -237,9 +251,9 @@ end
 function Recogniser:update(t)
   local out = {}
   local p = self.pending
-  if not p or t - p.endTime <= self.thresholds.DOUBLE_TAP_SECONDS then return out end
+  if not p or t - p.endTime <= doubleWindow(self.thresholds, p.fingers) then return out end
   -- a stroke under way that began inside the window may still be the second tap
-  if self.stroke and self.stroke.startTime - p.endTime <= self.thresholds.DOUBLE_TAP_SECONDS then
+  if self.stroke and self.stroke.startTime - p.endTime <= doubleWindow(self.thresholds, p.fingers) then
     return out
   end
   flushPending(self, out)

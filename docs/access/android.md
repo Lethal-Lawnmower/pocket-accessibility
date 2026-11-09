@@ -423,7 +423,7 @@ let go. Up to 4 quick swipes queue. `Nav.context`, `Nav.walking` and `Nav.stopWa
 
 **Thresholds** (`Gestures.THRESHOLDS`; distances are fractions of the shorter screen side; none tuned on a
 device): swipe at least 6% and under 1 s; tap moves under 4% and lasts under 0.35 s; a double tap's second
-tap starts within 0.3 s of the first ending; a turn is two fingers whose line turns 45 degrees or more; a
+tap starts within 0.3 s of the first ending (three fingers: taps up to 0.5 s and 0.55 s for the second tap, longer at the owner's request on 2026-11-09, so SELECT waits 0.55 s); a turn is two fingers whose line turns 45 degrees or more; a
 stroke open 5 s has lost its releases and is dropped.
 
 **Verified 2026-11-09, run level only.** `tests/access/touch_gestures_test.lua` 136/136: every gesture,
