@@ -321,6 +321,12 @@ approach in the service's description and the launcher page, and none of its cod
 - **Open:** the game side (gestures) is separate work. If the service is switched on while the game is
   already in front, passthrough starts only at the game's next window-state event.
 
+**First device build (2026-11-09):** debug test build of `main` at `3c1d71c3` (service and gestures merged), app id
+`com.pocketaccess.androidtest`, label "Pocket Accessibility" (same as the release app, which stays installed with its
+data), built with `build_apk.py --prism-zip <scratch prism-android.zip> --work %TEMP%\pa-touch-main --clean` and
+installed on the owner's Pixel Tablet with `adb install -r`. NVGT Bridge stays installed but is set only for the
+release app. Not yet tried by the owner.
+
 ## Next
 
 1. The owner's tests on the Thor: the new launcher menu, sounds, the save editor, the Mods screen (the owner
