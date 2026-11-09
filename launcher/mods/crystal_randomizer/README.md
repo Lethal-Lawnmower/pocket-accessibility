@@ -74,7 +74,8 @@ once" are the original words. A link battle or trade with a randomized save uses
 
 ## Install
 
-Copy this folder, without its `tests` folder, into the `mods` folder of your save folder as
+Pocket Accessibility's releases bring this mod, turned off, from the release after 0.0.2 (decision 61): turn it on
+for Crystal in the launcher's Mods list before a New Game. By hand: copy this folder, without its `tests` folder, into the `mods` folder of your save folder as
 `crystal_randomizer`. On Windows that is `%APPDATA%\LOVE\pokemon-love2d\mods`. It needs the "patches
 engine code" permission. A save started with version 1 keeps its version 1 world.
 

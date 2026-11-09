@@ -227,11 +227,11 @@ public final class ModsActivity extends Activity {
         List<String> parts = new ArrayList<>();
         if (mod.has("problem")) parts.add("The game cannot load it: " + mod.optString("problem"));
         if (mod.has("enabled")) parts.add(mod.optBoolean("enabled") ? "On" : "Off");
-        if (mod.has("installedVersion")) parts.add("installed " + mod.optString("installedVersion"));
+        if (mod.has("installedVersion")) parts.add("Installed " + mod.optString("installedVersion"));
         if (mod.has("forThisGame") && !mod.optBoolean("forThisGame") && (mod.has("enabled") || mod.optBoolean("gamesListed"))) {
-            parts.add("not for " + game().name);
+            parts.add("Not for " + game().name);
         }
-        if (mod.has("unavailable")) parts.add("cannot be installed: " + mod.optString("unavailable"));
+        if (mod.has("unavailable")) parts.add("Cannot be installed: " + mod.optString("unavailable"));
         String about = mod.optString("summary", mod.optString("description", ""));
         if (!about.isEmpty()) parts.add(about);
         return String.join(". ", parts);

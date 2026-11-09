@@ -14,5 +14,6 @@ It needs the "patches engine code" permission, because it changes how the game r
 
 ## Install
 
-Copy this folder into the `mods` folder of your save folder, as `pocket_pc_clock`, or install it with the
+Pocket Accessibility's releases bring this mod, on, from the release after 0.0.2 (decision 61); it is in the
+launchers' Mods list, where it can be turned off or removed. By hand: copy this folder into the `mods` folder of your save folder, as `pocket_pc_clock`, or install it with the
 launcher's Mods window. On Windows the save folder is `%APPDATA%\LOVE\pokemon-love2d`.

@@ -521,3 +521,11 @@ Asked "Do we have the map randomizer?", told no and what it would take, the owne
 ## 60. A Mods screen on Android, untested on a device (2026-11-08)
 
 Asked "Does Android have the mod launcher? Or the mod browser?", told no, the owner: "Yes, please. Don't have a device to test, so it's probably something worth noting." Built to match the Windows Mods window; tested on the emulator only. Pushed at the owner's request the same day ("Yes"), with the PC Clock and randomizer work: 47 commits, `87c029eb..f77de973`, after a scan for private material, paths, credentials and binaries. Details: `android.md`, "Mods".
+
+## 61. The PC Clock and Crystal Randomizer come with the package (2026-11-08)
+
+The owner: "maybe for now we can make an exception for the two mods, since they are requested ones, and just have them bundled, since they are my mods, my code. We can figure out how to distribute future mods, though, and these ones." Told that bundled mods would be on for everyone, the owner chose: "Clock on, randomizer off." An exception to decision 42's "no mod is bundled" for these two only; how to distribute other mods, and these later, is open. They are copied into the save folder as ordinary mods. Details: `launcher.md`, "Packaged release".
+
+## 62. Computers start the games borderless (2026-11-08)
+
+The owner: "performance and all that can be selectable. But can we have the games on PC start in borderless windowed mode, please? ... something that's visually nice for streams to look at." Only the default changes; the VIDEO MODE option stays. Details: `launcher.md`, "Packaged release".

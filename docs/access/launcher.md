@@ -193,7 +193,7 @@ every `require` in the kept Lua resolves. It needs git, the .NET 10 SDK, LÖVE 1
 **Left out:** every Term 2 file (`src/import/RomImporter.lua` whole, because it holds launcher interface code);
 launcher-only screens that are not on the Term 2 list by name but cannot work without it (`src/import/online/`, `BoxPanel`,
 `BoxUI`, `BoxTools`, `BoxDetails`, `BoxOrganizer`, `ShowcaseEditor`, `LauncherSplash`, `LauncherThemeVideo`); `mods/`
-(no mod is bundled, decision 42; `mods/example_mew_starter` holds sprites generated from a ROM cache); upstream's unused logos
+(upstream's examples are not bundled, decision 42; `mods/example_mew_starter` holds sprites generated from a ROM cache); upstream's unused logos
 (`assets/logo` except `pokemon_logo.png`, which the title screen draws); every other top-level file and folder. Upstream's
 `scripts/pack_love.sh` cannot be used: it requires `LauncherView.lua` and packs everything.
 
@@ -203,6 +203,22 @@ launcher-only screens that are not on the Term 2 list by name but cannot work wi
   functions of `RomImporter.lua` (`isReady`, `startData`, `_startExtractThread`, `_pumpExtract`, `_completeImport`). No
   interface code was used. The cache it writes is compared with upstream's below.
 - `src.mods.LauncherMods` and `src.import.LauncherSplash` resolve to small stand-ins.
+- **Bundled mods (decision 61).** `src/access/BundledMods.lua` copies the owner's two mods from `launcher/mods`
+  into the save folder's `mods` at every start where they are missing (their `tests` folders are not copied), so both
+  launchers list them and players can turn them off or remove them. The first copy leaves the PC Clock on and writes
+  the Crystal Randomizer as off for every game. A newer bundled version replaces an older installed one, keeping its
+  `baseroms`; an older one never replaces a newer one; a copy already there is left alone, on or off; a mod the player
+  removed is not put back (ids seen are kept in `pocket-access-bundled-mods.txt`). A failure is logged and never stops
+  the game. Checked for game material before bundling (2026-11-08): no ROM data or assets; the randomizer builds its
+  tables from the player's imported game at run time, and its text is our own. Map, item and Pokémon names appear
+  as references, as in the navigation layer. Test: `tests/access/bundled_mods_test.lua` 18/18. Emulator, 2026-11-08:
+  the copy happened on first start, and the Mods screen showed PC Clock on and Crystal Randomizer off.
+- **Borderless by default on a computer (decision 62).** `PackagedBuild` makes upstream's own `videoMode`
+  default `borderless` (desktop fullscreen) when the display is not fixed, so new players start borderless. It only
+  changes the default: a player's saved choice wins, and the options menu's VIDEO MODE still switches. Scripted runs
+  (`POKEPORT_ACCESS_SILENT=1`) keep upstream's default, so a silent test never covers the screen. Checked by
+  `tests/access/packaged_build_test.lua`; not yet seen in a real packaged start. A save folder that already wrote
+  `videoMode = "windowed"` keeps it.
 - **Routes that opened upstream's launcher now end the program.** A cache failing the full check at Play, or a start
   with no game: the game writes the reason to `pocket-access-start-refused.txt` in the save folder and exits with code 40;
   our launcher says it in a message box and refreshes the list. Quitting from a game or arena screen ends the process, and our launcher
