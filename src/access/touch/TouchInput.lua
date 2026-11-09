@@ -149,6 +149,13 @@ local function liveGame()
   return game
 end
 
+-- True while gestures own every touch (TOUCH GESTURES on and a game running).
+-- Upstream's on-screen buttons are hidden then (src/access/init.lua): the owner
+-- asked for them gone, since they no longer take any touch.
+function TouchInput.ownsTouches()
+  return liveGame() ~= nil
+end
+
 -- coordinator, adapter, game and whether the player is free on the map
 local function navContext()
   local ok, nav, adapter, game = pcall(dep("nav").context)

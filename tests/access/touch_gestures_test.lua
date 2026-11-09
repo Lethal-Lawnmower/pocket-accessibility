@@ -267,6 +267,12 @@ check(not TouchInput.touchreleased(1, 800, 2000), "and its release")
 setup(false)
 TouchInput.configure({ currentGame = { live = function() return nil end } })
 check(not TouchInput.touchpressed(1, 800, 2000), "no running game (launcher): upstream gets the touch")
+check(not TouchInput.ownsTouches(), "no running game: upstream's buttons stay drawn")
+setup(false)
+check(TouchInput.ownsTouches(), "gestures on with a game: upstream's buttons are hidden")
+setup(false)
+options.gestures = false
+check(not TouchInput.ownsTouches(), "gestures off: upstream's buttons come back")
 
 -- buttons, off the map: the whole screen counts, top half too
 setup(false)

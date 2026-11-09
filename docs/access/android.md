@@ -331,6 +331,12 @@ passthrough region per display, and the bridge sets an empty one whenever an app
 app) is in front, overwriting ours. For players: the launcher's Touch controls page should warn that NVGT Bridge
 or Backtalk direct touch must not be on for this app at the same time.
 
+**Owner's first touch test (2026-11-09):** with NVGT Bridge turned off, our service and TalkBack on, "It works."
+The owner asked for upstream's on-screen D-pad and buttons to be removed. Since then `TouchControls.visible` is
+wrapped at runtime: false while gestures own the touches (`TouchInput.ownsTouches`), unchanged otherwise and in
+the layout editor's preview. Checked in a silent Crystal run with `POKEPORT_TOUCH=1`: hidden with gestures on,
+drawn with them off, drawn in preview; `touch_gestures_test` 139/139.
+
 ## Next
 
 1. The owner's tests on the Thor: the new launcher menu, sounds, the save editor, the Mods screen (the owner

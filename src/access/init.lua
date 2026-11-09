@@ -89,6 +89,17 @@ function Access.install(opts)
     before("touchreleased", function(id, x, y)
       return TouchInput.touchreleased(id, x, y)
     end)
+    -- Runtime wrapper (architecture.md hook list): while gestures own the
+    -- touches, upstream's on-screen D-pad and buttons are not drawn.  Its
+    -- layout editor's preview still shows them.
+    local okControls, TouchControls = pcall(require, "src.core.TouchControls")
+    if okControls and type(TouchControls) == "table" and type(TouchControls.visible) == "function" then
+      local upstreamVisible = TouchControls.visible
+      TouchControls.visible = function(self, ...)
+        if not self.preview and TouchInput.ownsTouches() then return false end
+        return upstreamVisible(self, ...)
+      end
+    end
   end
 
   -- A cancelled quit (true) keeps the game running, so speech stays open.
