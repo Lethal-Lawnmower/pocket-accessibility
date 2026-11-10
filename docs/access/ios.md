@@ -207,8 +207,9 @@ dumps were pushed with `pymobiledevice3 apps push <bundle> <file> Documents/ROMs
 shows all 17 with the right sizes, plus one Crystal file the owner had already imported through the app.
 **First game on the iPhone (2026-11-10):** the owner's screenshot shows Crystal's title screen running full screen
 in portrait (logo, Suicune, "©2001 GAME FREAK inc."), with no on-screen buttons drawn and a thin outline around
-the whole screen (probably VoiceOver's focus on the "Game screen" element). Speech, Direct Touch and gestures not
-yet reported.
+the whole screen (probably VoiceOver's focus on the "Game screen" element). Owner's verdict right after: "We fucking
+did it. It works." (owner accepted the first iPhone build working; which gestures and speech paths were tried is not
+yet itemised).
 
 ## Startup architecture
 
