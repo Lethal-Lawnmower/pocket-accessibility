@@ -56,7 +56,7 @@ local PRISM_OK = 0
 
 local function libraryName(osName)
   if osName == "Windows" then return "prism.dll" end
-  if osName == "OSX" then return "libprism.dylib" end
+  if osName == "OSX" or osName == "iOS" then return "libprism.dylib" end
   return "libprism.so"
 end
 
@@ -82,6 +82,9 @@ function PrismBackend.candidates(env, dirs, osName)
   add(env("POKEPORT_PRISM_DLL"))
   -- Android installs the library with the app, where the loader finds it by name alone
   if osName == "Android" then add(name) end
+  -- iOS: launcher/ios/build_ipa.py puts it in the app's Frameworks folder, beside
+  -- the executable; dyld expands @executable_path when the path is opened.
+  if osName == "iOS" then add("@executable_path/Frameworks/" .. name) end
   for _, dir in ipairs(dirs) do add(joinPath(dir, name)) end
   for _, dir in ipairs(dirs) do add(joinPath(dir, "local-deps/prism/" .. name)) end
   return list
@@ -98,11 +101,12 @@ local function loveDirectories()
   return dirs
 end
 
--- LuaJIT's name, except that it calls Android plain "Linux" and only LÖVE can tell.
+-- LuaJIT's name, except that it calls Android plain "Linux" and iOS "OSX", and only
+-- LÖVE can tell.
 local function systemName()
   if love and love.system and love.system.getOS then
     local ok, name = pcall(love.system.getOS)
-    if ok and name == "Android" then return name end
+    if ok and (name == "Android" or name == "iOS") then return name end
   end
   return (jit and jit.os) or "Windows"
 end

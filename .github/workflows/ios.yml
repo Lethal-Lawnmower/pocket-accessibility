@@ -1,0 +1,60 @@
+# Pocket Accessibility: the iOS app, unsigned, plus a simulator smoke test (docs/access/ios.md,
+# "Build (step 2)").  Runs only on the ios-build branch or by hand; never on main or pull
+# requests for now.  No ROM, save, secret or signing identity is used or needed: the IPA is
+# unsigned and the player signs it on their own device.
+name: iOS build
+
+on:
+  push:
+    branches: [ios-build]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    name: build the IPA and smoke-test it in the simulator
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Show the tools
+        run: |
+          sw_vers
+          xcodebuild -version
+          xcrun simctl list runtimes
+          python3 --version
+
+      - name: Build the app (launcher/ios/build_ipa.py)
+        run: python3 launcher/ios/build_ipa.py
+
+      - name: Upload the unsigned IPA
+        uses: actions/upload-artifact@v7
+        with:
+          name: pocket-accessibility-ios-unsigned
+          path: |
+            dist/ios/*-unsigned.ipa
+            dist/ios/build-info.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Simulator smoke test (no ROM)
+        run: bash launcher/ios/simulator_smoke.sh 75
+
+      - name: Upload build and simulator logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pocket-accessibility-ios-logs
+          path: dist/ios/logs/
+          if-no-files-found: ignore
+          retention-days: 7

@@ -27,7 +27,9 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 REPO = Path(__file__).resolve().parents[1]
-CREATE_NO_WINDOW = 0x08000000  # never put a window or a console on the player's screen
+# never put a window or a console on the player's screen; Windows only, and other
+# systems refuse any creation flag (launcher/ios/build_ipa.py runs export_game on macOS)
+CREATE_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
 
 # What the game folder is made of, as paths in the repository.
 GAME_PATHS = [

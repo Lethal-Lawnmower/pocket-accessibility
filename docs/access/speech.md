@@ -42,6 +42,9 @@ Search order (`PrismBackend.candidates`):
 
 The launcher's "speech library was not found" warning checks the same places (`GamePaths.HasPrism`).
 
+Android tries the bare name `libprism.so` first, and iOS `@executable_path/Frameworks/libprism.dylib`, where
+`launcher/ios/build_ipa.py` puts it (`ios.md`); both ask LÖVE for the system name, since LuaJIT says Linux and OSX.
+
 `local-deps/` is git-ignored, so binaries are never committed. For a source
 checkout, copy `prism.dll` from the Prism release's `dynamic/release/bin/`
 into `local-deps/prism/`.

@@ -110,6 +110,9 @@ eq(#PrismBackend.candidates(function() end, { "/a", "/a" }, "Linux"), 2,
   "duplicate folders are listed once")
 eq(PrismBackend.candidates(function() end, { "/a" }, "Linux")[1], "/a/libprism.so",
   "Linux library name")
+local iosPaths = PrismBackend.candidates(function() end, { "/app/love.app" }, "iOS")
+eq(iosPaths[1], "@executable_path/Frameworks/libprism.dylib", "iOS: the app's Frameworks folder first")
+eq(iosPaths[2], "/app/love.app/libprism.dylib", "iOS: then the usual folders")
 
 -- A missing library is reported with every path tried.
 local opened, err = PrismBackend.open({ env = function() end, dirs = { "Z:/nowhere" } })
