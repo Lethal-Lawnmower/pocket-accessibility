@@ -201,7 +201,10 @@ Developer Mode if asked, sign in to Sideloadly with the owner's Apple ID (the ow
 **Installed (2026-11-10):** after the restart Sideloadly 0.72 installed per user without elevation, saw the trusted
 iPhone over USB, and signed in with the owner's Apple ID. One two-factor attempt came back HTTP 401 at
 `gsa.apple.com/auth/verify/phone/securitycode`; a fresh code went through. The IPA sideloaded and the owner
-"got into the app" (owner's report; launcher, VoiceOver and gestures not yet reported). No ROMs on the phone yet.
+"got into the app" (owner's report; launcher, VoiceOver and gestures not yet reported). ROMs over USB (owner's request): `pymobiledevice3` 11.50.3 (PyPI) installed for the user on the PC; Sideloadly
+installed the app as `com.pocketaccessibility.app.<team id>` (team id appended), file sharing on. The owner's 17
+dumps were pushed with `pymobiledevice3 apps push <bundle> <file> Documents/ROMs/<name>`; a house_arrest listing
+shows all 17 with the right sizes, plus one Crystal file the owner had already imported through the app.
 
 ## Startup architecture
 
