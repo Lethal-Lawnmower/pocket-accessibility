@@ -49,8 +49,16 @@ Gen 1 and Gen 2 menu drivers on LÖVE 12, and performance.
 
 ## Build (step 2)
 
-Written 2026-11-09 on Windows; **it has never run**. Nothing below is verified on macOS, in the simulator or on
-a phone until the first workflow run says so.
+Written 2026-11-09 on Windows. **First run (2026-11-10, run 42728549413 on `ios-build` at `a1538df9`, macos-15,
+12 min 50 s): green.** The build made both apps and the unsigned IPA. The smoke test's own summary in the iPhone
+simulator: `[access] speech ready: AVSpeech` (no VoiceOver in the simulator, so Prism chose the system voice),
+`say!: Pocket Accessibility ready.`, then `start refused` (expected: no ROM and no iOS launcher yet); app still
+running at the end; no Lua error, crash report or uncaught exception. Found in its console:
+- the process is still named `gen1recomp++` (upstream's product name), although the display name is ours;
+- after `start refused` the app starts the game again and again (the startup lines repeat); harmless here, but the
+  refusal must end cleanly on iOS, and our launcher will replace this path anyway;
+- SDL notes `UIApplicationSupportsIndirectInputEvents` is missing from the plist (mouse support only).
+Not verified: anything on a real iPhone, VoiceOver, touch, a game running (no ROM in CI).
 
 | File | Role |
 |---|---|
