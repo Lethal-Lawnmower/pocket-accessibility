@@ -415,19 +415,20 @@ swipe("left")
 eq(stopped, 1, "a swipe while walking stops the walk")
 eq(pressedButtons(), "", "and does nothing else")
 
--- rotation: clockwise starts auto-walk, counterclockwise stops it
+-- turns start and stop nothing (the owner, 2026-11-10: walking modes are
+-- chosen in the options), except that, like any gesture, one stops a walk
 setup(true)
 touch({ { 600, BOTTOM }, { 1000, BOTTOM } }, 0, 0, 0.4, 90)
-eq(#autoCalls, 1, "clockwise turn starts auto-walk")
-eq(autoCalls[1], "selected", "to the selected point (as the left stick click)")
+eq(#autoCalls, 0, "a clockwise turn does not start auto-walk")
+eq(#commands, 0, "and is no navigation command")
+eq(pressedButtons(), "", "and no button")
+check(TouchInput._state().step == nil, "and no step")
+touch({ { 600, BOTTOM }, { 1000, BOTTOM } }, 0, 0, 0.4, -90)
+eq(#spoken, 0, "a counterclockwise turn says nothing")
 walkingNow = true
 touch({ { 600, BOTTOM }, { 1000, BOTTOM } }, 0, 0, 0.4, 90)
-eq(#autoCalls, 1, "clockwise while walking keeps walking")
-eq(stopped, 0, "and does not stop")
-touch({ { 600, BOTTOM }, { 1000, BOTTOM } }, 0, 0, 0.4, -90)
-eq(stopped, 1, "counterclockwise stops the walk")
-touch({ { 600, BOTTOM }, { 1000, BOTTOM } }, 0, 0, 0.4, -90)
-eq(lastSaid(), "! Not walking", "counterclockwise with nothing walking says so")
+eq(stopped, 1, "a turn while walking stops the walk, as any gesture does")
+eq(#autoCalls, 0, "and starts none")
 
 -- walking modes
 local function route(...)
@@ -448,13 +449,23 @@ eq(TouchInput.legText(route("up", "up", "left")), "2 up", "leg text")
 eq(TouchInput.legText(route()), "PC is here. Face up and interact", "arrival text with the hint")
 eq(TouchInput.legText(nil, "Select an object from the list"), "Select an object from the list", "why not")
 
--- AUTO: swipes still step one at a time
+-- AUTO: a swipe, any way, auto-walks to the selected point
 setup(true)
 options.walk = "auto"
 planResult = route("up", "up")
+swipe("down")
+eq(#autoCalls, 1, "auto mode: a swipe starts auto-walk")
+eq(autoCalls[1], "selected", "to the selected point (as the left stick click), whichever way")
+check(TouchInput._state().step == nil, "and takes no single step")
+walkingNow = true
 swipe("up")
-eq(#autoCalls, 0, "auto mode: a swipe does not walk the leg")
-check(TouchInput._state().step ~= nil, "it steps")
+eq(stopped, 1, "a swipe while it walks stops it")
+eq(#autoCalls, 1, "and does not start another")
+setup(false)
+options.walk = "auto"
+swipe("up")
+eq(#autoCalls, 0, "auto mode off the map: a swipe is the D-pad")
+eq(pressedButtons(), "up", "one press")
 
 -- HYBRID: selection change says the leg; the right way walks it
 setup(true)

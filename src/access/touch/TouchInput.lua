@@ -24,11 +24,10 @@
 --   three-finger double tap START
 --   three-finger tap     SELECT
 --   two-finger triple tap on a title screen, back to the launcher
---   two-finger turn      on the map: clockwise starts auto-walk to the selected
---                        point (as the left stick click), counterclockwise stops it
--- A two-finger swipe turns the pair less than a turn does, so the two do not
--- mix.  While any walk runs, any other gesture stops it, as any controller
--- button does.
+-- While any walk runs, any gesture stops it, as any controller button does.
+-- A two-finger turn starts or stops nothing (the owner, 2026-11-10: the
+-- walking mode is chosen in the options only); the recogniser still tells a
+-- turn apart, so a twisting pair is not read as a swipe.
 --
 -- TOUCH WALKING (src/access/Settings.lua):
 --   MANUAL  each swipe is one step.
@@ -36,8 +35,8 @@
 --           that way walks the whole leg (auto-walk, quietly, to the leg's
 --           end), then the next leg is said.  A swipe any other way takes
 --           one step that way and plans again from there.
---   AUTO    swipes still step one at a time; the two-finger turn is the main
---           way to move.  (It behaves as MANUAL; the turn works in every mode.)
+--   AUTO    a swipe, any way, auto-walks to the selected point (as the
+--           left stick click); AutoWalk says why when it cannot.
 -- Holding a direction is not decided and not implemented.
 --
 -- Buttons go in the way scripted drivers press them: on upstream's Input
@@ -319,14 +318,10 @@ function TouchInput.perform(gesture)
   if not game then return end
   local nav, adapter, navGame, onMap = navContext()
   if not nav then onMap = false end
-  local clockwise = gesture.kind == "rotate" and gesture.direction == "clockwise"
-
-  -- a running walk stops on any gesture but the one that starts walks
+  -- a running walk stops on any gesture
   if onMap and dep("nav").walking() then
-    if not clockwise then
-      dep("nav").stopWalks()
-      hybrid.legWalk = false
-    end
+    dep("nav").stopWalks()
+    hybrid.legWalk = false
     return
   end
 
@@ -341,8 +336,14 @@ function TouchInput.perform(gesture)
   if gesture.kind == "swipe" then
     if gesture.fingers ~= 1 then return end
     if not onMap then return tap(game.input, gesture.direction) end
-    if walkingMode(game) == "hybrid" then
+    local mode = walkingMode(game)
+    if mode == "hybrid" then
       return hybridSwipe(gesture.direction, nav, adapter, navGame)
+    end
+    if mode == "auto" then
+      stepQueue = {}
+      pcall(dep("autoWalk").start, nav, navGame, adapter)
+      return
     end
     return queueStep(gesture.direction, false)
   end
@@ -369,15 +370,6 @@ function TouchInput.perform(gesture)
       tap(game.input, button)
     end
     return
-  end
-
-  if gesture.kind == "rotate" and onMap then
-    if clockwise then
-      stepQueue = {}
-      pcall(dep("autoWalk").start, nav, navGame, adapter)
-    elseif not dep("nav").stopWalks() then
-      say("Not walking", true)
-    end
   end
 end
 

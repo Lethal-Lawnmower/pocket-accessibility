@@ -2,9 +2,10 @@
 -- through the real love.touchpressed / touchmoved / touchreleased, so they
 -- pass the layer's before-hooks exactly as an Android touch would.  Checks a
 -- step on the map, two-finger navigation swipes, the start menu (three-
--- finger double tap, a swipe, two-finger double tap), the two-finger turns
--- for auto-walk, and one hybrid leg.  Harness setup (reaching the map)
--- presses buttons directly on the game's input, never through gestures.
+-- finger double tap, a swipe, two-finger double tap), that a two-finger
+-- turn does nothing, AUTO's swipe walking to the point, and one hybrid leg.
+-- Harness setup (reaching the map) presses buttons directly on the game's
+-- input, never through gestures.
 --
 -- Silent and isolated, with a disposable identity:
 --   POKEPORT_ACCESS_SILENT=1 POKEPORT_ACCESS_TRACE=1 POKEPORT_ACCESS_TOUCH=1
@@ -201,25 +202,33 @@ return function(game)
   settle(600)
   heard()
 
-  -- auto-walk by turning
+  -- a two-finger turn does nothing now (walking modes live in the options)
+  local beforeTurn = where()
   turn(90)
   frames(20)
-  U.log("RESULT", "clockwise turn =>", heard(), "walking:", tostring(AutoWalk.walking()))
-  turn(-90)
+  U.log("RESULT", "clockwise turn =>", heard(), "walking:", tostring(AutoWalk.walking()),
+    "moved:", tostring(where() ~= beforeTurn))
+
+  -- AUTO: a swipe any way walks to the selected point; another swipe stops it
+  local function setWalking(label)
+    for _, row in ipairs(Settings.rows()) do
+      if row.id == "accessTouchWalk" then
+        while row.value(game) ~= label do row.step(game, 1) end
+      end
+    end
+  end
+  setWalking("AUTO")
+  swipe("down", LOW)
+  frames(20)
+  U.log("RESULT", "auto: swipe =>", heard(), "walking:", tostring(AutoWalk.walking()))
+  swipe("left", HIGH)
   frames(10)
-  U.log("RESULT", "counterclockwise turn =>", heard(), "walking:", tostring(AutoWalk.walking()))
-  turn(-90)
-  frames(10)
-  U.log("RESULT", "counterclockwise again =>", heard())
+  U.log("RESULT", "auto: swipe while walking =>", heard(), "walking:", tostring(AutoWalk.walking()))
   settle(600)
   heard()
 
   -- hybrid: the next leg is said, and a swipe along it walks it
-  for _, row in ipairs(Settings.rows()) do
-    if row.id == "accessTouchWalk" then
-      while row.value(game) ~= "HYBRID" do row.step(game, 1) end
-    end
-  end
+  setWalking("HYBRID")
   -- the first point with a leg to walk (one the player already stands at has none)
   local text, count, dir
   for _ = 1, 8 do

@@ -411,7 +411,7 @@ Every gesture works anywhere on the screen, in any orientation; the number of fi
 
 | Where | Gesture | Does |
 |---|---|---|
-| Map | Swipe | One step that way (see TOUCH WALKING) |
+| Map | Swipe | MANUAL: one step that way. HYBRID: the next straight leg. AUTO: auto-walk to the selected point, any way (see TOUCH WALKING) |
 | Off the map | Swipe | One D-pad press |
 | Map | Two-finger swipe left / right | Previous / next navigation point in the category |
 | Map | Two-finger swipe up / down | Previous / next category (decision 23's trigger plus D-pad) |
@@ -419,13 +419,12 @@ Every gesture works anywhere on the screen, in any orientation; the number of fi
 | same | Two-finger double tap | B |
 | same | Three-finger double tap | START |
 | same | Three-finger tap | SELECT (once the double-tap window has passed) |
-| Map | Two-finger turn clockwise | Auto-walk to the selected point, as the left stick click |
-| Map | Two-finger turn counterclockwise | Stops any walk ("Auto walk stopped"), or says "Not walking" |
 | Title screen (Gen 2 and 3 boot main menu too) | Two-finger triple tap | Back to the launcher ("Returning to the launcher"); elsewhere it says to go to the title screen first. The double tap before it still presses B |
 
-A two-finger swipe and a turn are told apart by how far the line between the fingers turns (45 degrees or
-more is a turn), so a slightly crooked swipe stays a swipe. Off the map a two-finger swipe does nothing.
-While a walk runs, any gesture but the clockwise turn stops it, as any controller button does. Holding a
+A two-finger turn does nothing (2026-11-10: the walking mode is chosen in the options only; until then a
+clockwise turn started auto-walk and a counterclockwise one stopped it). The recogniser still tells a turn
+(45 degrees or more) from a two-finger swipe, so a twisting pair is not read as a swipe. Off the map a
+two-finger swipe does nothing. While a walk runs, any gesture stops it, as any controller button does. Holding a
 direction is not decided and not recognised.
 
 Until 2026-11-10 the screen was cut in halves: portrait top navigated and bottom moved; landscape, from
@@ -438,8 +437,10 @@ start and select alone").
 like the other rows (`accessTouchGestures`, `accessTouchWalk`):
 - TOUCH GESTURES: ON / OFF. Default on for Android (or with the variable), off elsewhere. OFF restores
   upstream's on-screen buttons.
-- TOUCH WALKING: MANUAL (default; each swipe one step), HYBRID, AUTO. AUTO behaves as MANUAL for swipes;
-  the turn starts auto-walk in every mode.
+- TOUCH WALKING: MANUAL (default; each swipe one step), HYBRID, AUTO. In AUTO a swipe, any way, starts
+  auto-walk to the selected point (as the left stick click; AutoWalk says why when it cannot, for example
+  "Select an object from the list"), and the next gesture stops it. This option is the only way to change
+  how swipes walk.
 - HYBRID: when a point is chosen and after every move, the game says the route's next straight leg
   ("2 right", queued after the point's own line). A swipe that way walks the whole leg as a quiet
   auto-walk to the leg's end (battles pause and resume it as usual); then the next leg is said, or
@@ -460,6 +461,12 @@ let go. Up to 4 quick swipes queue. `Nav.context`, `Nav.walking` and `Nav.stopWa
 device): swipe at least 6% and under 1 s; tap moves under 4% and lasts under 0.35 s; a double tap's second
 tap starts within 0.3 s of the first ending (three fingers: taps up to 0.5 s and 0.55 s for the second tap, longer at the owner's request on 2026-11-09, so SELECT waits 0.55 s); a turn is two fingers whose line turns 45 degrees or more; a
 stroke open 5 s has lost its releases and is dropped.
+
+**Verified 2026-11-10 (no turn; AUTO swipes walk), run level only.** `touch_gestures_test` 201/201: turns
+start, stop and say nothing (a turn still stops a running walk, as any gesture); AUTO's swipe starts auto-walk
+to the selected point whichever way, takes no single step, a swipe while walking stops it, and off the map it
+is the D-pad. Silent isolated Crystal run: the turn did nothing (no walk, no move, nothing said); AUTO swipe
+"Walking to PC", the next swipe "Auto walk stopped"; the rest as below.
 
 **Verified 2026-11-10 (no halves), run level only.** `touch_gestures_test` 195/195: swipes anywhere, two-finger
 swipes in four directions and told apart from a turn (a crooked pair too), two-finger swipes navigate on the map

@@ -107,7 +107,7 @@ local TOUCH_WALK = { "manual", "hybrid", "auto" }
 local TOUCH_WALK_LABELS = { manual = "MANUAL", hybrid = "HYBRID", auto = "AUTO" }
 
 -- "manual" (each swipe one step), "hybrid" (one swipe walks the route's
--- next straight leg) or "auto" (swipes step; the two-finger turn walks).
+-- next straight leg) or "auto" (a swipe walks to the selected point).
 function Settings.touchWalking(game)
   local value = options(game).accessTouchWalk
   if value == "hybrid" or value == "auto" then return value end
