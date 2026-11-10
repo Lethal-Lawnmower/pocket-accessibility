@@ -561,3 +561,5 @@ Asked for a more elegant touch scheme ("I think there needs to be a more elegant
 ## 69. Save editor and mods on the iPhone (2026-11-10)
 
 The owner: "Let's add a few more things to iOS and then we can try the save editor if possible, and a way potentially to import mods, but if not, then the save editor at the very least." The save editor comes first, then mods if they can be done. Same backends as Windows and Android; on iOS they run in the game program with the launcher's screen on top (no socket), and the program starts again when the screen closes. Details: `ios.md`, "Save editor and mods".
+
+Pushing to `ios-build` for the iOS CI builds of this work, approved by the owner the same day ("Sure."), after being told the push also carries the day's haptics and touch changes and leaves `main` alone. `main` is not pushed.
