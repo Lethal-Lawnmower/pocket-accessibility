@@ -291,12 +291,53 @@ the Objective-C runtime, as `IosLauncher.lua` does: `UIImpactFeedbackGenerator`,
 step and rigid at 0.8 for a bump. `love.system.vibrate` on iOS is the long system vibration, so it is not used. The
 phone's System Haptics setting can turn them off. Not built in CI or felt on the iPhone yet.
 
+## Save editor and mods (written 2026-11-10, decision 69)
+
+The owner: "Let's add a few more things to iOS and then we can try the save editor if possible, and a way
+potentially to import mods, but if not, then the save editor at the very least." The save editor came first.
+
+**How it runs.** The same Lua backends as Windows and Android (`launcher/SaveBackend/service.lua`,
+`launcher/ModBackend/modservice.lua`, already in `game.love`), with no socket and no second program:
+
+1. The launcher's Edit save (a VoiceOver action and context menu on an imported game, or More, Edit a save)
+   calls `LauncherModel.editSave`, which ends the launcher's wait with `.backend("save")` and presents
+   `SaveEditorView` over the launcher. `waitForGame` returns 2 with `POCKET_BACKEND=save` and leaves the
+   launcher's window up.
+2. `PackagedBuild.install` sees `IosLauncher.backendRequested()` and runs `IosLauncher.serveBackend`, which
+   prepares the service the way Android does (`AndroidSaveBackend.prepare`, now shared) and loops:
+   `+[PocketLauncherBridge takeRequest]` runs the main run loop (the screen and VoiceOver keep working) until
+   the screen sends a request through `BackendChannel.send` (`PocketBackend.swift`), returns it as a C string,
+   and `+putResponse:` hands the answer back, resuming the screen's `await`.
+3. Close: `BackendChannel.close()` makes `takeRequest` return NULL; `serveBackend` calls `love.event.quit()`,
+   `PackagedBuild.noLauncher` returns quietly (`backendFinished`, no refusal), and LÖVE on iOS starts a fresh Lua
+   state, whose `waitForGame` shows a new launcher and hides the old window. Nothing the editor loaded (its
+   modules, `GameVersion.set`, the cache mount) reaches the next game.
+
+**The screen** (`PocketSaveEditor.swift`) renders the page model from `save-editor.md` with standard SwiftUI
+controls, after Android's `SaveEditorPage.java`: a status line, Page, the page's pickers, summary, list (rows
+as buttons, or switches when `checks`; a filter box when `filter`), the pickers marked `below`, fields (number
+and text fields sent with Return or on leaving the field, numbers also adjustable by one with VoiceOver's swipe
+up and down, within `lo` and `hi`; choices; switches; read-only text), the page's buttons (with a yes or no
+question for `confirm`), then Save, Undo, Redo, Reload from storage and Close. Long choices open as their own
+searchable list (iOS 15 has no navigation-link picker). Close asks about unsaved changes; an `error` message is
+an alert, other messages are announced. Requests run one at a time, in order.
+
+**Checked (2026-11-10):** `ios_launcher_test` 27/27 (backend mode with a stand-in bridge: requests answered
+through the bridge, a failing answer still answers, a backend that cannot start says so, closing quits once);
+`packaged_build_test` 28/28. The Swift has not been compiled: there is no Xcode here, so it is checked only by
+the iOS CI build, which needs a push to `ios-build`. Not run in the simulator or on the iPhone.
+
+**Mods:** not built yet. Next, the same route with `POCKET_BACKEND=mods`: installed mods (on, off, remove) and
+the mod index. Installing from the index needs a zip reader on iOS (Android's `ModInstaller.java` uses Java's);
+LÖVE can mount a zip, which may let the backend unpack it instead.
+
 ## Next
 
 1. A CI run of this branch; fix what it shows.
 2. First install on the owner's iPhone: launcher with VoiceOver, Import ROMs, Play and first import, Direct Touch
    through the rotor, the gestures, Prism through VoiceOver, the close action, a refusal.
-3. Then: save editor and Mods screens, a sounds download (needs a zip reader), save slots.
+3. Then: save editor (written 2026-11-10, see above) and Mods screens, a sounds download (needs a zip reader),
+   save slots.
 
 ## Plan
 

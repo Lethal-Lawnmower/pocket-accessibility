@@ -144,6 +144,10 @@ final class LauncherModel: ObservableObject {
 
     /// Set by PocketLauncherBridge; called once with the game to start.
     var onStart: ((GameStart) -> Void)?
+    /// Set by PocketLauncherBridge; called once when a screen needs the game's backend ("save" or "mods").
+    var onOpenBackend: ((String) -> Void)?
+    /// The game whose save editor is open (PocketSaveEditor.swift).
+    @Published var editing: CatalogGame?
 
     /// Kept for the life of the process, across returns to the launcher.
     private static var hashCache: [String: String] = [:]
@@ -213,6 +217,28 @@ final class LauncherModel: ObservableObject {
             self.onStart?(GameStart(gameId: row.game.id, romPath: rom.path))
         }
     }
+
+    /// Opens the save editor for a game that has been imported (its data is needed to read the save).
+    /// The backend runs in the game program, which then starts again on this launcher.
+    func editSave(_ game: CatalogGame) {
+        guard !busy, editing == nil else { return }
+        guard Storage.isImported(game) else {
+            say("\(game.name) has not been imported yet. Play it once first, then edit its save.")
+            return
+        }
+        busy = true
+        PocketLauncherBridge.log("save editor for \(game.id)")
+        onOpenBackend?("save")
+        editing = game
+    }
+
+    /// The editor closed: the game program starts again and shows a fresh launcher.
+    func editorClosed() {
+        BackendChannel.close()
+        say("Closing the save editor.")
+    }
+
+    var importedGames: [CatalogGame] { rows.filter { $0.imported }.map { $0.game } }
 
     /// Copies what the player picked into Documents/ROMs, then lists the games again.
     func importRoms(_ urls: [URL]) {

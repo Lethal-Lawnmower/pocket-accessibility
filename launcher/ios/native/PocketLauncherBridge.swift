@@ -16,7 +16,13 @@
 // SDL or LÖVE is swizzled or patched for this; the only cost is that SDL's window already
 // exists (black, hidden from VoiceOver) while the launcher shows.
 //
-// The class name and the two selectors are read by src/access/IosLauncher.lua: rename together.
+// The save editor and the Mods screen (docs/access/ios.md, "Save editor and mods") need the game's
+// Lua backends.  Opening one makes waitForGame() return 2 with POCKET_BACKEND set and the launcher
+// left on screen; Lua then calls takeRequest() (which runs the run loop until the screen sends a
+// request) and putResponse(_:) for each one, through BackendChannel (PocketBackend.swift).  When
+// the screen closes, takeRequest() returns NULL, Lua quits, and LÖVE starts it again here.
+//
+// The class name and the selectors are read by src/access/IosLauncher.lua: rename together.
 
 import SwiftUI
 import UIKit
@@ -25,6 +31,13 @@ import UIKit
 struct GameStart {
     let gameId: String
     let romPath: String?
+}
+
+/// What ends a launcher showing: a game to start, or a screen that needs a backend.
+enum LauncherChoice {
+    case game(GameStart)
+    /// "save" or "mods" (POCKET_BACKEND, read by src/access/IosLauncher.lua)
+    case backend(String)
 }
 
 /// The POKEPORT_* variables, set the way Android's GameStarter sets them.
@@ -55,7 +68,9 @@ enum GameEnvironment {
 @objc(PocketLauncherBridge)
 public final class PocketLauncherBridge: NSObject {
     private static var launcherWindow: UIWindow?
-    private static var chosen: GameStart?
+    private static var chosen: LauncherChoice?
+    /// The C string handed to Lua by takeRequest(), kept until the next call.
+    private static var requestBuffer: UnsafeMutablePointer<CChar>?
     private static var exitRequested = false
     private static var autostartTried = false
     private static var timesShown = 0
@@ -67,6 +82,7 @@ public final class PocketLauncherBridge: NSObject {
 
     /// Called by Lua (src/access/IosLauncher.lua) at every start of the game program.
     /// Shows the launcher and returns 1 once a game is chosen, with the environment set;
+    /// 2 when a screen needs a backend (the launcher stays up; Lua then serves takeRequest);
     /// 0 when the launcher cannot be shown (the game then carries on as if there were no launcher).
     @objc public static func waitForGame() -> Int {
         guard Thread.isMainThread else {
@@ -83,8 +99,12 @@ public final class PocketLauncherBridge: NSObject {
         }
 
         let model = LauncherModel()
-        model.onStart = { start in chosen = start }
+        model.onStart = { start in chosen = .game(start) }
+        model.onOpenBackend = { kind in chosen = .backend(kind) }
         model.prepare()
+        BackendChannel.reset()
+        // the window of a backend screen that just closed stays up until this one replaces it
+        let previousWindow = launcherWindow
 
         // the game's window stays underneath; VoiceOver must not find it while the launcher shows
         setGameScreen(accessible: false)
@@ -94,6 +114,8 @@ public final class PocketLauncherBridge: NSObject {
         window.rootViewController = UIHostingController(rootView: LauncherView(model: model))
         window.makeKeyAndVisible()
         launcherWindow = window
+        previousWindow?.isHidden = true
+        previousWindow?.rootViewController = nil
         timesShown += 1
         log("shown (\(timesShown))")
         if let refusal = model.refusal { log("refusal shown: \(refusal)") }
@@ -107,8 +129,17 @@ public final class PocketLauncherBridge: NSObject {
                 _ = CFRunLoopRunInMode(CFRunLoopMode.defaultMode, 0.1, false)
             }
         }
-        let start = chosen!
+        let choice = chosen!
         chosen = nil
+        guard case .game(let start) = choice else {
+            if case .backend(let kind) = choice {
+                // the launcher stays up with its screen; Lua serves the requests
+                GameEnvironment.clear()
+                setenv("POCKET_BACKEND", kind, 1)
+                log("\(kind) backend")
+            }
+            return 2
+        }
 
         window.isHidden = true
         window.rootViewController = nil
@@ -119,6 +150,31 @@ public final class PocketLauncherBridge: NSObject {
         startUpkeep()
         log("starting \(start.gameId)" + (start.romPath != nil ? " with import" : ""))
         return 1
+    }
+
+    /// Called by Lua while it serves a backend: runs the run loop until the open screen sends a
+    /// request, and returns it as a C string (kept until the next call), or NULL once the screen
+    /// has closed.
+    @objc public static func takeRequest() -> UnsafePointer<CChar>? {
+        if let old = requestBuffer {
+            free(old)
+            requestBuffer = nil
+        }
+        while true {
+            if let request = BackendChannel.takePending() {
+                requestBuffer = strdup(request)
+                return UnsafePointer(requestBuffer)
+            }
+            if BackendChannel.isClosed { return nil }
+            autoreleasepool {
+                _ = CFRunLoopRunInMode(CFRunLoopMode.defaultMode, 0.05, true)
+            }
+        }
+    }
+
+    /// Called by Lua with the answer to the request takeRequest() returned.
+    @objc public static func putResponse(_ text: UnsafePointer<CChar>) {
+        BackendChannel.deliver(String(cString: text))
     }
 
     /// Polled by Lua while a game runs: 1 once after the player chose the game screen's
@@ -146,7 +202,7 @@ public final class PocketLauncherBridge: NSObject {
               let game = GameCatalog.all.first(where: { $0.id == raw.lowercased() }) else { return }
         log("autostart \(game.id)")
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            chosen = GameStart(gameId: game.id, romPath: nil)
+            chosen = .game(GameStart(gameId: game.id, romPath: nil))
         }
     }
 

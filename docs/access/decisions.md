@@ -557,3 +557,7 @@ Fourth addendum to decision 66 (2026-11-10): a one-finger tap on the map gives s
 ## 68. Haptics for steps and bumps (2026-11-10)
 
 Asked for a more elegant touch scheme ("I think there needs to be a more elegant way of handling this, but I don't know of it yet"), the assistant offered a floating joystick, corner buttons, VoiceOver-style gestures and haptics. The owner chose haptics: "Option 4 actually seems great, especially if we can try and use haptic vibrations so they're subtle and feel good." So: a light tick on every step and a firmer click when the player walks into something, on Android and iOS, using each system's short built-in effects rather than a buzz, with a HAPTICS option (on by default where the device can vibrate). The other three ideas were not chosen or ruled out; the gestures stay as they are. Details: `android.md` and `ios.md`, "Haptics".
+
+## 69. Save editor and mods on the iPhone (2026-11-10)
+
+The owner: "Let's add a few more things to iOS and then we can try the save editor if possible, and a way potentially to import mods, but if not, then the save editor at the very least." The save editor comes first, then mods if they can be done. Same backends as Windows and Android; on iOS they run in the game program with the launcher's screen on top (no socket), and the program starts again when the screen closes. Details: `ios.md`, "Save editor and mods".

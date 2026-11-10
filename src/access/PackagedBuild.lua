@@ -149,6 +149,15 @@ function PackagedBuild.install()
     require("src.access.AndroidSaveBackend").serve(editorPort, os.getenv("POCKET_EDITOR_TOKEN"),
       os.getenv("POCKET_BACKEND"))
   end
+  -- iOS: the same backends, answered through the launcher's bridge while its screen
+  -- stays up.  It returns when the screen closes, having asked LÖVE to quit, which on
+  -- iOS starts the Lua state again on the launcher; until then main.lua carries on
+  -- with no game, and noLauncher must not report that as a refused start.
+  local IosLauncher = require("src.access.IosLauncher")
+  if IosLauncher.backendRequested() then
+    IosLauncher.serveBackend()
+    PackagedBuild.backendFinished = true
+  end
   return PackagedBuild
 end
 
@@ -164,6 +173,10 @@ end
 -- main.lua's makeLauncher: every route to upstream's launcher goes through it.
 -- initialTab names the game when a chosen game's cache failed the full check.
 function PackagedBuild.noLauncher(launcherOpts)
+  -- iOS after the save editor or Mods screen: the quit is already asked for
+  if PackagedBuild.backendFinished then
+    return PackagedBuild.fillImporterMethods({})
+  end
   local game = launcherOpts and launcherOpts.initialTab
   local GameVersion = require("src.core.GameVersion")
   if type(game) == "string" and GameVersion.VERSIONS[game] then

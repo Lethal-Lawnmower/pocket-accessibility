@@ -62,7 +62,13 @@ struct LauncherView: View {
                             }
                         }
                         .accessibilityElement(children: .combine)
-                        .accessibilityHint("Plays the game.")
+                        .accessibilityHint(row.imported ? "Plays the game. Actions: edit save." : "Plays the game.")
+                        .accessibilityAction(named: "Edit save") { model.editSave(row.game) }
+                        .contextMenu {
+                            if row.imported {
+                                Button("Edit save") { model.editSave(row.game) }
+                            }
+                        }
                     }
                 }
                 Section(header: Heading("ROMs")) {
@@ -70,6 +76,7 @@ struct LauncherView: View {
                     Button("Refresh game list") { model.refresh(announce: true) }
                 }
                 Section(header: Heading("More")) {
+                    NavigationLink("Edit a save", destination: EditSaveListView(model: model))
                     NavigationLink("Touch controls", destination: TouchControlsView())
                     NavigationLink("Sounds", destination: SoundsView(model: model))
                     NavigationLink("Credits and licenses", destination: CreditsView())
@@ -89,6 +96,11 @@ struct LauncherView: View {
                 model.importRoms(urls)
             case .failure(let error):
                 model.say("The files could not be opened: \(error.localizedDescription)")
+            }
+        }
+        .fullScreenCover(item: $model.editing) { game in
+            SaveEditorView(model: SaveEditorModel(game: game)) {
+                model.editorClosed()
             }
         }
         .alert("The game did not start", isPresented: showingRefusal) {
@@ -142,6 +154,30 @@ struct TouchControlsView: View {
                     + "next time.")
             }
         }
+    }
+}
+
+/// The games whose save can be edited: those imported at least once.
+struct EditSaveListView: View {
+    @ObservedObject var model: LauncherModel
+
+    var body: some View {
+        List {
+            Section {
+                Text(verbatim: "Choose a game to edit its save. Save in the game before you edit, and keep a copy "
+                    + "if the save matters to you: the editor keeps a backup, but it changes the real save.")
+            }
+            Section(header: Heading("Games")) {
+                if model.importedGames.isEmpty {
+                    Text(verbatim: "No game has been imported yet. Play a game once, then come back.")
+                }
+                ForEach(model.importedGames) { game in
+                    Button(game.name) { model.editSave(game) }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle("Edit a save")
     }
 }
 

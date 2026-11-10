@@ -16,12 +16,18 @@ local SERVICES = {
   mods = { path = ";launcher/ModBackend/?.lua", module = "modservice" },
 }
 
-function AndroidSaveBackend.serve(port, token, kind)
+-- The backend for `kind` ("save" or "mods"), its module path set up: the service
+-- module (with answer(line)) and the JSON codec.  iOS uses this too
+-- (src/access/IosLauncher.lua, serveBackend), with a different channel.
+function AndroidSaveBackend.prepare(kind)
   local service = SERVICES[kind or "save"] or SERVICES.save
-  local socket = require("socket")
   love.filesystem.setRequirePath(love.filesystem.getRequirePath() .. service.path)
-  local Json = require("src.link.Json")
-  local Service = require(service.module)
+  return require(service.module), require("src.link.Json")
+end
+
+function AndroidSaveBackend.serve(port, token, kind)
+  local socket = require("socket")
+  local Service, Json = AndroidSaveBackend.prepare(kind)
 
   local client = assert(socket.connect("127.0.0.1", tonumber(port)))
   client:settimeout(nil)
