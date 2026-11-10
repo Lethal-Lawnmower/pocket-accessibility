@@ -409,6 +409,11 @@ handed it over). A desktop mouse never comes this way.
 Every gesture works anywhere on the screen, in any orientation; the number of fingers sets the meaning
 (decision 66 addendum, 2026-11-10).
 
+Players read the gestures in three places, kept in step by hand (the owner, 2026-11-10: "just having people
+figure it out isn't the way to go"): README "Controls", the Android launcher's Touch controls page
+(`TouchControlsActivity`, "Gestures in the game") and the iOS launcher's Touch controls page
+(`PocketLauncherViews.swift`). Change all three with any gesture.
+
 | Where | Gesture | Does |
 |---|---|---|
 | Map | Swipe | MANUAL: one step that way. HYBRID: the next straight leg. AUTO: auto-walk to the selected point, any way (see TOUCH WALKING) |
