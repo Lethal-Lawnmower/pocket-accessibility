@@ -25,6 +25,7 @@
 --   accessTouchGestures  nil = the platform default (on for Android and iOS), else
 --                        true / false (decision 66, src/access/touch/)
 --   accessTouchWalk      nil = manual, "hybrid" or "auto" (touch walking mode)
+--   accessHaptics        nil = on, false = off (decision 68, src/access/Haptics.lua)
 
 local GameSpeed = require("src.core.GameSpeed")
 
@@ -113,6 +114,12 @@ function Settings.touchWalking(game)
   return "manual"
 end
 
+-- HAPTICS (decision 68): on unless the player turned it off.  The row is shown
+-- only on a device that can play them (Haptics.available).
+function Settings.haptics(game)
+  return options(game).accessHaptics ~= false
+end
+
 -- GAME SPEED, then the game's own speed ladder (NORMAL, 2X ... 200X).
 local function stepAutoWalkSpeed(game, dir)
   local choices = { false }
@@ -167,6 +174,16 @@ function Settings.rows()
         for i, mode in ipairs(TOUCH_WALK) do if mode == current then index = i end end
         index = (index - 1 + (dir or 1)) % #TOUCH_WALK + 1
         options(g).accessTouchWalk = TOUCH_WALK[index] ~= "manual" and TOUCH_WALK[index] or nil
+        return true
+      end }
+  end
+  if require("src.access.Haptics").available() then
+    rows[#rows + 1] = { id = "accessHaptics", label = "HAPTICS",
+      value = function(g) return Settings.haptics(g) and "ON" or "OFF" end,
+      step = function(g)
+        -- nil (the default) is on; only "off" is stored
+        if Settings.haptics(g) then options(g).accessHaptics = false
+        else options(g).accessHaptics = nil end
         return true
       end }
   end

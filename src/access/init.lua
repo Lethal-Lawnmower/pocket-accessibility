@@ -54,10 +54,18 @@ function Access.install(opts)
     -- the ACCESSIBILITY page in OPTIONS (decision 26)
     require("src.access.Settings").install()
     local TouchInput = require("src.access.touch.TouchInput")
+    -- step and bump haptics (decision 68), following the HAPTICS option
+    local Haptics = require("src.access.Haptics")
+    local CurrentGame = require("src.access.CurrentGame")
+    Haptics.setEnabledCheck(function()
+      local game = CurrentGame.live()
+      return game ~= nil and require("src.access.Settings").haptics(game)
+    end)
     after("update", function()
       ScreenReader.update()
       Nav.update()
       TouchInput.update()
+      Haptics.update()
     end)
     -- Pokemon Access command keys (F7 command layer, F8 help) reach the
     -- router before the game; recognised commands are consumed.

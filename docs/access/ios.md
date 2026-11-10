@@ -283,6 +283,14 @@ Swift has never been compiled. Riskiest for CI, in order: Swift compile errors (
 FFI lookup of `objc_getClass` and the `objc_msgSend` cast under LuaJIT on iOS; SwiftUI drawing and the picker in
 the nested run loop; finding SDL's view by its controller's class name; the duplicate `PRODUCT_NAME` keys.
 
+## Haptics (built 2026-11-10, decision 68)
+
+The same steps and bumps as Android (`android.md`, "Haptics"). On iOS `src/access/Haptics.lua` calls
+`+[PocketHaptics play:]` (`launcher/ios/native/PocketHaptics.swift`, added to `build_ipa.py`'s Swift list) through
+the Objective-C runtime, as `IosLauncher.lua` does: `UIImpactFeedbackGenerator`, style soft at intensity 0.5 for a
+step and rigid at 0.8 for a bump. `love.system.vibrate` on iOS is the long system vibration, so it is not used. The
+phone's System Haptics setting can turn them off. Not built in CI or felt on the iPhone yet.
+
 ## Next
 
 1. A CI run of this branch; fix what it shows.

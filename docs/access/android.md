@@ -341,6 +341,26 @@ Second tablet build (2026-11-09), from `a6d58186`: hidden on-screen controls, la
 `adb install -r` (data kept). Owner's verdict: "feels good for the most part"; START and SELECT (three-finger
 double and single tap) "still feel kind of funky", so their gestures are not settled.
 
+## Haptics (built 2026-11-10, decision 68)
+
+`src/access/Haptics.lua`: a light tick for every step (upstream's `world.stepped`, unscripted steps only) and a
+firmer click when the player walks into something (the moment each game plays its own bump sound; see the hook list
+in `architecture.md`). On Android it calls the activity's `Vibrator` over JNI from Lua, the route upstream's
+`src/core/Orientation.lua` uses, with `VibrationEffect.createPredefined`: `EFFECT_TICK` for steps and
+`EFFECT_HEAVY_CLICK` for bumps (API 29 and later; on API 26-28 short low-amplitude one-shots). LÖVE's
+`love.system.vibrate` is not used: on Android it is a full-strength buzz. No Java of ours; the APK already has
+`VIBRATE` from love-android. Pulses of one kind are at least 50 ms (steps) or 120 ms (bumps) apart, so a fast
+auto-walk does not blur into a buzz. The system's vibration and touch-feedback settings still apply.
+
+HAPTICS (ON / OFF) is on the ACCESSIBILITY options page only when the device can vibrate
+(`Vibrator.hasVibrator`). The Pixel Tablet is expected to have no vibration motor; the AYN Thor is the Android device to
+feel it on. Not checked on a device yet.
+
+- **Checked (2026-11-10):** `haptics_test` 27/27 (stand-in backend: steps, bumps from each generation's sound,
+  spacing, the option); every `tests/access` suite passes. The JNI route has not run on a device.
+- **Open:** whether the tick and click feel right to the owner; other events (ledges, grass, doors) only if the
+  owner asks.
+
 ## Next
 
 1. The owner's tests on the Thor: the new launcher menu, sounds, the save editor, the Mods screen (the owner

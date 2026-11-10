@@ -112,6 +112,9 @@ local function build(game, adapter)
         -- a touch swipe's single step ends here (src/access/touch/TouchInput.lua)
         local TouchInput = package.loaded["src.access.touch.TouchInput"]
         if TouchInput then TouchInput.stepped(payload.x, payload.y) end
+        -- a light tick on phones and tablets (src/access/Haptics.lua)
+        local Haptics = package.loaded["src.access.Haptics"]
+        if Haptics then Haptics.stepped() end
       end
     end)
     pcall(Runtime.events.on, Runtime.events, "map.entered", function(payload)

@@ -88,7 +88,8 @@ PBXPROJ = XCODE_DIR / "love.xcodeproj" / "project.pbxproj"
 # XCODE_DIR/ios/pocket/ and compiled into the love-ios app target beside upstream's bridges.
 NATIVE_DIR = HERE / "native"
 NATIVE_DEST = XCODE_DIR / "ios" / "pocket"
-LAUNCHER_SOURCES = ("PocketLauncherBridge.swift", "PocketLauncherModel.swift", "PocketLauncherViews.swift")
+LAUNCHER_SOURCES = ("PocketLauncherBridge.swift", "PocketLauncherModel.swift", "PocketLauncherViews.swift",
+                    "PocketHaptics.swift")
 # Object ids for those files, chosen not to collide with LÖVE's or patch_love_src.py's (6E1AC0DE...).
 PBX_ID_PREFIX = "50C4E7A1"
 # love-ios's Sources build phase, the same id patch_love_src.py uses
