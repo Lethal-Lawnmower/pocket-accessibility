@@ -327,9 +327,27 @@ through the bridge, a failing answer still answers, a backend that cannot start 
 `packaged_build_test` 28/28. The Swift has not been compiled: there is no Xcode here, so it is checked only by
 the iOS CI build, which needs a push to `ios-build`. Not run in the simulator or on the iPhone.
 
-**Mods:** not built yet. Next, the same route with `POCKET_BACKEND=mods`: installed mods (on, off, remove) and
-the mod index. Installing from the index needs a zip reader on iOS (Android's `ModInstaller.java` uses Java's);
-LÖVE can mount a zip, which may let the backend unpack it instead.
+**Mods** (`PocketMods.swift`, written the same day): the same route with `POCKET_BACKEND=mods`, opened from More,
+Mods. It follows Android's `ModsActivity.java`: the first-time warning (same marker file), a Game choice (imported
+games), Show (Installed mods or Browse the mod index, with Refresh the index), the list, and for a chosen mod: turn
+on or off for the game, Remove (Swift deletes `mods/<folder>`, plain names only), Details; in the index, Install
+(or Install again or update) after a question listing the index's warnings. The index is fetched by the backend
+through upstream's own iOS download bridge (`HostShell` uses `love.system.httpDownload` on iOS).
+
+Installing: Swift downloads the zip (https only, at most 2 GiB, `URLSession`) into `mods-incoming/<random>.zip`.
+iOS has no zip reader for us, so the mod backend gained an `unpack` command (`modservice.lua`; Windows and Android
+never send it): LÖVE mounts the zip, the shallowest `manifest.json` marks the root, only files under it are copied
+into `mods-incoming/<random>`, and more than one mod at that depth or over 4 GiB is refused; both paths must be plain
+names inside `mods-incoming`. Then the backend's `check` (upstream's manifest validation), the id must match the
+listing's, and Swift swaps the copy into `mods/<id>` keeping the old copy's `baseroms`, as `ModInstaller.java` does.
+Unlike Android, a zip entry whose name climbs out (`../`) is skipped rather than refusing the whole install:
+PhysFS never lists such a name, so the backend cannot see it to refuse.
+
+**Unpack checked on Windows (2026-11-10)** through the real Windows mod backend (`launcher/ModBackend`, disposable
+identity, test zips made for the purpose, nothing downloaded): a mod in a subfolder unpacked only its 3 files (a 1.4
+MB file intact across chunks) and passed `check`; two mods, no manifest and a file that is not a zip were refused
+with their messages; a `zip` or `into` outside `mods-incoming` was refused; the `../` entry was not written
+anywhere. The Swift screen is not compiled or run yet.
 
 ## Next
 
