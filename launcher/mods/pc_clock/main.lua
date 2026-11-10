@@ -1,5 +1,6 @@
--- PC Clock: Gold, Silver and Crystal keep the device's time and weekday.
+-- PC Clock: the game's clock is the device's clock.
 --
+-- Gold, Silver and Crystal keep the device's time and weekday.
 -- The port already reads the device clock, through an offset taken when the
 -- player answers Oak's "What time is it?" and Mom's "What day is it?"
 -- (src/core/gen2/Clock.lua).  This mod makes both answers the device's own and
@@ -8,6 +9,8 @@
 -- time already includes it.  Mom's daylight saving question is answered from the
 -- device too, and so is her "is that OK?" after it; in this port that answer is
 -- stored (rtc.dst) but never moves the clock.
+--
+-- Ruby, Sapphire and Emerald (since 1.1.0): see hoenn() below.
 --
 -- Nothing is written that outlives the mod: switch it off and a save reads the
 -- offset it had before.
@@ -33,7 +36,7 @@ local function say(text)
   if ok and type(Speech) == "table" and Speech.say then Speech.say(text) end
 end
 
-return function(mod)
+local function johto(mod)
   local Clock = require("src.core.gen2.Clock")
   local InitClock = require("src.ui.gen2.InitClock")
 
@@ -120,4 +123,82 @@ return function(mod)
   end)
 
   mod.log:info("Gold, Silver and Crystal follow the device clock")
+end
+
+-- Ruby, Sapphire and Emerald.  The game's time is the cartridge clock minus an
+-- offset (src/core/game3/rtc.lua, after pokeemerald's rtc.c): the player's wall
+-- clock answer sets the offset's hours and minutes, and its days make the game's
+-- day count start at 0 on that first day (berries, the lottery, daily events).
+-- Here the device stands in for the cartridge clock, plus `rtcSkew`, which an
+-- imported save gets when its cartridge's clock was far from the device's
+-- (Rtc.anchorToLastUpdate).
+--
+-- So every read of the game's time (Rtc.calcLocalTime) is made with the
+-- offset's hours, minutes and seconds at zero and the skew rounded to whole
+-- days: the time of day is the device's, daylight saving included, and the day
+-- count keeps counting from where the save had it.  Both are put back after the
+-- read, so the save keeps the player's own setting for when the mod is off.
+-- On a save whose clock was set wrong, the first read can move the day count
+-- one day on (a day's events happen once) or the time of day back some hours
+-- (berries wait until the device catches up); no day is lost or repeated.
+--
+-- The wall clock the player sets at the start opens on the device's time and
+-- confirms itself.  The title screen's clock reset (Up, Select and B) is left
+-- alone: with the mod on, what it sets has no effect on the time of day.
+local function hoenn(mod)
+  local Rtc = require("src.core.game3.rtc")
+  local WallClock = require("src.ui.game3.rse.wall_clock")
+  local DAY = 86400
+
+  local calcLocalTime = Rtc.calcLocalTime
+  Rtc.calcLocalTime = function(session, ...)
+    if type(session) ~= "table" then return calcLocalTime(session, ...) end
+    local offset, skew = session.localTimeOffset, session.rtcSkew
+    local days = type(offset) == "table" and tonumber(offset.days) or 0
+    local wholeDays = math.floor((tonumber(skew) or 0) / DAY + 0.5) * DAY
+    session.localTimeOffset = Rtc.newTime(days, 0, 0, 0)
+    session.rtcSkew = wholeDays
+    local ok, value = pcall(calcLocalTime, session, ...)
+    session.localTimeOffset, session.rtcSkew = offset, skew
+    if not ok then error(value, 0) end
+    return value
+  end
+
+  -- Setting the clock: open on the device's time and go straight to the
+  -- screen's own "confirmed" step, which stores it (Rtc.initLocalTimeOffset)
+  -- and closes the screen the way a YES would.
+  local newClock = WallClock.new
+  WallClock.new = function(opts)
+    local clock = newClock(opts)
+    if clock.mode == WallClock.MODE.SET then
+      local now = Rtc.hostInfo(nil)
+      local t = clock.t
+      t.hours, t.minutes = now.hour, now.minute
+      t.minuteAngle = t.minutes * 6
+      t.hourAngle = (t.hours % 12) * 30 + math.floor(t.minutes / 10) * 5
+      t.period = t.hours < 12 and WallClock.PERIOD.AM or WallClock.PERIOD.PM
+      clock.pcClockAnswer = true
+    end
+    return clock
+  end
+  local frame = WallClock.frame
+  WallClock.frame = function(self, inp)
+    if self.pcClockAnswer and self.state == "set_input" then
+      self.pcClockAnswer = nil
+      self.state = "confirmed"
+      say("Clock set from your device: " .. spokenTime(self.t.hours, self.t.minutes) .. ".")
+    end
+    return frame(self, inp)
+  end
+
+  mod.log:info("Ruby, Sapphire and Emerald follow the device clock")
+end
+
+return function(mod)
+  local GameVersion = require("src.core.GameVersion")
+  if GameVersion.generation(GameVersion.get()) == 3 then
+    hoenn(mod)
+  else
+    johto(mod)
+  end
 end

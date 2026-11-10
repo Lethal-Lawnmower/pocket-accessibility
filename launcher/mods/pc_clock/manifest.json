@@ -1,12 +1,12 @@
 {
   "id": "pocket_pc_clock",
   "name": "PC Clock",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "api": 2,
   "entry": "main.lua",
   "category": "TOOL",
   "permissions": ["engine_internals"],
   "affects_link": false,
-  "games": ["gold", "silver", "crystal"],
-  "description": "Gold, Silver and Crystal always use your device's clock: Oak's time question and Mom's day question are answered for you, and the game's time and weekday follow the device, daylight saving included."
+  "games": ["gold", "silver", "crystal", "ruby", "sapphire", "emerald"],
+  "description": "Gold, Silver, Crystal, Ruby, Sapphire and Emerald always use your device's clock: the game's clock questions are answered for you, and the time (and in Gold, Silver and Crystal the weekday) follows the device, daylight saving included."
 }

@@ -563,3 +563,8 @@ Asked for a more elegant touch scheme ("I think there needs to be a more elegant
 The owner: "Let's add a few more things to iOS and then we can try the save editor if possible, and a way potentially to import mods, but if not, then the save editor at the very least." The save editor comes first, then mods if they can be done. Same backends as Windows and Android; on iOS they run in the game program with the launcher's screen on top (no socket), and the program starts again when the screen closes. Details: `ios.md`, "Save editor and mods".
 
 Pushing to `ios-build` for the iOS CI builds of this work, approved by the owner the same day ("Sure."), after being told the push also carries the day's haptics and touch changes and leaves `main` alone. `main` is not pushed.
+
+## 70. The PC Clock for Ruby, Sapphire and Emerald (2026-11-10)
+
+The owner: "can you make a mod for Ruby, Sapphire, and Emerald that auto-adjusts the clock to your current system time as well?" Built as version 1.1.0 of the existing PC Clock mod rather than a second mod; that was the assistant's choice, not the owner's, so the one mod covers every game with a clock. Because the package brings the PC Clock on (decision 61) and a newer bundled version replaces an older copy, players who have it get the Hoenn part too; the owner can ask for it to be split out. Details: `ruby-sapphire-emerald.md`, "PC Clock mod".
+

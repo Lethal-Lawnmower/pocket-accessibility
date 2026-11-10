@@ -223,6 +223,30 @@ screen, so the choosing itself had never run in Hoenn; the rows had no position
 after the first and the fifth was not marked (fixed in `HoennItems.lua` and
 FireRed's `Items.lua`). "new move" is our wording, open to the owner.
 
+## PC Clock mod (2026-11-10, decision 70)
+
+The PC Clock mod (`launcher/mods/pc_clock`, Gold, Silver and Crystal part in `gold-silver-crystal.md`) covers
+these three games from version 1.1.0; nothing changes without it. Upstream's clock (`src/core/game3/rtc.lua`,
+after pokeemerald's `rtc.c`) is the device clock plus `rtcSkew` (set for an imported save whose cartridge clock
+was far off, `Rtc.anchorToLastUpdate`) minus `localTimeOffset`, whose hours and minutes come from the player's
+wall clock answer and whose days start the game's day count at 0.
+
+- `Rtc.calcLocalTime` reads with the offset's hours, minutes and seconds at zero and the skew rounded to
+  whole days, then puts both back: the time of day is the device's (daylight saving included), the day count
+  keeps the save's. On a save whose clock was set wrong, the first read can move the day count one day on, or
+  the time of day back some hours (per-minute updates such as berries wait until it catches up).
+- `WallClock.new` in set mode opens on the device's time, and `WallClock.frame` sends it from `set_input`
+  straight to the screen's own `confirmed` step (stores the offset, closes as YES would); the mod says
+  "Clock set from your device: ...". It interrupts the layer's "Set the clock" line.
+- The title screen's clock reset is untouched; with the mod on it has no effect on the time of day.
+
+Tested by script (`tests/access/drivers/pc_clock_hoenn.lua`, mod copied into a disposable profile): Emerald,
+Ruby and Sapphire 10 of 10 each (the wall clock closed itself in 47 frames on the device's time and said so;
+time equalled the device's after it, with a 6 h 30 min wrong offset plus 3 days 5000 s of skew, and with a
+skew 2 days 4000 s behind; the day count moved by the whole days only; the save kept its offset and skew; the
+view-mode wall clock showed the device's time). Without the mod, Emerald and Ruby 5 of 10. Not played, not
+heard, not run through the house script's own `StartWallClock`; Android and iOS not tried.
+
 ## Verification
 
 Level reached for everything here: run in game, silent, read from logs. Not

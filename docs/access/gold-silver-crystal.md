@@ -262,6 +262,8 @@ Gold's chase rerun after the fix.
 
 ## PC Clock mod (2026-11-08, decision 56)
 
+Since 1.1.0 (2026-11-10, decision 70) the same mod also covers Ruby, Sapphire and Emerald: `ruby-sapphire-emerald.md`, "PC Clock mod".
+
 A mod, `launcher/mods/pc_clock` (id `pocket_pc_clock`, `engine_internals`), installed into a save folder's
 `mods`; nothing changes without it. Upstream already reads the host clock through the offset taken when
 Oak's and Mom's questions are answered (`src/core/gen2/Clock.lua`), so the time already followed daylight
