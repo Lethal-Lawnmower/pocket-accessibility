@@ -183,7 +183,7 @@ and recorded in the topic file.
   For the owner: Dewford Gym is not "dark" under decision 37, because Flash is refused there and its level falls as trainers lose; and the wording questions at the end of `ruby-sapphire-emerald.md`.
 - **PC Clock for Hoenn (decision 70, 2026-11-10):** the PC Clock mod 1.1.0 sets Ruby, Sapphire and Emerald's
   wall clock from the device and keeps the time of day on the device's. By script, 10 of 10 on each game; not
-  played or heard; `main` not pushed.
+  played or heard; the owner kept it in the one mod. `main` not pushed.
 
 ## Launcher
 
