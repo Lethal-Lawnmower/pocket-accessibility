@@ -36,6 +36,7 @@ end
 
 -- Title screen and intro movies: say where the player is and what to press.
 MinorScreens.title = {
+  titleScreen = true, -- ScreenReader.onTitleScreen
   matches = matcher("src.ui.TitleState"),
   poll = once(function() return "Title screen. Press start." end),
 }

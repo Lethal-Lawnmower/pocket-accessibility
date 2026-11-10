@@ -111,6 +111,18 @@ eq(#r:update(80.3), 0, "three-finger single waits")
 eq(#r:update(80.6), 0, "three fingers get the longer wait (0.55 s)")
 g = only(r:update(80.7), "three-finger single")
 eq(g.fingers .. ":" .. g.taps, "3:1", "three-finger single tap after the window")
+-- a two-finger triple tap: the double is reported at once, then the third tap
+r = Gestures.new({ size = size })
+local two = function() return { { 600, 2000 }, { 900, 2000 } } end
+stroke(r, 100, two(), 0.08)
+g = only(stroke(r, 100.18, two(), 0.08), "two-finger double first")
+eq(g.fingers .. ":" .. g.taps, "2:2", "the double tap is not held back")
+g = only(stroke(r, 100.36, two(), 0.08), "two-finger triple")
+eq(g.fingers .. ":" .. g.taps, "2:3", "a third tap right after is a triple tap")
+eq(#r:update(101), 0, "and nothing is left waiting")
+stroke(r, 110, two(), 0.08)
+only(stroke(r, 110.18, two(), 0.08), "another double")
+eq(#stroke(r, 111, two(), 0.08), 0, "a tap long after a double starts afresh")
 -- a one-finger tap right after a three-finger one is not their double
 stroke(r, 90, three(), 0.1)
 out = stroke(r, 90.2, { { 800, 2000 } }, 0.08)
@@ -287,6 +299,26 @@ eq(pressedButtons(), "a", "double tap is A (top half off the map)")
 setup(false)
 doubleTap(2)
 eq(pressedButtons(), "b", "two-finger double tap is B")
+-- two-finger triple tap: leave for the launcher from a title screen only
+local function tripleTap(onTitle)
+  local left = 0
+  TouchInput.configure({
+    screenReader = { onTitleScreen = function() return onTitle end },
+    leave = function() left = left + 1 end,
+  })
+  local function spots() return { { 600, BOTTOM }, { 800, BOTTOM } } end
+  touch(spots(), 0, 0, 0.08) now = now + 0.1
+  touch(spots(), 0, 0, 0.08) now = now + 0.1
+  touch(spots(), 0, 0, 0.08)
+  return left
+end
+setup(false)
+eq(tripleTap(true), 1, "two-finger triple tap on the title screen leaves")
+eq(lastSaid(), "! Returning to the launcher", "and says so")
+setup(false)
+eq(tripleTap(false), 0, "elsewhere it does not leave")
+eq(lastSaid(), "! To return to the launcher, go to the title screen first", "and says where to go")
+eq(pressedButtons(), "b", "the double tap before it was still B")
 setup(false)
 doubleTap(3)
 eq(pressedButtons(), "start", "three-finger double tap is START")

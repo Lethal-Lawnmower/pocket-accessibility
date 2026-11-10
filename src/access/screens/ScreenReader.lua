@@ -125,6 +125,13 @@ function ScreenReader.update(top)
   pollGen3Ambient()
 end
 
+-- True while the top screen is a game's title screen or, in Gen 2 and 3, its
+-- boot main menu (presenters marked titleScreen = true).  Touch uses it: leaving for the launcher is only
+-- offered there, where nothing unsaved can be lost (the owner, 2026-11-10).
+function ScreenReader.onTitleScreen()
+  return lastPresenter ~= nil and lastPresenter.titleScreen == true
+end
+
 function ScreenReader._resetForTests()
   lastState, lastPresenter, stackModule = nil, nil, nil
   Presenters.textBox.reset()

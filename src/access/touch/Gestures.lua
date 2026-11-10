@@ -30,7 +30,9 @@
 --
 -- Gestures:
 --   { kind = "swipe",  direction = "up"|"down"|"left"|"right", fingers, half, x, y }
---   { kind = "tap",    fingers, taps = 1|2, half, x, y }
+--   { kind = "tap",    fingers, taps = 1|2|3, half, x, y }
+--   (a third tap right after a double tap is reported as taps = 3 on its own;
+--   the double tap has already been reported, so B never waits for it)
 --   { kind = "rotate", direction = "clockwise"|"counterclockwise", degrees, half, x, y }
 
 local Gestures = {}
@@ -179,6 +181,9 @@ end
 -- Classifies a finished stroke.
 local function classify(self, stroke, t, out)
   local th = self.thresholds
+  -- a double tap just reported, which a third tap may still follow
+  local afterDouble = self.afterDouble
+  self.afterDouble = nil
   local short, h, w = shorterSide(self)
   local n = stroke.maxFingers
   local duration = t - stroke.startTime
@@ -205,10 +210,16 @@ local function classify(self, stroke, t, out)
   end
 
   if maxMove <= th.TAP_MAX_MOVE * short and duration <= tapMax(th, n) then
+    local d = afterDouble
+    if d and d.fingers == n and stroke.startTime - d.endTime <= doubleWindow(th, n) then
+      out[#out + 1] = { kind = "tap", fingers = n, taps = 3, half = d.half, x = d.x, y = d.y }
+      return
+    end
     local p = self.pending
     if p and p.fingers == n and stroke.startTime - p.endTime <= doubleWindow(th, n) then
       self.pending = nil
       out[#out + 1] = { kind = "tap", fingers = n, taps = 2, half = p.half, x = p.x, y = p.y }
+      self.afterDouble = { fingers = n, endTime = t, half = p.half, x = p.x, y = p.y }
       return
     end
     flushPending(self, out)
@@ -262,7 +273,7 @@ end
 
 -- Forgets everything (focus lost: the system may never send the releases).
 function Recogniser:reset()
-  self.stroke, self.pending = nil, nil
+  self.stroke, self.pending, self.afterDouble = nil, nil, nil
 end
 
 -- True while fingers are down.

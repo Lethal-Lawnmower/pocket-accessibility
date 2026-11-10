@@ -202,6 +202,7 @@ Menus.editionName = editionName
 -- entrance slides in (entranceScx > 0), so the line waits for it; a
 -- timed-out title fading back to the copyright card says nothing.
 Menus.titleState = {
+  titleScreen = true, -- ScreenReader.onTitleScreen
   matches = matcher("TitleState"),
   poll = function(state, memo)
     if memo.said or (state.entranceScx or 0) > 0 or state.fadeStart then return nil end
@@ -239,6 +240,7 @@ local function mainMenuClock(state)
 end
 
 Menus.mainMenu = {
+  titleScreen = true, -- the boot main menu counts as a title screen (nothing unsaved): ScreenReader.onTitleScreen
   matches = matcher("MainMenu"),
   poll = function(state, memo, entering)
     if state.phase == "confirm" then

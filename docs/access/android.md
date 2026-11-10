@@ -394,6 +394,7 @@ handed it over). A desktop mouse never comes this way.
 | same | Three-finger tap | SELECT (once the double-tap window has passed) |
 | Map, bottom half | Two-finger turn clockwise | Auto-walk to the selected point, as the left stick click |
 | Map, bottom half | Two-finger turn counterclockwise | Stops any walk ("Auto walk stopped"), or says "Not walking" |
+| Title screen (Gen 2 and 3 boot main menu too) | Two-finger triple tap | Back to the launcher ("Returning to the launcher"); elsewhere it says to go to the title screen first. The double tap before it still presses B |
 
 Off the map (menus, battles, dialogue, the title screen) the whole screen is the bottom half. The halves
 split at the middle of `love.graphics.getDimensions()` (upstream's touch layout uses the same space), so

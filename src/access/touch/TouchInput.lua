@@ -74,6 +74,11 @@ local DEFAULTS = {
   currentGame = function() return require("src.access.CurrentGame") end,
   nav = function() return require("src.access.nav") end,
   autoWalk = function() return require("src.access.nav.AutoWalk") end,
+  screenReader = function() return require("src.access.screens.ScreenReader") end,
+  -- leaving the game: main.lua's quit; the launcher takes over (on iOS LÖVE
+  -- restarts into ours, on Android the game activity ends, elsewhere the
+  -- launcher is waiting on the process)
+  leave = function() return function() love.event.quit() end end,
   clock = function()
     return function() return love.timer.getTime() end
   end,
@@ -340,6 +345,21 @@ function TouchInput.perform(gesture)
       return hybridSwipe(gesture.direction, nav, adapter, navGame)
     end
     return queueStep(gesture.direction, false)
+  end
+
+  -- two-finger triple tap: back to the launcher, from a title screen only
+  -- (the owner, 2026-11-10), so no unsaved progress is lost
+  if gesture.kind == "tap" and gesture.taps == 3 then
+    if gesture.fingers ~= 2 then return end
+    local okTitle, onTitle = pcall(dep("screenReader").onTitleScreen)
+    if okTitle and onTitle then
+      stepQueue = {}
+      say("Returning to the launcher", true)
+      dep("leave")()
+    else
+      say("To return to the launcher, go to the title screen first", true)
+    end
+    return
   end
 
   if gesture.kind == "tap" then

@@ -243,6 +243,7 @@ Menus.editionName = editionName
 -- copyright line are images.  Each title entry is a new object, so the
 -- line repeats on every attract loop, as in Gen 2.
 Menus.title = {
+  titleScreen = true, -- ScreenReader.onTitleScreen
   matches = Common.matcher("title"),
   poll = function(state, memo)
     if memo.said then return nil end
@@ -281,6 +282,7 @@ local function continuePanel(boot)
 end
 
 Menus.mainMenu = {
+  titleScreen = true, -- the boot main menu counts as a title screen (nothing unsaved): ScreenReader.onTitleScreen
   matches = Common.matcher("main_menu"),
   poll = function(state, memo, entering)
     local boot = state.boot

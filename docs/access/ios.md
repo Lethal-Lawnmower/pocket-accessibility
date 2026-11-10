@@ -212,7 +212,10 @@ VoiceOver custom action, "Close the game and return to the launcher"; Lua checks
 calls `love.event.quit()`, which goes through `main.lua`'s `love.quit` exactly as a window close elsewhere
 (nothing is saved). Reaching the action needs Direct Touch off (actions are a VoiceOver gesture). Closing the
 app from the App Switcher also works and costs nothing but the unsaved game; the app opens on the launcher. A
-gesture inside the game for this would be an owner decision and was not added.
+gesture inside the game for this would be an owner decision and was not added. The owner decided it on
+2026-11-10 (decision 66): a **two-finger triple tap on a title screen** (Gen 2 and 3 boot main menus count)
+returns to the launcher, saying "Returning to the launcher"; elsewhere it says "To return to the launcher, go
+to the title screen first". The same gesture works on Android and with touch on PC. Checked in a silent FireRed run.
 
 ## Direct touch
 
