@@ -66,6 +66,7 @@ public final class TouchControlsActivity extends Activity {
         text(root, "Swipe: walk on the map. In menus, battles and dialogue, it moves the cursor.");
         text(root, "Two-finger swipe left or right: the previous or next thing on the map. "
             + "Two-finger swipe up or down: change the category.");
+        text(root, "Tap: spoken directions to what you picked, which keep coming as you walk. Tap again to stop them.");
         text(root, "Double tap: A. Two-finger double tap: B. "
             + "Three-finger double tap: Start. Three-finger tap: Select.");
         text(root, "Two-finger triple tap on the title screen: back to this launcher. Save first; leaving does not save.");

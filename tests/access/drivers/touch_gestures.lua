@@ -1,7 +1,7 @@
 -- Touch gestures (decision 66), scripted in any game: synthetic touches go
 -- through the real love.touchpressed / touchmoved / touchreleased, so they
 -- pass the layer's before-hooks exactly as an Android touch would.  Checks a
--- step on the map, two-finger navigation swipes, the start menu (three-
+-- step on the map, two-finger navigation swipes, the tap for directions, the start menu (three-
 -- finger double tap, a swipe, two-finger double tap), that a two-finger
 -- turn does nothing, AUTO's swipe walking to the point, and one hybrid leg.
 -- Harness setup (reaching the map) presses buttons directly on the game's
@@ -185,6 +185,21 @@ return function(game)
   U.log("RESULT", "two-finger swipe up =>", heard())
   swipe2("right", LOW) frames(10)
   U.log("RESULT", "two-finger swipe right =>", heard())
+
+  -- a one-finger tap: directions to the selected point (as K); after a step
+  -- they update; a second tap stops them
+  local function singleTap(place)
+    gesture(spots(1, place or LOW), 0, 0, 1)
+    frames(30) -- past the double-tap window
+    frames(60) -- the route is planned over a few frames before it is said
+  end
+  singleTap(HIGH)
+  U.log("RESULT", "tap (directions) =>", heard())
+  swipe("up", LOW)
+  frames(40)
+  U.log("RESULT", "a step with directions on =>", heard())
+  singleTap(LOW)
+  U.log("RESULT", "tap again =>", heard())
 
   -- the start menu: START, a D-pad press, B
   doubleTap(3)

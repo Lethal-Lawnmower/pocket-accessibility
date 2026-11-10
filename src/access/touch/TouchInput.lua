@@ -19,6 +19,9 @@
 --                        plus D-pad):
 --                          left / right  previous / next navigation point
 --                          up / down     previous / next category
+--   tap                  on the map: spoken directions to the selected point,
+--                        as the keyboard's K and the right stick click (again
+--                        stops them); for MANUAL walking (the owner, 2026-11-10)
 --   double tap           A
 --   two-finger double tap B
 --   three-finger double tap START
@@ -60,6 +63,9 @@ local NAV_SWIPES = {
   up = "previous_item_filter", down = "next_item_filter",
   left = "previous_map_item", right = "next_map_item",
 }
+
+-- a one-finger tap on the map (CommandRouter's DESCRIBE_ROUTE_TO_ITEM)
+local DIRECTIONS = "describe_route_to_selected_item"
 
 -- fingers .. ":" .. taps -> button
 local TAP_BUTTONS = {
@@ -359,6 +365,14 @@ function TouchInput.perform(gesture)
       dep("leave")()
     else
       say("To return to the launcher, go to the title screen first", true)
+    end
+    return
+  end
+
+  if gesture.kind == "tap" and gesture.fingers == 1 and gesture.taps == 1 then
+    if onMap then
+      stepQueue = {}
+      pcall(nav.handleCommand, nav, DIRECTIONS)
     end
     return
   end

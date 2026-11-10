@@ -420,6 +420,7 @@ figure it out isn't the way to go"): README "Controls", the Android launcher's T
 | Off the map | Swipe | One D-pad press |
 | Map | Two-finger swipe left / right | Previous / next navigation point in the category |
 | Map | Two-finger swipe up / down | Previous / next category (decision 23's trigger plus D-pad) |
+| Map | Tap | Spoken directions to the selected point, as the keyboard's K and the right stick click; again stops them. Reported once the double-tap window has passed |
 | Anywhere | Double tap | A |
 | same | Two-finger double tap | B |
 | same | Three-finger double tap | START |
@@ -466,6 +467,13 @@ let go. Up to 4 quick swipes queue. `Nav.context`, `Nav.walking` and `Nav.stopWa
 device): swipe at least 6% and under 1 s; tap moves under 4% and lasts under 0.35 s; a double tap's second
 tap starts within 0.3 s of the first ending (three fingers: taps up to 0.5 s and 0.55 s for the second tap, longer at the owner's request on 2026-11-09, so SELECT waits 0.55 s); a turn is two fingers whose line turns 45 degrees or more; a
 stroke open 5 s has lost its releases and is dropped.
+
+**Verified 2026-11-10 (tap for directions), run level only.** `touch_gestures_test` 208/208: a tap on the map
+sends `describe_route_to_selected_item` once the double-tap window has passed, a second tap sends it again, a
+double tap never does, off the map a tap does nothing. Silent Crystal run: the tap said "2 up" after the route
+was planned (about a second later in the run; the driver waits 90 frames), the second tap said "Navigation
+stopped". A step between them said nothing new, which looks like K's own behaviour (speaking where the route
+turns, not every step); not compared with K in the same run.
 
 **Verified 2026-11-10 (no turn; AUTO swipes walk), run level only.** `touch_gestures_test` 201/201: turns
 start, stop and say nothing (a turn still stops a running walk, as any gesture); AUTO's swipe starts auto-walk

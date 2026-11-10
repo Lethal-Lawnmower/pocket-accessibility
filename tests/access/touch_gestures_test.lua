@@ -415,6 +415,27 @@ swipe("left")
 eq(stopped, 1, "a swipe while walking stops the walk")
 eq(pressedButtons(), "", "and does nothing else")
 
+-- a one-finger tap on the map: directions to the selected point (K, the
+-- right stick); reported once the double-tap window has passed
+setup(true)
+touch({ { 800, TOP } }, 0, 0, 0.08)
+eq(#commands, 0, "a tap waits for the double-tap window")
+frames(25)
+eq(table.concat(commands, ","), "describe_route_to_selected_item", "then asks for directions")
+eq(pressedButtons(), "", "and presses no button")
+touch({ { 800, BOTTOM } }, 0, 0, 0.08)
+frames(25)
+eq(#commands, 2, "a second tap sends it again (which stops the directions)")
+setup(true)
+doubleTap(1)
+frames(25)
+eq(#commands, 0, "a double tap is A, never directions")
+setup(false)
+touch({ { 800, TOP } }, 0, 0, 0.08)
+frames(25)
+eq(#commands, 0, "off the map a tap does nothing")
+eq(pressedButtons(), "", "and presses nothing")
+
 -- turns start and stop nothing (the owner, 2026-11-10: walking modes are
 -- chosen in the options), except that, like any gesture, one stops a walk
 setup(true)

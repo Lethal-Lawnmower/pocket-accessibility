@@ -121,6 +121,8 @@ struct TouchControlsView: View {
                 Text(verbatim: "Swipe: walk on the map. In menus, battles and dialogue, it moves the cursor.")
                 Text(verbatim: "Two-finger swipe left or right: the previous or next thing on the map. "
                     + "Two-finger swipe up or down: change the category.")
+                Text(verbatim: "Tap: spoken directions to what you picked, which keep coming as you walk. "
+                    + "Tap again to stop them.")
                 Text(verbatim: "Double tap: A. Two-finger double tap: B. Three-finger double tap: Start. "
                     + "Three-finger tap: Select.")
                 Text(verbatim: "Any gesture stops a walk.")

@@ -115,6 +115,7 @@ The navigation keys only work on the map, so they never get in the way of menus 
 - **Swipe:** walk on the map. In menus, battles and dialogue, it moves the cursor.
 - **Two-finger swipe left and right:** previous and next thing on the map.
 - **Two-finger swipe up and down:** change the category.
+- **Tap:** spoken directions to what you picked, which keep coming as you walk. Tap again to stop them.
 - **Double tap:** A. **Two-finger double tap:** B.
 - **Three-finger double tap:** Start. **Three-finger tap:** Select.
 - **Two-finger triple tap on the title screen:** back to the launcher. Save first; leaving doesn't save.
