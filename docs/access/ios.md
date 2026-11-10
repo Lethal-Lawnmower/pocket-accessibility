@@ -182,6 +182,10 @@ does not contain the bridge's class name, or lacks that plist key. Checked on Wi
 to the pinned LÖVE's `project.pbxproj` after `patch_love_src.py`'s own edit (a scratch copy), twice without
 duplicating anything; no Swift was compiled.
 
+**First device install (2026-11-10, owner's request "Let's get this on my device"):** the unsigned IPA from
+`2938eba3` was copied into the owner's own iCloud Drive (`Pocket Accessibility/`) for the phone's Files app, where
+the owner signs and installs it with their own Apple ID. No ROMs were copied. Not yet installed or tried.
+
 ## Startup architecture
 
 Read from the pinned sources (LÖVE `def24510`; SDL 3.4.10 from love-apple-dependencies `a5522634`,
