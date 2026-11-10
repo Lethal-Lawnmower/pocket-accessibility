@@ -183,8 +183,9 @@ to the pinned LÖVE's `project.pbxproj` after `patch_love_src.py`'s own edit (a 
 duplicating anything; no Swift was compiled.
 
 **First device install (2026-11-10, owner's request "Let's get this on my device"):** the unsigned IPA from
-`2938eba3` was copied into the owner's own iCloud Drive (`Pocket Accessibility/`) for the phone's Files app, where
-the owner signs and installs it with their own Apple ID. No ROMs were copied. Not yet installed or tried.
+`2938eba3` was copied into the PC's iCloud Drive folder, but the owner's iCloud does not sync (no paid storage),
+so the copy was removed again. How the IPA reaches the phone is still to be settled with the owner, one step at
+a time. Not yet installed or tried.
 
 ## Startup architecture
 
