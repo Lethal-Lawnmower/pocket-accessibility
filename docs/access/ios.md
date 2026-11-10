@@ -193,6 +193,11 @@ iCloud removed; Apple's website iCloud 7.21 with Apple Application Support 8.7 a
 asked for a restart, not yet done). Sideloadly 0.71 Windows installer (sha256 `2E7D9A80…6362E`, 144 MB) is not
 code-signed; Defender found nothing; left in the owner's Downloads for the owner to run. Free Apple ID: 7 days,
 3 apps; Sideloadly's daemon on the PC can re-sign.
+A silent elevated run of the Sideloadly installer was cancelled at the Windows permission prompt; the owner then
+chose to restart Windows first (iCloud had asked for it). Next after the restart: install Sideloadly (its NSIS
+manifest asks for no elevation, so it may run without the prompt), connect the iPhone by USB, trust the PC,
+Developer Mode if asked, sign in to Sideloadly with the owner's Apple ID (the owner types it), sideload
+`dist/ios-ci/PocketAccessibility-dev-2938eba38d-unsigned.ipa`, trust the developer profile on the phone.
 
 ## Startup architecture
 
