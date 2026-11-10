@@ -111,25 +111,30 @@ struct TouchControlsView: View {
                 Text(verbatim: "iPhone keeps Direct Touch off until you turn it on for an app. When the Game screen is "
                     + "focused, turn the VoiceOver rotor to Direct Touch and switch it on. iPhone remembers this for "
                     + "Pocket Accessibility; you can also find it in Settings, Accessibility, VoiceOver, Rotor, "
-                    + "Direct Touch Apps. This has not been tried on a phone yet, so please say what you find.")
+                    + "Direct Touch Apps.")
+            }
+            // The gestures, as in README.md "Controls" and docs/access/android.md: keep them in step.
+            Group {
+                Heading("Gestures")
+                Text(verbatim: "They work anywhere on the Game screen, held either way up. What matters is how many "
+                    + "fingers you use, not where you touch.")
+                Text(verbatim: "Swipe: walk on the map. In menus, battles and dialogue, it moves the cursor.")
+                Text(verbatim: "Two-finger swipe left or right: the previous or next thing on the map. "
+                    + "Two-finger swipe up or down: change the category.")
+                Text(verbatim: "Double tap: A. Two-finger double tap: B. Three-finger double tap: Start. "
+                    + "Three-finger tap: Select.")
+                Text(verbatim: "Any gesture stops a walk.")
             }
             Group {
-                Heading("On the map")
-                Text(verbatim: "Top half, or the right half with the phone on its side: swipe left or right for the previous "
-                    + "or next navigation point, up or down for the previous or next category.")
-                Text(verbatim: "Bottom half, or the left half on its side: swipe to walk, double tap for A, two-finger double "
-                    + "tap for B, three-finger double tap for START, three-finger tap for SELECT. "
-                    + "A two-finger clockwise turn walks to the chosen point; counterclockwise stops a walk.")
-            }
-            Group {
-                Heading("Menus, battles and dialogue")
-                Text(verbatim: "The whole screen works like the bottom half: swipe for the D-pad, double tap for A, "
-                    + "two-finger double tap for B.")
                 Heading("Settings")
-                Text(verbatim: "In the game's OPTIONS, ACCESSIBILITY has TOUCH GESTURES (on by default here) and TOUCH WALKING: "
-                    + "manual, hybrid or auto.")
+                Text(verbatim: "In the game's OPTIONS, ACCESSIBILITY has TOUCH GESTURES (on by default here) and "
+                    + "TOUCH WALKING. Manual: each swipe is one step. Hybrid: the game says the next straight "
+                    + "stretch, like 18 up; swipe that way to walk all of it. Auto: a swipe, any way, walks all "
+                    + "the way to what you picked. HAPTICS gives a light tap for each step and a firmer one when "
+                    + "you walk into something.")
                 Heading("Leaving a game")
-                Text(verbatim: "Save in the game first; leaving does not save. With Direct Touch switched off, swipe up or down "
+                Text(verbatim: "Save in the game first; leaving does not save. On the title screen, a two-finger "
+                    + "triple tap brings you back here. Or, with Direct Touch switched off, swipe up or down "
                     + "on the Game screen to the action \(PocketLauncherBridge.closeActionName) and double tap. "
                     + "Closing Pocket Accessibility from the App Switcher works too, and it opens on this launcher "
                     + "next time.")

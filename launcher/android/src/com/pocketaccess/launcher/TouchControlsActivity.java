@@ -59,6 +59,23 @@ public final class TouchControlsActivity extends Activity {
         text(root, "To switch it off, open the same settings and turn Pocket Accessibility touch off. "
             + "TalkBack then takes every touch again, the game screen included.");
 
+        // The gestures, as in README.md "Controls" and docs/access/android.md: keep the three in step.
+        heading(root, "Gestures in the game");
+        text(root, "They work anywhere on the game screen, held either way up. "
+            + "What matters is how many fingers you use, not where you touch.");
+        text(root, "Swipe: walk on the map. In menus, battles and dialogue, it moves the cursor.");
+        text(root, "Two-finger swipe left or right: the previous or next thing on the map. "
+            + "Two-finger swipe up or down: change the category.");
+        text(root, "Double tap: A. Two-finger double tap: B. "
+            + "Three-finger double tap: Start. Three-finger tap: Select.");
+        text(root, "Two-finger triple tap on the title screen: back to this launcher. Save first; leaving does not save.");
+        text(root, "Any gesture stops a walk.");
+        text(root, "In the game's options, ACCESSIBILITY has TOUCH WALKING. Manual: each swipe is one step. "
+            + "Hybrid: the game says the next straight stretch, like 18 up; swipe that way to walk all of it. "
+            + "Auto: a swipe, any way, walks all the way to what you picked. "
+            + "On a device that can vibrate, HAPTICS gives a light tick for each step and a firmer one "
+            + "when you walk into something.");
+
         heading(root, "If Android says Restricted setting");
         text(root, "Android blocks accessibility services in apps that were not installed from an app store, "
             + "until you allow it once. If switching the service on says Restricted setting, close that message, then: "
