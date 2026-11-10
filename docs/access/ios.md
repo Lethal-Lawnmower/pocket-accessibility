@@ -186,6 +186,13 @@ duplicating anything; no Swift was compiled.
 `2938eba3` was copied into the PC's iCloud Drive folder, but the owner's iCloud does not sync (no paid storage),
 so the copy was removed again. How the IPA reaches the phone is still to be settled with the owner, one step at
 a time. Not yet installed or tried.
+Owner's route (2026-11-10): sideload the IPA directly with Sideloadly from the Windows PC over USB (AltStore never
+worked for them). With the owner's approval: Apple's website iTunes 12.13.12.3 (signed by Apple) installed, plus
+Apple Mobile Device Support 20.0.1.47 from its bundle (the quiet install had skipped it); the Microsoft Store
+iCloud removed; Apple's website iCloud 7.21 with Apple Application Support 8.7 and Bonjour 3.0 installed (iCloud
+asked for a restart, not yet done). Sideloadly 0.71 Windows installer (sha256 `2E7D9A80…6362E`, 144 MB) is not
+code-signed; Defender found nothing; left in the owner's Downloads for the owner to run. Free Apple ID: 7 days,
+3 apps; Sideloadly's daemon on the PC can re-sign.
 
 ## Startup architecture
 
