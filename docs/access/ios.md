@@ -205,6 +205,10 @@ iPhone over USB, and signed in with the owner's Apple ID. One two-factor attempt
 installed the app as `com.pocketaccessibility.app.<team id>` (team id appended), file sharing on. The owner's 17
 dumps were pushed with `pymobiledevice3 apps push <bundle> <file> Documents/ROMs/<name>`; a house_arrest listing
 shows all 17 with the right sizes, plus one Crystal file the owner had already imported through the app.
+**First game on the iPhone (2026-11-10):** the owner's screenshot shows Crystal's title screen running full screen
+in portrait (logo, Suicune, "©2001 GAME FREAK inc."), with no on-screen buttons drawn and a thin outline around
+the whole screen (probably VoiceOver's focus on the "Game screen" element). Speech, Direct Touch and gestures not
+yet reported.
 
 ## Startup architecture
 
