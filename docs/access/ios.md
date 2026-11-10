@@ -198,6 +198,10 @@ chose to restart Windows first (iCloud had asked for it). Next after the restart
 manifest asks for no elevation, so it may run without the prompt), connect the iPhone by USB, trust the PC,
 Developer Mode if asked, sign in to Sideloadly with the owner's Apple ID (the owner types it), sideload
 `dist/ios-ci/PocketAccessibility-dev-2938eba38d-unsigned.ipa`, trust the developer profile on the phone.
+**Installed (2026-11-10):** after the restart Sideloadly 0.72 installed per user without elevation, saw the trusted
+iPhone over USB, and signed in with the owner's Apple ID. One two-factor attempt came back HTTP 401 at
+`gsa.apple.com/auth/verify/phone/securitycode`; a fresh code went through. The IPA sideloaded and the owner
+"got into the app" (owner's report; launcher, VoiceOver and gestures not yet reported). No ROMs on the phone yet.
 
 ## Startup architecture
 
