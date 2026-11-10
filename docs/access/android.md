@@ -340,6 +340,10 @@ Second tablet build (2026-11-09), from `a6d58186`: hidden on-screen controls, la
 (navigate), longer three-finger taps; `touch_gestures_test` 145/145; installed over the test app with
 `adb install -r` (data kept). Owner's verdict: "feels good for the most part"; START and SELECT (three-finger
 double and single tap) "still feel kind of funky", so their gestures are not settled.
+Owner, 2026-11-10, after playing Crystal standing up on the iPhone: "maybe dividing the screen into two pieces wasn't
+a good idea"; both reaching the other half and mixing the halves up "felt funky". Proposed, not decided: no halves,
+the number of fingers sets the meaning (one-finger swipes move, two-finger swipes navigate; taps anywhere). The owner
+"potentially" likes it and is thinking it over. Nothing changed yet.
 
 ## Haptics (built 2026-11-10, decision 68)
 
