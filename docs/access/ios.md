@@ -115,7 +115,12 @@ Lua state; the first CI run's repeating start-up was this). Still to do for step
 next, below), VoiceOver labels,
 ROM-free Lua tests in the workflow, and the full license set.
 
-## Launcher (written 2026-11-10, not yet built by CI)
+## Launcher (written 2026-11-10; CI green the same day)
+
+CI run 42733599145 at `c8fe1339` compiled it on the first try. Smoke test: the app opened on the launcher
+(`[pocket-launcher] shown (1)`); with the CI-only `POCKET_LAUNCHER_AUTOSTART=red` the launcher started Red, Prism
+loaded (AVSpeech), the game refused (no ROM), and the launcher came back (`shown (2)`) with the refusal; no crash or
+Lua error. Not yet on a phone, not with VoiceOver.
 
 Our own native launcher, fresh code in `launcher/ios/native/` (SwiftUI, iOS 15): upstream's launcher stays out
 (Term 2) and no Delta or other GPL/AGPL code is used. Standard controls only (a list, buttons, navigation links,
