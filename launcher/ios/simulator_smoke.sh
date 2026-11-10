@@ -128,6 +128,15 @@ check_health() {
 
 # ------------------------------------------------------------------ 1. the launcher comes first
 run_app launcher 25
+# The very first launch after install once printed nothing at all and was gone after 25 s,
+# with no crash report (run 42737383943; its rerun passed). Cause unknown. A completely silent
+# first launch is tried once more and reported as a warning, keeping the silent run's logs;
+# any launch that printed something is judged as it is.
+if ! grep -q -E '\[(access|pocket-launcher)\]' "$CURRENT"; then
+  echo "::warning::the first launch printed nothing (logs kept as launcher-silent-*.log); trying once more"
+  for f in "$LOGS"/launcher-*.log; do mv "$f" "${f/launcher-/launcher-silent-}"; done
+  run_app launcher 25
+fi
 SHOWN="$(first '[pocket-launcher] shown (1)')"
 STARTED_GAME="$(first '[pocket-launcher] starting')"
 EARLY_SPEECH="$(first '[access] speech ready:')"

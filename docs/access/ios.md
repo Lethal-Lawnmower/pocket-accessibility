@@ -122,6 +122,11 @@ CI run 42733599145 at `c8fe1339` compiled it on the first try. Smoke test: the a
 loaded (AVSpeech), the game refused (no ROM), and the launcher came back (`shown (2)`) with the refusal; no crash or
 Lua error. Not yet on a phone, not with VoiceOver.
 
+Run 42737383943 (`2938eba3`, the triple-tap exit) built fine, but its first plain launch printed nothing and
+the app was gone after 25 s, with no crash report; the second launch in the same run passed, and a rerun of the
+job passed both. Cause unknown (a cold simulator is the likely suspect, not proven). The smoke test now retries a
+completely silent first launch once, with a warning, and keeps the silent run's logs.
+
 Our own native launcher, fresh code in `launcher/ios/native/` (SwiftUI, iOS 15): upstream's launcher stays out
 (Term 2) and no Delta or other GPL/AGPL code is used. Standard controls only (a list, buttons, navigation links,
 headings, one alert), so VoiceOver reads it with no speech code; the launcher itself never uses Prism.
