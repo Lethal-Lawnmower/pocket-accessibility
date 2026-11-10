@@ -18,8 +18,10 @@ game.love wired into the Xcode project, and warning settings.  Around it, this s
   2. replaces the game.love build_ios.sh packed (which holds upstream's proprietary launcher)
      with ours, exported like the Android and Windows packages;
   3. renames the app, drops upstream's URL scheme and HealthKit, and draws our own icon;
-  4. runs xcodebuild itself, twice, so neither build needs a signing identity;
-  5. adds Prism's libprism.dylib (only that library) and the license texts to each app.
+  4. adds our native launcher (launcher/ios/native/*.swift) to the love-ios target, the way
+     patch_love_src.py adds upstream's bridges, and names the product and executable ours;
+  5. runs xcodebuild itself, twice, so neither build needs a signing identity;
+  6. adds Prism's libprism.dylib (only that library) and the license texts to each app.
 Nothing is uploaded.  See docs/access/ios.md, "Build (step 2)".
 """
 import argparse
@@ -80,6 +82,23 @@ LOVE_FILE = XCODE_DIR / "ios" / "resources" / "game.love"
 INFO_PLIST = XCODE_DIR / "ios" / "love-ios.plist"
 APP_ICONS = XCODE_DIR / "Images.xcassets" / "iOS AppIcon.appiconset"
 PINS_FILE = LOVE_SRC / ".pocket-access-pins"
+PBXPROJ = XCODE_DIR / "love.xcodeproj" / "project.pbxproj"
+
+# Our native launcher (docs/access/ios.md, "Launcher" and "Startup architecture").  Copied to
+# XCODE_DIR/ios/pocket/ and compiled into the love-ios app target beside upstream's bridges.
+NATIVE_DIR = HERE / "native"
+NATIVE_DEST = XCODE_DIR / "ios" / "pocket"
+LAUNCHER_SOURCES = ("PocketLauncherBridge.swift", "PocketLauncherModel.swift", "PocketLauncherViews.swift")
+# Object ids for those files, chosen not to collide with LÖVE's or patch_love_src.py's (6E1AC0DE...).
+PBX_ID_PREFIX = "50C4E7A1"
+# love-ios's Sources build phase, the same id patch_love_src.py uses
+SOURCES_PHASE_ID = "FA0B7F021A95AAF3000E1D17"
+# love-ios's Debug, Release and Distribution configurations (patch_love_src.py's IOS_APP_CONFIG_IDS)
+IOS_APP_CONFIG_IDS = ("FA0B7F261A95AAF4000E1D17", "FA0B7F271A95AAF4000E1D17", "FA0B7F281A95AAF4000E1D17")
+# patch_love_src.py names the product gen1recomp++ in love-ios's three build configurations
+UPSTREAM_PRODUCT_SETTINGS = ('PRODUCT_NAME = "gen1recomp++";', 'EXECUTABLE_NAME = "gen1recomp++";')
+# the class src/access/IosLauncher.lua looks up; its name must be in the executable
+BRIDGE_CLASS = b"PocketLauncherBridge"
 BUILD_DIR = IOS_DIR / "build" / "pocket-access"
 DIST = REPO / "dist" / "ios"
 
@@ -222,6 +241,8 @@ def edit_info_plist():
     info["CFBundleName"] = DISPLAY_NAME
     info.pop("CFBundleURLTypes", None)
     info.pop("NSHealthShareUsageDescription", None)
+    # SDL asks for it (pointer and trackpad input); its absence was noted in the first CI run
+    info["UIApplicationSupportsIndirectInputEvents"] = True
     with open(INFO_PLIST, "wb") as file:
         plistlib.dump(info, file)
 
@@ -267,6 +288,70 @@ def replace_icons():
                                check=True).stdout.split()[-1]
         run(["sips", "-z", width, width, source, "--out", icon], log=BUILD_DIR / "sips.log")
     say(f"app icon: ours, {len(icons)} sizes")
+
+
+# ------------------------------------------------------------------ our launcher in the Xcode project
+
+def pbx_id(kind, index):
+    """24 hex digits: our prefix, 01 for file references or 02 for build files, then the file's number."""
+    return f"{PBX_ID_PREFIX}{kind:02d}{index:014d}"
+
+
+def add_launcher_sources():
+    """Compiles launcher/ios/native/*.swift into love-ios and names the product ours.
+
+    The same mechanism as upstream's patch_love_src.py (file references, build files and
+    entries in love-ios's Sources phase, written into project.pbxproj), run after it.
+    patch_love_src.py rebuilds project.pbxproj from its pristine copy on every build_ios.sh
+    run, so this always starts from upstream's patched project.
+    """
+    NATIVE_DEST.mkdir(parents=True, exist_ok=True)
+    for name in LAUNCHER_SOURCES:
+        source = NATIVE_DIR / name
+        if not source.is_file():
+            fail(f"missing {source}")
+        shutil.copy2(source, NATIVE_DEST / name)
+
+    text = PBXPROJ.read_text(encoding="utf-8")
+    if pbx_id(1, 1) in text:
+        say("love.xcodeproj already lists our launcher sources")
+    else:
+        files = list(enumerate(LAUNCHER_SOURCES, start=1))
+        build_files = "".join(
+            f"\t\t{pbx_id(2, i)} /* {name} in Sources */ = "
+            f"{{isa = PBXBuildFile; fileRef = {pbx_id(1, i)} /* {name} */; }};\n" for i, name in files)
+        references = "".join(
+            f"\t\t{pbx_id(1, i)} /* {name} */ = {{isa = PBXFileReference; lastKnownFileType = sourcecode.swift; "
+            f"name = {name}; path = ios/pocket/{name}; sourceTree = SOURCE_ROOT; }};\n" for i, name in files)
+        for anchor, insertion in (("/* Begin PBXBuildFile section */\n", build_files),
+                                  ("/* Begin PBXFileReference section */\n", references)):
+            if text.count(anchor) != 1:
+                fail(f"project.pbxproj: {anchor.strip()} not found once")
+            text = text.replace(anchor, anchor + insertion, 1)
+        phase = re.search(re.escape(SOURCES_PHASE_ID) + r" /\* Sources \*/ = \{.*?files = \(\n", text, re.S)
+        if not phase:
+            fail("project.pbxproj: love-ios's Sources phase not found")
+        entries = "".join(f"\t\t\t\t{pbx_id(2, i)} /* {name} in Sources */,\n" for i, name in files)
+        text = text[:phase.end()] + entries + text[phase.end():]
+
+    # The process and executable were still named gen1recomp++ in the first CI run.
+    for setting in UPSTREAM_PRODUCT_SETTINGS:
+        count = text.count(setting)
+        if count not in (0, 3):
+            fail(f"project.pbxproj: expected {setting} in love-ios's 3 configurations, found {count}")
+        text = text.replace(setting, setting.replace('"gen1recomp++"', APP_NAME))
+    # LÖVE's own PRODUCT_NAME = love; stays further down in the same three configurations, so a
+    # key appears twice there.  Ours goes in both places, whichever of the two Xcode reads.
+    for config_id in IOS_APP_CONFIG_IDS:
+        block = re.search(re.escape(config_id) + r" /\* \w+ \*/ = \{.*?\n\t\t\};\n", text, re.S)
+        if not block:
+            fail(f"project.pbxproj: love-ios configuration {config_id} not found")
+        renamed = block.group(0).replace("PRODUCT_NAME = love;", f"PRODUCT_NAME = {APP_NAME};")
+        text = text[:block.start()] + renamed + text[block.end():]
+    if text.count(f"PRODUCT_NAME = {APP_NAME};") != 6:
+        fail(f"project.pbxproj: love-ios's product is not named {APP_NAME} in all 3 configurations")
+    PBXPROJ.write_text(text, encoding="utf-8")
+    say(f"love-ios: our launcher ({len(LAUNCHER_SOURCES)} Swift files) added, product and executable {APP_NAME}")
 
 
 # ------------------------------------------------------------------ Prism
@@ -366,6 +451,12 @@ def audit_app(app):
         problems.append(f"bundle id is {info.get('CFBundleIdentifier')}")
     if info.get("CFBundleDisplayName") != DISPLAY_NAME:
         problems.append(f"display name is {info.get('CFBundleDisplayName')}")
+    if info.get("CFBundleExecutable") != APP_NAME:
+        problems.append(f"executable is {info.get('CFBundleExecutable')}, not {APP_NAME}")
+    elif BRIDGE_CLASS not in (app / APP_NAME).read_bytes():
+        problems.append(f"the executable has no {BRIDGE_CLASS.decode()}: our launcher was not compiled in")
+    if info.get("UIApplicationSupportsIndirectInputEvents") is not True:
+        problems.append("UIApplicationSupportsIndirectInputEvents is not set")
     if "CFBundleURLTypes" in info:
         problems.append("upstream's URL scheme is still declared")
     for path in app.rglob("*"):
@@ -426,6 +517,7 @@ def main():
     shutil.copy2(game_love, LOVE_FILE)
     edit_info_plist()
     replace_icons()
+    add_launcher_sources()
 
     apps = {}
     for sdk in ("iphonesimulator", "iphoneos"):

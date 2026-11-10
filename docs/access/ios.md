@@ -1,6 +1,6 @@
 # iOS
 
-Planned (decision 67, 2026-11-09). Nothing is built for iOS yet. The goal is one complete app (launcher, game,
+Planned (decision 67, 2026-11-09). Built by CI since 2026-11-10 (see "Build" and "Launcher"); nothing has run on an iPhone yet. The goal is one complete app (launcher, game,
 speech, touch, sounds) per install, because a free Apple account signs for 7 days and allows few apps. Builds are
 plain unsigned IPAs that the player signs on the device with their own Apple ID. Target device for testing: the
 owner's iPhone 15 Pro Max.
@@ -81,7 +81,9 @@ How the build works:
 - **Our identity.** Bundle id `com.pocketaccessibility.app`, display name "Pocket Accessibility", upstream's
   `gen1recomp++` URL scheme and HealthKit text removed from the plist, `CODE_SIGN_ENTITLEMENTS` empty (no
   HealthKit), and the speech-bubble icon drawn by the script in place of upstream's cover art (a project mark).
-  The executable keeps LÖVE's name, `love`.
+  The executable keeps LÖVE's name, `love`. *(Corrected 2026-11-10: upstream's `patch_love_src.py` names
+  the product `gen1recomp++`, as the first CI run showed; since the launcher pass the product and executable
+  are `PocketAccessibility`, see "Launcher".)*
 - **Two xcodebuild runs**, Release, arm64 only, deployment target 15.0: simulator signed ad hoc (`-`), device
   with `CODE_SIGNING_ALLOWED=NO`. The device app is zipped as
   `dist/ios/PocketAccessibility-<version>-unsigned.ipa` (`dev-<commit>` without `--version`).
@@ -97,7 +99,7 @@ How the build works:
   HarfBuzz, Ogg, Vorbis, Theora and ModPlug texts from love-apple-dependencies are not gathered yet: a
   publication blocker, not a build blocker.
 
-What the smoke test checks (`simulator_smoke.sh`): newest iOS runtime, newest iPhone; the app launched with
+What the smoke test checked in step 2 (superseded by "What the smoke test checks" below): newest iOS runtime, newest iPhone; the app launched with
 `POKEPORT_ACCESS_TRACE=1` (speech is not silenced: nobody listens to a CI simulator, and the real Prism call
 is tested). It reads the app's console (`simctl launch --console-pty`) and the unified log for process `love`.
 It passes when it sees `[access] speech ready: <backend>` and `[access] say!: Pocket Accessibility ready.`, no
@@ -108,8 +110,143 @@ expected ending (`PackagedBuild.noLauncher`). It prints which backend Prism chos
 Unverified, in order of risk: that `patch_love_src.py` still finds its anchors in the pinned LÖVE; that LÖVE
 12's iOS build links with the runner's Xcode; that `print` reaches the console or the unified log; that LuaJIT
 on iOS provides FFI and `dlopen` accepts `@executable_path`; which backend Prism picks with VoiceOver off;
-how LÖVE ends the app on `love.event.quit`. Still to do for step 2: our iOS launcher, VoiceOver labels,
+how LÖVE ends the app on `love.event.quit` (answered from source in "Startup architecture": it restarts the
+Lua state; the first CI run's repeating start-up was this). Still to do for step 2: our iOS launcher (built
+next, below), VoiceOver labels,
 ROM-free Lua tests in the workflow, and the full license set.
+
+## Launcher (written 2026-11-10, not yet built by CI)
+
+Our own native launcher, fresh code in `launcher/ios/native/` (SwiftUI, iOS 15): upstream's launcher stays out
+(Term 2) and no Delta or other GPL/AGPL code is used. Standard controls only (a list, buttons, navigation links,
+headings, one alert), so VoiceOver reads it with no speech code; the launcher itself never uses Prism.
+
+| File | Role |
+|---|---|
+| `PocketLauncherBridge.swift` | `PocketLauncherBridge` (Objective-C name, read by Lua): shows the launcher, waits, sets the environment, marks the game screen, the close action, CI autostart, `[pocket-launcher]` log lines. |
+| `PocketLauncherModel.swift` | The game catalog (mirrors `GameVersion.lua`; `launcher_catalog_test.lua` checks it), ROM scan by size and SHA-1 (CryptoKit), Import ROMs, refusal file, sounds import and removal. |
+| `PocketLauncherViews.swift` | The screens: games, ROMs, Touch controls, Sounds, Credits and licenses. |
+| `src/access/IosLauncher.lua` | The game side: calls the bridge from `PackagedBuild.install` and polls the close action from `Access.install`'s update hook. Does nothing off iOS. |
+
+What it does, following Android's launcher where it fits:
+
+- **Games.** One row per game with a recognised dump or an existing import (`<game>/rom-cache.complete` in the
+  save folder, as Android checks), with "Ready" or "Imports the first time you play". Choosing a row plays it.
+- **Where ROMs are.** On iOS the game's save folder is the app's Documents folder (upstream's
+  `patch_love_src.py`), which Files shows as Pocket Accessibility. **Import ROMs** opens the system document
+  picker (several files at once) and copies Game Boy and Game Boy Advance dumps (`.gb`, `.gbc`, `.gba`) into
+  `Documents/ROMs`, created at every launcher showing so Files shows it. The scan reads `Documents/ROMs` and
+  `Documents` itself (not deeper), so dumps dropped there through Files are found after **Refresh game list**.
+  Files of 1, 2 or 16 MiB are hashed with SHA-1 and matched to the catalog, as Android's `RomFolderScanner`;
+  hashes are kept for the life of the process.
+- **Play.** As Android's `GameStarter`: the import variables are cleared, `POKEPORT_PORTMASTER_MANAGED=1`, and
+  for a first play `POKEPORT_IMPORT_ROM` (the file in Documents itself, no copy needed), `POKEPORT_VERSION` and
+  `POKEPORT_FORCE_IMPORT=1`; always `POKEPORT_GAME`. An import is announced and starts 3 s later, as on Android.
+- **Refusals.** The reason the game writes (`pocket-access-start-refused.txt`) is shown in an alert when the
+  launcher comes back, then deleted.
+- **Touch controls page.** Explains the Game screen, Direct Touch (below), the decision 66 gestures, the
+  settings rows and how to leave a game. No service is needed on iOS.
+- **Sounds page.** The download is left out: Android's `SoundPacks` unpacks the project's zip, and iOS has no
+  zip reader in its SDK (one would have to be written). Instead the page links the same GitHub zip
+  (`nuive/pokemon-access`, master) for Safari, explains unpacking it in Files, and **Import sounds from a
+  folder** copies only WAV files of at most 4 MiB from the `sounds` folder (or the folder above it) into
+  `pocket-access-sounds`, keeping the old pack until the new one is complete, as Android's folder import. Also
+  **Remove**.
+- **Credits and licenses.** License Term 1's credit is on the main screen; the page lists the texts
+  `build_ipa.py` puts in the app's `licenses/` folder.
+- **Left out for now:** the save editor, the Mods screen, choosing a save slot, zipped ROMs, re-importing a game
+  on purpose, the sounds download.
+
+Upstream's native bridges (`GRBootstrap.m`, `GRPickerBridge.swift`, `GRHealthBridge.swift`) stay in the app:
+they are upstream code under its license, compiled by `patch_love_src.py`, and nothing of ours calls them. Their
+Files sweep does nothing here (Documents is already the save folder) and the URL scheme they listen for is no
+longer declared, so they do not compete with the launcher.
+
+**Build.** After `build_ios.sh --package-only`, `build_ipa.py` copies the Swift files to
+`platform/xcode/ios/pocket/` and adds them to love-ios's Sources phase in `project.pbxproj`, the same mechanism
+`patch_love_src.py` uses, with its own object ids (`50C4E7A1...`). It also renames the product and executable to
+`PocketAccessibility` in love-ios's three configurations (both upstream's `gen1recomp++` and LÖVE's `love`
+entries, since each configuration then held two), so the process is no longer `gen1recomp++`, and adds
+`UIApplicationSupportsIndirectInputEvents`. The app audit fails if the executable is not `PocketAccessibility`,
+does not contain the bridge's class name, or lacks that plist key. Checked on Windows: the project edit applied
+to the pinned LÖVE's `project.pbxproj` after `patch_love_src.py`'s own edit (a scratch copy), twice without
+duplicating anything; no Swift was compiled.
+
+## Startup architecture
+
+Read from the pinned sources (LÖVE `def24510`; SDL 3.4.10 from love-apple-dependencies `a5522634`,
+`src/video/uikit/SDL_uikitappdelegate.m` at `release-3.4.10`), kept outside the repository:
+
+- SDL 3.4 uses the scene life cycle: `SDLUIKitSceneDelegate` shows the launch-screen window (level normal + 1)
+  and then runs `main()` from `postFinishLaunch` on the main thread; SDL's event pump runs the main run loop.
+  When `main()` returns SDL does not exit the process.
+- LÖVE's `main()` (`src/love.cpp`) loops over `runlove`, and on iOS forces every quit into a restart: "on iOS we
+  should never programmatically exit the app". Each `runlove` is a new Lua state: `boot.lua` runs `conf.lua`,
+  creates SDL's window, then requires `main.lua`. That loop was the first CI run's repeated start-up after
+  `start refused`.
+
+Chosen: **block inside Lua, at the top of `main.lua`, in a nested run loop.** `PackagedBuild.install` (main.lua's
+first line, already ours) calls `IosLauncher.waitForGame`, which calls `+[PocketLauncherBridge waitForGame]`
+through LuaJIT's FFI and the Objective-C runtime (`objc_getClass`, `sel_registerName`, `objc_msgSend` cast to
+its exact type; upstream's liblove patch reaches its Swift classes the same way). The bridge opens its own
+`UIWindow` on SDL's scene at level normal + 2 with a `UIHostingController`, hides SDL's windows from VoiceOver
+(`accessibilityElementsHidden`), and runs `CFRunLoopRunInMode` until the player chooses, the pattern SDL's own
+message boxes use. Then it sets the variables, hides its window, gives SDL's window back the key, and returns;
+`main.lua` reads the variables. When the game quits or refuses, LÖVE's restart runs `main.lua` again and the
+launcher returns, in the same process.
+
+Why: no SDL or LÖVE source is patched and nothing is swizzled; no new upstream hook; the same `main.lua` path
+as every other platform; and the restart LÖVE already does is the way back. Rejected: swizzling SDL's private
+`postFinishLaunch` (private names, and it would still not cover the return), patching `love.cpp`'s loop, and
+exporting a C symbol for the FFI (dead stripping and symbol visibility in a Release app). Costs: SDL's window
+already exists, black, while the launcher shows; and anything LÖVE leaves running across its restart (threads)
+is upstream's existing iOS behaviour.
+
+**Leaving a game.** The game has no quit on a phone (its QUIT returns to the title). The Game screen carries a
+VoiceOver custom action, "Close the game and return to the launcher"; Lua checks for it every 10 updates and
+calls `love.event.quit()`, which goes through `main.lua`'s `love.quit` exactly as a window close elsewhere
+(nothing is saved). Reaching the action needs Direct Touch off (actions are a VoiceOver gesture). Closing the
+app from the App Switcher also works and costs nothing but the unsaved game; the app opens on the launcher. A
+gesture inside the game for this would be an owner decision and was not added.
+
+## Direct touch
+
+While a game runs, SDL's view (root of the window whose controller is `SDL_uikitviewcontroller`) is one
+VoiceOver element: label "Game screen", trait `allowsDirectInteraction`, the close action, and VoiceOver is
+moved to it. A timer re-applies this once a second in case LÖVE recreates its window; it stops while the
+launcher shows, and the launcher's views never get the trait. TOUCH GESTURES now defaults on for iOS as for
+Android (`Settings.touchDefault`), so the ACCESSIBILITY rows appear there too.
+
+What iOS does (web research 2026-11-10, Apple forums and AppleVis; not tried on a device): since iOS 14 the trait
+alone is not enough. VoiceOver says the area is a direct touch area and that the rotor turns Direct Touch on for
+the app; the choice is remembered per app (Settings, Accessibility, VoiceOver, Rotor, Direct Touch Apps). iOS 17
+added `UIAccessibility.DirectTouchOptions` (silent on touch, requires activation); we set none. Unknown until the
+phone: whether the rotor can be reached while Direct Touch is on, how the screen-edge gestures behave, and how
+our three-finger taps interact with VoiceOver.
+
+## What the smoke test checks (since the launcher)
+
+`simulator_smoke.sh` launches the app twice on a throwaway iPhone simulator, no ROM:
+1. **launcher**, 25 s: Lua asked for the launcher, `[pocket-launcher] shown (1)`, no game started and no game
+   speech.
+2. **refusal**, 75 s, `POCKET_LAUNCHER_AUTOSTART=red` (honoured once per process, CI only): `autostart red`,
+   `starting red`, `[access] speech ready`, "Pocket Accessibility ready.", `[access] start refused`, then
+   `shown (2)` and `refusal shown:`: the way back works in one process.
+Both: still running at the end, no Lua error or traceback, no crash report, no uncaught exception, and no
+`[access] ios launcher unavailable`. The unified log is read for process `PocketAccessibility`.
+
+**Verified: nothing yet.** Lua tests on Windows only (`ios_launcher_test` 16/16 with a stand-in bridge;
+`launcher_catalog_test` 102/102 with the Swift catalog; `touch_gestures_test` 151/151 with the iOS default). The
+Swift has never been compiled. Riskiest for CI, in order: Swift compile errors (written without a Mac); the
+FFI lookup of `objc_getClass` and the `objc_msgSend` cast under LuaJIT on iOS; SwiftUI drawing and the picker in
+the nested run loop; finding SDL's view by its controller's class name; the duplicate `PRODUCT_NAME` keys.
+
+## Next
+
+1. A CI run of this branch; fix what it shows.
+2. First install on the owner's iPhone: launcher with VoiceOver, Import ROMs, Play and first import, Direct Touch
+   through the rotor, the gestures, Prism through VoiceOver, the close action, a refusal.
+3. Then: save editor and Mods screens, a sounds download (needs a zip reader), save slots.
 
 ## Plan
 

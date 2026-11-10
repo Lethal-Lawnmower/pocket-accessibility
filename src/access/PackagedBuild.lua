@@ -115,6 +115,9 @@ function PackagedBuild.install()
     return PackagedBuild
   end
   PackagedBuild.active = true
+  -- iOS: our native launcher shows here, at every start of the Lua state, and returns
+  -- once the player has chosen a game (src/access/IosLauncher.lua).  Elsewhere: nothing.
+  require("src.access.IosLauncher").waitForGame()
   package.preload["src.import.RomImporter"] = function()
     return require("src.access.PackagedImporter")
   end

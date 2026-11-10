@@ -22,7 +22,7 @@
 --   accessAutoWalkSpeed  nil = the game's own speed, else a GameSpeed level
 --   accessDialogue       nil = page by page (chunk as shown), "whole" = all
 --                        of a dialogue box at once
---   accessTouchGestures  nil = the platform default (on for Android), else
+--   accessTouchGestures  nil = the platform default (on for Android and iOS), else
 --                        true / false (decision 66, src/access/touch/)
 --   accessTouchWalk      nil = manual, "hybrid" or "auto" (touch walking mode)
 
@@ -80,8 +80,9 @@ function Settings.dialogueWhole(game)
   return options(game).accessDialogue == "whole"
 end
 
--- Touch gestures (decision 66): on by default on Android, where TalkBack
--- passes the game screen's touches through; off elsewhere, so a computer
+-- Touch gestures (decision 66): on by default on Android, where our touch
+-- service passes the game screen's touches through TalkBack, and on iOS, where
+-- VoiceOver's direct touch does (docs/access/ios.md); off elsewhere, so a computer
 -- keeps upstream's mouse and on-screen buttons.  POKEPORT_ACCESS_TOUCH=1
 -- makes them the default on a computer too (scripted tests).
 function Settings.touchDefault()
@@ -89,7 +90,7 @@ function Settings.touchDefault()
   local system = love and love.system
   if not (system and system.getOS) then return false end
   local ok, os_ = pcall(system.getOS)
-  return ok and os_ == "Android"
+  return ok and (os_ == "Android" or os_ == "iOS")
 end
 
 -- The touch rows are shown only where touch gestures can be used.

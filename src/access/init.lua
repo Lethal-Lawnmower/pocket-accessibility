@@ -102,6 +102,13 @@ function Access.install(opts)
     end
   end
 
+  -- iOS: the game screen's VoiceOver action "close the game" (src/access/IosLauncher.lua).
+  -- Independent of speech, so a player can always get back to the launcher.
+  local IosLauncher = require("src.access.IosLauncher")
+  if IosLauncher.active() then
+    after("update", function() IosLauncher.update() end)
+  end
+
   -- A cancelled quit (true) keeps the game running, so speech stays open.
   after("quit", function(cancelled)
     if not cancelled then Speech.shutdown() end

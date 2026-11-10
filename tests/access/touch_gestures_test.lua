@@ -485,6 +485,16 @@ eq(sgame.save.options.accessTouchWalk, nil, "manual clears the key")
 os.getenv = getenv
 eq(#Settings.rows(), before, "no touch rows on a computer without the variable")
 eq(Settings.touchGestures({ save = { options = {} } }), false, "and gestures default off there")
+-- iOS: VoiceOver's direct touch hands the game screen's touches over (docs/access/ios.md)
+for _, platform in ipairs({ "iOS", "Android", "Windows" }) do
+  local system = love.system
+  love.system = { getOS = function() return platform end }
+  local expectOn = platform ~= "Windows"
+  eq(Settings.touchGestures({ save = { options = {} } }), expectOn,
+    "gestures default " .. (expectOn and "on" or "off") .. " on " .. platform)
+  eq(#Settings.rows(), before + (expectOn and 2 or 0), "touch rows " .. (expectOn and "shown" or "hidden") .. " on " .. platform)
+  love.system = system
+end
 
 -- ------------------------------------------------------------ AutoWalk.plan
 package.loaded["src.access.nav.Pathfinder"] = {

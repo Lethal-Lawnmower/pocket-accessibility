@@ -1,7 +1,8 @@
 -- Touch gestures to game input and navigation (decision 66).
 --
 -- On Android an accessibility service passes the game screen's touches to
--- the game while TalkBack stays on, so the game receives ordinary
+-- the game while TalkBack stays on (on iOS, VoiceOver's direct touch on the
+-- game screen does the same), so the game receives ordinary
 -- love.touchpressed / touchmoved / touchreleased.  src/access/init.lua hands
 -- them here before upstream; while TOUCH GESTURES is on and a game is
 -- running, every touch is consumed, so upstream's on-screen buttons

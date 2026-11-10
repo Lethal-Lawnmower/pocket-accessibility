@@ -60,4 +60,25 @@ for id, name, hashes in javaSource:gmatch('new Game%("(%w+)",%s*"([^"]+)",%s*(.-
 end
 eq(table.concat(javaOrder, ","), table.concat(expected, ","), "the Android launcher lists every upstream game in order")
 
+-- The iOS launcher's copy (launcher/ios/native/PocketLauncherModel.swift), read the same way.
+local swiftFile = assert(io.open("launcher/ios/native/PocketLauncherModel.swift", "rb"))
+local swiftSource = swiftFile:read("*a")
+swiftFile:close()
+
+local swiftOrder = {}
+for id, name, folder, hashes in swiftSource:gmatch(
+    'CatalogGame%(id:%s*"(%w+)",%s*name:%s*"([^"]+)",%s*folder:%s*"([%w_]+)",%s*romSha1:%s*%[(.-)%]%)') do
+  swiftOrder[#swiftOrder + 1] = id
+  eq(folder .. "/", GameVersion.cachePrefix(id), id .. " iOS cache folder matches GameVersion")
+  local sha1s = {}
+  for sha1 in hashes:gmatch('"(%x+)"') do sha1s[#sha1s + 1] = sha1:lower() end
+  table.sort(sha1s)
+  local want = {}
+  for _, revision in ipairs(GameVersion.revisions(id)) do want[#want + 1] = revision.sha1:lower() end
+  table.sort(want)
+  eq(table.concat(sha1s, ","), table.concat(want, ","), id .. " iOS ROM hashes match GameVersion")
+  check(name:find("Pok", 1, true) == 1, id .. " has a spoken name on iOS")
+end
+eq(table.concat(swiftOrder, ","), table.concat(expected, ","), "the iOS launcher lists every upstream game in order")
+
 T.finish("launcher catalog")
