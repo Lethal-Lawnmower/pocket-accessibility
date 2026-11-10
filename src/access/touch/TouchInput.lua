@@ -10,23 +10,25 @@
 -- its touches back.  The launcher and other screens main.lua shows without
 -- a game keep their touches either way.
 --
--- Gestures (Gestures.lua recognises them):
---   (Halves: portrait top / bottom; landscape right navigates, left moves.)
---   On the map, top half (the navigation half):
---     swipe left / right   previous / next navigation point in the category
---     swipe up / down      previous / next category
---     (decision 23's controller modifier plus D-pad; other gestures there do nothing)
---   On the map, bottom half, and the whole screen everywhere else
---   (menus, battles, dialogue):
---     swipe                D-pad: one step on the map (see walking modes), one
---                          press in menus
---     double tap           A
---     two-finger double tap B
---     three-finger double tap START
---     three-finger tap     SELECT
---     two-finger turn      clockwise starts auto-walk to the selected point
---                          (as the left stick click), counterclockwise stops it
---   While any walk runs, any other gesture stops it, as any controller button does.
+-- Gestures (Gestures.lua recognises them), anywhere on the screen in any
+-- orientation; the number of fingers sets the meaning (the owner,
+-- 2026-11-10, in place of the screen halves first built):
+--   swipe                D-pad: one step on the map (see walking modes), one
+--                        press in menus, battles and dialogue
+--   two-finger swipe     on the map only (decision 23's controller modifier
+--                        plus D-pad):
+--                          left / right  previous / next navigation point
+--                          up / down     previous / next category
+--   double tap           A
+--   two-finger double tap B
+--   three-finger double tap START
+--   three-finger tap     SELECT
+--   two-finger triple tap on a title screen, back to the launcher
+--   two-finger turn      on the map: clockwise starts auto-walk to the selected
+--                        point (as the left stick click), counterclockwise stops it
+-- A two-finger swipe turns the pair less than a turn does, so the two do not
+-- mix.  While any walk runs, any other gesture stops it, as any controller
+-- button does.
 --
 -- TOUCH WALKING (src/access/Settings.lua):
 --   MANUAL  each swipe is one step.
@@ -317,7 +319,6 @@ function TouchInput.perform(gesture)
   if not game then return end
   local nav, adapter, navGame, onMap = navContext()
   if not nav then onMap = false end
-  local zone = (onMap and gesture.half == "top") and "top" or "bottom"
   local clockwise = gesture.kind == "rotate" and gesture.direction == "clockwise"
 
   -- a running walk stops on any gesture but the one that starts walks
@@ -329,12 +330,11 @@ function TouchInput.perform(gesture)
     return
   end
 
-  if zone == "top" then
-    if gesture.kind == "swipe" and gesture.fingers == 1 then
-      pcall(nav.handleCommand, nav, NAV_SWIPES[gesture.direction])
-      -- after the point's own announcement, its first leg
-      if walkingMode(game) == "hybrid" then announceLeg(nav, false) end
-    end
+  if gesture.kind == "swipe" and gesture.fingers == 2 then
+    if not onMap then return end
+    pcall(nav.handleCommand, nav, NAV_SWIPES[gesture.direction])
+    -- after the point's own announcement, its first leg
+    if walkingMode(game) == "hybrid" then announceLeg(nav, false) end
     return
   end
 

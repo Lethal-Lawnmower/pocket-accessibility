@@ -341,9 +341,9 @@ Second tablet build (2026-11-09), from `a6d58186`: hidden on-screen controls, la
 `adb install -r` (data kept). Owner's verdict: "feels good for the most part"; START and SELECT (three-finger
 double and single tap) "still feel kind of funky", so their gestures are not settled.
 Owner, 2026-11-10, after playing Crystal standing up on the iPhone: "maybe dividing the screen into two pieces wasn't
-a good idea"; both reaching the other half and mixing the halves up "felt funky". Proposed, not decided: no halves,
-the number of fingers sets the meaning (one-finger swipes move, two-finger swipes navigate; taps anywhere). The owner
-"potentially" likes it and is thinking it over. Nothing changed yet.
+a good idea"; both reaching the other half and mixing the halves up "felt funky". Decided the same day: no halves,
+the number of fingers sets the meaning ("I do like the idea of two finger swipes for the navigation stuff");
+built, see "Touch gestures (game side)".
 
 ## Haptics (built 2026-11-10, decision 68)
 
@@ -406,27 +406,33 @@ GESTURES is on and a game is running, every touch is consumed, so upstream's on-
 its touches either way (`CurrentGame.live`: the game only while `main.lua` updates it, or a driver
 handed it over). A desktop mouse never comes this way.
 
+Every gesture works anywhere on the screen, in any orientation; the number of fingers sets the meaning
+(decision 66 addendum, 2026-11-10).
+
 | Where | Gesture | Does |
 |---|---|---|
-| Map, top half | Swipe left / right | Previous / next navigation point in the category |
-| Map, top half | Swipe up / down | Previous / next category (decision 23's trigger plus D-pad) |
-| Map, bottom half | Swipe | One step that way (see TOUCH WALKING) |
-| Off the map, whole screen | Swipe | One D-pad press |
-| Bottom half; whole screen off the map | Double tap | A |
+| Map | Swipe | One step that way (see TOUCH WALKING) |
+| Off the map | Swipe | One D-pad press |
+| Map | Two-finger swipe left / right | Previous / next navigation point in the category |
+| Map | Two-finger swipe up / down | Previous / next category (decision 23's trigger plus D-pad) |
+| Anywhere | Double tap | A |
 | same | Two-finger double tap | B |
 | same | Three-finger double tap | START |
 | same | Three-finger tap | SELECT (once the double-tap window has passed) |
-| Map, bottom half | Two-finger turn clockwise | Auto-walk to the selected point, as the left stick click |
-| Map, bottom half | Two-finger turn counterclockwise | Stops any walk ("Auto walk stopped"), or says "Not walking" |
+| Map | Two-finger turn clockwise | Auto-walk to the selected point, as the left stick click |
+| Map | Two-finger turn counterclockwise | Stops any walk ("Auto walk stopped"), or says "Not walking" |
 | Title screen (Gen 2 and 3 boot main menu too) | Two-finger triple tap | Back to the launcher ("Returning to the launcher"); elsewhere it says to go to the title screen first. The double tap before it still presses B |
 
-Off the map (menus, battles, dialogue, the title screen) the whole screen is the bottom half. The halves
-split at the middle of `love.graphics.getDimensions()` (upstream's touch layout uses the same space), so
-any size works. Upright (portrait) the cut is across: top navigates, bottom moves. On its side (landscape,
-wider than tall) the cut is down the middle at the owner's request (2026-11-09): the left half moves ("bottom"
-in the tables), the right half navigates ("top"); left for moving matches a controller's D-pad. Taps and turns in the map's top half do nothing. While a walk runs, any
-gesture but the clockwise turn stops it, as any controller button does. Holding a direction is not
-decided and not recognised.
+A two-finger swipe and a turn are told apart by how far the line between the fingers turns (45 degrees or
+more is a turn), so a slightly crooked swipe stays a swipe. Off the map a two-finger swipe does nothing.
+While a walk runs, any gesture but the clockwise turn stops it, as any controller button does. Holding a
+direction is not decided and not recognised.
+
+Until 2026-11-10 the screen was cut in halves: portrait top navigated and bottom moved; landscape, from
+2026-11-09, right navigated and left moved. The owner, after playing Crystal standing up on the iPhone:
+"maybe dividing the screen into two pieces wasn't a good idea" (reaching the other half and mixing them up
+both "felt funky"). Replaced by the finger count; START and SELECT were left as they were ("Let's leave
+start and select alone").
 
 **ACCESSIBILITY rows**, shown only on Android or with `POKEPORT_ACCESS_TOUCH=1`, stored per generation
 like the other rows (`accessTouchGestures`, `accessTouchWalk`):
@@ -455,7 +461,15 @@ device): swipe at least 6% and under 1 s; tap moves under 4% and lasts under 0.3
 tap starts within 0.3 s of the first ending (three fingers: taps up to 0.5 s and 0.55 s for the second tap, longer at the owner's request on 2026-11-09, so SELECT waits 0.55 s); a turn is two fingers whose line turns 45 degrees or more; a
 stroke open 5 s has lost its releases and is dropped.
 
-**Verified 2026-11-09, run level only.** `tests/access/touch_gestures_test.lua` 136/136: every gesture,
+**Verified 2026-11-10 (no halves), run level only.** `touch_gestures_test` 195/195: swipes anywhere, two-finger
+swipes in four directions and told apart from a turn (a crooked pair too), two-finger swipes navigate on the map
+and do nothing off it, a double tap high on the screen on the map is A. Silent isolated Crystal run with
+`touch_gestures.lua` (1024 x 768, so landscape): a one-finger swipe on the right side, the old navigation half,
+stepped; two-finger swipes went through points and categories on both sides; START, a menu swipe, B, both
+turns and a Hybrid leg (two-finger swipe to choose, one-finger swipe to walk 2 right) worked; no upstream
+on-screen button pressed. Not on a device yet.
+
+**Verified 2026-11-09 (halves; superseded above), run level only.** `tests/access/touch_gestures_test.lua` 136/136: every gesture,
 the halves in portrait and landscape, tap / swipe / turn told apart, three-finger single and double,
 consumption and hand-back, the modes, the hybrid leg and wrong-way step, the rows. Game runs with
 `tests/access/drivers/touch_gestures.lua` (silent, isolated, `POKEPORT_ACCESS_TOUCH=1`, synthetic touches

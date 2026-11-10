@@ -21,19 +21,18 @@
 -- Anything else (a long press, a slow drag) is no gesture.  Holding a
 -- direction is not decided by the owner and is deliberately not recognised.
 --
--- Every gesture says which half of the screen it started in, from the
--- fingers' starting average.  "top" is the navigation half and "bottom" the
--- movement half (decision 66).  Upright (portrait) the screen is cut across:
--- top and bottom as named.  On its side (landscape, wider than tall) it is
--- cut down the middle (the owner, 2026-11-09): the left half moves, like a
--- controller's D-pad, and the right half navigates.
+-- Where on the screen a gesture is made does not matter: the whole screen
+-- works the same in any orientation, and the number of fingers sets the
+-- meaning (the owner, 2026-11-10, replacing the top / bottom halves of
+-- 2026-11-09, which were awkward to reach and to tell apart in real play).
+-- x and y (the fingers' starting average) are reported for logs only.
 --
 -- Gestures:
---   { kind = "swipe",  direction = "up"|"down"|"left"|"right", fingers, half, x, y }
---   { kind = "tap",    fingers, taps = 1|2|3, half, x, y }
+--   { kind = "swipe",  direction = "up"|"down"|"left"|"right", fingers, x, y }
+--   { kind = "tap",    fingers, taps = 1|2|3, x, y }
 --   (a third tap right after a double tap is reported as taps = 3 on its own;
 --   the double tap has already been reported, so B never waits for it)
---   { kind = "rotate", direction = "clockwise"|"counterclockwise", degrees, half, x, y }
+--   { kind = "rotate", direction = "clockwise"|"counterclockwise", degrees, x, y }
 
 local Gestures = {}
 
@@ -91,21 +90,12 @@ function Gestures.new(opts)
   }, Recogniser)
 end
 
--- Which half of a w x h screen a point is in: "top" (navigation) or
--- "bottom" (movement).  Landscape is cut left and right, left moving.
-function Gestures.half(x, y, w, h)
-  if type(w) == "number" and type(h) == "number" and w > h then
-    return x >= w / 2 and "top" or "bottom"
-  end
-  return (type(h) == "number" and h > 0 and y < h / 2) and "top" or "bottom"
-end
-
 local function shorterSide(self)
   local w, h = self.size()
   w, h = tonumber(w) or 1, tonumber(h) or 1
   local short = math.min(w, h)
   if short <= 0 then short = 1 end
-  return short, h, w
+  return short
 end
 
 -- The angle of the line from the stroke's first finger to its second.
@@ -139,7 +129,7 @@ local function flushPending(self, out)
   if not self.pending then return end
   local p = self.pending
   self.pending = nil
-  out[#out + 1] = { kind = "tap", fingers = p.fingers, taps = 1, half = p.half, x = p.x, y = p.y }
+  out[#out + 1] = { kind = "tap", fingers = p.fingers, taps = 1, x = p.x, y = p.y }
 end
 
 function Recogniser:pressed(id, x, y, t)
@@ -184,7 +174,7 @@ local function classify(self, stroke, t, out)
   -- a double tap just reported, which a third tap may still follow
   local afterDouble = self.afterDouble
   self.afterDouble = nil
-  local short, h, w = shorterSide(self)
+  local short = shorterSide(self)
   local n = stroke.maxFingers
   local duration = t - stroke.startTime
   local sx, sy, dx, dy, maxMove = 0, 0, 0, 0, 0
@@ -198,32 +188,31 @@ local function classify(self, stroke, t, out)
   end
   local count = #stroke.order
   sx, sy, dx, dy = sx / count, sy / count, dx / count, dy / count
-  local half = Gestures.half(sx, sy, w, h)
 
   -- screen y grows downwards, so a growing angle turns clockwise as seen
   local degrees = math.deg(stroke.rotation)
   if n == 2 and math.abs(degrees) >= th.ROTATE_MIN_DEGREES then
     flushPending(self, out)
     out[#out + 1] = { kind = "rotate", direction = degrees > 0 and "clockwise" or "counterclockwise",
-                      degrees = degrees, half = half, x = sx, y = sy }
+                      degrees = degrees, x = sx, y = sy }
     return
   end
 
   if maxMove <= th.TAP_MAX_MOVE * short and duration <= tapMax(th, n) then
     local d = afterDouble
     if d and d.fingers == n and stroke.startTime - d.endTime <= doubleWindow(th, n) then
-      out[#out + 1] = { kind = "tap", fingers = n, taps = 3, half = d.half, x = d.x, y = d.y }
+      out[#out + 1] = { kind = "tap", fingers = n, taps = 3, x = d.x, y = d.y }
       return
     end
     local p = self.pending
     if p and p.fingers == n and stroke.startTime - p.endTime <= doubleWindow(th, n) then
       self.pending = nil
-      out[#out + 1] = { kind = "tap", fingers = n, taps = 2, half = p.half, x = p.x, y = p.y }
-      self.afterDouble = { fingers = n, endTime = t, half = p.half, x = p.x, y = p.y }
+      out[#out + 1] = { kind = "tap", fingers = n, taps = 2, x = p.x, y = p.y }
+      self.afterDouble = { fingers = n, endTime = t, x = p.x, y = p.y }
       return
     end
     flushPending(self, out)
-    self.pending = { fingers = n, endTime = t, half = half, x = sx, y = sy }
+    self.pending = { fingers = n, endTime = t, x = sx, y = sy }
     return
   end
 
@@ -236,7 +225,7 @@ local function classify(self, stroke, t, out)
     else
       direction = dy > 0 and "down" or "up"
     end
-    out[#out + 1] = { kind = "swipe", direction = direction, fingers = n, half = half, x = sx, y = sy }
+    out[#out + 1] = { kind = "swipe", direction = direction, fingers = n, x = sx, y = sy }
   end
 end
 

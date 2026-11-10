@@ -45,25 +45,33 @@ local function only(out, label)
   return out[1] or {}
 end
 
--- swipes in all four directions, bottom half, portrait
+-- swipes in all four directions, anywhere on the screen
 local r = Gestures.new({ size = size })
 for _, case in ipairs({ { "up", 0, -300 }, { "down", 0, 300 }, { "left", -300, 0 }, { "right", 300, 0 } }) do
-  local g = only(stroke(r, 10, { { 800, 2000, case[2], case[3] } }, 0.15), "swipe " .. case[1])
-  eq(g.kind, "swipe", "swipe " .. case[1] .. " kind")
-  eq(g.direction, case[1], "swipe " .. case[1] .. " direction")
-  eq(g.half, "bottom", "swipe " .. case[1] .. " starts in the bottom half")
-  eq(g.fingers, 1, "one finger")
+  for _, y in ipairs({ 600, 2000 }) do
+    local g = only(stroke(r, 10, { { 800, y, case[2], case[3] } }, 0.15), "swipe " .. case[1])
+    eq(g.kind, "swipe", "swipe " .. case[1] .. " kind at y " .. y)
+    eq(g.direction, case[1], "swipe " .. case[1] .. " direction at y " .. y)
+    eq(g.fingers, 1, "one finger")
+    eq(g.half, nil, "no screen half is reported")
+  end
 end
 
--- top half in portrait and in landscape
+-- two-finger swipes: the pair moves together, so it is a swipe, not a turn
 r = Gestures.new({ size = size })
-eq(only(stroke(r, 20, { { 800, 600, 300, 0 } }, 0.15), "portrait top").half, "top", "portrait: y 600 of 2560 is top")
-eq(only(stroke(r, 21, { { 800, 1400, 300, 0 } }, 0.15), "portrait bottom").half, "bottom", "portrait: y 1400 of 2560 is bottom")
+for _, case in ipairs({ { "up", 0, -300 }, { "down", 0, 300 }, { "left", -300, 0 }, { "right", 300, 0 } }) do
+  local g = only(stroke(r, 20, { { 600, 1200, case[2], case[3] }, { 1000, 1250, case[2], case[3] } }, 0.15),
+    "two-finger swipe " .. case[1])
+  eq(g.kind, "swipe", "two-finger swipe " .. case[1] .. " kind")
+  eq(g.direction, case[1], "two-finger swipe " .. case[1] .. " direction")
+  eq(g.fingers, 2, "two fingers")
+end
+-- a sloppy pair (one finger drifts 80 px across) is still a swipe
+eq(only(stroke(r, 21, { { 600, 1200, 300, 0 }, { 1000, 1200, 300, 80 } }, 0.15), "sloppy pair").kind,
+  "swipe", "a pair turning about 11 degrees is a swipe")
 W, H = 2560, 1600 -- turned on its side
--- landscape is cut down the middle: left moves ("bottom"), right navigates ("top")
-eq(only(stroke(r, 22, { { 1400, 300, 0, 300 } }, 0.15), "landscape right").half, "top", "landscape: x 1400 of 2560 navigates")
-eq(only(stroke(r, 23, { { 1100, 300, 0, 300 } }, 0.15), "landscape left").half, "bottom", "landscape: x 1100 of 2560 moves")
-eq(only(stroke(r, 24, { { 600, 1400, 0, -300 } }, 0.15), "landscape low left").half, "bottom", "landscape: height does not matter")
+eq(only(stroke(r, 22, { { 1400, 300, 0, 300 } }, 0.15), "landscape").direction, "down",
+  "landscape swipes anywhere too")
 -- the threshold follows the shorter side: 6% of 1600 = 96
 eq(#stroke(r, 24, { { 800, 1200, 90, 0 } }, 0.15), 0, "90 px is neither tap nor swipe on a 1600 px side")
 eq(only(stroke(r, 25, { { 800, 1200, 100, 0 } }, 0.15), "100 px").kind, "swipe", "100 px is a swipe")
@@ -246,6 +254,11 @@ local function swipe(dir, y)
   local d = { up = { 0, -300 }, down = { 0, 300 }, left = { -300, 0 }, right = { 300, 0 } }
   return touch({ { 800, y or BOTTOM } }, d[dir][1], d[dir][2], 0.15)
 end
+-- two fingers side by side moving together
+local function swipe2(dir, y)
+  local d = { up = { 0, -300 }, down = { 0, 300 }, left = { -300, 0 }, right = { 300, 0 } }
+  return touch({ { 600, y or BOTTOM }, { 1000, y or BOTTOM } }, d[dir][1], d[dir][2], 0.15)
+end
 local function frame()
   now = now + 1 / 60
   TouchInput.update()
@@ -292,10 +305,13 @@ setup(false)
 options.gestures = false
 check(not TouchInput.ownsTouches(), "gestures off: upstream's buttons come back")
 
--- buttons, off the map: the whole screen counts, top half too
+-- buttons: anywhere on the screen
 setup(false)
 doubleTap(1, TOP)
-eq(pressedButtons(), "a", "double tap is A (top half off the map)")
+eq(pressedButtons(), "a", "double tap is A (high on the screen)")
+setup(true)
+doubleTap(1, TOP)
+eq(pressedButtons(), "a", "and on the map too")
 setup(false)
 doubleTap(2)
 eq(pressedButtons(), "b", "two-finger double tap is B")
@@ -331,20 +347,22 @@ frames(20)
 eq(pressedButtons(), "select", "then it is SELECT")
 setup(false)
 swipe("up", TOP)
-eq(pressedButtons(), "up", "off the map the top half swipes the D-pad too")
-eq(#commands, 0, "no navigation command off the map")
+eq(pressedButtons(), "up", "off the map a swipe high on the screen is the D-pad")
+setup(false)
+swipe2("up")
+eq(pressedButtons(), "", "off the map a two-finger swipe does nothing")
+eq(#commands, 0, "and is no navigation command")
 setup(false)
 touch({ { 600, BOTTOM }, { 1000, BOTTOM } }, 0, 0, 0.4, 90)
 eq(#autoCalls, 0, "a turn off the map does not start auto-walk")
 
--- on the map: the top half navigates
+-- on the map: two-finger swipes navigate, anywhere
 setup(true)
-swipe("right", TOP) swipe("left", TOP) swipe("up", TOP) swipe("down", TOP)
+swipe2("right", TOP) swipe2("left") swipe2("up", TOP) swipe2("down")
 eq(table.concat(commands, ","), "next_map_item,previous_map_item,previous_item_filter,next_item_filter",
-  "top half: left/right through points, up/down through categories")
+  "two fingers: left/right through points, up/down through categories")
 eq(pressedButtons(), "", "and no D-pad press")
-doubleTap(1, TOP)
-eq(pressedButtons(), "", "a double tap in the top half on the map does nothing")
+check(TouchInput._state().step == nil, "and no step")
 
 -- on the map: a bottom swipe is one step, held until the step is under way
 setup(true)
@@ -442,7 +460,7 @@ check(TouchInput._state().step ~= nil, "it steps")
 setup(true)
 options.walk = "hybrid"
 planResult = route("up", "up", "up", "left")
-swipe("right", TOP)
+swipe2("right")
 eq(lastSaid(), "  3 up", "a new point is followed by its first leg, queued")
 swipe("up")
 eq(#autoCalls, 1, "a swipe along the leg starts a walk")

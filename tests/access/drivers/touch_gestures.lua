@@ -1,7 +1,7 @@
 -- Touch gestures (decision 66), scripted in any game: synthetic touches go
 -- through the real love.touchpressed / touchmoved / touchreleased, so they
 -- pass the layer's before-hooks exactly as an Android touch would.  Checks a
--- step on the map, the top half's navigation swipes, the start menu (three-
+-- step on the map, two-finger navigation swipes, the start menu (three-
 -- finger double tap, a swipe, two-finger double tap), the two-finger turns
 -- for auto-walk, and one hybrid leg.  Harness setup (reaching the map)
 -- presses buttons directly on the game's input, never through gestures.
@@ -79,23 +79,24 @@ return function(game)
 
   -- ---------------------------------------------------------- touches
   local w, h = love.graphics.getDimensions()
-  -- zones, as the recogniser cuts the screen: portrait top (navigate) and
-  -- bottom (move); landscape right (navigate) and left (move)
-  local TOP, BOTTOM = "top", "bottom"
+  -- Anywhere on the screen works the same (the owner, 2026-11-10), so the
+  -- touches use two places to show it: high and low, or right and left when
+  -- the window is wider than tall.
+  local HIGH, LOW = "high", "low"
   local LANDSCAPE = w > h
-  -- the middle of a zone, and n fingers spread inside it
-  local function centre(zone)
-    if LANDSCAPE then return (zone == TOP and 0.75 or 0.25) * w, h / 2 end
-    return w / 2, (zone == TOP and 0.25 or 0.75) * h
+  local function centre(place)
+    if LANDSCAPE then return (place == HIGH and 0.75 or 0.25) * w, h / 2 end
+    return w / 2, (place == HIGH and 0.25 or 0.75) * h
   end
-  local function spread(zone, n, from, step)
+  -- n fingers side by side around a place
+  local function spread(place, n, from, step)
     local list = {}
     for i = 1, n do
       local f = from + step * i
       if LANDSCAPE then
-        list[i] = { (zone == TOP and 0.5 or 0) * w + f * w / 2, h / 2 }
+        list[i] = { (place == HIGH and 0.5 or 0) * w + f * w / 2, h / 2 }
       else
-        list[i] = { w * f, (zone == TOP and 0.25 or 0.75) * h }
+        list[i] = { w * f, (place == HIGH and 0.25 or 0.75) * h }
       end
     end
     return list
@@ -135,59 +136,63 @@ return function(game)
     end
   end
   local SWIPE = math.min(w, h) * 0.2
-  local function swipe(dir, zone)
-    local d = { up = { 0, -SWIPE }, down = { 0, SWIPE }, left = { -SWIPE, 0 }, right = { SWIPE, 0 } }
-    local x, y = centre(zone)
-    gesture({ { x, y } }, d[dir][1], d[dir][2], 4)
+  local MOVES = { up = { 0, -SWIPE }, down = { 0, SWIPE }, left = { -SWIPE, 0 }, right = { SWIPE, 0 } }
+  local function swipe(dir, place)
+    local x, y = centre(place)
+    gesture({ { x, y } }, MOVES[dir][1], MOVES[dir][2], 4)
   end
-  local function spots(n, zone)
-    return spread(zone, n, 0.0, 0.2)
+  -- navigation: two fingers moving together
+  local function swipe2(dir, place)
+    gesture(spread(place, 2, 0.05, 0.3), MOVES[dir][1], MOVES[dir][2], 4)
   end
-  local function doubleTap(n, y)
-    gesture(spots(n, y or BOTTOM), 0, 0, 1)
+  local function spots(n, place)
+    return spread(place, n, 0.0, 0.2)
+  end
+  local function doubleTap(n, place)
+    gesture(spots(n, place or LOW), 0, 0, 1)
     frames(2)
-    gesture(spots(n, y or BOTTOM), 0, 0, 1)
+    gesture(spots(n, place or LOW), 0, 0, 1)
   end
   local function turn(degrees)
-    gesture(spread(BOTTOM, 2, 0.05, 0.3), 0, 0, 8, degrees)
+    gesture(spread(LOW, 2, 0.05, 0.3), 0, 0, 8, degrees)
   end
 
   U.log("NOTE", "screen", w, h, "touch gestures", tostring(Settings.touchGestures(game)))
   if not settle(4000) then U.log("FAIL", "never reached the map") return end
   heard()
 
-  -- a step on the map, bottom half
+  -- a step on the map, high on the screen (once the halves' navigation side)
   local moved = false
   for _, dir in ipairs({ "down", "left", "right", "up" }) do
     local before = where()
-    swipe(dir, BOTTOM)
+    swipe(dir, HIGH)
     frames(40)
     local after = where()
-    U.log("RESULT", "bottom swipe " .. dir .. ": " .. before .. " -> " .. after, heard())
+    U.log("RESULT", "swipe " .. dir .. ": " .. before .. " -> " .. after, heard())
     if after ~= before then moved = true break end
   end
   U.log("RESULT", "a swipe took a step:", tostring(moved))
 
-  -- top half: navigation points and categories
-  swipe("right", TOP) frames(10)
-  U.log("RESULT", "top swipe right =>", heard())
-  swipe("right", TOP) frames(10)
-  U.log("RESULT", "top swipe right =>", heard())
-  swipe("down", TOP) frames(10)
-  U.log("RESULT", "top swipe down =>", heard())
-  swipe("up", TOP) frames(10)
-  U.log("RESULT", "top swipe up =>", heard())
-  swipe("right", TOP) frames(10)
-  U.log("RESULT", "top swipe right =>", heard())
+  -- two-finger swipes: navigation points and categories, high and low
+  swipe2("right", LOW) frames(10)
+  U.log("RESULT", "two-finger swipe right =>", heard())
+  swipe2("right", HIGH) frames(10)
+  U.log("RESULT", "two-finger swipe right =>", heard())
+  swipe2("down", LOW) frames(10)
+  U.log("RESULT", "two-finger swipe down =>", heard())
+  swipe2("up", HIGH) frames(10)
+  U.log("RESULT", "two-finger swipe up =>", heard())
+  swipe2("right", LOW) frames(10)
+  U.log("RESULT", "two-finger swipe right =>", heard())
 
   -- the start menu: START, a D-pad press, B
   doubleTap(3)
   frames(40)
   U.log("RESULT", "three-finger double tap (START) =>", heard(), "on map:", tostring(onMap()))
-  swipe("down", TOP)
+  swipe("down", HIGH)
   frames(20)
-  U.log("RESULT", "swipe down in the menu (top half counts) =>", heard())
-  swipe("up", BOTTOM)
+  U.log("RESULT", "swipe down in the menu =>", heard())
+  swipe("up", LOW)
   frames(20)
   U.log("RESULT", "swipe up in the menu =>", heard())
   doubleTap(2)
@@ -218,15 +223,15 @@ return function(game)
   -- the first point with a leg to walk (one the player already stands at has none)
   local text, count, dir
   for _ = 1, 8 do
-    swipe("right", TOP) frames(10)
+    swipe2("right", HIGH) frames(10)
     text = heard()
-    U.log("RESULT", "hybrid: top swipe right =>", text)
+    U.log("RESULT", "hybrid: two-finger swipe right =>", text)
     count, dir = text:match("(%d+) (%a+)$")
     if dir then break end
   end
   if dir then
     local before = where()
-    swipe(dir, BOTTOM)
+    swipe(dir, LOW)
     for _ = 1, 900 do
       U.wait(1)
       if not AutoWalk.active() and #said > 0 then break end
