@@ -77,6 +77,8 @@ struct LauncherView: View {
                 }
                 Section(header: Heading("More")) {
                     NavigationLink("Edit a save", destination: EditSaveListView(model: model))
+                    Button("Mods") { model.openMods() }
+                        .accessibilityHint("Turn mods on or off, remove them, or install them from the mod index.")
                     NavigationLink("Touch controls", destination: TouchControlsView())
                     NavigationLink("Sounds", destination: SoundsView(model: model))
                     NavigationLink("Credits and licenses", destination: CreditsView())
@@ -87,6 +89,11 @@ struct LauncherView: View {
             }
             .listStyle(.insetGrouped)
             .navigationTitle("Pocket Accessibility")
+            .fullScreenCover(isPresented: $model.showingMods) {
+                ModsView(model: ModsModel(games: model.importedGames)) {
+                    model.modsClosed()
+                }
+            }
         }
         .navigationViewStyle(.stack)
         .fileImporter(isPresented: $pickingRoms, allowedContentTypes: [.item],

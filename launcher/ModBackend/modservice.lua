@@ -188,6 +188,112 @@ function handlers.check(request)
   }
 end
 
+-- Unpacking a downloaded zip, for the iPhone launcher (docs/access/ios.md, "Save editor
+-- and mods"), which has no zip reader of its own; Windows and Android unpack in the
+-- launcher (ModInstaller.cs, ModInstaller.java) and never send this.  The same rules:
+-- the shallowest manifest.json marks the mod's root, only files under it are written,
+-- more than one mod at that depth or more than 4 GiB unpacked is refused.  LÖVE mounts
+-- the zip read-only, and PhysFS refuses names that climb out of it ("..", absolute
+-- paths), so nothing can be written outside `into`.
+local MANIFEST = "manifest.json"
+local MAX_UNPACKED_BYTES = 4 * 1024 * 1024 * 1024
+local COPY_CHUNK = 1024 * 1024
+
+-- Every file under `dir` (a mounted path), as paths relative to it.
+local function walk(dir, prefix, out)
+  for _, name in ipairs(love.filesystem.getDirectoryItems(dir)) do
+    local path, relative = dir .. "/" .. name, prefix .. name
+    local info = love.filesystem.getInfo(path)
+    if info and info.type == "directory" then
+      walk(path, relative .. "/", out)
+    elseif info and info.type == "file" then
+      out[#out + 1] = { relative = relative, size = info.size or 0 }
+    end
+  end
+  return out
+end
+
+-- Plain folder names only (the same test as ModInstaller.java's PLAIN_NAME), so the
+-- request can only name scratch places in the save folder.
+local function plainPath(path)
+  if type(path) ~= "string" or path == "" or path:find("%.%.") or path:find("^/") or path:find(":") then
+    return false
+  end
+  for part in path:gmatch("[^/]+") do
+    if not part:match("^[%w_@][%w_@%.%- ]*$") then return false end
+  end
+  return true
+end
+
+local function copyFile(from, to)
+  local source = love.filesystem.newFile(from, "r")
+  local target = love.filesystem.newFile(to, "w")
+  local ok, problem = pcall(function()
+    while true do
+      local chunk, size = source:read(COPY_CHUNK)
+      if not chunk or size == 0 then break end
+      assert(target:write(chunk, size))
+    end
+  end)
+  source:close()
+  target:close()
+  if not ok then error("could not write " .. to .. ": " .. tostring(problem), 0) end
+end
+
+function handlers.unpack(request)
+  local zip, into = request.zip, request.into
+  if not (plainPath(zip) and plainPath(into) and zip:sub(1, #"mods-incoming/") == "mods-incoming/"
+          and into:sub(1, #"mods-incoming/") == "mods-incoming/") then
+    error("unpack only works inside mods-incoming", 0)
+  end
+  local mountPoint = "pocket-unpack-" .. tostring(os.time()) .. "-" .. tostring(math.random(1000000))
+  if not love.filesystem.mount(zip, mountPoint) then
+    error("The download is not a zip file the game can open.", 0)
+  end
+  local ok, result = pcall(function()
+    local files = walk(mountPoint, "", {})
+    local root, depth, atDepth = nil, math.huge, 0
+    for _, file in ipairs(files) do
+      local name = file.relative
+      if name == MANIFEST or name:sub(-#MANIFEST - 1) == "/" .. MANIFEST then
+        local candidate = name:sub(1, #name - #MANIFEST)
+        local _, slashes = candidate:gsub("/", "")
+        if slashes < depth then
+          root, depth, atDepth = candidate, slashes, 1
+        elseif slashes == depth then
+          atDepth = atDepth + 1
+        end
+      end
+    end
+    if not root then error("The download has no manifest.json, so it is not a mod.", 0) end
+    if atDepth > 1 then error("The download holds more than one mod, so it was not installed.", 0) end
+    local total, written = 0, 0
+    for _, file in ipairs(files) do
+      if file.relative:sub(1, #root) == root then
+        total = total + file.size
+        if total > MAX_UNPACKED_BYTES then
+          error("The mod unpacks to more than 4 gigabytes, so it was not installed.", 0)
+        end
+      end
+    end
+    assert(love.filesystem.createDirectory(into), "could not create " .. into)
+    for _, file in ipairs(files) do
+      if file.relative:sub(1, #root) == root then
+        local relative = file.relative:sub(#root + 1)
+        local target = into .. "/" .. relative
+        local parent = target:match("^(.*)/[^/]+$")
+        if parent then love.filesystem.createDirectory(parent) end
+        copyFile(mountPoint .. "/" .. file.relative, target)
+        written = written + 1
+      end
+    end
+    return { files = written }
+  end)
+  love.filesystem.unmount(zip)
+  if not ok then error(result, 0) end
+  return result
+end
+
 -- One request as a line of JSON; one answer as a table, ready to encode.
 function Service.answer(line)
   local request = Json.decode(line)

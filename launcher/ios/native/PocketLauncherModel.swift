@@ -148,6 +148,8 @@ final class LauncherModel: ObservableObject {
     var onOpenBackend: ((String) -> Void)?
     /// The game whose save editor is open (PocketSaveEditor.swift).
     @Published var editing: CatalogGame?
+    /// The Mods screen is open (PocketMods.swift).
+    @Published var showingMods = false
 
     /// Kept for the life of the process, across returns to the launcher.
     private static var hashCache: [String: String] = [:]
@@ -230,6 +232,20 @@ final class LauncherModel: ObservableObject {
         PocketLauncherBridge.log("save editor for \(game.id)")
         onOpenBackend?("save")
         editing = game
+    }
+
+    /// Opens the Mods screen; its backend runs in the game program, like the save editor's.
+    func openMods() {
+        guard !busy, editing == nil, !showingMods else { return }
+        busy = true
+        PocketLauncherBridge.log("mods screen")
+        onOpenBackend?("mods")
+        showingMods = true
+    }
+
+    func modsClosed() {
+        BackendChannel.close()
+        say("Closing Mods.")
     }
 
     /// The editor closed: the game program starts again and shows a fresh launcher.
