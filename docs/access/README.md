@@ -25,7 +25,7 @@ Then read only the topic file for the area you are working on.
 
 Topic files are created when work on that area starts, not before:
 `speech.md`, `navigation.md`, `menus-and-text.md`, `battle.md`, `launcher.md`,
-`save-editor.md`, `android.md`, and one file per game holding differences only (for example
+`save-editor.md`, `android.md`, `ios.md`, and one file per game holding differences only (for example
 `yellow.md`; Gold, Silver and Crystal share an engine: screens in
 `gold-silver-crystal.md`, navigation and the edition audit in
 `gold-silver-crystal-navigation.md`; FireRed and LeafGreen in

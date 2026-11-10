@@ -79,7 +79,27 @@ return function(game)
 
   -- ---------------------------------------------------------- touches
   local w, h = love.graphics.getDimensions()
-  local TOP, BOTTOM = h * 0.25, h * 0.75
+  -- zones, as the recogniser cuts the screen: portrait top (navigate) and
+  -- bottom (move); landscape right (navigate) and left (move)
+  local TOP, BOTTOM = "top", "bottom"
+  local LANDSCAPE = w > h
+  -- the middle of a zone, and n fingers spread inside it
+  local function centre(zone)
+    if LANDSCAPE then return (zone == TOP and 0.75 or 0.25) * w, h / 2 end
+    return w / 2, (zone == TOP and 0.25 or 0.75) * h
+  end
+  local function spread(zone, n, from, step)
+    local list = {}
+    for i = 1, n do
+      local f = from + step * i
+      if LANDSCAPE then
+        list[i] = { (zone == TOP and 0.5 or 0) * w + f * w / 2, h / 2 }
+      else
+        list[i] = { w * f, (zone == TOP and 0.25 or 0.75) * h }
+      end
+    end
+    return list
+  end
   local nextId = 100
   local consumedAll = true
   -- fingers: list of { x, y }; dx, dy move all of them; turn in degrees
@@ -115,14 +135,13 @@ return function(game)
     end
   end
   local SWIPE = math.min(w, h) * 0.2
-  local function swipe(dir, y)
+  local function swipe(dir, zone)
     local d = { up = { 0, -SWIPE }, down = { 0, SWIPE }, left = { -SWIPE, 0 }, right = { SWIPE, 0 } }
-    gesture({ { w / 2, y } }, d[dir][1], d[dir][2], 4)
+    local x, y = centre(zone)
+    gesture({ { x, y } }, d[dir][1], d[dir][2], 4)
   end
-  local function spots(n, y)
-    local list = {}
-    for i = 1, n do list[i] = { w * (0.2 + 0.2 * i), y } end
-    return list
+  local function spots(n, zone)
+    return spread(zone, n, 0.0, 0.2)
   end
   local function doubleTap(n, y)
     gesture(spots(n, y or BOTTOM), 0, 0, 1)
@@ -130,7 +149,7 @@ return function(game)
     gesture(spots(n, y or BOTTOM), 0, 0, 1)
   end
   local function turn(degrees)
-    gesture({ { w * 0.35, BOTTOM }, { w * 0.65, BOTTOM } }, 0, 0, 8, degrees)
+    gesture(spread(BOTTOM, 2, 0.05, 0.3), 0, 0, 8, degrees)
   end
 
   U.log("NOTE", "screen", w, h, "touch gestures", tostring(Settings.touchGestures(game)))
