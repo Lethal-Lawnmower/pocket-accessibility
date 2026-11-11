@@ -347,7 +347,7 @@ PhysFS never lists such a name, so the backend cannot see it to refuse.
 identity, test zips made for the purpose, nothing downloaded): a mod in a subfolder unpacked only its 3 files (a 1.4
 MB file intact across chunks) and passed `check`; two mods, no manifest and a file that is not a zip were refused
 with their messages; a `zip` or `into` outside `mods-incoming` was refused; the `../` entry was not written
-anywhere. The Swift screen is not compiled or run yet.
+anywhere. Compiled and smoke-tested by CI on 2026-11-10 (runs 42868805188 and 42943178684). **Tried on the iPhone by the owner (2026-11-10):** asked which parts worked, "tried the mods and save editor", after "Works great." Which editor pages, and whether a mod was installed from the index, was not said.
 
 ## Next
 
