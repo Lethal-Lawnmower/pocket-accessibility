@@ -85,6 +85,16 @@ Android is new and has had much less testing. It's played with touch gestures or
 
 The launcher's menu also has the Pokémon Access sounds, the save editor and the licenses. A long press on a game opens its save editor. To update, install the newer APK over the old one; your saves are kept.
 
+### iPhone
+
+iPhone support is new. The app speaks through VoiceOver and is played with touch gestures, using the controls below; open Touch controls in the launcher to read how the game screen takes them. It isn't on the App Store: the iPhone download is an unsigned `.ipa` that you sign and install yourself with a sideloading tool, such as Sideloadly on a computer. With a free Apple account, the app has to be signed again every 7 days, and you can have only a few such apps at once.
+
+1. Download the iPhone `.ipa` and install it with your sideloading tool.
+2. Open Pocket Accessibility. Choose Import ROMs and pick your ROMs, or put them in the app's ROMs folder with the Files app (it shows as Pocket Accessibility), then choose Refresh game list.
+3. Select a game. The first time, it's imported, then it starts.
+
+The launcher also has the save editor, Mods, and the Pokémon Access sounds. To update, install the newer `.ipa` the same way, over the old app; your saves are kept as long as you don't delete the app first.
+
 Linux is on the way.
 
 ### Running from source

@@ -8,6 +8,11 @@ on:
   push:
     branches: [ios-build]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "a release version such as 0.0.4; empty for a dev build named by commit"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -35,7 +40,9 @@ jobs:
           python3 --version
 
       - name: Build the app (launcher/ios/build_ipa.py)
-        run: python3 launcher/ios/build_ipa.py
+        env:
+          RELEASE_VERSION: ${{ github.event.inputs.version }}
+        run: python3 launcher/ios/build_ipa.py ${RELEASE_VERSION:+--version "$RELEASE_VERSION"}
 
       - name: Upload the unsigned IPA
         uses: actions/upload-artifact@v7
