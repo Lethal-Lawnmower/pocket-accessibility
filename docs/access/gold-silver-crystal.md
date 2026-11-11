@@ -361,6 +361,31 @@ Pokémon (seen with METAL COAT; probably the Pack not refreshing, not checked wi
 other trade items may be hard to find; legendaries can appear on ordinary trainers; day-care experience is
 not multiplied; an exported cartridge save made on a map with blind trainers carries their sight as 0.
 
+### Fairer shuffling, randomizer 0.2.0 (2026-11-10)
+
+The owner: "make sure it's randomizing everything properly ... Horsey and Bulbasaur have been consistently
+showing up for starters" (no evidence, a feeling). Measured, not assumed: across thousands of seeds the
+generator spread one choice evenly (every species within a few percent of its share), but two real faults
+turned up:
+
+- **Related choices.** Streams whose keys differ only at the end gave related answers (neighbouring slots
+  matched 0.1% of the time instead of 1%; one difference twenty times too common). This touches every module
+  that keys choices by slot, map or trainer.
+- **Starter triangle bias.** With three stages and a type triangle (both RECOMMENDED), on the cart's data
+  GEODUDE was a starter in 34% of seeds, LARVITAR 33%, CHIKORITA 30%, against a fair 11%; CLEFFA, IGGLYBUFF and
+  DRATINI (no triangle possible with their types) never. HORSEA (likely "Horsey") and BULBASAUR were at their
+  fair share; the three-stage pool has only 27 species, so seeing them again is likely chance.
+
+Fixed for new seeds only (`CONTRACT.md`, "Generator 2"): a finalizer on every stream, and a weighted search
+over all triangles. After: neighbouring slots match 1.0%; with the triangle the most common starter fell to
+about 25% and the rarest triangle species rose from about 4% to about 5%. Still uneven, because the types
+allow few triangles for some species (CHIKORITA is the only pure Grass three-stage starter). Saves made
+before keep generator 1 and their world, by design. Checked: every module test on both generators (core 7,
+rng 1217, starters 7186, and the rest as before, 0 failures); a silent Crystal run on generator 2 (starters
+BELLSPROUT, CHARMANDER, SQUIRTLE in a valid triangle; Elm named CHARMANDER and "fire"; the party got it; a
+shuffled item ball gave its new item). `core_test` failed 3 of 7 in two separate moments and passed in over
+200 other runs; cause not found. Not played by the owner.
+
 ### Door randomizer (2026-11-08, decision 59)
 
 The owner asked whether a map randomizer existed, then: "use the same 10 subagents." Seven agents built

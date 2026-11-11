@@ -17,6 +17,12 @@ game plays as normal. Answer YES and he asks how:
 Then he tells you your seed, a six-digit number. The answers and the seed are kept in that save, so the
 randomized world stays the same all game. Other saves are not affected.
 
+Version 0.2.0 shuffles more evenly. In earlier versions, choices for neighbouring spots (one route's grass
+slots, one trainer's team) were related to each other, and with a type triangle a few starters, such as
+Geodude, Larvitar and Chikorita, came up far more often than the rest. A New Game from 0.2.0 on uses the new
+shuffling. A save started earlier keeps its world exactly as it was, so a run in progress never changes; the
+same seed number gives a different world in a new save than it did in an old one.
+
 ## The questions (CHOOSE EACH)
 
 | Area | Questions |

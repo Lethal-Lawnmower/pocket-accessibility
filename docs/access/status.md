@@ -250,6 +250,10 @@ and recorded in the topic file.
   out, Saffron's pads are walked, signs named, unusable targets not listed. Table and numbers in
   `gold-silver-crystal-navigation.md`. By script; not heard. Gold and Silver not played.
   Driver note: `gen2_story_spots` needs about 12 minutes per game.
+- **Randomizer 0.2.0 (2026-11-10):** the owner suspected repeated starters. Measured: related choices
+  between neighbouring slots and a biased starter triangle (GEODUDE, LARVITAR, CHIKORITA in a third of seeds
+  each). Fixed for new seeds; old saves keep their world. Tests on both generators and one silent Crystal run
+  pass; `core_test` failed twice unexplained. Not played. Details: `gold-silver-crystal.md`, "Fairer shuffling".
 - **Shuffled doors (2026-11-08):** navigation follows the map randomizer's rewritten warps: labels, auto-walk
   and journeys; two small planner fixes. Unit test and a Crystal run with two New Bark doors swapped by hand
   pass; not run with the randomizer mod itself, not heard. Details: `gold-silver-crystal-navigation.md`.

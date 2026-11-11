@@ -247,15 +247,109 @@ function M.findTriangle(order, pokemon, chart)
   return nil
 end
 
+-- Version 2 of the triangle search (saves made from 2026-11-10).  findTriangle
+-- takes the first triangle in a shuffled order, so on the cart's data, with
+-- three stages, GEODUDE, LARVITAR and CHIKORITA each turned up in about a third
+-- of all seeds (three times their share) and some species never did.  Here
+-- every triangle is listed and each gets a weight, worked out from the data
+-- alone, that evens out how often each species is in the chosen one as far as
+-- the types allow (iterative proportional scaling: a species in too many
+-- triangles has its triangles scaled down, one in too few up).  The seed then
+-- draws one triangle by weight and turns it so any of its three may be in any
+-- ball.  nil when there is no triangle.
+M.TRIANGLE_ROUNDS = 200
+
+function M.triangles(pool, pokemon, chart)
+  local beatenBy = {}
+  for _, a in ipairs(pool) do
+    local list = {}
+    for _, b in ipairs(pool) do
+      if b ~= a and M.strongAgainst(chart, pokemon[b], pokemon[a]) then list[#list + 1] = b end
+    end
+    beatenBy[a] = list
+  end
+  local strong = {}
+  for a, list in pairs(beatenBy) do
+    for _, b in ipairs(list) do strong[b .. ">" .. a] = true end
+  end
+  -- x the CHIKORITA ball, y beats x, z beats y, x beats z; each cycle once,
+  -- with its earliest species (in pool order) first
+  local rank = {}
+  for i, id in ipairs(pool) do rank[id] = i end
+  local list = {}
+  for _, x in ipairs(pool) do
+    for _, y in ipairs(beatenBy[x]) do
+      for _, z in ipairs(beatenBy[y]) do
+        if z ~= x and strong[x .. ">" .. z] and rank[x] < rank[y] and rank[x] < rank[z] then
+          list[#list + 1] = { x, y, z }
+        end
+      end
+    end
+  end
+  return list
+end
+
+function M.triangleWeights(list)
+  local weights = {}
+  for i = 1, #list do weights[i] = 1 end
+  for _ = 1, M.TRIANGLE_ROUNDS do
+    local share, total = {}, 0
+    for i, tri in ipairs(list) do
+      for _, id in ipairs(tri) do share[id] = (share[id] or 0) + weights[i] end
+      total = total + weights[i]
+    end
+    local count = 0
+    for _ in pairs(share) do count = count + 1 end
+    local target = 3 * total / count
+    for i, tri in ipairs(list) do
+      local factor = 1
+      for _, id in ipairs(tri) do factor = factor * (target / share[id]) end
+      weights[i] = weights[i] * factor ^ (1 / 3)
+    end
+  end
+  return weights
+end
+
+-- Per pool table: M.species builds new pools at every save switch, so a
+-- cached answer never outlives the types and evolutions it was made from.
+local triangleCache = setmetatable({}, { __mode = "k" })
+
+function M.fairTriangle(rng, pool, pokemon, chart)
+  local cached = triangleCache[pool]
+  if not cached then
+    local list = M.triangles(pool, pokemon, chart)
+    cached = { list = list, weights = M.triangleWeights(list) }
+    triangleCache[pool] = cached
+  end
+  local list, weights = cached.list, cached.weights
+  if #list == 0 then return nil end
+  local total = 0
+  for _, w in ipairs(weights) do total = total + w end
+  local at, chosen = rng:next() * total, list[#list]
+  for i, w in ipairs(weights) do
+    at = at - w
+    if at < 0 then chosen = list[i]; break end
+  end
+  -- turning the cycle keeps every rival ball strong against its player ball
+  local turn = rng:int(0, 2)
+  local balls = {}
+  for i = 1, 3 do balls[i] = chosen[(i - 1 + turn) % 3 + 1] end
+  return { CHIKORITA = balls[1], CYNDAQUIL = balls[2], TOTODILE = balls[3] }
+end
+
 -- { CHIKORITA = x, CYNDAQUIL = y, TOTODILE = z }, three different species,
 -- and whether the type triangle was asked for and found.  `options` holds
--- `stages` and `triangle`; `chart` is M.typeTable's.
+-- `stages`, `triangle` and `fair` (version 2's triangle search); `chart` is M.typeTable's.
 function M.chooseStarters(ctx, pokemon, options, chart, species)
   options = options or {}
   species = species or M.species(pokemon)
   local pool = options.stages and species.threeStage or species.basic
   if #pool < 3 then return nil end
-  if options.triangle and chart then
+  if options.triangle and chart and options.fair then
+    local found = M.fairTriangle(ctx.rng("starters", "triangle", options.stages and "stages" or "any"),
+      pool, pokemon, chart)
+    if found then return found, true end
+  elseif options.triangle and chart then
     local order = ctx.rng("starters", "triangle", options.stages and "stages" or "any"):shuffled(pool)
     local found = M.findTriangle(order, pokemon, chart)
     if found then return found, true end
@@ -562,7 +656,8 @@ function M.install(mod, ctx)
     local data = prepare()
     if not data then return end
     local chosen, triangle = M.chooseStarters(ctx, data.pokemon,
-      { stages = ctx.option("starters_stages") == true, triangle = ctx.option("starters_triangle") == true },
+      { stages = ctx.option("starters_stages") == true, triangle = ctx.option("starters_triangle") == true,
+        fair = (ctx.version and ctx.version() or 1) >= 2 },
       state.chart, state.species)
     state.starters = chosen
     if chosen then publish(chosen, triangle) end

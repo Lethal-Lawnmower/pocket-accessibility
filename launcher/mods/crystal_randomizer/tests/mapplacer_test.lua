@@ -19,6 +19,8 @@
 --      this checks the shape and the time, not winnability.
 -- MAPPLACER_SEEDS sets how many seeds each check runs (default 200).
 local Rng = dofile("launcher/mods/crystal_randomizer/rng.lua")
+-- run on either generator: CRYSTAL_RANDOMIZER_RNG_VERSION (1 when unset)
+local RNG_VERSION = tonumber(os.getenv("CRYSTAL_RANDOMIZER_RNG_VERSION")) or 1
 local P = dofile("launcher/mods/crystal_randomizer/modules/mapplacer.lua")
 
 local failures, checks = 0, 0
@@ -43,7 +45,7 @@ local SEEDS = tonumber(os.getenv("MAPPLACER_SEEDS") or "") or 200
 -- caveSpan, deadEndCaves, allDeadEnd, reverse (build the tables in reverse
 -- order, to vary pairs order), noEntrances (leave graph.entrances out).
 local function makeWorld(opts)
-  local gen = Rng.stream("world", opts.seed or 1)
+  local gen = Rng.streamFor(RNG_VERSION, "world", opts.seed or 1)
   local k = opts.regions or 4
   local list = {}   -- complexes in creation order: { id, env, kind, regions = { region, ... }, item }
   local function add(id, env, kind, regions, item, extra)
@@ -306,7 +308,7 @@ do
   local housePool = pools.houses
   ok(housePool and #housePool >= 30, "houses world: the house pool has the dead-end houses")
   -- direct: random permutations of the house pool always pass
-  local gen = Rng.stream("houses-direct")
+  local gen = Rng.streamFor(RNG_VERSION, "houses-direct")
   local allPass = true
   for _ = 1, SEEDS do
     if not rules.canWin(shuffledPools(rules.entrances, pools, names, gen)) then allPass = false end
@@ -314,7 +316,7 @@ do
   ok(allPass, "houses: every random house shuffle passes canWin")
   local good = true
   for s = 1, SEEDS do
-    local placement, report = P.place(graph, rules, "houses", Rng.stream("seed", s, "maps"))
+    local placement, report = P.place(graph, rules, "houses", Rng.streamFor(RNG_VERSION, "seed", s, "maps"))
     good = ok(placement ~= nil, "houses seed " .. s .. " placed (" .. tostring(report.reason) .. ")") and good
     if placement then
       good = checkPlacement(graph, rules, "houses", placement, "houses seed " .. s) and good
@@ -336,7 +338,7 @@ for _, level in ipairs({ "caves", "full" }) do
   local graph, rules = makeWorld(strictSmall)
   local pools, names = P.pools(graph, rules, level)
   -- direct: some whole shuffles pass, some fail
-  local gen = Rng.stream("direct", level)
+  local gen = Rng.streamFor(RNG_VERSION, "direct", level)
   local pass, fail = 0, 0
   for _ = 1, SEEDS do
     if rules.canWin(shuffledPools(rules.entrances, pools, names, gen)) then pass = pass + 1 else fail = fail + 1 end
@@ -346,7 +348,7 @@ for _, level in ipairs({ "caves", "full" }) do
   local phases, good = {}, true
   local totalMoved, movable = 0, 0
   for s = 1, SEEDS do
-    local placement, report = P.place(graph, rules, level, Rng.stream("seed", s, "maps"))
+    local placement, report = P.place(graph, rules, level, Rng.streamFor(RNG_VERSION, "seed", s, "maps"))
     good = ok(placement ~= nil, level .. " seed " .. s .. " placed (" .. tostring(report.reason) .. ")") and good
     if placement then
       good = checkPlacement(graph, rules, level, placement, level .. " seed " .. s) and good
@@ -370,7 +372,7 @@ do
   local graph, rules = makeWorld(strictSmall)
   local saved = P.LIMITS.shuffles
   P.LIMITS.shuffles = 0
-  local placement, report = P.place(graph, rules, "full", Rng.stream("grow-only"))
+  local placement, report = P.place(graph, rules, "full", Rng.streamFor(RNG_VERSION, "grow-only"))
   P.LIMITS.shuffles = saved
   if ok(placement ~= nil, "grow only: placed (" .. tostring(report.reason) .. ")") then
     eq(report.phase, "grow", "grow only: phase")
@@ -386,7 +388,7 @@ do
   local graph, rules = makeWorld({ regions = 5, houses = 20, caves = 2, keysIn = "houses", seed = 3 })
   local good = true
   for s = 1, math.min(SEEDS, 50) do
-    local placement, report = P.place(graph, rules, "houses", Rng.stream("kh", s))
+    local placement, report = P.place(graph, rules, "houses", Rng.streamFor(RNG_VERSION, "kh", s))
     good = ok(placement ~= nil, "key houses seed " .. s .. " placed (" .. tostring(report.reason) .. ")") and good
     if placement then good = checkPlacement(graph, rules, "houses", placement, "key houses " .. s) and good end
     if not good then break end
@@ -401,7 +403,7 @@ do
     for k, v in pairs(p.entrances) do if k ~= v then return false, "an entrance moved" end end
     return true
   end
-  local placement, report = P.place(graph, { fixed = rules.fixed, canWin = vanillaOnly }, "full", Rng.stream("none"))
+  local placement, report = P.place(graph, { fixed = rules.fixed, canWin = vanillaOnly }, "full", Rng.streamFor(RNG_VERSION, "none"))
   eq(placement, nil, "only vanilla passes: nothing placed")
   ok(type(report.reason) == "string" and report.reason:find("no shuffled placement", 1, true),
     "only vanilla passes: report says why (" .. tostring(report.reason) .. ")")
@@ -409,7 +411,7 @@ do
   print(("only vanilla passes: %d canWin calls, %.3f s"):format(report.calls, report.seconds))
 
   local never = { fixed = rules.fixed, canWin = function() return false, "never" end }
-  placement, report = P.place(graph, never, "houses", Rng.stream("none"))
+  placement, report = P.place(graph, never, "houses", Rng.streamFor(RNG_VERSION, "none"))
   eq(placement, nil, "nothing passes: nothing placed")
   ok(report.reason and report.reason:find("vanilla doors fail", 1, true), "nothing passes: vanilla named")
   eq(report.calls, 1, "nothing passes: stops after the vanilla check")
@@ -418,22 +420,22 @@ do
   local capped = { fixed = rules.fixed, canWin = function(p) calls = calls + 1; return vanillaOnly(p) end }
   local saved = P.LIMITS.calls
   P.LIMITS.calls = 25
-  placement, report = P.place(graph, capped, "full", Rng.stream("cap"))
+  placement, report = P.place(graph, capped, "full", Rng.streamFor(RNG_VERSION, "cap"))
   P.LIMITS.calls = saved
   eq(placement, nil, "call cap: nothing placed")
   ok(calls <= 25, "call cap: canWin called at most 25 times (" .. calls .. ")")
 
-  placement = P.place(graph, rules, "off", Rng.stream("x"))
+  placement = P.place(graph, rules, "off", Rng.streamFor(RNG_VERSION, "x"))
   eq(placement, nil, "level off: nothing placed")
-  placement = P.place(graph, rules, "bogus", Rng.stream("x"))
+  placement = P.place(graph, rules, "bogus", Rng.streamFor(RNG_VERSION, "x"))
   eq(placement, nil, "unknown level: nothing placed")
-  placement = P.place(graph, { fixed = {} }, "full", Rng.stream("x"))
+  placement = P.place(graph, { fixed = {} }, "full", Rng.streamFor(RNG_VERSION, "x"))
   eq(placement, nil, "no canWin: nothing placed")
 
   -- everything fixed: fewer than two movable entrances
   local allFixed = { fixed = {}, canWin = rules.canWin }
   for id in pairs(graph.complexes) do allFixed.fixed[id] = "test" end
-  placement, report = P.place(graph, allFixed, "full", Rng.stream("x"))
+  placement, report = P.place(graph, allFixed, "full", Rng.streamFor(RNG_VERSION, "x"))
   eq(placement, nil, "everything fixed: nothing placed")
   eq(report.movable, 0, "everything fixed: no movable entrance")
 end
@@ -449,9 +451,9 @@ do
   for _, level in ipairs({ "houses", "caves", "full" }) do
     local prev
     for s = 1, 20 do
-      local a = P.place(g1, r1, level, Rng.stream("det", s))
-      local b = P.place(g1, r1, level, Rng.stream("det", s))
-      local c = P.place(g2, r2, level, Rng.stream("det", s))
+      local a = P.place(g1, r1, level, Rng.streamFor(RNG_VERSION, "det", s))
+      local b = P.place(g1, r1, level, Rng.streamFor(RNG_VERSION, "det", s))
+      local c = P.place(g2, r2, level, Rng.streamFor(RNG_VERSION, "det", s))
       ok(a and b and same(a, b), level .. " seed " .. s .. ": same rng, same placement")
       ok(a and c and same(a, c), level .. " seed " .. s .. ": other table order, same placement")
       if prev and a and not same(prev, a) then differ = differ + 1 end
@@ -464,7 +466,7 @@ do
   ok((widthMoves["1>2"] or 0) > 0, "a one-tile entrance leads where a two-tile one led (" .. tostring(widthMoves["1>2"]) .. ")")
   ok((widthMoves["2>1"] or 0) > 0, "a two-tile entrance leads where a one-tile one led (" .. tostring(widthMoves["2>1"]) .. ")")
   ok((widthMoves["2>2"] or 0) > 0, "two-tile entrances swap with each other (" .. tostring(widthMoves["2>2"]) .. ")")
-  local placement = P.place(g1, r1, "full", Rng.stream("wide"))
+  local placement = P.place(g1, r1, "full", Rng.streamFor(RNG_VERSION, "wide"))
   local wideMoved = 0
   for eid, e in pairs(r1.entrances) do
     if #e.doors == 2 and placement.entrances[eid] ~= eid then
@@ -493,7 +495,7 @@ do
   -- a graph without entrances: one entrance per door
   local g4, r4 = makeWorld({ regions = 5, houses = 30, caves = 10, gates = 3, keysIn = "caves", seed = 11,
     noEntrances = true })
-  local p4, rep4 = P.place(g4, r4, "full", Rng.stream("noent"))
+  local p4, rep4 = P.place(g4, r4, "full", Rng.streamFor(RNG_VERSION, "noent"))
   if ok(p4 ~= nil, "no entrances: placed (" .. tostring(rep4.reason) .. ")") then
     checkPlacement(g4, r4, "full", p4, "no entrances")
     local doors = 0
@@ -536,7 +538,7 @@ for _, world in ipairs({
     local worst, total, grows, n = 0, 0, 0, 10
     local worstCalls, fewestMoved, movable = 0, math.huge, 0
     for s = 1, n do
-      local placement, report = P.place(graph, rules, level, Rng.stream("big", s))
+      local placement, report = P.place(graph, rules, level, Rng.streamFor(RNG_VERSION, "big", s))
       ok(placement ~= nil, "large " .. level .. " seed " .. s .. " placed (" .. tostring(report.reason) .. ")")
       if placement then
         checkPlacement(graph, rules, level, placement, "large " .. level .. " " .. s)
@@ -589,7 +591,7 @@ if cache and cache ~= "" then
     local worst, n = 0, math.min(SEEDS, 20)
     local first
     for s = 1, n do
-      local placement, report = P.place(graph, rules, level, Rng.stream("real", s))
+      local placement, report = P.place(graph, rules, level, Rng.streamFor(RNG_VERSION, "real", s))
       if ok(placement ~= nil, "real " .. level .. " seed " .. s .. " placed (" .. tostring(report.reason) .. ")") then
         checkPlacement(graph, checker, level, placement, "real " .. level .. " " .. s, real)
         for cid in pairs(fixed) do
@@ -597,7 +599,7 @@ if cache and cache ~= "" then
             eq(placement.entrances[eid], eid, "real " .. level .. ": fixed " .. cid .. " stays")
           end
         end
-        local again = P.place(graph, rules, level, Rng.stream("real", s))
+        local again = P.place(graph, rules, level, Rng.streamFor(RNG_VERSION, "real", s))
         ok(again and same(placement, again), "real " .. level .. " seed " .. s .. ": deterministic")
         worst = math.max(worst, report.seconds)
         first = first or report

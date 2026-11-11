@@ -36,6 +36,8 @@
 -- while maprules is missing; MAPS_LEVEL picks the level, default houses).
 local Fake = dofile("launcher/mods/crystal_randomizer/tests/fake_ctx.lua")
 local Rng = dofile("launcher/mods/crystal_randomizer/rng.lua")
+-- run on either generator: CRYSTAL_RANDOMIZER_RNG_VERSION (1 when unset)
+local RNG_VERSION = tonumber(os.getenv("CRYSTAL_RANDOMIZER_RNG_VERSION")) or 1
 local Maps = dofile("launcher/mods/crystal_randomizer/modules/maps.lua")
 
 local failures, checks = 0, 0
@@ -455,7 +457,7 @@ do
         ok(shared.report ~= nil and shared.report.level == level, level .. ": report published")
         eq(calls.last.level, level, level .. ": placer got the level")
         eq(calls.last.hm, hm, level .. ": placer got ctx.shared.keyitems")
-        eq(calls.last.rngState, Rng.stream(seed, "maps").state, level .. ": placer got ctx.rng(\"maps\")")
+        eq(calls.last.rngState, Rng.streamFor(RNG_VERSION, seed, "maps").state, level .. ": placer got ctx.rng(\"maps\")")
         local placement = shared.placement
         eq(placement["TOWN_A:3"], "TOWN_A:3", level .. ": the mart stays")
         local targets = {}

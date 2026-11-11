@@ -28,6 +28,12 @@ local function loadFile(mod, relative)
   return result
 end
 
+-- The generator written with every new seed, as the save's `rng` (see
+-- state.version).  Not the save's `version`, which stays 1, and not the
+-- randomizer's feature rounds ("version 2" in CONTRACT.md), which modules tell
+-- apart by the answers a save has.
+local NEW_SEED_GENERATOR = 2
+
 return function(mod)
   local Rng, rngError = loadFile(mod, "rng.lua")
   if not Rng then
@@ -36,7 +42,10 @@ return function(mod)
   end
 
   -- The loaded save's state: nil seed means vanilla.
-  local state = { seed = nil, options = {} }
+  -- version: the generator the save was made with (rng.lua, the save's `rng`);
+  -- 1 for saves from before 2026-11-10, which have none and keep their world,
+  -- and 2 for every new seed.
+  local state = { seed = nil, options = {}, version = 1 }
   local listeners = {}
 
   -- shared: per-save results, cleared on every switch.  lib: functions a module
@@ -45,12 +54,13 @@ return function(mod)
   function ctx.active() return state.seed ~= nil end
   function ctx.seed() return state.seed end
   function ctx.option(key) if state.seed then return state.options[key] end end
-  function ctx.rng(stream, ...) return Rng.stream(state.seed or "vanilla", stream, ...) end
+  function ctx.version() return state.version end
+  function ctx.rng(stream, ...) return Rng.streamFor(state.version, state.seed or "vanilla", stream, ...) end
   function ctx.onSave(fn) listeners[#listeners + 1] = fn end
   function ctx.log(fmt, ...) mod.log:info(fmt, ...) end
 
-  local function setState(seed, options)
-    state.seed, state.options = seed, options or {}
+  local function setState(seed, options, version)
+    state.seed, state.options, state.version = seed, options or {}, tonumber(version) or 1
     for key in pairs(ctx.shared) do ctx.shared[key] = nil end
     for _, fn in ipairs(listeners) do
       local ok, err = pcall(fn, state.seed ~= nil)
@@ -77,7 +87,7 @@ return function(mod)
 
   -- A seed people can read out and share: six digits.
   local function newSeed()
-    local mixed = Rng.stream(tostring(os.time()), tostring(os.clock()), tostring({}))
+    local mixed = Rng.mixedStream(tostring(os.time()), tostring(os.clock()), tostring({}))
     return ("%06d"):format(mixed:int(0, 999999))
   end
 
@@ -169,7 +179,8 @@ return function(mod)
       mod.save:set("seed", seed)
       mod.save:set("options", options)
       mod.save:set("version", 1)
-      setState(seed, options)
+      mod.save:set("rng", NEW_SEED_GENERATOR)
+      setState(seed, options, NEW_SEED_GENERATOR)
       return { id = "rand_say_seed", kind = "say", pic = "oak",
         text = "Your seed is\n" .. seed .. ".\fShuffled. Good luck!" }
     end)
@@ -191,7 +202,7 @@ return function(mod)
     local raw = ev and ev.raw
     local bucket = raw and raw.modData and raw.modData[mod.id or "crystal_randomizer"]
     if type(bucket) == "table" and type(bucket.seed) == "string" then
-      setState(bucket.seed, type(bucket.options) == "table" and bucket.options or {})
+      setState(bucket.seed, type(bucket.options) == "table" and bucket.options or {}, bucket.rng)
     else
       setState(nil)
     end

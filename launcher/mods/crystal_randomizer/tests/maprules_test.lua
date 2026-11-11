@@ -354,7 +354,7 @@ if cache and cache ~= "" then
     if c and c.deadEnd and not rr.fixed[e.complex] then movable[#movable + 1] = eid end
   end
   local Rng = dofile("launcher/mods/crystal_randomizer/rng.lua")
-  local rng = Rng.stream("maprules-test", "swaps")
+  local rng = Rng.streamFor(tonumber(os.getenv("CRYSTAL_RANDOMIZER_RNG_VERSION")) or 1, "maprules-test", "swaps")
   local yes, no = 0, 0
   for _ = 1, 300 do
     local a, b = movable[rng:int(1, #movable)], movable[rng:int(1, #movable)]
