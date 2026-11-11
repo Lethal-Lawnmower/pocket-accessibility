@@ -574,3 +574,7 @@ The owner: "can you make a mod for Ruby, Sapphire, and Emerald that auto-adjusts
 
 The owner: "For sideloading, just say we used sideloadly ... Say it is up to the user on how they load the IPA on their device. Games not included. They can either drag the games from their computer, or if they have the compatible games on their iPhone." README "iPhone" follows this: no step-by-step for any one tool, Sideloadly named as what was used, ROMs by file sharing from a computer or Import ROMs from Files.
 
+## 72. Release 0.0.4, a mobile release (2026-11-10)
+
+The owner framed it as "primarily an iOS specific and focused release. iOS/mobile", with "Android has not been tested" said in the notes; the README explains the iPhone install (decision 71) and the Android touch service, its warning and its open code (the owner: "None of this was malicious. If you don't trust the app, the code is open source."). Asked to publish: "Sure. That means the release will be released. Then, yeah." Published as `v0.0.4`, tagged at the commit the three files were built from (`569d0436`); the README changes after it are on `main` only. The owner tests from the release.
+

@@ -184,7 +184,7 @@ and recorded in the topic file.
 - **Release 0.0.4 built, not published (2026-11-10), commit `569d0436`.** Windows zip 110.3 MiB, sha256
   `7cc132d8…`, audit passed; APK 31.4 MiB, versionCode 4, signed with the release certificate (`fc4af609…`);
   iOS IPA 23.1 MiB, version 0.0.4 build 11, CI run 42949722364, no ROMs or saves inside, sha256 `eb4351b5…`.
-  Waiting for the owner's yes to publish.
+  Publishing approved by the owner (decision 72).
 - **Release 0.0.4: on hold (2026-11-10).** The owner wants it framed as an iOS and mobile release with
   Android untested; then: "Don't build release yet. We got a few things to do." Builds started and stopped
   (Windows package, signed APK, iOS CI run 42948758354 cancelled); nothing kept or published. Ready for later:
