@@ -289,6 +289,17 @@ no-touch download ..." (button: Open the Releases page), then "off" and, with th
 and said "off" while the service was bound; it now asks `AccessibilityManager`, as the original page did. Not
 checked: the touch hand-off with TalkBack, Play Protect on either APK, a real device.
 
+**What Play Protect's rule is (read 2026-11-11, Google's India launch post and press coverage; not tested by
+us).** Enhanced fraud protection blocks an install when both hold: the APK comes from an "internet-sideloading
+source" (a web browser, a messaging app or a file manager), and its manifest declares any of four things:
+`RECEIVE_SMS`, `READ_SMS`, a notification listener, or an accessibility service. The check is on the
+declaration, not on who made the app or which app it is. Regions named by Google so far: Singapore, Thailand,
+Brazil, India, Hong Kong, Kenya, Nigeria, the Philippines, South Africa, Vietnam and Malaysia. Consequences:
+the no-touch APK declares none of the four, so the rule does not apply to it; any separate touch app with an
+accessibility service (our companion, or NVGT Bridge) meets the rule exactly as the standard APK does when
+downloaded the same way, so a second app does not help blocked players. Installs through an app store are
+outside the rule, per the coverage.
+
 **Earlier the same day: a separate app.** Since decision 73 the service is not in the game APK but in Pocket Accessibility
 Touch (`launcher/android-touch`: `AndroidManifest.xml`, `src/com/pocketaccess/touch/TouchPassthroughService.java`
 and `TouchSetupActivity.java`, `res/`), app id `com.pocketaccessibility.touch` (test build
