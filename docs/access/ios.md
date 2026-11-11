@@ -347,7 +347,7 @@ PhysFS never lists such a name, so the backend cannot see it to refuse.
 identity, test zips made for the purpose, nothing downloaded): a mod in a subfolder unpacked only its 3 files (a 1.4
 MB file intact across chunks) and passed `check`; two mods, no manifest and a file that is not a zip were refused
 with their messages; a `zip` or `into` outside `mods-incoming` was refused; the `../` entry was not written
-anywhere. Compiled and smoke-tested by CI on 2026-11-10 (runs 42868805188 and 42943178684). **Tried on the iPhone by the owner (2026-11-10):** asked which parts worked, "tried the mods and save editor", after "Works great." Which editor pages, and whether a mod was installed from the index, was not said.
+anywhere. Compiled and smoke-tested by CI on 2026-11-10 (runs 42868805188 and 42943178684). **Tried on the iPhone by the owner (2026-11-10):** asked which parts worked, "tried the mods and save editor", after "Works great." Which editor pages were tried was not said. The owner's screenshot of the Mods screen (Game: Pokémon Crystal, Show: Installed mods) lists 5 installed: Access PC Anywhere 1.0.1 (on, "Not for Pokémon Crystal"), Crystal Randomizer 0.2.0 (off), Dungeon Delvers 1.1.1 (on), Exp Share 0.1.11 (on), PC Clock 1.1.0 (on). Three of those are not bundled, so they came from the index through the download, `unpack`, `check` and replace path: the install path works on a device (inferred from the list; the installs themselves were not watched). Whether those mods run in the game on iOS was not checked.
 
 ## Next
 
