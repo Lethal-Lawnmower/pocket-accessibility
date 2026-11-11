@@ -181,6 +181,13 @@ and recorded in the topic file.
   Polish (decision 65, 2026-11-09), run in game, silent, not heard: "Blocked by <who>" and New Mauville's locked door instead of "No route"; Ruby and Sapphire's Trick House 7 solved by a lever planner (Ruby walked to the scroll); a Berry Blender tone before the BEST range; the link receptionist no longer "Trainer". `rse_nav_sweep` 3/3 on Emerald and Ruby (the "Person" labels are sheets the game picks on arrival; named on live maps); `rse_story` G 8/8 gyms on both. Upstream: Emerald's Strength message lacks the Pokémon's name (recorded, not fixed).
   Forgetting a move (2026-11-09, the owner asked: the old Access scripts could not): level up, move tutor and TM run in game on Emerald and Ruby, silent; every forget-screen row now says "N of 5" and the fifth "new move" (FireRed too). Not heard. `ruby-sapphire-emerald.md`, Battle.
   For the owner: Dewford Gym is not "dark" under decision 37, because Flash is refused there and its level falls as trainers lose; and the wording questions at the end of `ruby-sapphire-emerald.md`.
+- **0.0.4 APK blocked by Play Protect (tester report via the owner, 2026-11-10):** "Play protect isn't letting
+  me install it, at all. it isn't even giving me the option to install anyway." Likely cause (web reports, not
+  confirmed on that device): Google's enhanced fraud protection blocks sideloaded apps that declare an
+  accessibility service, with no install-anyway; 0.0.4 is the first APK with one (the touch service). 0.0.3
+  had none and installed. Reported workarounds: turn off Play Protect's app scanning for the install, or
+  install over USB with adb. Fix proposed to the owner: move the touch service into a separate optional
+  companion APK, so the main app installs everywhere. Not decided.
 - **Release 0.0.4 published (2026-11-10, decision 72):** tag `v0.0.4` at `569d0436`, three files; GitHub's digests match the local files. Not yet run from the release: the Windows updater from 0.0.3, the APK on a device, the IPA from the release. The owner's last scheduled iOS CI try (7:30 p.m.) found this build green and started nothing. At the owner's request ("Yeah, please do that"), the README's touch section and the release page's were rewritten in a simpler layout; files unchanged. Built from commit `569d0436`: Windows zip 110.3 MiB, sha256
   `7cc132d8…`, audit passed; APK 31.4 MiB, versionCode 4, signed with the release certificate (`fc4af609…`);
   iOS IPA 23.1 MiB, version 0.0.4 build 11, CI run 42949722364, no ROMs or saves inside, sha256 `eb4351b5…`.
