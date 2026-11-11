@@ -570,3 +570,7 @@ Pushing to `ios-build` for the iOS CI builds of this work, approved by the owner
 
 The owner: "can you make a mod for Ruby, Sapphire, and Emerald that auto-adjusts the clock to your current system time as well?" Built as version 1.1.0 of the existing PC Clock mod rather than a second mod; that was the assistant's choice, not the owner's, so the one mod covers every game with a clock. Because the package brings the PC Clock on (decision 61) and a newer bundled version replaces an older copy, players who have it get the Hoenn part too; asked whether to keep it combined or split it out, the owner kept it combined the same day ("Yeah, that works."). Details: `ruby-sapphire-emerald.md`, "PC Clock mod".
 
+## 71. How the README describes installing on iPhone (2026-11-10)
+
+The owner: "For sideloading, just say we used sideloadly ... Say it is up to the user on how they load the IPA on their device. Games not included. They can either drag the games from their computer, or if they have the compatible games on their iPhone." README "iPhone" follows this: no step-by-step for any one tool, Sideloadly named as what was used, ROMs by file sharing from a computer or Import ROMs from Files.
+

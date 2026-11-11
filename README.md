@@ -87,13 +87,18 @@ The launcher's menu also has the Pokémon Access sounds, the save editor and the
 
 ### iPhone
 
-iPhone support is new. The app speaks through VoiceOver and is played with touch gestures, using the controls below; open Touch controls in the launcher to read how the game screen takes them. It isn't on the App Store: the iPhone download is an unsigned `.ipa` that you sign and install yourself with a sideloading tool, such as Sideloadly on a computer. With a free Apple account, the app has to be signed again every 7 days, and you can have only a few such apps at once.
+iPhone support is new. The app speaks through VoiceOver and is played with touch gestures, using the controls below; open Touch controls in the launcher to read how the game screen takes them.
 
-1. Download the iPhone `.ipa` and install it with your sideloading tool.
-2. Open Pocket Accessibility. Choose Import ROMs and pick your ROMs, or put them in the app's ROMs folder with the Files app (it shows as Pocket Accessibility), then choose Refresh game list.
-3. Select a game. The first time, it's imported, then it starts.
+The iPhone download is an unsigned `.ipa`, not an App Store app. How you put it on your device is up to you. We used Sideloadly on a computer. With a free Apple account, an app installed this way has to be signed again every 7 days.
 
-The launcher also has the save editor, Mods, and the Pokémon Access sounds. To update, install the newer `.ipa` the same way, over the old app; your saves are kept as long as you don't delete the app first.
+Games aren't included. Put your ROMs on the iPhone either way:
+
+- From your computer: drag them into the app's files, as Pocket Accessibility, with file sharing in Finder on a Mac or the Apple Devices app (or iTunes) on Windows.
+- Already on your iPhone: in the launcher, choose Import ROMs and pick them in Files.
+
+Then choose Refresh game list if they don't show, and select a game. The first time, it's imported, then it starts.
+
+The launcher also has the save editor, Mods, and the Pokémon Access sounds. To update, install the newer `.ipa` over the old app; your saves are kept as long as you don't delete the app first.
 
 Linux is on the way.
 
