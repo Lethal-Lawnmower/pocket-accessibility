@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 added the call the touch service needs; on older Android it is not offered. -->
+<resources>
+    <bool name="pocket_touch_supported">false</bool>
+</resources>

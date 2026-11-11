@@ -189,7 +189,8 @@ and recorded in the topic file.
   install over USB with adb. Fix proposed to the owner: move the touch service into a separate optional
   companion APK, so the main app installs everywhere. The owner: "let's just wait"; a warning was added to the top
   of the 0.0.4 release page at the owner's request (stay on 0.0.3 if blocked; iPhone and Windows not affected).
-  Then the owner: "Let's split it into its own separate APK" (decision 73). Built: Pocket Accessibility Touch
+  Then the owner chose two downloads (decision 74): the standard APK with touch built in and a no-touch APK;
+  the companion app (decision 73) is kept, not released. Earlier: "Let's split it into its own separate APK" (decision 73). Built: Pocket Accessibility Touch
   (`launcher/android-touch`), the game app without the service; emulator check passed (`android.md`). Not released,
   not on a device. A second tester installed 0.0.4 without the block (owner, 2026-11-10), consistent with Play
   Protect's country-by-country rollout. The owner confirmed the blocked tester is in a country where the

@@ -274,7 +274,16 @@ Decision 66 sets touch gestures for the game with TalkBack kept on. What was fou
 
 ## Touch service (built 2026-11-09, decision 66; own app since 2026-11-10, decision 73)
 
-**Now a separate app.** Since decision 73 the service is not in the game APK but in Pocket Accessibility
+**Two downloads (decision 74, 2026-11-10), superseding the separate app as the released form.**
+`build_apk.py` builds the standard APK with the service built in (the service source from
+`launcher/android-touch/src/.../TouchPassthroughService.java`, package `com.pocketaccess.touch`; manifest entry
+`TOUCH_SERVICE`; resources from `launcher/android/res-touch`, whose settings activity is the game app's Touch
+controls page) and, with `--no-touch`, the same app without any of it. A work folder can switch between the two
+without `--clean`. The game app's Touch controls page asks the package manager whether the service exists: if
+so, it shows on or off and opens the accessibility settings, with the Restricted setting help; if not, it says
+this is the no-touch download and links to the Releases page. The companion below stays buildable, not released.
+
+**Earlier the same day: a separate app.** Since decision 73 the service is not in the game APK but in Pocket Accessibility
 Touch (`launcher/android-touch`: `AndroidManifest.xml`, `src/com/pocketaccess/touch/TouchPassthroughService.java`
 and `TouchSetupActivity.java`, `res/`), app id `com.pocketaccessibility.touch` (test build
 `com.pocketaccess.touchtest`), minSdk 30, no permissions, built without Gradle by `build_touch_apk.py`

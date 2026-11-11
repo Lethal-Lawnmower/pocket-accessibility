@@ -54,14 +54,27 @@ LAUNCHER_ACTIVITY = """    <activity
         android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden"
         android:theme="@android:style/Theme.DeviceDefault" />
 """
-# The touch service is not in this app (decision 73): Google Play Protect blocks a sideloaded app
-# that declares an accessibility service, so it lives in Pocket Accessibility Touch
-# (launcher/android-touch).  This app only asks Android whether that one is installed.
-TOUCH_COMPANION_QUERY = """  <queries>
-    <package android:name="com.pocketaccessibility.touch" />
-    <package android:name="com.pocketaccess.touchtest" />
-  </queries>
+# The touch service (decision 66) comes in two downloads (decision 74): built into the app, or
+# left out (--no-touch) for phones where Google Play Protect blocks any sideloaded app that
+# declares an accessibility service.  Its source lives in launcher/android-touch, which can also
+# build it as a separate app (decision 73, kept but not released).
+TOUCH_SOURCE = HERE.parent / "android-touch" / "src" / "com" / "pocketaccess" / "touch" / "TouchPassthroughService.java"
+TOUCH_SERVICE = """    <!-- Pocket Accessibility touch (decisions 66 and 74): only the system can bind it -->
+    <service
+        android:name="com.pocketaccess.touch.TouchPassthroughService"
+        android:label="@string/pocket_touch_label"
+        android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+        android:enabled="@bool/pocket_touch_supported"
+        android:exported="true">
+      <intent-filter>
+        <action android:name="android.accessibilityservice.AccessibilityService" />
+      </intent-filter>
+      <meta-data
+          android:name="android.accessibilityservice"
+          android:resource="@xml/pocket_touch_service" />
+    </service>
 """
+GAME_ACTIVITY_LINE = '    <activity\n        android:name="org.love2d.android.GameActivity"'
 
 
 def edit(path, *pairs):
@@ -112,7 +125,8 @@ def prepare_project(shadow, prism_zip):
                     "-keep class com.github.ethindp.prism.** { *; }\n"
                     "-keep class com.dropbox.djinni.** { *; }\n"
                     "-keep class com.snapchat.djinni.** { *; }\n"
-                    "-keep class com.pocketaccess.launcher.** { *; }\n")
+                    "-keep class com.pocketaccess.launcher.** { *; }\n"
+                    "-keep class com.pocketaccess.touch.** { *; }\n")
     edit(shadow / "app" / "src" / "main" / "AndroidManifest.xml",
          # Upstream's self-updater and step counter: off or absent here.
          ('  <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />\n', ""),
@@ -127,21 +141,36 @@ def prepare_project(shadow, prism_zip):
           '        <category android:name="android.intent.category.BROWSABLE" />\n'
           '        <data android:scheme="gen1recomp++" android:host="launch" />\n      </intent-filter>\n', ""),
          ('    <activity\n        android:name="org.love2d.android.GameActivity"',
-          LAUNCHER_ACTIVITY + '    <activity\n        android:name="org.love2d.android.GameActivity"'),
-         # Whether Pocket Accessibility Touch is installed (package visibility, Android 11 and later).
-         ('  <application\n', TOUCH_COMPANION_QUERY + '  <application\n'))
+          LAUNCHER_ACTIVITY + '    <activity\n        android:name="org.love2d.android.GameActivity"'))
     libs = shadow / "app" / "libs"
     libs.mkdir(exist_ok=True)
     with zipfile.ZipFile(prism_zip) as archive:
         (libs / "prism-release.aar").write_bytes(archive.read("release/prism-release.aar"))
 
 
-def copy_launcher(shadow, test_hooks):
-    """Our Java and resources, refreshed on every build."""
+def copy_launcher(shadow, test_hooks, touch):
+    """Our Java and resources, refreshed on every build; the touch service in or out."""
     manifest = shadow / "app" / "src" / "main" / "AndroidManifest.xml"
     text = manifest.read_text(encoding="utf-8")
-    if "TouchPassthroughService" in text or "com.pocketaccessibility.touch" not in text:
-        sys.exit(f"{shadow} was prepared with the touch service inside the app: build again with --clean")
+    if "com.pocketaccess.launcher.TouchPassthroughService" in text or "com.pocketaccessibility.touch" in text:
+        sys.exit(f"{shadow} was prepared by an older build script: build again with --clean")
+    text = text.replace(TOUCH_SERVICE, "")
+    if touch:
+        if GAME_ACTIVITY_LINE not in text:
+            sys.exit("the game activity is missing from the manifest")
+        text = text.replace(GAME_ACTIVITY_LINE, TOUCH_SERVICE + GAME_ACTIVITY_LINE, 1)
+    manifest.write_text(text, encoding="utf-8")
+    touch_java = shadow / "app" / "src" / "main" / "java" / "com" / "pocketaccess" / "touch"
+    shutil.rmtree(touch_java, ignore_errors=True)
+    if touch:
+        touch_java.mkdir(parents=True)
+        shutil.copy(TOUCH_SOURCE, touch_java)
+    res = shadow / "app" / "src" / "main" / "res"
+    for name in ("xml/pocket_touch_service.xml", "values/pocket_touch_strings.xml",
+                 "values/pocket_touch_bools.xml", "values-v30/pocket_touch_bools.xml"):
+        (res / name).unlink(missing_ok=True)
+    if touch:
+        shutil.copytree(HERE / "res-touch", res, dirs_exist_ok=True)
     target = shadow / "app" / "src" / "main" / "java" / "com" / "pocketaccess" / "launcher"
     shutil.rmtree(target, ignore_errors=True)
     shutil.copytree(HERE / "src" / "com" / "pocketaccess" / "launcher", target)
@@ -232,6 +261,8 @@ def main():
     parser.add_argument("--version-name", help="the version players see, for example 0.0.2")
     parser.add_argument("--version-code", type=int, help="a whole number that grows with every release")
     parser.add_argument("--clean", action="store_true", help="start again from upstream's project")
+    parser.add_argument("--no-touch", action="store_true",
+                        help="leave the touch service out, for phones where Play Protect blocks it (decision 74)")
     parser.add_argument("--test-hooks", action="store_true",
                         help="add the activity scripted runs start through; never for a build for players")
     parser.add_argument("--work", type=Path, default=Path(tempfile.gettempdir()) / "pa-android-app",
@@ -264,7 +295,7 @@ def main():
     if not args.work.is_dir():
         prepare_project(args.work, args.prism_zip)
     set_identity(args.work, args.app_id, args.version_name, args.version_code)
-    copy_launcher(args.work, args.test_hooks)
+    copy_launcher(args.work, args.test_hooks, not args.no_touch)
     write_licenses(args.work, args.prism_zip)
     (args.work / "local.properties").write_text(
         "sdk.dir=" + str(args.sdk).replace("\\", "/") + "\n", encoding="utf-8")

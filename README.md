@@ -76,7 +76,7 @@ Nothing else needs installing. To update later, press Alt in the launcher and ch
 
 ### Android
 
-Android is new and has had much less testing. It's played with touch gestures or a controller, using the controls below. It needs Android 8 or later on a 64-bit device, and speaks through TalkBack. Touch gestures need Android 11 or later and a second, small, optional app, Pocket Accessibility Touch, from the same Releases page.
+Android is new and has had much less testing. It's played with touch gestures or a controller, using the controls below. It needs Android 8 or later on a 64-bit device, and speaks through TalkBack. Touch gestures need Android 11 or later and the touch service that comes with the standard download.
 
 1. Download the APK on your device and install it. Android will ask you to allow installing apps from your browser or file manager.
 2. Put your ROMs in a folder on the device, such as one inside Downloads.
@@ -85,11 +85,9 @@ Android is new and has had much less testing. It's played with touch gestures or
 
 The launcher's menu also has the Pokémon Access sounds, the save editor and the licenses. A long press on a game opens its save editor. To update, install the newer APK over the old one; your saves are kept.
 
-**About Pocket Accessibility Touch.** TalkBack normally keeps every touch for itself. For touch gestures, install the second APK, `PocketAccessibility-Touch-<version>-android.apk`, open it, and switch on its accessibility service, Pocket Accessibility touch. Its screen walks you through it, including Android's "Restricted setting" step for apps from outside the Play Store. Touch controls in the game app's menu says whether it's installed and on.
+**Two downloads.** The standard APK, `PocketAccessibility-<version>-android.apk`, has the touch service built in. The no-touch APK, `PocketAccessibility-<version>-android-no-touch.apk`, leaves it out, for phones where Google Play Protect blocks the standard one: in some countries Play Protect blocks any app from outside the Play Store that includes an accessibility service, with no way to install it anyway. The no-touch download plays with a controller. Both are the same app with the same saves, so you can install one over the other.
 
-It's a separate app because Google Play Protect blocks apps from outside the Play Store that include an accessibility service, sometimes with no way to install them anyway. This way the game itself always installs, and only the optional touch app might be blocked on some phones; you can still play with a controller.
-
-Android warns that an accessibility service can see your screen and control your device; that's its standard text for every one. This one does a single job: while the game's screen is in front, it hands your touches straight to the game, and TalkBack keeps the rest of the screen. It reads no screen text, keeps nothing, and has no internet permission. If you'd rather not trust it, the code is open: [launcher/android-touch](launcher/android-touch).
+**About the touch service.** For touch gestures, switch on the app's accessibility service, Pocket Accessibility touch, in Android's accessibility settings; Touch controls in the launcher's menu takes you there and explains Android's "Restricted setting" step for apps from outside the Play Store. Android warns that an accessibility service can see your screen and control your device; that's its standard text for every one. This one does a single job: while the game's screen is in front, it hands your touches straight to the game, and TalkBack keeps the rest of the screen. It reads no screen text, keeps nothing, and never connects to anything. If you'd rather not trust it, the code is open: [TouchPassthroughService.java](launcher/android-touch/src/com/pocketaccess/touch/TouchPassthroughService.java). You can also leave it off, or use the no-touch download, and play with a controller.
 
 ### iPhone
 
@@ -133,7 +131,7 @@ The navigation keys only work on the map, so they never get in the way of menus 
 
 **On a touchscreen,** your screen reader stays on. Set it up once:
 
-- **Android:** install Pocket Accessibility Touch, the second APK on the Releases page, open it, and switch on its service.
+- **Android:** open Touch controls in the app's menu and switch on the touch service.
 - **iPhone:** on the Game screen, turn the VoiceOver rotor to Direct Touch.
 
 Gestures work anywhere on the screen. What matters is how many fingers you use.
