@@ -300,6 +300,16 @@ accessibility service (our companion, or NVGT Bridge) meets the rule exactly as 
 downloaded the same way, so a second app does not help blocked players. Installs through an app store are
 outside the rule, per the coverage.
 
+**Touch without the service: TalkBack's own gestures (read 2026-11-11 in Google's "Use TalkBack gestures"
+help page; not tried in the game).** TalkBack 9.1 and later has a pass-through gesture: "the system interprets
+the next gesture like TalkBack is off". Default: 4-finger double tap and hold (multi-finger gestures need
+Android 11 or later); "Pass through next gesture" can also be assigned to another gesture in TalkBack
+settings, Customize gestures. Also standard with TalkBack on: a two-finger swipe reaches the app as a
+one-finger swipe (Google: "most one-finger gestures become two-finger gestures"), and a double tap is a tap.
+So on the no-touch APK a player may get movement with two-finger swipes and single game gestures after a
+pass-through, one at a time. Unknown until tried on a device: how these arrive in the game, and whether
+our two-finger game gestures can be done at all this way.
+
 **Earlier the same day: a separate app.** Since decision 73 the service is not in the game APK but in Pocket Accessibility
 Touch (`launcher/android-touch`: `AndroidManifest.xml`, `src/com/pocketaccess/touch/TouchPassthroughService.java`
 and `TouchSetupActivity.java`, `res/`), app id `com.pocketaccessibility.touch` (test build
