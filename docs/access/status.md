@@ -181,6 +181,10 @@ and recorded in the topic file.
   Polish (decision 65, 2026-11-09), run in game, silent, not heard: "Blocked by <who>" and New Mauville's locked door instead of "No route"; Ruby and Sapphire's Trick House 7 solved by a lever planner (Ruby walked to the scroll); a Berry Blender tone before the BEST range; the link receptionist no longer "Trainer". `rse_nav_sweep` 3/3 on Emerald and Ruby (the "Person" labels are sheets the game picks on arrival; named on live maps); `rse_story` G 8/8 gyms on both. Upstream: Emerald's Strength message lacks the Pokémon's name (recorded, not fixed).
   Forgetting a move (2026-11-09, the owner asked: the old Access scripts could not): level up, move tutor and TM run in game on Emerald and Ruby, silent; every forget-screen row now says "N of 5" and the fifth "new move" (FireRed too). Not heard. `ruby-sapphire-emerald.md`, Battle.
   For the owner: Dewford Gym is not "dark" under decision 37, because Flash is refused there and its level falls as trainers lose; and the wording questions at the end of `ruby-sapphire-emerald.md`.
+- **Release 0.0.4 built, not published (2026-11-10), commit `569d0436`.** Windows zip 110.3 MiB, sha256
+  `7cc132d8…`, audit passed; APK 31.4 MiB, versionCode 4, signed with the release certificate (`fc4af609…`);
+  iOS IPA 23.1 MiB, version 0.0.4 build 11, CI run 42949722364, no ROMs or saves inside, sha256 `eb4351b5…`.
+  Waiting for the owner's yes to publish.
 - **Release 0.0.4: on hold (2026-11-10).** The owner wants it framed as an iOS and mobile release with
   Android untested; then: "Don't build release yet. We got a few things to do." Builds started and stopped
   (Windows package, signed APK, iOS CI run 42948758354 cancelled); nothing kept or published. Ready for later:
