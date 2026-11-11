@@ -199,6 +199,11 @@ and recorded in the topic file.
   download it did not appear again. So outside the rollout countries it is a one-time prompt, not a block.
   The owner: "Don't release anything yet" (2026-11-10); the two downloads (decision 74) are built and tested
   on the emulator, not released.
+  **For the 0.0.5 release page (owner, 2026-11-11):** put at the top that the no-touch download is for people
+  who cannot get the touch version installed, and list the affected countries. Use only the regions Google has
+  named publicly (`android.md`, "What Play Protect's rule is"); say nothing about any tester. Also include
+  the owner's wording that he has not tested the release and that affected players should reach out. Not a
+  go-ahead to publish.
 - **Release 0.0.4 published (2026-11-10, decision 72):** tag `v0.0.4` at `569d0436`, three files; GitHub's digests match the local files. Not yet run from the release: the Windows updater from 0.0.3, the APK on a device, the IPA from the release. The owner's last scheduled iOS CI try (7:30 p.m.) found this build green and started nothing. At the owner's request ("Yeah, please do that"), the README's touch section and the release page's were rewritten in a simpler layout; files unchanged. Built from commit `569d0436`: Windows zip 110.3 MiB, sha256
   `7cc132d8…`, audit passed; APK 31.4 MiB, versionCode 4, signed with the release certificate (`fc4af609…`);
   iOS IPA 23.1 MiB, version 0.0.4 build 11, CI run 42949722364, no ROMs or saves inside, sha256 `eb4351b5…`.
