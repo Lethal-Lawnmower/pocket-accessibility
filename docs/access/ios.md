@@ -291,6 +291,9 @@ the Objective-C runtime, as `IosLauncher.lua` does: `UIImpactFeedbackGenerator`,
 step and rigid at 0.8 for a bump. `love.system.vibrate` on iOS is the long system vibration, so it is not used. The
 phone's System Haptics setting can turn them off. Not built in CI or felt on the iPhone yet.
 
+
+Owner, on the iPhone (build `ca8cca2e`, 2026-11-10): "Haptics work."
+
 ## Save editor and mods (written 2026-11-10, decision 69)
 
 The owner: "Let's add a few more things to iOS and then we can try the save editor if possible, and a way
