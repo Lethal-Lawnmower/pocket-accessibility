@@ -486,7 +486,7 @@ swipe (`Gestures.lua`). `touch_gestures_test` 262/262, with stacked, side-by-sid
 finger lagging or lifting first, in all four directions (9 of those checks fail on the old recogniser); a
 twist in place is still a turn. Silent isolated Crystal run (`touch_gestures` driver): a stacked pair with one
 finger lagging moved to the next point ("Radio: 2 up"); in AUTO a swipe stepped once, a tap said "Walking to
-Bookshelf", and a second tap said "Auto walk stopped" 0.32 s later, short of the shelf. Not on a device yet.
+Bookshelf", and a second tap said "Auto walk stopped" 0.32 s later, short of the shelf. On the iPhone (build `ca8cca2e`), the owner: "Works great." (2026-11-10).
 
 **Verified 2026-11-10 (no turn; AUTO swipes walk; superseded the same day, above), run level only.** `touch_gestures_test` 201/201: turns
 start, stop and say nothing (a turn still stops a running walk, as any gesture); AUTO's swipe starts auto-walk
