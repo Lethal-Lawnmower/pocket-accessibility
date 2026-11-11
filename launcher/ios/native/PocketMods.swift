@@ -167,13 +167,27 @@ final class ModsModel: ObservableObject {
         }
     }
 
+    // "Gen 2+3" -> "Gen 2 and 3", "Red/Blue/Yellow" -> "Red, Blue and Yellow"
+    static func spokenGames(_ label: String) -> String {
+        let parts = label.replacingOccurrences(of: "+", with: "/").components(separatedBy: "/")
+            .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        guard parts.count > 1 else { return label }
+        return parts.dropLast().joined(separator: ", ") + " and " + parts[parts.count - 1]
+    }
+
     func subtitle(_ mod: ModEntry) -> String {
         var parts: [String] = []
         if let problem = mod.string("problem") { parts.append("The game cannot load it: \(problem)") }
         if mod.has("enabled") { parts.append(mod.flag("enabled") ? "On" : "Off") }
         if let installed = mod.string("installedVersion") { parts.append("Installed \(installed)") }
+        // Which games it is for, from the backend's ModTargets.label ("Gen 1", "Gen 2+3",
+        // "Red/Blue"), worded for speech (the owner, 2026-11-10: "better labeling ... for
+        // what game does what").
+        let games = mod.string("games").map(ModsModel.spokenGames)
         if mod.has("forThisGame"), !mod.flag("forThisGame"), mod.has("enabled") || mod.flag("gamesListed") {
-            parts.append("Not for \(gameName)")
+            parts.append(games.map { "Not for \(gameName); for \($0)" } ?? "Not for \(gameName)")
+        } else if let games = games, mod.has("enabled") || mod.flag("gamesListed") {
+            parts.append("For \(games)")
         }
         if let unavailable = mod.string("unavailable") { parts.append("Cannot be installed: \(unavailable)") }
         if let about = mod.string("summary") ?? mod.string("description") { parts.append(about) }

@@ -223,13 +223,30 @@ public final class ModsActivity extends Activity {
         return version.isEmpty() ? name : name + ", version " + version;
     }
 
+    // "Gen 2+3" -> "Gen 2 and 3", "Red/Blue/Yellow" -> "Red, Blue and Yellow"
+    static String spokenGames(String label) {
+        List<String> parts = new ArrayList<>();
+        for (String part : label.replace('+', '/').split("/")) {
+            if (!part.trim().isEmpty()) parts.add(part.trim());
+        }
+        if (parts.size() < 2) return label;
+        return String.join(", ", parts.subList(0, parts.size() - 1)) + " and " + parts.get(parts.size() - 1);
+    }
+
     private String subtitle(JSONObject mod) {
         List<String> parts = new ArrayList<>();
         if (mod.has("problem")) parts.add("The game cannot load it: " + mod.optString("problem"));
         if (mod.has("enabled")) parts.add(mod.optBoolean("enabled") ? "On" : "Off");
         if (mod.has("installedVersion")) parts.add("Installed " + mod.optString("installedVersion"));
-        if (mod.has("forThisGame") && !mod.optBoolean("forThisGame") && (mod.has("enabled") || mod.optBoolean("gamesListed"))) {
-            parts.add("Not for " + game().name);
+        // Which games it is for, from the backend's ModTargets.label ("Gen 1", "Gen 2+3",
+        // "Red/Blue"), worded for speech (the owner, 2026-11-10: "better labeling ... for
+        // what game does what").
+        String games = mod.has("games") ? spokenGames(mod.optString("games")) : null;
+        boolean known = mod.has("enabled") || mod.optBoolean("gamesListed");
+        if (mod.has("forThisGame") && !mod.optBoolean("forThisGame") && known) {
+            parts.add(games != null ? "Not for " + game().name + "; for " + games : "Not for " + game().name);
+        } else if (games != null && known) {
+            parts.add("For " + games);
         }
         if (mod.has("unavailable")) parts.add("Cannot be installed: " + mod.optString("unavailable"));
         String about = mod.optString("summary", mod.optString("description", ""));
