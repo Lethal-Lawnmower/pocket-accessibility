@@ -181,6 +181,12 @@ and recorded in the topic file.
   Polish (decision 65, 2026-11-09), run in game, silent, not heard: "Blocked by <who>" and New Mauville's locked door instead of "No route"; Ruby and Sapphire's Trick House 7 solved by a lever planner (Ruby walked to the scroll); a Berry Blender tone before the BEST range; the link receptionist no longer "Trainer". `rse_nav_sweep` 3/3 on Emerald and Ruby (the "Person" labels are sheets the game picks on arrival; named on live maps); `rse_story` G 8/8 gyms on both. Upstream: Emerald's Strength message lacks the Pokémon's name (recorded, not fixed).
   Forgetting a move (2026-11-09, the owner asked: the old Access scripts could not): level up, move tutor and TM run in game on Emerald and Ruby, silent; every forget-screen row now says "N of 5" and the fifth "new move" (FireRed too). Not heard. `ruby-sapphire-emerald.md`, Battle.
   For the owner: Dewford Gym is not "dark" under decision 37, because Flash is refused there and its level falls as trainers lose; and the wording questions at the end of `ruby-sapphire-emerald.md`.
+- **Release 0.0.4: on hold (2026-11-10).** The owner wants it framed as an iOS and mobile release with
+  Android untested; then: "Don't build release yet. We got a few things to do." Builds started and stopped
+  (Windows package, signed APK, iOS CI run 42948758354 cancelled); nothing kept or published. Ready for later:
+  README "iPhone" section, `ios.yml` takes a `version` input (`gh workflow run ios.yml --ref ios-build -f
+  version=X.Y.Z`), Prism 0.18.3 `prism-android.zip` from ethindp/prism releases, and draft notes (agent's
+  scratchpad, not in the repo).
 - **`main` pushed 2026-11-10** at the owner's request ("push to main"): 33 commits since `dcc7e7aa` (2026-11-09), after a scan for private material, paths and binaries. No release.
 - **Touch, 2026-11-10 (fifth addendum to decision 66):** AUTO walks by a tap (another tap stops) and swipes
   step; two-finger swipes no longer turn into a do-nothing rotation when one finger lags. Test and silent
