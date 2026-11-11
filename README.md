@@ -125,11 +125,15 @@ The navigation keys only work on the map, so they never get in the way of menus 
 
 **On a controller,** including on Android, hold the left trigger and use the D-pad: up and down change the category, and left and right move through it. Click the right stick for spoken directions, and the left stick to auto-walk. Click again to stop.
 
-**On a touchscreen,** TalkBack stays on, and the game screen takes gestures. They work anywhere on the screen, held either way up; what matters is how many fingers you use, not where you touch.
+**On a touchscreen,** your screen reader stays on, and the game screen takes gestures. They work anywhere on the screen, held either way up; what matters is how many fingers you use, not where you touch.
+
+- **Android:** switch on the app's touch service once, from Touch controls in the launcher's menu.
+- **iPhone:** when the Game screen is focused, turn the VoiceOver rotor to Direct Touch and switch it on. iPhone remembers this for the app. The launcher's Touch controls page explains it.
 
 - **Swipe:** walk on the map. In menus, battles and dialogue, it moves the cursor.
 - **Two-finger swipe left and right:** previous and next thing on the map.
-- **Two-finger swipe up and down:** change the category. Your two fingers can sit side by side or one above the other.
+- **Two-finger swipe up and down:** change the category.
+- Two-finger swipes work with your fingers side by side or one above the other. They, and the single tap, only do something on the map.
 - **Tap:** spoken directions to what you picked, which keep coming as you walk. Tap again to stop them. In Auto walking, a tap walks you there instead, and another tap stops.
 - **Double tap:** A. **Two-finger double tap:** B.
 - **Three-finger double tap:** Start. **Three-finger tap:** Select.
@@ -139,10 +143,10 @@ The navigation keys only work on the map, so they never get in the way of menus 
 How a swipe walks is up to you, under TOUCH WALKING in the game's options, in the ACCESSIBILITY section:
 
 - **Manual:** each swipe is one step.
-- **Hybrid:** the game tells you the next straight stretch, like "18 up". Swipe that way to walk all of it, then it tells you the next one.
+- **Hybrid:** the game tells you the next straight stretch, like "18 up". Swipe that way to walk all of it, then it tells you the next one. A swipe any other way takes one step and plans the route again from there.
 - **Auto:** a tap walks you all the way to what you picked, and another tap stops. Swipes are single steps, so once you're there you can turn and step up to it.
 
-On devices that can vibrate, you feel a light tick with each step and a firmer one when you walk into something. HAPTICS in the same options turns that off. Touch is the newest part of all this and still changing, so tell me what feels wrong.
+On devices that can vibrate, you feel a light tick with each step and a firmer one when you walk into something. HAPTICS in the same options turns that off. TOUCH GESTURES, also there, turns the gestures off and brings back the game's own on-screen buttons. Touch is the newest part of all this and still changing, so tell me what feels wrong.
 
 Want another key? Ask, and I'll look at adding it.
 
