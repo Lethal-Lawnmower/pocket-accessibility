@@ -85,6 +85,10 @@ Android is new and has had much less testing. It's played with touch gestures or
 
 The launcher's menu also has the Pokémon Access sounds, the save editor and the licenses. A long press on a game opens its save editor. To update, install the newer APK over the old one; your saves are kept.
 
+**About the touch service.** For touch gestures, the app has to be switched on as an accessibility service, called Pocket Accessibility touch, in Android's accessibility settings. Touch controls in the launcher's menu takes you there. Android warns that an accessibility service can see your screen and control your device, and because the app doesn't come from the Play Store, Android may first say "Restricted setting". The Touch controls page explains how to allow it.
+
+That warning is Android's standard text for every accessibility service. This one only does one job: while the game's screen is in front, it hands your touches straight to the game, and TalkBack keeps the rest of the screen. It reads no screen text, keeps nothing, and never connects to anything. If you'd rather not trust it, the code is open: [TouchPassthroughService.java](launcher/android/src/com/pocketaccess/launcher/TouchPassthroughService.java). You can also leave it off and play with a controller.
+
 ### iPhone
 
 iPhone support is new. The app speaks through VoiceOver and is played with touch gestures, using the controls below; open Touch controls in the launcher to read how the game screen takes them.
