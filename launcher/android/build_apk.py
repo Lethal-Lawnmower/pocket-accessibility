@@ -53,22 +53,15 @@ LAUNCHER_ACTIVITY = """    <activity
         android:label="Touch controls"
         android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden"
         android:theme="@android:style/Theme.DeviceDefault" />
-    <!-- Pocket Accessibility touch (decision 66): only the system can bind it -->
-    <service
-        android:name="com.pocketaccess.launcher.TouchPassthroughService"
-        android:label="@string/pocket_touch_label"
-        android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
-        android:enabled="@bool/pocket_touch_supported"
-        android:exported="true">
-      <intent-filter>
-        <action android:name="android.accessibilityservice.AccessibilityService" />
-      </intent-filter>
-      <meta-data
-          android:name="android.accessibilityservice"
-          android:resource="@xml/pocket_touch_service" />
-    </service>
 """
-TOUCH_SERVICE = "com.pocketaccess.launcher.TouchPassthroughService"
+# The touch service is not in this app (decision 73): Google Play Protect blocks a sideloaded app
+# that declares an accessibility service, so it lives in Pocket Accessibility Touch
+# (launcher/android-touch).  This app only asks Android whether that one is installed.
+TOUCH_COMPANION_QUERY = """  <queries>
+    <package android:name="com.pocketaccessibility.touch" />
+    <package android:name="com.pocketaccess.touchtest" />
+  </queries>
+"""
 
 
 def edit(path, *pairs):
@@ -134,7 +127,9 @@ def prepare_project(shadow, prism_zip):
           '        <category android:name="android.intent.category.BROWSABLE" />\n'
           '        <data android:scheme="gen1recomp++" android:host="launch" />\n      </intent-filter>\n', ""),
          ('    <activity\n        android:name="org.love2d.android.GameActivity"',
-          LAUNCHER_ACTIVITY + '    <activity\n        android:name="org.love2d.android.GameActivity"'))
+          LAUNCHER_ACTIVITY + '    <activity\n        android:name="org.love2d.android.GameActivity"'),
+         # Whether Pocket Accessibility Touch is installed (package visibility, Android 11 and later).
+         ('  <application\n', TOUCH_COMPANION_QUERY + '  <application\n'))
     libs = shadow / "app" / "libs"
     libs.mkdir(exist_ok=True)
     with zipfile.ZipFile(prism_zip) as archive:
@@ -144,8 +139,9 @@ def prepare_project(shadow, prism_zip):
 def copy_launcher(shadow, test_hooks):
     """Our Java and resources, refreshed on every build."""
     manifest = shadow / "app" / "src" / "main" / "AndroidManifest.xml"
-    if TOUCH_SERVICE not in manifest.read_text(encoding="utf-8"):
-        sys.exit(f"{shadow} was prepared before the touch service was added: build again with --clean")
+    text = manifest.read_text(encoding="utf-8")
+    if "TouchPassthroughService" in text or "com.pocketaccessibility.touch" not in text:
+        sys.exit(f"{shadow} was prepared with the touch service inside the app: build again with --clean")
     target = shadow / "app" / "src" / "main" / "java" / "com" / "pocketaccess" / "launcher"
     shutil.rmtree(target, ignore_errors=True)
     shutil.copytree(HERE / "src" / "com" / "pocketaccess" / "launcher", target)

@@ -189,6 +189,9 @@ and recorded in the topic file.
   install over USB with adb. Fix proposed to the owner: move the touch service into a separate optional
   companion APK, so the main app installs everywhere. The owner: "let's just wait"; a warning was added to the top
   of the 0.0.4 release page at the owner's request (stay on 0.0.3 if blocked; iPhone and Windows not affected).
+  Then the owner: "Let's split it into its own separate APK" (decision 73). Built: Pocket Accessibility Touch
+  (`launcher/android-touch`), the game app without the service; emulator check passed (`android.md`). Not released,
+  not on a device.
 - **Release 0.0.4 published (2026-11-10, decision 72):** tag `v0.0.4` at `569d0436`, three files; GitHub's digests match the local files. Not yet run from the release: the Windows updater from 0.0.3, the APK on a device, the IPA from the release. The owner's last scheduled iOS CI try (7:30 p.m.) found this build green and started nothing. At the owner's request ("Yeah, please do that"), the README's touch section and the release page's were rewritten in a simpler layout; files unchanged. Built from commit `569d0436`: Windows zip 110.3 MiB, sha256
   `7cc132d8…`, audit passed; APK 31.4 MiB, versionCode 4, signed with the release certificate (`fc4af609…`);
   iOS IPA 23.1 MiB, version 0.0.4 build 11, CI run 42949722364, no ROMs or saves inside, sha256 `eb4351b5…`.

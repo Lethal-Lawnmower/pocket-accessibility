@@ -1,4 +1,4 @@
-package com.pocketaccess.launcher;
+package com.pocketaccess.touch;
 
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.AccessibilityServiceInfo;
@@ -18,6 +18,7 @@ import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityManager;
 import android.view.accessibility.AccessibilityWindowInfo;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -28,6 +29,12 @@ import java.util.Set;
  * "Pocket Accessibility touch": while the game's screen is in front, its touches go
  * straight to the game, and TalkBack keeps handling everything else (Android's nearest
  * thing to iOS direct interaction; decision 66, docs/access/android.md "Touch service").
+ *
+ * It lives in its own small app, Pocket Accessibility Touch (decision 73), not in the game
+ * app: Google Play Protect blocks a sideloaded app that declares an accessibility service,
+ * with no way to install it anyway, and 0.0.4 (the first game app with this service) could
+ * not be installed by a tester.  The passthrough region is set per display, so a service
+ * in another app can hand the game's window its touches.
  *
  * Android only lets an accessibility service do this, through
  * setTouchExplorationPassthroughRegion (API 30): touches inside the region skip touch
@@ -48,6 +55,9 @@ public final class TouchPassthroughService extends AccessibilityService {
     /** upstream love-android's game activity: the only window touches are handed to */
     static final String GAME_ACTIVITY = "org.love2d.android.GameActivity";
     private static final String OUR_ACTIVITIES = "com.pocketaccess.launcher.";
+    /** The Pocket Accessibility game apps: the release and the test build (build_apk.py). */
+    static final Set<String> GAME_PACKAGES = new HashSet<>(Arrays.asList(
+        "com.pocketaccessibility.app", "com.pocketaccess.androidtest"));
 
     /** Windows of our package known to be the game's (true) or a launcher screen (false). */
     private final Map<Integer, Boolean> ourWindows = new HashMap<>();
@@ -64,7 +74,8 @@ public final class TouchPassthroughService extends AccessibilityService {
         }
     };
 
-    /** Whether this service is switched on in Android's accessibility settings. */
+    /** Whether this service is switched on in Android's accessibility settings (this app's own check;
+     *  the game app reads Settings.Secure instead, TouchControlsActivity). */
     static boolean isEnabled(Context context) {
         AccessibilityManager manager = context.getSystemService(AccessibilityManager.class);
         if (manager == null) return false;
@@ -107,13 +118,13 @@ public final class TouchPassthroughService extends AccessibilityService {
 
     /**
      * Window ids cannot say which activity a window belongs to, but a window-state event
-     * from an activity's window carries that activity's class name.  Only class names of
-     * the game's activity and our launcher screens are trusted; others (dialogs, panes)
-     * leave what is known unchanged.
+     * from an activity's window carries that activity's class name.  Only events from the
+     * game apps, and only class names of the game's activity and their launcher screens,
+     * are trusted; others (dialogs, panes, other apps) leave what is known unchanged.
      */
     private void noteWindow(AccessibilityEvent event) {
         if (event.getPackageName() == null || event.getClassName() == null) return;
-        if (!getPackageName().contentEquals(event.getPackageName())) return;
+        if (!GAME_PACKAGES.contains(event.getPackageName().toString())) return;
         String name = event.getClassName().toString();
         if (name.equals(GAME_ACTIVITY)) ourWindows.put(event.getWindowId(), true);
         else if (name.startsWith(OUR_ACTIVITIES)) ourWindows.put(event.getWindowId(), false);

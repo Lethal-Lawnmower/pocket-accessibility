@@ -13,4 +13,4 @@
     android:canRequestTouchExplorationMode="true"
     android:isAccessibilityTool="true"
     android:notificationTimeout="0"
-    android:settingsActivity="com.pocketaccess.launcher.TouchControlsActivity" />
+    android:settingsActivity="com.pocketaccess.touch.TouchSetupActivity" />

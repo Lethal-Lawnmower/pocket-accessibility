@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -16,13 +17,19 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 /**
- * Touch controls: explains Pocket Accessibility touch (TouchPassthroughService), says
- * whether it is on, and opens the Android settings that switch it on.  Plain text and
- * standard buttons only, so every control works with TalkBack's double tap.
+ * Touch controls: the gestures, and whether Pocket Accessibility Touch is installed and on.
+ * The touch service that hands the game screen's touches past TalkBack lives in that
+ * separate, optional app (launcher/android-touch, decision 73), because Google Play Protect
+ * blocks a sideloaded app that declares an accessibility service; this page only links to
+ * it.  Plain text and standard buttons only, so every control works with TalkBack's double tap.
  */
 public final class TouchControlsActivity extends Activity {
+    /** Pocket Accessibility Touch: the release and its test build (build_touch_apk.py). */
+    private static final String[] COMPANIONS = { "com.pocketaccessibility.touch", "com.pocketaccess.touchtest" };
+    private static final String SERVICE_CLASS = "com.pocketaccess.touch.TouchPassthroughService";
+    private static final String RELEASES = "https://github.com/Lethal-Lawnmower/pocket-accessibility/releases/latest";
     private TextView state;
-    private Button openSettings;
+    private Button action;
 
     @Override
     protected void onCreate(Bundle saved) {
@@ -39,25 +46,20 @@ public final class TouchControlsActivity extends Activity {
         state.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         root.addView(state);
 
-        openSettings = button(root, "Open accessibility settings for Pocket Accessibility touch", view -> openServiceSettings());
+        action = button(root, "", view -> act());
 
-        heading(root, "What it does");
+        heading(root, "Pocket Accessibility Touch");
         text(root, "TalkBack normally takes every touch for itself, so a game cannot get swipes and taps. "
-            + "Pocket Accessibility touch hands the game screen's touches straight to the game, "
-            + "while TalkBack stays on and handles everything else: this launcher, the keyboard, notifications, "
-            + "calls, system pop-ups and other apps. It is like direct touch on an iPhone.");
-        text(root, "It only works together with TalkBack, and only while the game's screen is in front. "
-            + "As soon as anything else comes up over the game, TalkBack gets the whole screen back. "
-            + "The status bar and navigation buttons stay with TalkBack too. "
-            + "It only decides who gets your touches; the game decides what each gesture does.");
-        text(root, "Why it asks for accessibility access: Android only lets an accessibility service pass touches "
-            + "through TalkBack. To know when the game is in front, it reads only the layout of the windows on screen: "
-            + "which window is in front, what kind it is, and its size. It does not read what is on screen, "
-            + "does not record anything, and never uses the internet. It is part of this app; "
-            + "you do not need to install anything else. Android will warn that the service can see and control "
-            + "the screen, because it warns that for every accessibility service.");
-        text(root, "To switch it off, open the same settings and turn Pocket Accessibility touch off. "
-            + "TalkBack then takes every touch again, the game screen included.");
+            + "Pocket Accessibility Touch is a small, optional companion app with one accessibility service: "
+            + "while the game's screen is in front, it hands those touches straight to the game, and TalkBack "
+            + "stays on and handles everything else. It is like direct touch on an iPhone.");
+        text(root, "It is a separate download, from the same Releases page as this app, because Google Play Protect "
+            + "blocks apps from outside the Play Store that include an accessibility service, sometimes with no way "
+            + "to install them. Keeping it separate means this app always installs; if Play Protect blocks the "
+            + "companion on your phone, you can still play with a controller.");
+        text(root, "It does not read what is on screen, does not record anything, and has no internet permission. "
+            + "Android warns that any accessibility service can see and control the screen. The code is open source, "
+            + "in the Pocket Accessibility repository on GitHub. Its own screen explains how to switch it on.");
 
         // The gestures, as in README.md "Controls" and docs/access/android.md: keep the three in step.
         heading(root, "Gestures in the game");
@@ -79,17 +81,6 @@ public final class TouchControlsActivity extends Activity {
             + "On a device that can vibrate, HAPTICS gives a light tick for each step and a firmer one "
             + "when you walk into something.");
 
-        heading(root, "If Android says Restricted setting");
-        text(root, "Android blocks accessibility services in apps that were not installed from an app store, "
-            + "until you allow it once. If switching the service on says Restricted setting, close that message, then: "
-            + "open this app's App info with the button below, open More options (the menu at the top), "
-            + "choose Allow restricted settings and confirm. Then come back here, open the accessibility settings "
-            + "again and switch the service on. Allow restricted settings only appears after you have tried "
-            + "to switch the service on once.");
-        button(root, "Open App info for Pocket Accessibility", view -> openAppInfo());
-
-        text(root, "The idea comes from the NVGT Bridge project; this is Pocket Accessibility's own code.");
-
         ScrollView scroll = new ScrollView(this);
         scroll.addView(root);
         // A wrapper, because fitting the system bars replaces a view's own padding.
@@ -102,38 +93,61 @@ public final class TouchControlsActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        // the player may have just switched it on or off in Android's settings
+        // the player may have just installed it, or switched it on or off
+        String installed = installedCompanion();
         if (Build.VERSION.SDK_INT < 30) {
-            state.setText("Pocket Accessibility touch needs Android 11 or later. This device has an older Android, "
-                + "so touch on the game screen goes to TalkBack.");
-            openSettings.setEnabled(false);
-        } else if (TouchPassthroughService.isEnabled(this)) {
-            state.setText("Pocket Accessibility touch is on.");
+            state.setText("Touch on the game screen needs Android 11 or later. This device has an older Android, "
+                + "so touch on the game screen goes to TalkBack. A controller works.");
+            action.setText("Touch needs Android 11");
+            action.setEnabled(false);
+        } else if (installed == null) {
+            state.setText("Pocket Accessibility Touch is not installed, so TalkBack keeps the game screen's touches.");
+            action.setText("Get Pocket Accessibility Touch from the Releases page");
+        } else if (serviceOn(installed)) {
+            state.setText("Pocket Accessibility Touch is installed and on.");
+            action.setText("Open Pocket Accessibility Touch");
         } else {
-            state.setText("Pocket Accessibility touch is off. Switch it on in Android's accessibility settings.");
+            state.setText("Pocket Accessibility Touch is installed but off. Open it to switch it on.");
+            action.setText("Open Pocket Accessibility Touch");
         }
     }
 
-    private void openServiceSettings() {
-        // Android's action for one service's own page (ACCESSIBILITY_DETAILS_SETTINGS) is not in the public
-        // SDK, so this opens the list.  The two extras are Settings' own hint to
-        // scroll to and highlight one entry; a Settings app that ignores them still opens the list.
-        String service = new ComponentName(this, TouchPassthroughService.class).flattenToString();
-        Bundle highlight = new Bundle();
-        highlight.putString(":settings:fragment_args_key", service);
-        Intent list = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-            .putExtra(":settings:fragment_args_key", service)
-            .putExtra(":settings:show_fragment_args", highlight);
-        if (!tryStart(list)) {
-            state.setText("Android's accessibility settings could not be opened. Open Settings, Accessibility yourself.");
+    private void act() {
+        String installed = installedCompanion();
+        if (installed != null) {
+            Intent launch = getPackageManager().getLaunchIntentForPackage(installed);
+            if (launch != null && tryStart(launch)) return;
+            state.setText("Pocket Accessibility Touch could not be opened. Open it from your apps.");
             return;
         }
-        state.setText("In the list, choose Pocket Accessibility touch, which may be under Downloaded apps.");
+        if (!tryStart(new Intent(Intent.ACTION_VIEW, Uri.parse(RELEASES)))) {
+            state.setText("No browser could open the Releases page. It is on GitHub, in the pocket-accessibility repository.");
+        }
     }
 
-    private void openAppInfo() {
-        Intent info = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", getPackageName(), null));
-        if (!tryStart(info)) state.setText("App info could not be opened. Open Settings, Apps, Pocket Accessibility yourself.");
+    /** The companion's package, or null when neither the release nor the test build is installed. */
+    private String installedCompanion() {
+        for (String name : COMPANIONS) {
+            try {
+                getPackageManager().getPackageInfo(name, 0);
+                return name;
+            } catch (PackageManager.NameNotFoundException absent) {
+                // try the next
+            }
+        }
+        return null;
+    }
+
+    /** Whether the companion's service is on: Settings lists every enabled service by component. */
+    private boolean serviceOn(String companion) {
+        String enabled = Settings.Secure.getString(getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+        if (enabled == null) return false;
+        String ours = new ComponentName(companion, SERVICE_CLASS).flattenToString();
+        String shortForm = new ComponentName(companion, SERVICE_CLASS).flattenToShortString();
+        for (String entry : enabled.split(":")) {
+            if (entry.equalsIgnoreCase(ours) || entry.equalsIgnoreCase(shortForm)) return true;
+        }
+        return false;
     }
 
     private boolean tryStart(Intent intent) {

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pocket Accessibility Touch (decision 73): only the touch service and its setup screen.
+     No permissions of its own: no internet, no storage.  Android 11 (API 30) added the call the
+     service needs.  build_touch_apk.py sets the package, version and SDK levels. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- to open the game app (package visibility, Android 11 and later) -->
+    <queries>
+        <package android:name="com.pocketaccessibility.app" />
+        <package android:name="com.pocketaccess.androidtest" />
+    </queries>
+    <application
+        android:label="@string/app_name"
+        android:icon="@drawable/pocket_icon"
+        android:allowBackup="false">
+        <activity
+            android:name="com.pocketaccess.touch.TouchSetupActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@android:style/Theme.DeviceDefault">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <!-- only the system can bind it -->
+        <service
+            android:name="com.pocketaccess.touch.TouchPassthroughService"
+            android:label="@string/pocket_touch_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/pocket_touch_service" />
+        </service>
+    </application>
+</manifest>

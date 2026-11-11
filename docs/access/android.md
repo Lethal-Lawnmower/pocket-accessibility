@@ -272,7 +272,29 @@ Decision 66 sets touch gestures for the game with TalkBack kept on. What was fou
   back to NEW GAME on purpose (which the later screenshot showed). Passthrough with TalkBack 17.1 on the
   Pixel Tablet is confirmed by the owner.
 
-## Touch service (built 2026-11-09, decision 66)
+## Touch service (built 2026-11-09, decision 66; own app since 2026-11-10, decision 73)
+
+**Now a separate app.** Since decision 73 the service is not in the game APK but in Pocket Accessibility
+Touch (`launcher/android-touch`: `AndroidManifest.xml`, `src/com/pocketaccess/touch/TouchPassthroughService.java`
+and `TouchSetupActivity.java`, `res/`), app id `com.pocketaccessibility.touch` (test build
+`com.pocketaccess.touchtest`), minSdk 30, no permissions, built without Gradle by `build_touch_apk.py`
+(aapt2, javac, d8, zipalign, apksigner; release signing with the same key folder as the game app). Why:
+Google Play Protect's fraud protection blocks a sideloaded app that declares an accessibility service, with
+no install-anyway; a tester could not install 0.0.4. The only change to the service: it trusts window
+events from the game apps' packages (`GAME_PACKAGES`: release and test ids) instead of its own. The game
+app's manifest has no service; it declares `<queries>` for the companion's two ids, and its Touch controls
+page shows whether the companion is installed (PackageManager) and on (`Settings.Secure`
+`enabled_accessibility_services`), with one button: get it from the latest release, or open it. The
+setup screen, the Restricted setting help and the explanation moved to the companion. The sections below
+describe the service as first built inside the game app; its region and exploration rules are unchanged.
+
+**Checked on the emulator (2026-11-10, API 36.1, test builds):** the game app's manifest has no
+accessibility service and has the companion query; the companion builds to 21 KB (minSdk 30, no
+permissions). Installed side by side, the game app's Touch controls page said in turn "not installed"
+(button: get it from the Releases page), "installed but off" and "installed and on" (button: open it);
+with the service enabled, `dumpsys accessibility` listed Pocket Accessibility touch as bound. Not checked:
+the touch hand-off over the game screen with TalkBack (the game did not start from a direct launch, and
+Android does not report the passthrough region), Play Protect's verdict on either APK, and a real device.
 
 Our own accessibility service, "Pocket Accessibility touch", in the APK: the game screen's touches go to
 the game while TalkBack stays on for everything else. Fresh code; NVGT Bridge (MIT) is credited for the
