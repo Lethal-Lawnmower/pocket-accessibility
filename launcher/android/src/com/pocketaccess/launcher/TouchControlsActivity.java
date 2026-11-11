@@ -1,5 +1,6 @@
 package com.pocketaccess.launcher;
 
+import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
@@ -10,6 +11,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.view.View;
+import android.view.accessibility.AccessibilityManager;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -141,15 +143,19 @@ public final class TouchControlsActivity extends Activity {
         }
     }
 
-    /** Whether the service is on: Settings lists every enabled service by component. */
+    /** Whether the service is on, as Android's accessibility manager lists the enabled services.
+     *  (Settings.Secure's enabled_accessibility_services read "off" on the emulator while the
+     *  service was bound, 2026-11-10.) */
     private boolean serviceOn() {
-        String enabled = Settings.Secure.getString(getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-        if (enabled == null) return false;
+        AccessibilityManager manager = getSystemService(AccessibilityManager.class);
+        if (manager == null) return false;
         ComponentName ours = new ComponentName(this, SERVICE_CLASS);
-        for (String entry : enabled.split(":")) {
-            if (entry.equalsIgnoreCase(ours.flattenToString()) || entry.equalsIgnoreCase(ours.flattenToShortString())) {
-                return true;
-            }
+        for (AccessibilityServiceInfo info
+                : manager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)) {
+            if (info.getResolveInfo() == null || info.getResolveInfo().serviceInfo == null) continue;
+            ComponentName name = new ComponentName(info.getResolveInfo().serviceInfo.packageName,
+                info.getResolveInfo().serviceInfo.name);
+            if (name.equals(ours)) return true;
         }
         return false;
     }

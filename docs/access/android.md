@@ -282,6 +282,12 @@ controls page) and, with `--no-touch`, the same app without any of it. A work fo
 without `--clean`. The game app's Touch controls page asks the package manager whether the service exists: if
 so, it shows on or off and opens the accessibility settings, with the Restricted setting help; if not, it says
 this is the no-touch download and links to the Releases page. The companion below stays buildable, not released.
+Checked on the emulator (2026-11-10, test builds from `61779f6a` plus the fix below): the standard APK has the
+service and the no-touch APK has none; each installed over the other; Touch controls said "This is the
+no-touch download ..." (button: Open the Releases page), then "off" and, with the service enabled and bound,
+"Pocket Accessibility touch is on." The first build read `Settings.Secure` `enabled_accessibility_services`
+and said "off" while the service was bound; it now asks `AccessibilityManager`, as the original page did. Not
+checked: the touch hand-off with TalkBack, Play Protect on either APK, a real device.
 
 **Earlier the same day: a separate app.** Since decision 73 the service is not in the game APK but in Pocket Accessibility
 Touch (`launcher/android-touch`: `AndroidManifest.xml`, `src/com/pocketaccess/touch/TouchPassthroughService.java`
