@@ -416,11 +416,11 @@ figure it out isn't the way to go"): README "Controls", the Android launcher's T
 
 | Where | Gesture | Does |
 |---|---|---|
-| Map | Swipe | MANUAL: one step that way. HYBRID: the next straight leg. AUTO: auto-walk to the selected point, any way (see TOUCH WALKING) |
+| Map | Swipe | MANUAL and AUTO: one step that way. HYBRID: the next straight leg (see TOUCH WALKING) |
 | Off the map | Swipe | One D-pad press |
 | Map | Two-finger swipe left / right | Previous / next navigation point in the category |
 | Map | Two-finger swipe up / down | Previous / next category (decision 23's trigger plus D-pad) |
-| Map | Tap | Spoken directions to the selected point, as the keyboard's K and the right stick click; again stops them. Reported once the double-tap window has passed |
+| Map | Tap | MANUAL and HYBRID: spoken directions to the selected point, as the keyboard's K and the right stick click. AUTO: auto-walk to it, as the left stick click. Again stops either. Reported once the double-tap window has passed, so a stop comes about 0.3 s after the tap |
 | Anywhere | Double tap | A |
 | same | Two-finger double tap | B |
 | same | Three-finger double tap | START |
@@ -443,9 +443,10 @@ start and select alone").
 like the other rows (`accessTouchGestures`, `accessTouchWalk`):
 - TOUCH GESTURES: ON / OFF. Default on for Android (or with the variable), off elsewhere. OFF restores
   upstream's on-screen buttons.
-- TOUCH WALKING: MANUAL (default; each swipe one step), HYBRID, AUTO. In AUTO a swipe, any way, starts
-  auto-walk to the selected point (as the left stick click; AutoWalk says why when it cannot, for example
-  "Select an object from the list"), and the next gesture stops it. This option is the only way to change
+- TOUCH WALKING: MANUAL (default; each swipe one step), HYBRID, AUTO. In AUTO a tap starts auto-walk to
+  the selected point (as the left stick click; AutoWalk says why when it cannot, for example "Select an
+  object from the list"), and the next gesture stops it; swipes are single steps, as in MANUAL (2026-11-10,
+  below; until then every AUTO swipe auto-walked, so nothing could step the player once there). This option is the only way to change
   how swipes walk.
 - HYBRID: when a point is chosen and after every move, the game says the route's next straight leg
   ("2 right", queued after the point's own line). A swipe that way walks the whole leg as a quiet
@@ -475,7 +476,19 @@ was planned (about a second later in the run; the driver waits 90 frames), the s
 stopped". A step between them said nothing new, which looks like K's own behaviour (speaking where the route
 turns, not every step); not compared with K in the same run.
 
-**Verified 2026-11-10 (no turn; AUTO swipes walk), run level only.** `touch_gestures_test` 201/201: turns
+**AUTO by tap, two-finger swipes in any arrangement (2026-11-10, fifth addendum to decision 66), run level
+only.** The owner, playing on the iPhone: AUTO "will get you to the thing, but you still need to engage with
+it, and it locks up the controls" (every swipe auto-walked again); and two-finger swipes "shouldn't matter
+where they are on the screen ... if the two fingers are vertical or horizontal". Cause of the second: a pair
+close together, one finger lagging or lifting first, turns the line between them past 45 degrees, so the
+swipe was taken for a turn (which does nothing). A turn now also needs the pair to have moved less than a
+swipe (`Gestures.lua`). `touch_gestures_test` 262/262, with stacked, side-by-side and diagonal pairs, one
+finger lagging or lifting first, in all four directions (9 of those checks fail on the old recogniser); a
+twist in place is still a turn. Silent isolated Crystal run (`touch_gestures` driver): a stacked pair with one
+finger lagging moved to the next point ("Radio: 2 up"); in AUTO a swipe stepped once, a tap said "Walking to
+Bookshelf", and a second tap said "Auto walk stopped" 0.32 s later, short of the shelf. Not on a device yet.
+
+**Verified 2026-11-10 (no turn; AUTO swipes walk; superseded the same day, above), run level only.** `touch_gestures_test` 201/201: turns
 start, stop and say nothing (a turn still stops a running walk, as any gesture); AUTO's swipe starts auto-walk
 to the selected point whichever way, takes no single step, a swipe while walking stops it, and off the map it
 is the D-pad. Silent isolated Crystal run: the turn did nothing (no walk, no move, nothing said); AUTO swipe

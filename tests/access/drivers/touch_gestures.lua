@@ -3,7 +3,8 @@
 -- pass the layer's before-hooks exactly as an Android touch would.  Checks a
 -- step on the map, two-finger navigation swipes, the tap for directions, the start menu (three-
 -- finger double tap, a swipe, two-finger double tap), that a two-finger
--- turn does nothing, AUTO's swipe walking to the point, and one hybrid leg.
+-- turn does nothing, AUTO's tap walking to the point (a second tap stops it,
+-- a swipe is one step), a stacked pair's two-finger swipe, and one hybrid leg.
 -- Harness setup (reaching the map) presses buttons directly on the game's
 -- input, never through gestures.
 --
@@ -224,7 +225,26 @@ return function(game)
   U.log("RESULT", "clockwise turn =>", heard(), "walking:", tostring(AutoWalk.walking()),
     "moved:", tostring(where() ~= beforeTurn))
 
-  -- AUTO: a swipe any way walks to the selected point; another swipe stops it
+  -- two fingers one above the other, the lower one lagging: still a swipe
+  do
+    local p = spots(1, LOW)[1]
+    local a, b = { p[1] - 150, p[2] - 150 }, { p[1] - 150, p[2] }
+    love.touchpressed(9001, a[1], a[2], 0, 0, 1)
+    love.touchpressed(9002, b[1], b[2], 0, 0, 1)
+    for s = 1, 6 do
+      U.wait(1)
+      love.touchmoved(9001, a[1] + 50 * s, a[2], 0, 0, 1)
+      love.touchmoved(9002, b[1] + 15 * s, b[2], 0, 0, 1)
+    end
+    love.touchreleased(9001, a[1] + 300, a[2], 0, 0, 1)
+    U.wait(1)
+    love.touchreleased(9002, b[1] + 90, b[2], 0, 0, 1)
+    frames(10)
+    U.log("RESULT", "stacked two-finger swipe right, one finger lagging =>", heard())
+  end
+
+  -- AUTO: a tap walks to the selected point and another tap stops it; a
+  -- swipe is one step
   local function setWalking(label)
     for _, row in ipairs(Settings.rows()) do
       if row.id == "accessTouchWalk" then
@@ -233,12 +253,41 @@ return function(game)
     end
   end
   setWalking("AUTO")
+  local beforeStep = where()
   swipe("down", LOW)
-  frames(20)
-  U.log("RESULT", "auto: swipe =>", heard(), "walking:", tostring(AutoWalk.walking()))
-  swipe("left", HIGH)
-  frames(10)
-  U.log("RESULT", "auto: swipe while walking =>", heard(), "walking:", tostring(AutoWalk.walking()))
+  frames(30)
+  U.log("RESULT", "auto: swipe =>", heard(), "walking:", tostring(AutoWalk.walking()),
+    "moved:", tostring(where() ~= beforeStep))
+  -- a point a few steps away, so the walk is still going when the second tap comes
+  local target
+  for _ = 1, 12 do
+    swipe2("right", HIGH) frames(10)
+    target = heard()
+    local up, right = target:match("(%d+) up"), target:match("(%d+) right")
+    local far = (tonumber(up) or 0) + (tonumber(right) or 0) + (tonumber(target:match("(%d+) left")) or 0)
+      + (tonumber(target:match("(%d+) down")) or 0)
+    if far >= 4 then break end
+  end
+  U.log("RESULT", "auto: target", target)
+  local beforeWalk = where()
+  gesture(spots(1, LOW), 0, 0, 1)
+  local started = false
+  for _ = 1, 60 do
+    frames(1)
+    if AutoWalk.walking() then started = true break end
+  end
+  frames(8)
+  U.log("RESULT", "auto: tap =>", heard(), "walking:", tostring(AutoWalk.walking()), "started:", tostring(started))
+  local tappedAt = love.timer.getTime()
+  gesture(spots(1, HIGH), 0, 0, 1)
+  local stoppedAfter
+  for i = 1, 120 do
+    frames(1)
+    if not AutoWalk.walking() then stoppedAfter = i break end
+  end
+  U.log("RESULT", "auto: tap while walking =>", heard(), "walking:", tostring(AutoWalk.walking()),
+    "stopped after frames:", tostring(stoppedAfter),
+    ("seconds: %.2f"):format(love.timer.getTime() - tappedAt), "at:", where(), "from:", beforeWalk)
   settle(600)
   heard()
 

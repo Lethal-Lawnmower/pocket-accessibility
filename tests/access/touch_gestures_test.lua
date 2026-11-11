@@ -69,6 +69,47 @@ end
 -- a sloppy pair (one finger drifts 80 px across) is still a swipe
 eq(only(stroke(r, 21, { { 600, 1200, 300, 0 }, { 1000, 1200, 300, 80 } }, 0.15), "sloppy pair").kind,
   "swipe", "a pair turning about 11 degrees is a swipe")
+-- two-finger swipes however the fingers sit (the owner, 2026-11-10): one finger
+-- lagging, or lifting before the other, turns the line between them past 45
+-- degrees, which must not make it a turn
+local function lagging(r_, t0, a, b, dx, dy, lagShare, liftFirst)
+  local out = {}
+  local function add(list) for _, g in ipairs(list) do out[#out + 1] = g end end
+  add(r_:pressed(1, a[1], a[2], t0))
+  add(r_:pressed(2, b[1], b[2], t0))
+  for s = 1, 6 do
+    local k = s / 6
+    add(r_:moved(1, a[1] + dx * k, a[2] + dy * k, t0 + 0.03 * s))
+    add(r_:moved(2, b[1] + dx * k * lagShare, b[2] + dy * k * lagShare, t0 + 0.03 * s))
+  end
+  if liftFirst then
+    add(r_:released(1, a[1] + dx, a[2] + dy, t0 + 0.2))
+    add(r_:moved(2, b[1] + dx, b[2] + dy, t0 + 0.25))
+    add(r_:released(2, b[1] + dx, b[2] + dy, t0 + 0.27))
+  else
+    add(r_:released(1, a[1] + dx, a[2] + dy, t0 + 0.2))
+    add(r_:released(2, b[1] + dx * lagShare, b[2] + dy * lagShare, t0 + 0.2))
+  end
+  return out
+end
+r = Gestures.new({ size = size })
+local arrangements = {
+  { "stacked", { 800, 1000 }, { 800, 1150 } },
+  { "side by side", { 700, 1200 }, { 850, 1200 } },
+  { "diagonal", { 700, 1000 }, { 820, 1120 } },
+}
+for i, arr in ipairs(arrangements) do
+  for j, case in ipairs({ { "up", 0, -300 }, { "down", 0, 300 }, { "left", -300, 0 }, { "right", 300, 0 } }) do
+    for _, how in ipairs({ { 0.3, false, "one finger lagging" }, { 1, true, "one finger lifting first" } }) do
+      local label = arr[1] .. ", " .. how[3] .. ", " .. case[1]
+      local g = only(lagging(r, 100 + i * 10 + j, arr[2], arr[3], case[2], case[3], how[1], how[2]), label)
+      eq(g.kind .. ":" .. tostring(g.direction) .. ":" .. tostring(g.fingers), "swipe:" .. case[1] .. ":2", label)
+    end
+  end
+end
+-- a twist in place is still a turn, not a swipe
+eq(only(stroke(r, 150, { { 600, 1200 }, { 900, 1200 } }, 0.6, 12, nil, 90), "twist in place").kind, "rotate",
+  "a pair turning in place is still a turn")
 W, H = 2560, 1600 -- turned on its side
 eq(only(stroke(r, 22, { { 1400, 300, 0, 300 } }, 0.15), "landscape").direction, "down",
   "landscape swipes anywhere too")
@@ -470,18 +511,33 @@ eq(TouchInput.legText(route("up", "up", "left")), "2 up", "leg text")
 eq(TouchInput.legText(route()), "PC is here. Face up and interact", "arrival text with the hint")
 eq(TouchInput.legText(nil, "Select an object from the list"), "Select an object from the list", "why not")
 
--- AUTO: a swipe, any way, auto-walks to the selected point
+-- AUTO (the owner, 2026-11-10): a tap auto-walks to the selected point and a
+-- second tap stops it; swipes are single steps, so the player can turn and
+-- step to what they walked to
 setup(true)
 options.walk = "auto"
 planResult = route("up", "up")
 swipe("down")
-eq(#autoCalls, 1, "auto mode: a swipe starts auto-walk")
-eq(autoCalls[1], "selected", "to the selected point (as the left stick click), whichever way")
-check(TouchInput._state().step == nil, "and takes no single step")
+eq(#autoCalls, 0, "auto mode: a swipe starts no auto-walk")
+check(TouchInput._state().step ~= nil or #TouchInput._state().stepQueue > 0, "it takes one step")
+setup(true)
+options.walk = "auto"
+touch({ { 800, TOP } }, 0, 0, 0.08)
+eq(#autoCalls, 0, "a tap waits for the double-tap window")
+frames(25)
+eq(#autoCalls, 1, "auto mode: a tap starts auto-walk")
+eq(autoCalls[1], "selected", "to the selected point (as the left stick click)")
+eq(#commands, 0, "and asks for no directions")
 walkingNow = true
-swipe("up")
-eq(stopped, 1, "a swipe while it walks stops it")
+touch({ { 800, BOTTOM } }, 0, 0, 0.08)
+frames(25)
+eq(stopped, 1, "a second tap while it walks stops it")
 eq(#autoCalls, 1, "and does not start another")
+setup(true)
+options.walk = "auto"
+doubleTap(1)
+frames(25)
+eq(#autoCalls, 0, "a double tap is A, never auto-walk")
 setup(false)
 options.walk = "auto"
 swipe("up")

@@ -181,6 +181,9 @@ and recorded in the topic file.
   Polish (decision 65, 2026-11-09), run in game, silent, not heard: "Blocked by <who>" and New Mauville's locked door instead of "No route"; Ruby and Sapphire's Trick House 7 solved by a lever planner (Ruby walked to the scroll); a Berry Blender tone before the BEST range; the link receptionist no longer "Trainer". `rse_nav_sweep` 3/3 on Emerald and Ruby (the "Person" labels are sheets the game picks on arrival; named on live maps); `rse_story` G 8/8 gyms on both. Upstream: Emerald's Strength message lacks the Pokémon's name (recorded, not fixed).
   Forgetting a move (2026-11-09, the owner asked: the old Access scripts could not): level up, move tutor and TM run in game on Emerald and Ruby, silent; every forget-screen row now says "N of 5" and the fifth "new move" (FireRed too). Not heard. `ruby-sapphire-emerald.md`, Battle.
   For the owner: Dewford Gym is not "dark" under decision 37, because Flash is refused there and its level falls as trainers lose; and the wording questions at the end of `ruby-sapphire-emerald.md`.
+- **Touch, 2026-11-10 (fifth addendum to decision 66):** AUTO walks by a tap (another tap stops) and swipes
+  step; two-finger swipes no longer turn into a do-nothing rotation when one finger lags. Test and silent
+  Crystal run pass; not on a device; not yet in an iOS build. `main` not pushed.
 - **PC Clock for Hoenn (decision 70, 2026-11-10):** the PC Clock mod 1.1.0 sets Ruby, Sapphire and Emerald's
   wall clock from the device and keeps the time of day on the device's. By script, 10 of 10 on each game; not
   played or heard; the owner kept it in the one mod. `main` not pushed.

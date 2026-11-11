@@ -19,9 +19,10 @@
 --                        plus D-pad):
 --                          left / right  previous / next navigation point
 --                          up / down     previous / next category
---   tap                  on the map: spoken directions to the selected point,
---                        as the keyboard's K and the right stick click (again
---                        stops them); for MANUAL walking (the owner, 2026-11-10)
+--   tap                  on the map: in AUTO walking, auto-walk to the selected
+--                        point (again stops it); otherwise spoken directions
+--                        to it, as the keyboard's K and the right stick click
+--                        (again stops them) (the owner, 2026-11-10)
 --   double tap           A
 --   two-finger double tap B
 --   three-finger double tap START
@@ -33,13 +34,15 @@
 -- turn apart, so a twisting pair is not read as a swipe.
 --
 -- TOUCH WALKING (src/access/Settings.lua):
---   MANUAL  each swipe is one step.
+--   MANUAL  each swipe is one step; a tap says the directions.
 --   HYBRID  the game says the route's next straight leg ("18 up"); a swipe
 --           that way walks the whole leg (auto-walk, quietly, to the leg's
 --           end), then the next leg is said.  A swipe any other way takes
 --           one step that way and plans again from there.
---   AUTO    a swipe, any way, auto-walks to the selected point (as the
---           left stick click); AutoWalk says why when it cannot.
+--   AUTO    a tap auto-walks to the selected point (as the left stick
+--           click), and another tap stops it; AutoWalk says why when it
+--           cannot.  Swipes are single steps, as in MANUAL, so the player can
+--           turn and step to what they walked to (the owner, 2026-11-10).
 -- Holding a direction is not decided and not implemented.
 --
 -- Buttons go in the way scripted drivers press them: on upstream's Input
@@ -346,11 +349,9 @@ function TouchInput.perform(gesture)
     if mode == "hybrid" then
       return hybridSwipe(gesture.direction, nav, adapter, navGame)
     end
-    if mode == "auto" then
-      stepQueue = {}
-      pcall(dep("autoWalk").start, nav, navGame, adapter)
-      return
-    end
+    -- MANUAL and AUTO: one step, so a player who auto-walked to a point can
+    -- still turn to it and step up to it (the owner, 2026-11-10: when every
+    -- swipe auto-walked, nothing could move the player once there)
     return queueStep(gesture.direction, false)
   end
 
@@ -369,10 +370,18 @@ function TouchInput.perform(gesture)
     return
   end
 
+  -- a tap on the map: AUTO walks to the selected point (as the left stick
+  -- click; the owner, 2026-11-10: "tap once for auto walk engage, tap once to
+  -- disengage"; the second tap stops it above, as any gesture stops a walk),
+  -- MANUAL and HYBRID say the directions (K)
   if gesture.kind == "tap" and gesture.fingers == 1 and gesture.taps == 1 then
     if onMap then
       stepQueue = {}
-      pcall(nav.handleCommand, nav, DIRECTIONS)
+      if walkingMode(game) == "auto" then
+        pcall(dep("autoWalk").start, nav, navGame, adapter)
+      else
+        pcall(nav.handleCommand, nav, DIRECTIONS)
+      end
     end
     return
   end

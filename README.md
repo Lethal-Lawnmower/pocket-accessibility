@@ -114,8 +114,8 @@ The navigation keys only work on the map, so they never get in the way of menus 
 
 - **Swipe:** walk on the map. In menus, battles and dialogue, it moves the cursor.
 - **Two-finger swipe left and right:** previous and next thing on the map.
-- **Two-finger swipe up and down:** change the category.
-- **Tap:** spoken directions to what you picked, which keep coming as you walk. Tap again to stop them.
+- **Two-finger swipe up and down:** change the category. Your two fingers can sit side by side or one above the other.
+- **Tap:** spoken directions to what you picked, which keep coming as you walk. Tap again to stop them. In Auto walking, a tap walks you there instead, and another tap stops.
 - **Double tap:** A. **Two-finger double tap:** B.
 - **Three-finger double tap:** Start. **Three-finger tap:** Select.
 - **Two-finger triple tap on the title screen:** back to the launcher. Save first; leaving doesn't save.
@@ -125,7 +125,7 @@ How a swipe walks is up to you, under TOUCH WALKING in the game's options, in th
 
 - **Manual:** each swipe is one step.
 - **Hybrid:** the game tells you the next straight stretch, like "18 up". Swipe that way to walk all of it, then it tells you the next one.
-- **Auto:** a swipe, any way, walks you all the way to what you picked.
+- **Auto:** a tap walks you all the way to what you picked, and another tap stops. Swipes are single steps, so once you're there you can turn and step up to it.
 
 On devices that can vibrate, you feel a light tick with each step and a firmer one when you walk into something. HAPTICS in the same options turns that off. Touch is the newest part of all this and still changing, so tell me what feels wrong.
 

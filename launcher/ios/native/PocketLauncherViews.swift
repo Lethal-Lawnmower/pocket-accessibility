@@ -139,9 +139,11 @@ struct TouchControlsView: View {
                     + "fingers you use, not where you touch.")
                 Text(verbatim: "Swipe: walk on the map. In menus, battles and dialogue, it moves the cursor.")
                 Text(verbatim: "Two-finger swipe left or right: the previous or next thing on the map. "
-                    + "Two-finger swipe up or down: change the category.")
+                    + "Two-finger swipe up or down: change the category. Your two fingers can sit side by side "
+                    + "or one above the other.")
                 Text(verbatim: "Tap: spoken directions to what you picked, which keep coming as you walk. "
-                    + "Tap again to stop them.")
+                    + "Tap again to stop them. In Auto walking, a tap walks you there instead, and another "
+                    + "tap stops.")
                 Text(verbatim: "Double tap: A. Two-finger double tap: B. Three-finger double tap: Start. "
                     + "Three-finger tap: Select.")
                 Text(verbatim: "Any gesture stops a walk.")
@@ -150,9 +152,9 @@ struct TouchControlsView: View {
                 Heading("Settings")
                 Text(verbatim: "In the game's OPTIONS, ACCESSIBILITY has TOUCH GESTURES (on by default here) and "
                     + "TOUCH WALKING. Manual: each swipe is one step. Hybrid: the game says the next straight "
-                    + "stretch, like 18 up; swipe that way to walk all of it. Auto: a swipe, any way, walks all "
-                    + "the way to what you picked. HAPTICS gives a light tap for each step and a firmer one when "
-                    + "you walk into something.")
+                    + "stretch, like 18 up; swipe that way to walk all of it. Auto: a tap walks all the way to "
+                    + "what you picked, and another tap stops; swipes are single steps. HAPTICS gives a light "
+                    + "tap for each step and a firmer one when you walk into something.")
                 Heading("Leaving a game")
                 Text(verbatim: "Save in the game first; leaving does not save. On the title screen, a two-finger "
                     + "triple tap brings you back here. Or, with Direct Touch switched off, swipe up or down "

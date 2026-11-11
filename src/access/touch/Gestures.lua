@@ -7,9 +7,13 @@
 --
 -- A "stroke" runs from the first finger down to the last finger up.  At the
 -- end of a stroke it is classified, in this order:
---   rotation  exactly two fingers, and the line between them turned at
---             least ROTATE_MIN_DEGREES (clockwise or counterclockwise as
---             seen on the screen)
+--   rotation  exactly two fingers, the line between them turned at least
+--             ROTATE_MIN_DEGREES (clockwise or counterclockwise as seen on
+--             the screen), and the pair as a whole moved less than a swipe.
+--             A two-finger swipe with one finger lagging or lifting first
+--             turns that line a lot too, most with the fingers close
+--             together; it stays a swipe however the fingers sit, side by
+--             side or one above the other (the owner, 2026-11-10)
 --   tap       every finger stayed within TAP_MAX_MOVE and the stroke was
 --             short; one, two or three fingers.  A second tap with the same
 --             number of fingers starting within DOUBLE_TAP_SECONDS of the
@@ -191,7 +195,9 @@ local function classify(self, stroke, t, out)
 
   -- screen y grows downwards, so a growing angle turns clockwise as seen
   local degrees = math.deg(stroke.rotation)
-  if n == 2 and math.abs(degrees) >= th.ROTATE_MIN_DEGREES then
+  local distance = math.sqrt(dx * dx + dy * dy)
+  local swipeFar = distance >= th.SWIPE_MIN_MOVE * short
+  if n == 2 and math.abs(degrees) >= th.ROTATE_MIN_DEGREES and not swipeFar then
     flushPending(self, out)
     out[#out + 1] = { kind = "rotate", direction = degrees > 0 and "clockwise" or "counterclockwise",
                       degrees = degrees, x = sx, y = sy }
@@ -217,8 +223,7 @@ local function classify(self, stroke, t, out)
   end
 
   flushPending(self, out)
-  local distance = math.sqrt(dx * dx + dy * dy)
-  if distance >= th.SWIPE_MIN_MOVE * short and duration <= th.SWIPE_MAX_SECONDS then
+  if swipeFar and duration <= th.SWIPE_MAX_SECONDS then
     local direction
     if math.abs(dx) > math.abs(dy) then
       direction = dx > 0 and "right" or "left"
