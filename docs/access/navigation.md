@@ -153,6 +153,16 @@ slides or a door or stair transition runs (`spinnerSliding`,
 the bag is faced and opened with one A press (upstream opens them in its A
 interaction, `OverworldState:tryCardKeyDoor`).
 
+What a coordinator may add (all optional; Gen 3 has them, 2026-11-19):
+`unreachableReason(goals)`, asked by guided navigation when every policy
+failed, for a sentence better than "Cannot reach yet";
+`rememberJourneyTarget(item, journey)`, called when a walk to something on
+this map becomes a journey through other maps, so the coordinator can keep
+the target where the list no longer has it (its stand-in item may carry
+`arrivalMapId`, the map whose arrival ends the walk). The Pathfinder's own
+"time limit exceeded" and "node limit exceeded" are spoken as "Could not
+plan a route to ... in time" by guided navigation too.
+
 Battles pause it and it resumes afterwards (owner request, 2026-10-31):
 any screen opening pauses the walk and releases the direction; returning to
 the same map recomputes the route from where the player stands and says

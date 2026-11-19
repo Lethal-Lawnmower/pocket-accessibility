@@ -247,9 +247,30 @@ alone. The journey's plan sets boulders aside, so it found a leg to the warp at 
 crashes afterwards in FireRed's `gen3_nav`, `gen3_nav_more`, `gen3_nav_gaps`, `gen3_nav_puzzle`, `gen3_boulders`, `gen3_switches`, `gen3_surge`;
 Red's `gen1_puzzles`, `journeys`, `navigation`; Crystal's `gen2_nav`, `gen2_boulders`, `gen2_switches`, `gen2_editions`. Indigo Plateau not walked.
 
+## Second Gen 3 polish pass (2026-11-19)
+
+Shared with Hoenn; the account is in `ruby-sapphire-emerald-navigation.md`, "Second pass". What it means here:
+
+- **The list broke routes from water.** Opening the object list on a water cell cached that cell as "not water", and
+  the next route began "Use Surf". Fixed in `WorldSnapshot.mapProxy`; FireRed and LeafGreen were affected the same way.
+- **Ways round.** Route 10's north half to Lavender's edge goes through Rock Tunnel as one auto-walk
+  (`gen3_story` E: arrived; each dark floor stops it with "Too dark. Use Flash." and auto-walk pressed again carries
+  on, five times in the run). Route 4's west half to Cerulean's edge through Mt. Moon: from a new game's flags the
+  answer is "The way is through Mt. Moon 1F, blocked by someone further on" (B2F's Super Nerd stands in the corridor);
+  not walked with him out of the way. The first version searched any map and led from Route 4 through Pewter,
+  Diglett's Cave, Vermilion and the Underground Path to Cerulean: a way round now stays within the places this map's
+  doors lead to.
+- **A journey keeps its target** across floors whose list does not have it, as in Hoenn's Victory Road.
+- **Guided navigation** says "Boulders in the way: use auto walk" and "Floor switches change this floor: use auto
+  walk" where it said "Cannot reach yet".
+- **Open:** the guided sweep on FireRed (996 targets, before these changes, and with no party because the driver's
+  party call failed there) left 43 refusals; several say "No path" where a field move is missing (Cinnabar's east
+  edge, Pallet's south, Route 20's): find why that is not "Needs Surf". Pokémon Mansion's and Seafoam's refusals are
+  their switches and currents. Run it again with a party first.
+
 ## Known gaps
 
-- Mt. Ember's Fire Stone: "No route" from the entrance. Its room looks to need a boulder moved through a space
+- Mt. Ember's Fire Stone: "No route" from the entrance (superseded: `gen3_story` walks to it since the boulder work; seen 2026-11-19). Its room looks to need a boulder moved through a space
   a rock fills until smashed, and the search counts rocks as fixed for boulders. Optional item; not solved.
 - `remoteSwitch` looks one flip ahead, and the walk can win battles on the way before it knows the next flip.
 - A journey past boulders walks on hopefully; a floor with no solution ends with "No route" there, not at the start.

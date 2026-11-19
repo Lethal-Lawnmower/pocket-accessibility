@@ -33,29 +33,62 @@ running and hands out what upstream already holds: the profile (`map.enginePrefi
     ("Needs Mach Bike") and at Aqua Hideout's grunt ("Blocked by Team Aqua Grunt"). When every route policy fails, the
     shared `advancePendingRoute` now asks `Navigation:unreachableReason`; Gen 3 answers with `routeNeeds`, then its
     journey planner. `dark_maps` checks the Granite Cave case in Hoenn.
-  - A guided-navigation sweep (a scratch driver: every warp and connection of every Emerald map, from its first warp,
-    with the harness party, badges and Flash; 800 targets asked) left 55 "Cannot reach yet". Right as they are: the
-    Abandoned Ship's locked hidden rooms, the sealed Desert Ruins, Ancient Tomb and Island Cave.
-    **Open for the next pass**, by kind (each line: map, then what the journey planner said for the same goals):
-    - The journey planner reaches it on the same floor, the Pathfinder behind guided navigation does not: Lavaridge
-      Gym 1F and B1F's holes and springs (7 targets), Route 104 north to Rustboro, Route 125 west to Route 124,
-      Seafloor Cavern Room 1 to Room 2 and Room 8 to Room 3. The two planners disagree on these floors; find where.
-    - Puzzles auto-walk solves but guided navigation only refuses: Trick House 7 (all 9 targets), Mossdeep Gym (the
-      planner says "Blocked by Statue": the statues move with the switches). Say "use auto walk", as spinning gates do.
-    - Story or terrain with no reason given: Lilycove east to Route 124 (the Wailmer barrier), Magma Hideout 1F to 2F,
-      Shoal Cave's rooms (tide), Seafloor Cavern rooms 5, 6, 7 and 4 (boulders), Victory Road B1F to 1F, Route 123 north,
-      Safari Zone south to north (Acro Bike), Underwater Route 127 south, Sootopolis Mystery Events House B1F.
-    - Started at a map's first warp, so a far part of a big map is another Area's way round (Route 104 to Petalburg
-      Woods and the flower shop, Route 112 to Jagged Pass, Fiery Path and Lavaridge, Route 116 to Rusturf Tunnel):
-      by design (decision 25), but the refusal could say the way is through another place.
-    Driver: `tests/access/drivers/gen3_guided_sweep.lua` (its logs are not kept); rerun it to compare. Left by design: from the top of
-    Ever Grande City the lower town is "Cannot reach yet", because the way is through Victory Road, another Area, and a
-    journey stays in one Area (decision 25). Battle Frontier, Trainer Hill, tents and contest halls were skipped (a
-    teleport into a Battle Dome room crashes upstream's `dome.lua:432` without its challenge set up; the Hall of Fame starts its own scene and wedges the maps after it).
+  - A guided-navigation sweep (`tests/access/drivers/gen3_guided_sweep.lua`: every warp and connection of every map,
+    from its first warp, with the harness party, badges and Flash; its logs are not kept) first left 55 "Cannot reach
+    yet" in Emerald. What became of them is in "Second pass" below.
   - Not changed: object names come from the sprite sheet ("Fat Man", "Expert"), as in FireRed; Emerald's unused Cave of
     Origin maps are "Cave of Origin Unused Ruby Sapphire Map 1", reached only from each other.
 - **Area** (decision 25): `UNDERWATER_` comes off the key, so a route and its seabed are one area; a bare route is its own area
   (FireRed's routes have none); Secret Base rooms and Battle Pyramid squares have no Area list.
+
+## Second pass (2026-11-19, the owner: "another giant polish pass in all of third generation")
+
+The owner named the old scripts' sore points: several dive points with nothing to tell them apart, and Victory Road.
+All of this is run in game by driver, silent; nobody has heard it.
+
+- **Dive spots** (`Navigation:diveSpots`, in the object list). Each patch of deep water over one seabed is one entry
+  that says where it leads: the seabed's own doors, named by where they come up ("Dive Spot to Sootopolis City",
+  "to Seafloor Cavern Entrance"), then the other waters that seabed surfaces in ("to a pool with Red Shard and the
+  open water", "to water at the east edge of Route 124"), else "Dive Spot, seabed only". Below, each stretch that can
+  surface is "Way Up to Route 126", "Way Up to an enclosed pool", "Way Up to Sootopolis City". Guided navigation and
+  auto-walk go to the nearest cell of one and say the game's button ("Press A and answer yes to dive", B to
+  surface); without the move the entry says "Needs Dive". Emerald: 93 entries on 25 maps (Route 124 has 16 over ten
+  seabeds, six of them "seabed only"); Ruby: 77 on 20. "The open water" is the map's largest stretch; a smaller one
+  that reaches the map's edge is "water at the north edge of ...". Hidden items on a seabed are not listed, as
+  elsewhere. Driver `rse_dive_spots`: Emerald 10/10, with a dive to Underwater Route 126 and back by the
+  list alone. Agent's wording, open to the owner.
+- **The list broke routes from water (all five Gen 3 games).** `WorldSnapshot.mapProxy` ran the view's methods on
+  the proxy, whose relabelled `def` has no layout, with the view's own cache: the cell the player stood on was cached
+  "not water" the first time the list was opened there, and the next route from that cell began "Use Surf facing
+  right" (auto-walk: "Could not use Surf"). The proxy now calls the view's methods on the view. Found because
+  `rse_dive_spots` passed only when a route had been planned before the list was read; the driver now checks the
+  cell after the list.
+- **Ways round** (`Navigation:regionalNextLeg`, `wayRoundMaps`). A target on the player's own map with no way in its
+  area, with or without what the player lacks, is searched for once more through the places this map's doors lead
+  to and their other floors, never through a connection: Route 104 through Petalburg Woods, Route 116 through
+  Rusturf Tunnel, Ever Grande City through Victory Road. Boulders on the way are set aside for the plan and pushed
+  when the walk gets there. With people set aside it answers "The way is through <place>, blocked by someone
+  further on". Any map at all was tried first and is wrong: see FireRed's Route 4 in `firered-leafgreen-navigation.md`.
+- **A journey keeps its target** (`rememberJourneyTarget`, `keptJourneyTarget`). Victory Road from its south door to
+  the League's is a target on 1F reached through B1F and B2F; the list on B1F does not have it, so when B1F's
+  boulders had to take over, or a trainer had been fought, the walk stopped: "Cannot reach Ever Grande City,
+  entrance 2 of 2, auto walk stopped". The target now stands in as the selection, shaped like an Area target, until
+  the player arrives or chooses something else; pressing auto-walk again with nothing chosen carries the journey on
+  (after Flash on a dark floor). `rse_story` W, Emerald: Victory Road door to door, Ever Grande City's League side
+  back down to the Center, Route 104's two halves, Route 116's: 4 of 4, one auto-walk each.
+- **Guided navigation's refusals.** Any sentence the journey planner gives is passed on ("Blocked by ...", a story
+  door, "Needs ..."); a way that counts on boulders says "Boulders in the way: use auto walk"; a floor with floor
+  switches (Mossdeep Gym, Trick House 7) "Floor switches change this floor: use auto walk". Lavaridge Gym's buried
+  trainers stand in four of its holes, unseen and in no list: "Blocked by a hidden trainer", not "Blocked by Man"
+  (agent's wording, open to the owner: it tells the player a trainer is there before the trainer jumps out).
+- **Of the 55, left "Cannot reach yet" and why:** the Abandoned Ship's locked rooms and the three sealed Regi doors
+  (right); Lilycove east to Route 124 (the Wailmers are drawn by a load script, so no person to name; not looked
+  into why the harness's badges do not clear them); Route 112's south-west pocket with Jagged Pass and Lavaridge's
+  edge (reached by the cable car and down Jagged Pass: the ride is the player's); Route 123's north-east from its
+  west end (one-way ledges); Route 125's north-west water from Shoal Cave (no way found even over any map, 1 second:
+  it is reached from Route 124 through a dive; not explained); Safari Zone South to North and the Mystery Events
+  House's stairs (not looked into); Magma Hideout 2F Room 3 from 1F. The sweep was not run again after the last
+  changes: do that first next time.
 
 ## Tiles and field moves
 
@@ -138,5 +171,10 @@ because the game's tide follows the clock (`UpdateShoalTideFlag`); low tide arri
 - **Secret bases:** a spot is listed and walked to. Secret Power, and a base's own decorations, are not run.
 - **Unexplained:** in Ruby and Sapphire, Seafloor Cavern's entrance with the grunt in the way, the walk's first move brought up the game's Dive question (the harness answered yes). Not looked into. A real player can answer no.
 - **Petalburg Gym:** Norman's object stands by the door in a new game's state, so "door to leader" there is a few steps and proves nothing about the rooms. The rooms' doors are warps the planner reads; none was walked to Norman in a later state.
+- **Ways round stop at doors.** A way round never crosses a connection, so two halves of a route that join only through
+  the next town (or by a ride) stay "Cannot reach yet". A journey whose way passes through the map a door target leads to
+  ends there (Route 104 south to "Petalburg Woods, entrance 3 of 3" would end inside the woods' south door). Not seen in a run.
+- **A kept journey target** lasts until the player arrives, goes through its door or chooses something from the list. A
+  player who leaves a journey half way and later presses auto-walk with nothing chosen is walked on to it.
 - **A move through a bridge** says each cell in guided navigation, but the crossing has only been walked by auto-walk (Victory Road 1F).
 
