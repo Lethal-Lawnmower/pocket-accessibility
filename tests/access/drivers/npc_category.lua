@@ -39,6 +39,7 @@ return function(game)
       if warp then rooms[version][#rooms[version] + 1] = { id, warp.x, warp.y } end
     end
   end
+  rooms.leafgreen = rooms.firered -- one map set (decision 44)
   for _, room in ipairs(rooms[version] or {}) do
     if isGen1 then U.teleport(game, room[1], room[2], room[3], "up") else L.teleport(room[1], room[2], room[3]) end
     U.wait(60)

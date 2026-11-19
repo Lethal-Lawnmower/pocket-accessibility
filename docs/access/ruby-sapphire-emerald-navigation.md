@@ -29,6 +29,16 @@ running and hands out what upstream already holds: the profile (`map.enginePrefi
   - Littleroot: the house that matches the player's gender is "<name>'s House 1F" (was "Littleroot Town Brendan's House 1F"
     for a boy's own house); the other keeps the rival's name. Gender from the session (`Snapshot.playerGender`).
   - Rooms: Meteor Falls' and Magma Hideout's "1F 1r" are "1F Room 1".
+  - Guided navigation said "Cannot reach yet" where auto-walk named the reason: past Granite Cave B1F's cracked floor
+    ("Needs Mach Bike") and at Aqua Hideout's grunt ("Blocked by Team Aqua Grunt"). When every route policy fails, the
+    shared `advancePendingRoute` now asks `Navigation:unreachableReason`; Gen 3 answers with `routeNeeds`, then its
+    journey planner. `dark_maps` checks the Granite Cave case in Hoenn.
+  - A guided-navigation sweep (a scratch driver: every warp and connection of every Emerald map, from its first warp,
+    with the harness party, badges and Flash) found no other unexplained refusal. Left, and right: the Abandoned
+    Ship's locked hidden rooms, the Desert Ruins' and Ancient Tomb's sealed doors. Left by design: from the top of
+    Ever Grande City the lower town is "Cannot reach yet", because the way is through Victory Road, another Area, and a
+    journey stays in one Area (decision 25). Battle Frontier, Trainer Hill, tents and contest halls were skipped (a
+    teleport into a Battle Dome room crashes upstream's `dome.lua:432` without its challenge set up).
   - Not changed: object names come from the sprite sheet ("Fat Man", "Expert"), as in FireRed; Emerald's unused Cave of
     Origin maps are "Cave of Origin Unused Ruby Sapphire Map 1", reached only from each other.
 - **Area** (decision 25): `UNDERWATER_` comes off the key, so a route and its seabed are one area; a bare route is its own area
