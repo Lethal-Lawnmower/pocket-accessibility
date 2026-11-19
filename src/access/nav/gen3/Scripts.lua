@@ -158,6 +158,55 @@ end
 -- in the bag from anywhere else does not open the door.
 -- What a plain sign says, for its name: the first text its script loads, first line
 -- only (read from the script, never run).  Nil when it has none.
+-- An arrow starting a line of a route sign ("ROUTE 104 / {RIGHT_ARROW} PETALBURG CITY") says
+-- which way; inside a sentence it stands for a word ("A short walk {UP_ARROW} way!").
+local SIGN_ARROWS = { RIGHT_ARROW = ", east: ", LEFT_ARROW = ", west: ", UP_ARROW = ", north: ",
+  DOWN_ARROW = ", south: " }
+local SIGN_ARROW_WORDS = { RIGHT_ARROW = " right ", LEFT_ARROW = " left ", UP_ARROW = " up ",
+  DOWN_ARROW = " down " }
+local SIGN_LENGTH = 64
+
+-- A sign's words on one line, from the plain text of its first message: the first page
+-- (a blank line ends it, as the game's paragraph break), its lines joined; a short first
+-- page ("TRAINER TIPS", on 12 Emerald signs) takes the next one too, or those signs all
+-- read the same.  Placeholders the game fills in at the sign (a trendy phrase) are
+-- dropped with the quotes around them, and the result is cut at a word.
+function Scripts.signLine(text)
+  if type(text) ~= "string" then return nil end
+  local pages = {}
+  for page in (text:gsub("\r", "") .. "\n\n"):gmatch("(.-)\n%s*\n") do
+    if page:match("%S") then pages[#pages + 1] = page end
+  end
+  local function clean(words)
+    -- the treasure hunters' trade list: "RED SHARD{LEFT_ARROW}{RIGHT_ARROW}FIRE STONE"
+    words = ("\n" .. words):gsub("{LEFT_ARROW}{RIGHT_ARROW}", " for ")
+      :gsub("\n[ \t]*{(%u[%u_]*)}", function(name) return SIGN_ARROWS[name] and ("\n" .. SIGN_ARROWS[name]) end)
+      :gsub("{(%u[%u_]*)}", function(name) return SIGN_ARROW_WORDS[name] end)
+      -- a word the game fills in, with any "'S" or "S" after it ("{STR_VAR_1}S")
+      :gsub("{[^}]*}'?S%f[^%w]", " "):gsub("{[^}]*}", " "):gsub("%c", " ")
+      -- quotes left empty by a dropped placeholder
+      :gsub("\226\128\156%s*\226\128\157", " ")
+      -- the treasure hunters' columns, which the game lines up with a cursor move
+      :gsub("(%l)(Trade item)", "%1, %2")
+      -- Route 104's sign is spelt with a letter O: "ROUTE 1O4"
+      :gsub("(%d)O(%d)", "%10%2")
+      :gsub("%s+", " "):gsub("%s+([,.!?])", "%1"):gsub("%s+\226\128\166", "\226\128\166")
+      :gsub("^[,%s]+", ""):gsub("[,%s]+$", "")
+      :gsub(",%s*,", ",")
+    return words
+  end
+  local line = clean(pages[1] or "")
+  if #line < 20 and pages[2] then line = clean(pages[1] .. "\n" .. pages[2]) end
+  if line == "" then return nil end
+  if #line > SIGN_LENGTH then
+    local cut = line:sub(1, SIGN_LENGTH)
+    -- a cut inside a word drops that word
+    if line:sub(SIGN_LENGTH + 1, SIGN_LENGTH + 1) ~= " " then cut = cut:match("^(.*)%s%S*$") or cut end
+    line = cut:gsub("[,%s]+$", "")
+  end
+  return line
+end
+
 function Scripts.signWords(key)
   local RomText = package.loaded["src.core.game3.rom_text"] or require("src.core.game3.rom_text")
   local seen = {}
@@ -171,9 +220,8 @@ function Scripts.signWords(key)
       if type(cmd) == "table" and cmd.op == "loadword" and type(cmd.value) == "string" then
         local ok, text = pcall(RomText.plain, cmd.value)
         if ok and type(text) == "string" then
-          local line = text:gsub("{[^}]*}", " "):gsub("%c.*$", ""):gsub("%s+", " ")
-            :gsub("^%s+", ""):gsub("%s+$", "")
-          if line ~= "" then return line:sub(1, 48) end
+          local line = Scripts.signLine(text)
+          if line then return line end
         end
       elseif type(cmd) == "table" and BRANCH[cmd.op] and GameData.isHoenn() then
         local found = words(cmd.target, depth + 1)

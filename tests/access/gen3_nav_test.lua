@@ -829,4 +829,51 @@ do
   eq(nurse.category, "npcs", "an NPC's category is npcs")
 end
 
+do
+  -- a sign's words on one line (Ruby, Sapphire and Emerald's texts, from the cartridge)
+  local Scripts = require("src.access.nav.gen3.Scripts")
+  local line = Scripts.signLine
+  local open, close, dots = "\226\128\156", "\226\128\157", "\226\128\166"
+  eq(line("ROUTE 1O4\n{RIGHT_ARROW} PETALBURG CITY"), "ROUTE 104, east: PETALBURG CITY",
+    "a route sign: its arrow says which way, and 1O4 is a number")
+  eq(line("{RIGHT_ARROW} TRAINER HILL ENTRANCE\n\n" .. open .. "Scale the heights, you hot-blooded\nTRAINERS!" .. close),
+    "east: TRAINER HILL ENTRANCE", "an arrow first; the first page is long enough")
+  eq(line("TRAINER TIPS\n\nIn the HOENN region there are pairs\nof TRAINERS who challenge others\n\nfor 2-on-2"),
+    "TRAINER TIPS In the HOENN region there are pairs of TRAINERS who", "a short first page takes the next, cut at a word")
+  eq(line("Wanted itemTrade item\nRED SHARD{LEFT_ARROW}{RIGHT_ARROW}FIRE STONE\n\nWanted item"),
+    "Wanted item, Trade item RED SHARD for FIRE STONE", "a table's columns and its two-way arrow")
+  eq(line("IDENTIFYING GOOD\n" .. open .. "{STR_VAR_1}" .. close .. " &\n\nBAD " .. open .. "{STR_VAR_2}" .. close .. dots),
+    "IDENTIFYING GOOD & BAD" .. dots, "quotes a filled-in word leaves empty are dropped")
+  eq(line("The Battle Tournament rules\nare listed."), "The Battle Tournament rules are listed.", "lines are joined")
+  eq(line(open .. "Our family's hearts beat as one!" .. close .. "\nTHE WINSTRATE'S HOUSE"),
+    open .. "Our family's hearts beat as one!" .. close .. " THE WINSTRATE'S HOUSE", "quotes with words stay")
+  eq(line("MT. CHIMNEY CABLE CAR\n" .. open .. "A short walk {UP_ARROW} way!" .. close),
+    "MT. CHIMNEY CABLE CAR " .. open .. "A short walk up way!" .. close, "an arrow inside a sentence is a word")
+  eq(line("It's a Nintendo GameCube."), "It's a Nintendo GameCube.", "a word with a capital inside stays whole")
+  eq(line("Hi, there! Did you want to blend some {STR_VAR_1}S with us?"),
+    "Hi, there! Did you want to blend some with us?", "a filled-in word goes with its S")
+  eq(line("\n\n"), nil, "nothing to say")
+end
+
+do
+  -- Littleroot's houses: the one that matches the player's gender is the player's own
+  local Snapshot = require("src.access.nav.gen3.WorldSnapshot")
+  local GameData = require("src.access.nav.gen3.GameData")
+  local isHoenn, bare, gender = GameData.isHoenn, GameData.bareMapId, Snapshot.playerGender
+  GameData.isHoenn = function() return true end
+  GameData.bareMapId = function(id) return (id:gsub("^EM_", "")) end
+  Snapshot.playerGender = function() return 0 end
+  eq(Snapshot.locationName({ id = "EM_LITTLEROOT_TOWN_BRENDANS_HOUSE_1F" }, nil, nil, "Alex", nil),
+    "Alex's House 1F", "a boy's own house is his")
+  eq(Snapshot.locationName({ id = "EM_LITTLEROOT_TOWN_MAYS_HOUSE_2F" }, nil, nil, "Alex", nil),
+    "Littleroot Town May's House 2F", "the other house stays the rival's")
+  Snapshot.playerGender = function() return 1 end
+  eq(Snapshot.locationName({ id = "EM_LITTLEROOT_TOWN_MAYS_HOUSE_2F" }, nil, nil, nil, nil),
+    "Your House 2F", "a girl's own house, before she has a name")
+  Snapshot.playerGender = function() return nil end
+  eq(Snapshot.locationName({ id = "EM_LITTLEROOT_TOWN_MAYS_HOUSE_1F" }, nil, nil, "Alex", nil),
+    "Littleroot Town May's House 1F", "no session: the map's own name")
+  GameData.isHoenn, GameData.bareMapId, Snapshot.playerGender = isHoenn, bare, gender
+end
+
 T.finish("gen3 navigation")

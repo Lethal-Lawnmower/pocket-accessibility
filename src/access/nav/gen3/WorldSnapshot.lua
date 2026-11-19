@@ -70,6 +70,19 @@ function Snapshot.mapIdName(mapId)
   return table.concat(words, " ")
 end
 
+-- The player's gender as the running game holds it (0 boy, 1 girl), or nil when no
+-- session is up.  Tests replace it.
+function Snapshot.playerGender()
+  local Runtime = package.loaded["src.core.game3.runtime"]
+  if not (Runtime and type(Runtime.getSession) == "function") then return nil end
+  local ok, session = pcall(Runtime.getSession)
+  local gender = ok and type(session) == "table" and session.gender or nil
+  -- upstream writes it as 0 and 1 or as words (src/core/game3/field_view.lua)
+  if gender == 1 or gender == "female" or gender == "F" then return 1 end
+  if gender == 0 or gender == "male" or gender == "M" then return 0 end
+  return nil
+end
+
 -- Location name for a FireRed map: a player rename, an authored label, the
 -- player's and rival's houses, then the humanised id.
 function Snapshot.locationName(mapOrDef, fallbackId, customName, playerName, rivalName)
@@ -84,6 +97,18 @@ function Snapshot.locationName(mapOrDef, fallbackId, customName, playerName, riv
   end
   if id == "FR_RIVALS_HOUSE" then
     return (nonempty(rivalName) and (rivalName .. "'s House")) or "Rival's House"
+  end
+  -- Littleroot's two houses are named after Brendan and May; the one that matches the
+  -- player's gender is the player's own, the other the rival's (the game's own choice)
+  local who, floor
+  if type(id) == "string" and GameData.isHoenn() then
+    who, floor = GameData.bareMapId(id):match("^LITTLEROOT_TOWN_(%u+)S_HOUSE_(%dF)$")
+  end
+  if who == "BRENDAN" or who == "MAY" then
+    local gender = Snapshot.playerGender()
+    if gender ~= nil and (gender == 1) == (who == "MAY") then
+      return (nonempty(playerName) and (playerName .. "'s House ") or "Your House ") .. floor
+    end
   end
   return Snapshot.mapIdName(id) or "Unknown location"
 end
