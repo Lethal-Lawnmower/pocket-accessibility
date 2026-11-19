@@ -972,4 +972,43 @@ do
   eq((nav:journeyBlocker(journey(0), "RU_LAVARIDGE_TOWN_GYM_B1F")), "something hidden", "anything else unseen keeps its words")
 end
 
+do
+  -- One Island's maps carry SEVII_ where the rest of FireRed and LeafGreen carry FR_
+  local GameData = require("src.access.nav.gen3.GameData")
+  local Snapshot = require("src.access.nav.gen3.WorldSnapshot")
+  local Navigation3 = require("src.access.nav.gen3.Navigation")
+  eq(GameData.bareMapId("SEVII_ONE_ISLAND_KINDLE_ROAD"), "ONE_ISLAND_KINDLE_ROAD", "SEVII_ comes off as FR_ does")
+  eq(GameData.bareMapId("FR_ONE_ISLAND_KINDLE_ROAD_EMBER_SPA"), "ONE_ISLAND_KINDLE_ROAD_EMBER_SPA", "FR_ as before")
+  eq(Navigation3.areaKey("SEVII_ONE_ISLAND_KINDLE_ROAD"), Navigation3.areaKey("FR_ONE_ISLAND_KINDLE_ROAD_EMBER_SPA"),
+    "Kindle Road and its Ember Spa are one area")
+  eq(Navigation3.areaKey("SEVII_ONE_ISLAND_POKECENTER"), Navigation3.areaKey("SEVII_ONE_ISLAND_POKECENTER_2F"),
+    "the Center's two floors are one area")
+  check(Navigation3.areaKey("SEVII_ONE_ISLAND_POKECENTER") ~= Navigation3.areaKey("SEVII_ONE_ISLAND_KINDLE_ROAD"),
+    "and not the whole island's")
+  eq(Snapshot.mapIdName("SEVII_ONE_ISLAND_POKECENTER"), "One Island Pok\195\169mon Center 1F", "named as every other Center")
+  eq(Snapshot.mapIdName("SEVII_ONE_ISLAND_POKECENTER_2F"), "One Island Pok\195\169mon Center 2F", "and its upper floor")
+  local profile = GameData.profile
+  GameData.profile = function() return { map = { enginePrefix = "FR_", prefixes = { "FR_", "SEVII_" } } } end
+  check(GameData.ownsMap("SEVII_ONE_ISLAND"), "a SEVII_ map is the cartridge's own")
+  check(GameData.ownsMap("FR_PALLET_TOWN"), "an FR_ map is")
+  check(not GameData.ownsMap("EM_ROUTE101"), "another game's map is not")
+  GameData.profile = profile
+
+  -- Ruby and Sapphire's sheets read by the names Emerald gives the same pictures
+  local id = GameData.id
+  Snapshot.setGraphicsNames({ [116] = "OBJ_EVENT_GFX_MAN_7", [28] = "OBJ_EVENT_GFX_WOMAN_6", [21] = "OBJ_EVENT_GFX_OLD_MAN_1",
+    [18] = "OBJ_EVENT_GFX_WOMAN_2", [6] = "OBJ_EVENT_GFX_LITTLE_GIRL_1", [20] = "OBJ_EVENT_GFX_WOMAN_3" })
+  GameData.id = function() return "ruby" end
+  eq(Snapshot.objectLabel({ graphicsId = 116, def = {} }, {}), "Devon Employee", "Ruby's MAN_7 is Emerald's Devon Employee")
+  eq(Snapshot.objectLabel({ graphicsId = 28, def = {} }, {}), "Receptionist", "WOMAN_6 the link receptionist")
+  eq(Snapshot.objectLabel({ graphicsId = 21, def = {} }, {}), "Expert", "OLD_MAN_1 the Expert")
+  eq(Snapshot.objectLabel({ graphicsId = 18, def = {} }, {}), "Pok\195\169 Fan", "WOMAN_2 the fan")
+  eq(Snapshot.objectLabel({ graphicsId = 6, def = {} }, {}), "Twin", "LITTLE_GIRL_1 a twin")
+  eq(Snapshot.objectLabel({ graphicsId = 20, def = {} }, {}), "Woman", "a sheet with no other name keeps its own")
+  GameData.id = function() return "firered" end
+  eq(Snapshot.objectLabel({ graphicsId = 18, def = {} }, {}), "Woman", "FireRed's WOMAN_2 is its own sheet")
+  GameData.id = id
+  Snapshot.setGraphicsNames(nil)
+end
+
 T.finish("gen3 navigation")

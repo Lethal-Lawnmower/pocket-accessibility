@@ -23,7 +23,8 @@ return function(game)
   local Terrain = require("src.access.nav.gen3.TerrainSemantics")
 
   local ids = {}
-  for id in pairs(maps) do if id:match("^FR_") then ids[#ids + 1] = id end end
+  -- One Island's maps carry SEVII_ where the rest carry FR_ (upstream's firered profile)
+  for id in pairs(maps) do if id:match("^FR_") or id:match("^SEVII_") then ids[#ids + 1] = id end end
   table.sort(ids)
 
   local entries = {}

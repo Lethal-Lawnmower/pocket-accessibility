@@ -64,12 +64,30 @@ end
 
 local PREFIXES = { FR_ = true, LG_ = true, EM_ = true, RU_ = true, SA_ = true }
 
--- A map id without its game's prefix.
+-- A map id without its game's prefix.  FireRed and LeafGreen's One Island (the town, Kindle
+-- Road, Treasure Beach, the Center, the harbor, two houses) carries SEVII_ where every
+-- other map carries FR_ (upstream's firered profile: map.prefixes): left on, those eight
+-- maps were one area of their own, "SEVII_ONE", apart from Kindle Road's Ember Spa.
 function GameData.bareMapId(mapId)
   if type(mapId) ~= "string" then return nil end
+  if mapId:sub(1, 6) == "SEVII_" then return mapId:sub(7) end
   local head = mapId:sub(1, 3)
   if PREFIXES[head] then return mapId:sub(4) end
   return mapId
+end
+
+-- Whether a map id is one of the running cartridge's own: its engine prefix, or any other
+-- prefix its profile lists (SEVII_ on FireRed and LeafGreen).
+function GameData.ownsMap(mapId)
+  if type(mapId) ~= "string" then return false end
+  local prefix = GameData.mapPrefix()
+  if mapId:sub(1, #prefix) == prefix then return true end
+  local row = GameData.profile()
+  local map = type(row) == "table" and row.map or nil
+  for _, other in ipairs(type(map) == "table" and type(map.prefixes) == "table" and map.prefixes or {}) do
+    if type(other) == "string" and mapId:sub(1, #other) == other then return true end
+  end
+  return false
 end
 
 -- Ruby and Sapphire number the seabeds; these are the routes their `emerge` links name.

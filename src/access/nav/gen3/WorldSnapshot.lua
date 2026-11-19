@@ -62,6 +62,9 @@ function Snapshot.mapIdName(mapId)
   if type(mapId) ~= "string" then return nil end
   local id = GameData.bareMapId(mapId):gsub("^SEVII_", "")
   id = GameData.RS_UNDERWATER[id] and ("UNDERWATER_" .. GameData.RS_UNDERWATER[id]) or id
+  -- One Island's Center is the one map named POKECENTER, with no floor on its ground floor:
+  -- "One Island Pokecenter" beside every other town's "Pok\195\169mon Center 1F"
+  id = id:gsub("_POKECENTER$", "_POKEMON_CENTER_1F"):gsub("_POKECENTER_", "_POKEMON_CENTER_")
   local words = {}
   for word in id:gmatch("[^_]+") do
     -- Meteor Falls' and Magma Hideout's rooms: METEOR_FALLS_1F_2R
@@ -163,6 +166,27 @@ local GFX_LABELS = {
   OLD_AMBER = "Old Amber", POKEDEX = "Pok\195\169dex",
 }
 
+-- Ruby and Sapphire's sheets under the names Emerald's constants give the same pictures.
+-- Upstream's Ruby table has the older names ("MAN_7", "OLD_MAN_1"); the numbers are the
+-- same in both tables, and each of these is used for the same people in the same places
+-- (read from both games' map data, 2026-11-19: sheet 116 is the same four people in
+-- Rustboro, two of them on Devon's ground floor; 28 the Contest Hall's and the link rooms'
+-- receptionists; 189 the same eight children on the same four maps; the rest are the
+-- sheets Ruby draws its Ninja Boys, Twins, Rich Boys, Pok\195\169 Fans and Experts with).  So the
+-- Devon worker who stands in the way is "Devon Employee" on all three games, not "Man" on
+-- two.  Sheets Emerald replaced (the Machoke movers, Poochyena, the Mauville old men) keep
+-- Ruby's own names.
+local RS_SHEET = {
+  MAN_7 = "DEVON_EMPLOYEE", WOMAN_6 = "LINK_RECEPTIONIST", BOY_5 = "GAMEBOY_KID",
+  LITTLE_BOY_1 = "NINJA_BOY", LITTLE_GIRL_1 = "TWIN", BOY_4 = "RICH_BOY",
+  WOMAN_2 = "POKEFAN_F", MAN_3 = "POKEFAN_M", OLD_MAN_1 = "EXPERT_M", OLD_WOMAN_1 = "EXPERT_F",
+}
+local function sheetName(name)
+  local game = GameData.id()
+  if game == "ruby" or game == "sapphire" then return RS_SHEET[name] or name end
+  return name
+end
+
 -- The graphics an object is drawn with.  A live object's variable sprite
 -- (OBJ_EVENT_GFX_VAR_*, 240 and up) was resolved by the game when it
 -- spawned; on a map that is not loaded the variable may not be set yet, so
@@ -250,7 +274,7 @@ function Snapshot.isThing(actor)
   local gfx = resolvedGraphics(actor, def)
   local name = gfx and gfxName(gfx)
   if not name then return false end
-  name = name:gsub("^OBJ_EVENT_GFX_", "")
+  name = sheetName(name:gsub("^OBJ_EVENT_GFX_", ""))
   return THING_GRAPHICS[name] == true or name:match("_DOLL$") ~= nil or name:match("_CUSHION$") ~= nil
 end
 
@@ -266,7 +290,7 @@ function Snapshot.objectLabel(actor, opts)
   end
   local name = gfxName(gfx)
   if not name then return nil end
-  name = name:gsub("^OBJ_EVENT_GFX_", "")
+  name = sheetName(name:gsub("^OBJ_EVENT_GFX_", ""))
   -- a sheet with its own label first: LINK_RECEPTIONIST is no link partner
   if GFX_LABELS[name] then return GFX_LABELS[name] end
   local sheet = name:match("^(%u+)_") or name

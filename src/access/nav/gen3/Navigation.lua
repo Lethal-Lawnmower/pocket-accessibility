@@ -3331,9 +3331,9 @@ function Navigation:areaFloors(world)
   local items = {}
   if not key then return items end
   local members = {}
-  local prefix = GameData.mapPrefix()
   for mapId in pairs(maps) do
-    if type(mapId) == "string" and mapId:sub(1, #prefix) == prefix and areaKey(mapId) == key then
+    -- (ownsMap: One Island's maps carry SEVII_, not FR_, and were never members)
+    if type(mapId) == "string" and GameData.ownsMap(mapId) and areaKey(mapId) == key then
       members[#members + 1] = mapId
     end
   end
