@@ -735,6 +735,9 @@ eq(Settings.dialogueWhole(bare), false, "no block: page by page")
 eq(bare.options.firered, nil, "the block is not created by reading")
 
 eq(Menus.speakable("{A_BUTTON}NEXT"), "A button NEXT", "button tags keep a space after them")
+eq(Menus.speakable("CONFUSION, PSYCHC"), "CONFUSION, PSYCHIC", "the cart's six-letter PSYCHC is said in full")
+eq(Menus.speakable("ELECTR/FLYING"), "ELECTRIC/FLYING", "the cart's six-letter ELECTR is said in full")
+eq(Menus.speakable("ELECTRODE used PSYCHIC!"), "ELECTRODE used PSYCHIC!", "whole words only: ELECTRODE and PSYCHIC are untouched")
 eq(Menus.speakable("{DPAD_ANY}MOVE {DPAD_UP}{DPAD_DOWN}{DPAD_LEFT}{DPAD_RIGHT}"), "the control pad MOVE up down left right",
   "every pad glyph TextIR decodes has words")
 
