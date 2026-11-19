@@ -133,10 +133,13 @@ A press near the lead lands GOOD or BEST; four frames off starts to miss. Not tr
 by a person; whether the timing suits a player is the owner's to judge. `tests/access/blender_cue_test.lua` checks one tone a lap at the
 lead. Pictures are not described: the painting, the winner's
 banner, the judge. Heart bars in the results are said as the stars and hearts they
-are built from, not as a length. Not run: link contest and link blender text, a
-contest entered from the reception script (the driver opens the modules the natives
-open, with the same options), turn-skipped "can't participate", the blender's YES
-path and its two refusals.
+are built from, not as a length. Run since (2026-11-19, Emerald): a turn the
+player's Pokémon cannot take, with a move that misses the next turn put in its first
+slot by the driver ("MUDKIP can't appeal next turn…", the order row ending "cannot
+appeal", "Appeal no. 2! But it can't participate!", "MUDKIP was watching the others.").
+Not run: link contest and link blender text, a contest entered from the reception
+script (the driver opens the modules the natives open, with the same options), the
+blender's YES path and its two refusals.
 
 Labels our words stand for in those screens: contest category and rank, hearts,
 stars, status and judge symbols (protected, nervous, cannot appeal, judge's
@@ -154,8 +157,13 @@ driver sets the machine's bias), the base decorating menu (opened with the PC
 script's options on the base's map; that script's own menu also opened it), Ruby and
 Sapphire's Mystery Events rows (fetch and list drawing stubbed: nothing is contacted,
 see below), cable lobby (driver's rows, a real lobby needs a link), list menu rows
-(driver's labels). Not run: Reel Time's spins line, a placed decoration in the
-bedroom, Trendy phrase and interview editors from their scripts (only the modules),
+(driver's labels). Run since (2026-11-19, Emerald): Reel Time, which the driver grants
+(the REELTIME bias and a draw of two spins: "Reel Time, 2 spins" once, the spins left
+are not said again as they are used); a doll placed in the bedroom and put away (the
+room searched with the game's own `Decor.canPlace`: "7 right, 1 down, can be placed",
+"PICHU DOLL, in use in your room", then "7 right, 1 down, PICHU DOLL" under the
+put-away cursor); PUT AWAY with nothing out ("There are no decorations in use.").
+Not run: Trendy phrase and interview editors from their scripts (only the modules),
 the Mail composer's blank-mail refusal, Rayquaza's Ruby and Sapphire counterpart (they have none).
 Trick House: its entrance script read as dialogue; the rooms are ordinary field
 text, not walked. Multichoice in Hoenn reads through FireRed's choice presenter
@@ -200,9 +208,11 @@ ranking row.
 Known gaps in the Pokénav: the map's city picture is not described; the map
 says nothing about which places can be flown to. Emerald's graph, list and map
 read fields once the screen's own animation allows, so entry speech starts as
-the fade ends. A real step-triggered incoming call, the tutorial reached from
-its script, and gift ribbon text in a real save were not run: the driver opens
-the same window, shell and fields directly.
+the fade ends. An incoming call ran by the game's own step queue and window
+(`MatchCall.startCall`, 2026-11-19, Emerald); the random trigger that decides to
+call (`tryStartMatchCall`) was not run. The tutorial reached from its script and
+gift ribbon text in a real save were not run: the driver opens the same shell and
+fields directly, with the options the native passes.
 
 ## Battle
 
@@ -262,10 +272,18 @@ playing there; each row above and the known gaps say what is not run.
 
 | Check | Result |
 |---|---|
-| `drivers/rse_menus`, `rse_screens`, `rse_battle` | Final sweep on Emerald, Sapphire (and `rse_screens` on Ruby; `rse_menus` and `rse_battle` earlier on Ruby): no BAD, FAIL or driver error; every battle scene TALLY missed=0 |
-| `drivers/rse_screens_pokenav`, `_contest`, `_field`, `_frontier` | Run on their games when written; not repeated after later commits |
-| FireRed `gen3_menus`, `gen3_menus_more`, `gen3_screens_more`, `gen3_items`, `gen3_special`, `gen3_battle` | Run to their end after all Hoenn commits: no BAD, FAIL or driver error; battle TALLY missed=0. Logs read for errors, not compared line by line with an earlier run |
+| `drivers/rse_menus`, `rse_screens`, `rse_battle` | Emerald, 2026-11-19: no BAD, FAIL or driver error; all eight battle scenes TALLY missed=0; spoken lines read. Before that: the 2026-11-04 sweep on Emerald, Sapphire and Ruby |
+| `drivers/rse_screens_pokenav`, `rse_screens_frontier` | Emerald, 2026-11-19: ran to their end, no BAD or FAIL, spoken lines read |
+| `drivers/rse_screens_contest` | Emerald, 2026-11-19: every section to the blender ran, no BAD or FAIL; the run met its 1800 second limit there because a second contest was added (give it 3600) |
+| `drivers/rse_screens_field` | Emerald, 2026-11-19: the first run showed the driver itself broken (the Easy Chat editor was never closed, so roulette and slots did not run; the tutor never finished; the mailbox did not open). Repaired; the repaired sections then ran with no BAD or FAIL |
+| FireRed and LeafGreen `gen3_menus`, `gen3_menus_more`, `gen3_screens_more`, `gen3_items`, `gen3_special`, `gen3_battle` | 2026-11-19, both games: ran to their end, no failure; battle TALLY missed=0 in all seven scenes; spoken lines read (`firered-leafgreen.md`) |
 | Unit tests (`tests/access/*_test.lua`, except `gen2_nav_cart_test`) | All pass |
+
+Reading the spoken lines on 2026-11-19 found and fixed: the Pokédex entry said twice on
+the way back from AREA, CRY or SIZE; PSYCHC and ELECTR spoken as written; a clerk's
+greeting said twice (message, then the shop); a message printed over the decorating
+action menu left silent ("There are no decorations in use."); the Easy Chat save
+question split by its phrase; link multi's names read around their rank.
 
 ## Upstream observations (recorded, not fixed)
 
