@@ -1300,7 +1300,9 @@ function Dex.listRow(D, list, i)
   local isSeen = seen(D, sp)
   local isCaught = caught(D, sp)
   local types = isCaught and P and try(P.types, sp) or nil
-  return join({ Dex.number(D, sp), isSeen and say(try(P and P.name, sp)) or say(rom("gText_5Dashes")),
+  -- an unseen row draws five dashes (gText_5Dashes), which a screen reader
+  -- skips or spells: "not seen", the words Hoenn's list uses for the same row
+  return join({ Dex.number(D, sp), isSeen and say(try(P and P.name, sp)) or "not seen",
     isCaught and "caught" or (isSeen and "seen" or nil),
     types and typesText(types[1], types[2]) or nil })
 end

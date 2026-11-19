@@ -595,7 +595,7 @@ poll(dexScreen)
 eq(last(), "POKéMON LIST. number 001, BULBASAUR, caught, type GRASS and POISON, 1 of 4", "list row: caught with types")
 Pokedex.listCursor = 2
 poll(dexScreen)
-eq(last(), "number 002, -----", "unseen row as drawn")
+eq(last(), "number 002, not seen", "unseen row: its dashes said as words, as in Hoenn's list")
 Pokedex.listCursor = 4
 poll(dexScreen)
 eq(last(), "number 004, CHARMANDER, seen", "seen row")
