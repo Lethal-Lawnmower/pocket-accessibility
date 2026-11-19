@@ -180,12 +180,27 @@ local function windowLines(win)
     table.insert(rows[p.y], p)
   end
   table.sort(order)
-  local lines = {}
+  local cellsAt = {}
   for _, y in ipairs(order) do
     table.sort(rows[y], function(a, b) return a.x < b.x end)
     local cells = {}
     for _, p in ipairs(rows[y]) do cells[#cells + 1] = say(p.s) end
-    local line = join(cells, " ")
+    cellsAt[y] = cells
+  end
+  -- The Ranking Hall's link multi rows draw the two names a line above and a
+  -- line below their rank and record (buildRankingHall): said after the rank,
+  -- joined by "and" (our word), not as lines of their own around it.
+  local taken = {}
+  for _, y in ipairs(order) do
+    local cells, above, below = cellsAt[y], cellsAt[y - 8], cellsAt[y + 8]
+    if #cells >= 2 and cells[1]:find("^%d+%.$") and above and below and #above == 1 and #below == 1 then
+      table.insert(cells, 2, above[1] .. " and " .. below[1])
+      taken[y - 8], taken[y + 8] = true, true
+    end
+  end
+  local lines = {}
+  for _, y in ipairs(order) do
+    local line = not taken[y] and join(cellsAt[y], " ") or nil
     if line then line = line:gsub("(%d)BP", "%1 BP") end
     if line and not line:find("^[%-%s]+$") then
       if line:find("^%d+%.?$") then line = line .. " empty" end
