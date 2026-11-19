@@ -98,8 +98,13 @@ return function(game)
   -- A screen, menu or prompt that was on top for a while and closed with nothing said.
   local SILENT_MIN = 40
   local current = { key = nil, kind = nil, since = 0 }
+  local wasBattle = false
+  local partyLineNow -- set below, once the party can be read
   local function watch()
     frame = frame + 1
+    local fighting = battleOn()
+    if wasBattle and not fighting then U.log("BATTLE", "ended at", L.where(), "party", partyLineNow and partyLineNow() or "") end
+    wasBattle = fighting
     local top = topNow()
     local key = top and top.key
     if key ~= current.key then
@@ -160,6 +165,7 @@ return function(game)
     end
     return #rows > 0 and table.concat(rows, ", ") or "no party"
   end
+  partyLineNow = partyLine
   local function onMap(name) return (L.pos()) == L.id(name) end
   local function mapName() return GameData.bareMapId((L.pos())) or "?" end
 
@@ -205,38 +211,45 @@ return function(game)
     local Ui = package.loaded["src.core.game3.battle.ui"]
     return Ui and Ui._mode or nil
   end
-  -- The moves box is two by two: read each cell by moving the cursor round it, as a
-  -- player does, then go on round to the best one heard.
+  -- The moves box is two by two and has no cursor on an empty cell: go to the top
+  -- left, read the cells by moving (right, back, down, right), then make the same
+  -- moves again as far as the best one heard.
   local function pickMove()
-    local heardMoves = {}
-    local here = since(math.max(0, #spoken - 1))
-    local round = { "right", "down", "left", "up" }
-    local best, bestRank, bestAt
-    for index = 0, 3 do
-      if index > 0 then here = press(round[index], 20) end
-      if battleUi() ~= "moves" then return end
-      if here ~= "" then
-        heardMoves[#heardMoves + 1] = here
-        local upper = here:upper()
-        local empty = upper:find("PP 0 OF", 1, true) ~= nil
-        for rank, name in ipairs(preferMoves) do
-          if not empty and upper:find(name, 1, true) and (not bestRank or rank < bestRank) then
-            best, bestRank, bestAt = here, rank, index
-          end
-        end
+    local opening = since(math.max(0, #spoken - 1))
+    local home = opening
+    for _, button in ipairs({ "up", "left" }) do
+      local said = press(button, 12)
+      if said ~= "" then home = said end
+    end
+    local tour = { "right", "left", "down", "right" }
+    local heardMoves, best, bestRank = {}, nil, nil
+    local function consider(text)
+      if text == "" then return end
+      heardMoves[#heardMoves + 1] = text
+      local upper = text:upper()
+      if upper:find("PP 0 OF", 1, true) then return end
+      for rank, name in ipairs(preferMoves) do
+        if upper:find(name, 1, true) and (not bestRank or rank < bestRank) then best, bestRank = text, rank end
       end
     end
-    if #heardMoves == 0 then finding("battle", "the move list opened and no move was read") end
-    -- the cursor has gone right, down, left (three cells on); "up" closes the round
-    if bestAt and bestAt ~= 3 then
-      press("up", 20)
-      for index = 1, bestAt do press(round[index], 20) end
+    consider(home)
+    for _, button in ipairs(tour) do
+      if battleUi() ~= "moves" then return end
+      consider(press(button, 12))
     end
-    U.log("MOVE", best or "(none preferred: the cell under the cursor)", "of", table.concat(heardMoves, " / "):sub(1, 300))
+    if #heardMoves == 0 then finding("battle", "the move list opened and no move was read") end
+    for _, button in ipairs({ "up", "left" }) do press(button, 12) end
+    if best and best ~= home then
+      for _, button in ipairs(tour) do
+        if press(button, 12) == best then break end
+      end
+    end
+    U.log("MOVE", best or "(none preferred: the top left move)", "of", table.concat(heardMoves, " / "):sub(1, 300))
     L.tap("a", 12)
   end
 
   local warnedLayer
+  local menuHeard, noRun = setmetatable({}, { __mode = "k" }), setmetatable({}, { __mode = "k" })
   local function battleAct(policy)
     local Battle = package.loaded["src.core.game3.battle.init"] or package.loaded["src.core.game3.battle"]
     if Battle and Battle._st ~= battleKey then
@@ -255,6 +268,32 @@ return function(game)
     end
     if mode == "menu" then
       local said = since(math.max(0, #spoken - 3))
+      if not menuHeard[battleKey] then
+        menuHeard[battleKey] = true
+        U.log("BATTLE", "first menu heard:", said:sub(-300))
+        if not said:upper():find("FIGHT", 1, true) then finding("battle", "the battle menu opened without FIGHT being read; heard: " .. said:sub(-200)) end
+      end
+      -- nearly out: RUN (bottom right), unless this battle has refused it
+      local mon = lead()
+      if mon and not noRun[battleKey] and (tonumber(mon.hp) or 0) > 0 and (tonumber(mon.hp) or 0) / monMaxHp(mon) < 0.25 then
+        press("up", 10) press("left", 10)
+        local bag = press("right", 15)
+        local run = press("down", 15)
+        if run:upper():find("RUN", 1, true) then
+          local m = mark()
+          L.tap("a", 30)
+          for _ = 1, 120 do
+            if not battleOn() or since(m) ~= "" then break end
+            wait(1)
+          end
+          U.log("BATTLE", "RUN at", partyLine(), "heard:", since(m):sub(1, 160))
+          noRun[battleKey] = true -- once per battle: a failed or refused escape goes on by fighting
+          return
+        end
+        finding("battle", "RUN was not read at the bottom right of the battle menu; heard: " .. bag .. " / " .. run)
+        noRun[battleKey] = true
+        return
+      end
       if not said:upper():find("FIGHT", 1, true) then
         -- the cursor remembers; go to FIGHT (top left)
         press("up", 10) press("left", 10)
@@ -333,6 +372,8 @@ return function(game)
   -- Cycle the category, then the items, listening for `pattern`.  Returns what was
   -- read for the chosen item, or nil and everything the category read out.
   local function choose(category, pattern)
+    local matches = pattern
+    if type(pattern) ~= "function" then matches = function(text) return text:find(pattern) ~= nil end end
     local word = CATEGORY[category] or category
     local said, used
     local found = false
@@ -354,9 +395,16 @@ return function(game)
       if firstItem and item == firstItem then break end
       firstItem = firstItem or item
       heardItems[#heardItems + 1] = item
-      if item:find(pattern) then return item, heardItems end
+      if matches(item) then return item, heardItems end
     end
     return nil, heardItems
+  end
+  -- Everything a category reads out, in order.
+  local function listItems(category)
+    local _, heardItems = choose(category, function() return false end)
+    if type(heardItems) ~= "table" then return {} end
+    if #heardItems == 1 and heardItems[1]:find("^Empty List") then return {} end
+    return heardItems
   end
 
   local REFUSALS = { "No route", "Cannot reach", "No path", "Blocked by", "Needs ", "Could not plan", "Too dark", "Select an object" }
@@ -375,28 +423,42 @@ return function(game)
   local function go(category, pattern, opts)
     opts = opts or {}
     if not L.free() then advance({ policy = opts.policy, handlers = opts.handlers }) end
-    local item, heardItems = choose(category, pattern)
+    local item, heardItems
+    if opts.best then
+      -- several items fit: hear them all, then go back to the one `best` picks
+      local fitting = {}
+      heardItems = listItems(category)
+      for _, text in ipairs(heardItems) do
+        if type(pattern) == "function" and pattern(text) or type(pattern) == "string" and text:find(pattern) then fitting[#fitting + 1] = text end
+      end
+      local wanted = #fitting > 0 and opts.best(fitting) or nil
+      if wanted then item = choose(category, function(text) return text == wanted end) end
+    else
+      item, heardItems = choose(category, pattern)
+    end
     if not item then
       local read = type(heardItems) == "table" and table.concat(heardItems, "; ") or tostring(heardItems)
       if opts.optional then return "missing", read end
-      finding("target", ("nothing matching %q in %s at %s; the list read: %s"):format(pattern, category, L.where(), read))
-      return "missing", ""
+      finding("target", ("nothing matching %s in %s at %s; the list read: %s"):format(
+        type(pattern) == "string" and ("%q"):format(pattern) or tostring(opts.what or "the wanted item"), category, L.where(), read))
+      return "missing", read
     end
     local m = mark()
     local from = L.where()
     Nav.gamepadpressed(nil, "leftstick")
     Nav.gamepadreleased(nil, "leftstick")
     wait(2)
-    local frames = 0
+    local frames, textFor = 0, 0
     while anyWalk() and frames < (opts.limit or 20000) do
       frames = frames + 1
       if opts.untilFn and opts.untilFn() then break end
       local k, top = kind()
+      textFor = k == "message" and textFor + 1 or 0
       if battleOn() then
         battleAct(opts.policy)
       elseif k == "choice" then
         answerChoice(opts.policy)
-      elseif k == "message" and not AutoWalk.walking() then
+      elseif k == "message" and (not AutoWalk.walking() or textFor > 60) then
         L.tap("a", 8)
       elseif k and k ~= "message" and opts.handlers and opts.handlers[k] then
         opts.handlers[k](top)
@@ -416,6 +478,23 @@ return function(game)
     elseif why then outcome = "refused"
     else outcome = "stopped" end
     U.log("WALK", outcome, category, item:sub(1, 80), "from", from, "to", L.where(), "|", said:sub(-220))
+    -- A walk to a connection ends on the map's edge: the step across is the player's.
+    if outcome == "arrived" and category == "connections" and L.free() then
+      local button = ({ North = "up", South = "down", East = "right", West = "left" })[item:match("^(%a+) connection") or ""]
+      local before = (L.pos())
+      if button then
+        for _ = 1, 2 do
+          if (L.pos()) ~= before or not L.free() then break end
+          inputEpoch = inputEpoch + 1
+          L.hold(button, 24)
+          wait(12)
+        end
+        U.log("CROSS", button, "from", before, "now", L.where(), L.free() and "free" or "a scene")
+        if (L.pos()) == before and L.free() then
+          finding("connection", ("held %s on the edge after %q and stayed on %s"):format(button, item:sub(1, 60), L.where()))
+        end
+      end
+    end
     if outcome == "refused" and opts.expect ~= false then
       finding("refusal", ("%s: %q for %q from %s"):format(why, said:sub(-160), item:sub(1, 80), from))
     end
@@ -445,6 +524,9 @@ return function(game)
     if outcome ~= "arrived" then return false, said, outcome end
     if not L.free() then advance(opts) return true, said, outcome end -- the arrival itself started a scene
     opts.what = pattern
+    -- "Arrived at Wall Clock. Face up and interact": do as told
+    local facing = said:match("Face (%l+) and interact")
+    if facing then L.tap(facing, 10) end
     local ok, text = interact(opts)
     return ok, text, outcome
   end
@@ -457,19 +539,285 @@ return function(game)
     end
   end
 
+  -- ------------------------------------------------------------ helpers for the stages
+  local warnedNames = {}
+  local function v(name)
+    local value = var(name)
+    if value == nil and not warnedNames[name] then
+      warnedNames[name] = true
+      U.log("NOTE", "no variable named", name, "on this cartridge")
+    end
+    return value or 0
+  end
+  local function isBoy()
+    local s = L.session()
+    return (tonumber(s and s.gender) or 0) == 0
+  end
+  local function playerName()
+    local s = L.session()
+    return tostring(s and (s.playerName or (s.player and s.player.name) or s.name) or "")
+  end
+  local function ownHouse() return "LITTLEROOT_TOWN_" .. (isBoy() and "BRENDANS" or "MAYS") .. "_HOUSE" end
+  local function rivalHouse() return "LITTLEROOT_TOWN_" .. (isBoy() and "MAYS" or "BRENDANS") .. "_HOUSE" end
+  local function rivalName() return isBoy() and "May" or "Brendan" end
+  local function stateLine()
+    return ("intro %d rival %d town %d route101 %d lab %d gym %d woods %d badge1 %s dex %s shoes %s"):format(
+      v("VAR_LITTLEROOT_INTRO_STATE"), v("VAR_LITTLEROOT_RIVAL_STATE"), v("VAR_LITTLEROOT_TOWN_STATE"), v("VAR_ROUTE101_STATE"),
+      v("VAR_BIRCH_LAB_STATE"), v("VAR_PETALBURG_GYM_STATE"), v("VAR_PETALBURG_WOODS_STATE"),
+      tostring(flag("FLAG_BADGE01_GET")), tostring(flag("FLAG_SYS_POKEDEX_GET")), tostring(flag("FLAG_SYS_B_DASH")))
+  end
+
+  -- Which of YES and NO was read last.
+  local function lastOption(text)
+    local upper = " " .. tostring(text):upper() .. " "
+    local yes, no = 0, 0
+    for at in upper:gmatch("()%f[%a]YES%f[%A]") do yes = at end
+    for at in upper:gmatch("()%f[%a]NO%f[%A]") do no = at end
+    if yes == 0 and no == 0 then return nil end
+    return yes > no and "YES" or "NO"
+  end
+  -- A yes or no drawn by a screen of its own: move to `want` by what is read, press A.
+  local function pickYesNo(want, heard, what)
+    local now = lastOption(heard)
+    if not now then finding("choice", tostring(what) .. ": YES or NO was not read; heard: " .. tostring(heard)) end
+    for _ = 1, 3 do
+      if now == want then break end
+      local said = press(want == "YES" and "up" or "down", 20)
+      now = lastOption(said) or now
+    end
+    if now ~= want then finding("choice", tostring(what) .. ": could not hear the cursor reach " .. want) end
+    return press("a", 40)
+  end
+
+  -- SAVE from the start menu, as a player saves.
+  local function saveGame()
+    if not L.free() then advance() end
+    local said = press("start", 40)
+    if kind() ~= "start" then
+      finding("menu", "START did not open the start menu at " .. L.where() .. "; heard: " .. said)
+      return false
+    end
+    if said == "" then finding("silent", "the start menu opened and nothing was read") end
+    local row, rows = said, { said }
+    for _ = 1, 10 do
+      if row:upper():find("SAVE", 1, true) then break end
+      row = press("down", 20)
+      rows[#rows + 1] = row
+    end
+    U.log("MENU", "start menu rows heard:", table.concat(rows, " / "))
+    if not row:upper():find("SAVE", 1, true) then
+      finding("menu", "SAVE was not read in the start menu")
+      L.tap("b", 20)
+      return false
+    end
+    local m = mark()
+    L.tap("a", 30)
+    for _ = 1, 2500 do
+      local k = kind()
+      if not k and L.free() then break end
+      if k == "choice" then
+        answerChoice(function() return "a" end)
+      elseif k == "message" then
+        L.tap("a", 10)
+      elseif k == "start" then
+        L.tap("b", 15)
+      elseif k then
+        -- the save screen's own YES and NO
+        if lastOption(since(m)) == "NO" then press("up", 15) end
+        L.tap("a", 20)
+      else
+        wait(1)
+      end
+    end
+    local text = since(m)
+    U.log("SAVE", text:sub(1, 500))
+    if not text:lower():find("saved", 1, true) then
+      finding("save", "nothing said the game was saved; heard: " .. text:sub(-200))
+      return false
+    end
+    return true
+  end
+
+  local visited = {}
+  local function visit()
+    local here = mapName()
+    if visited[here] or os.getenv("WALK_LISTS") == "0" or not L.free() then return end
+    visited[here] = true
+    readLists(here)
+  end
+
+  -- ------------------------------------------------------------ the way between places
+  local function conn(name)
+    return { "connections", function(text) return text:find("connection to " .. name .. "%f[%W]") ~= nil and not text:find("connection to " .. name .. "%d") end }
+  end
+  local function warp(pattern) return { "warps", pattern } end
+  local function exitTo(town) return { "warps", "^" .. town .. ":" } end
+  local function northmost(items)
+    local best, bestUp
+    for _, text in ipairs(items) do
+      local up = tonumber(text:match("(%d+) up")) or 0
+      if text:find(" down") then up = -(tonumber(text:match("(%d+) down")) or 0) end
+      if not bestUp or up > bestUp then best, bestUp = text, up end
+    end
+    return best
+  end
+
+  local CENTERS = { OLDALE_TOWN = true, PETALBURG_CITY = true, RUSTBORO_CITY = true, DEWFORD_TOWN = true, SLATEPORT_CITY = true }
+  local TOWN_LABEL = { OLDALE_TOWN = "Oldale Town", PETALBURG_CITY = "Petalburg City", RUSTBORO_CITY = "Rustboro City",
+    DEWFORD_TOWN = "Dewford Town", SLATEPORT_CITY = "Slateport City" }
+
+  -- The neighbours of a map and the list item that leads to each.
+  local function edges(map)
+    local own, rival = ownHouse(), rivalHouse()
+    if map == "LITTLEROOT_TOWN" then
+      local name = playerName()
+      return {
+        ROUTE101 = conn("Route 101"),
+        LITTLEROOT_TOWN_PROFESSOR_BIRCHS_LAB = warp("Birch's Lab"),
+        [own .. "_1F"] = { "warps", function(text) return text:find("House") ~= nil and text:find(name .. "'s", 1, true) ~= nil end },
+        [rival .. "_1F"] = { "warps", function(text) return text:find("House") ~= nil and text:find(name .. "'s", 1, true) == nil end },
+      }
+    elseif map == own .. "_1F" then return { LITTLEROOT_TOWN = exitTo("Littleroot Town"), [own .. "_2F"] = warp("2F") }
+    elseif map == own .. "_2F" then return { [own .. "_1F"] = warp("1F") }
+    elseif map == rival .. "_1F" then return { LITTLEROOT_TOWN = exitTo("Littleroot Town"), [rival .. "_2F"] = warp("2F") }
+    elseif map == rival .. "_2F" then return { [rival .. "_1F"] = warp("1F") }
+    elseif map == "LITTLEROOT_TOWN_PROFESSOR_BIRCHS_LAB" then return { LITTLEROOT_TOWN = exitTo("Littleroot Town") }
+    elseif map == "ROUTE101" then return { LITTLEROOT_TOWN = conn("Littleroot Town"), OLDALE_TOWN = conn("Oldale Town") }
+    elseif map == "OLDALE_TOWN" then
+      return { ROUTE101 = conn("Route 101"), ROUTE103 = conn("Route 103"), ROUTE102 = conn("Route 102"),
+        OLDALE_TOWN_POKEMON_CENTER_1F = warp("Center 1F") }
+    elseif map == "ROUTE103" then return { OLDALE_TOWN = conn("Oldale Town") }
+    elseif map == "ROUTE102" then return { OLDALE_TOWN = conn("Oldale Town"), PETALBURG_CITY = conn("Petalburg City") }
+    elseif map == "PETALBURG_CITY" then
+      return { ROUTE102 = conn("Route 102"), ROUTE104 = conn("Route 104"), PETALBURG_CITY_GYM = warp("Petalburg City Gym"),
+        PETALBURG_CITY_POKEMON_CENTER_1F = warp("Center 1F") }
+    elseif map == "PETALBURG_CITY_GYM" then return { PETALBURG_CITY = exitTo("Petalburg City") }
+    elseif map == "ROUTE104" then
+      -- the route is in two halves joined by the woods: the connection is chosen and
+      -- the layer is left to find the way round
+      return { PETALBURG_CITY = conn("Petalburg City"), RUSTBORO_CITY = conn("Rustboro City") }
+    elseif map == "PETALBURG_WOODS" then
+      -- three ways out, all read as Route 104: the one furthest north leads on
+      return { RUSTBORO_CITY = { "warps", "Route 104", best = northmost } }
+    elseif map == "RUSTBORO_CITY" then
+      return { ROUTE104 = conn("Route 104"), ROUTE116 = conn("Route 116"), RUSTBORO_CITY_GYM = warp("Rustboro City Gym"),
+        RUSTBORO_CITY_POKEMON_CENTER_1F = warp("Center 1F") }
+    elseif map == "RUSTBORO_CITY_GYM" then return { RUSTBORO_CITY = exitTo("Rustboro City") }
+    elseif map == "ROUTE116" then return { RUSTBORO_CITY = conn("Rustboro City"), RUSTURF_TUNNEL = warp("Rusturf Tunnel") }
+    elseif map == "RUSTURF_TUNNEL" then return { ROUTE116 = warp("Route 116") }
+    end
+    local town = map:match("^(.+)_POKEMON_CENTER_1F$")
+    if town and TOWN_LABEL[town] then return { [town] = exitTo(TOWN_LABEL[town]) } end
+    return {}
+  end
+
+  -- The first leg from here towards `dest` (breadth first over `edges`).
+  local function nextLeg(dest)
+    local here = mapName()
+    local from, queue, at = { [here] = false }, { here }, 1
+    while queue[at] do
+      local map = queue[at]
+      at = at + 1
+      if map == dest then
+        local step = map
+        while from[step] and from[step] ~= here do step = from[step] end
+        return edges(here)[step], step
+      end
+      for neighbour in pairs(edges(map)) do
+        if from[neighbour] == nil then
+          from[neighbour] = map
+          queue[#queue + 1] = neighbour
+        end
+      end
+    end
+    return nil, "the driver knows no way from " .. here .. " to " .. dest
+  end
+
+  local function weak(ratio)
+    local mon = lead()
+    return mon ~= nil and (tonumber(mon.hp) or 0) / monMaxHp(mon) < (ratio or 0.5)
+  end
+
+  -- Into the town's Pokémon Center, the nurse, and out again.
+  local function healHere()
+    local town = mapName()
+    U.log("HEAL", "to the Pokémon Center of", town, "party", partyLine())
+    if not town:find("POKEMON_CENTER_1F") then
+      go("warps", "Center 1F")
+      if not mapName():find("POKEMON_CENTER_1F") then
+        finding("heal", "could not get into the Pokémon Center from " .. L.where())
+        return false
+      end
+    end
+    visit()
+    local ok, text = talkTo("npcs", "Nurse")
+    U.log("HEAL", "the nurse:", tostring(ok), tostring(text):sub(1, 300), "party", partyLine())
+    local mon = lead()
+    if mon and (tonumber(mon.hp) or 0) < monMaxHp(mon) then
+      finding("heal", "the party was not healed after talking to the nurse at " .. L.where() .. ": " .. partyLine())
+    end
+    local label = TOWN_LABEL[mapName():match("^(.+)_POKEMON_CENTER_1F$") or ""]
+    if label then go("warps", "^" .. label .. ":") end
+    return true
+  end
+
+  -- Walk on, one list item at a time, until the player is on `dest` (or `untilFn` holds).
+  local function travel(dest, opts)
+    opts = opts or {}
+    local stuck = 0
+    for _ = 1, opts.max or 40 do
+      advance({ policy = opts.policy, handlers = opts.handlers })
+      if opts.untilFn and opts.untilFn() then return true end
+      local here = mapName()
+      if here == dest then return true end
+      visit()
+      if CENTERS[here] and weak(opts.healBelow or 0.6) and not opts.noHeal then healHere() end
+      local leg, why = nextLeg(dest)
+      if not leg then return false, tostring(why) end
+      local outcome, said = go(leg[1], leg[2], { policy = opts.policy, handlers = opts.handlers, untilFn = opts.untilFn, best = leg.best, what = why })
+      advance({ policy = opts.policy, handlers = opts.handlers })
+      if mapName() == here then
+        stuck = stuck + 1
+        if outcome == "missing" or outcome == "refused" or stuck >= 3 then
+          return false, ("%s on the way from %s to %s: %s"):format(outcome, here, dest, tostring(said):sub(-160))
+        end
+      else
+        stuck = 0
+      end
+    end
+    return mapName() == dest, "at " .. L.where()
+  end
+
+  -- Wild battles for experience: back and forth between two places until the first
+  -- Pokémon is at `level`.
+  local function trainTo(level, placeA, placeB, rounds)
+    for round = 1, rounds or 8 do
+      local mon = lead()
+      if not mon or (tonumber(mon.level) or 0) >= level then return true end
+      U.log("TRAIN", "round", round, "towards level", level, "party", partyLine())
+      local ok, why = travel(round % 2 == 1 and placeA or placeB)
+      if not ok then return false, why end
+    end
+    local mon = lead()
+    return mon ~= nil and (tonumber(mon.level) or 0) >= level
+  end
+
   -- ------------------------------------------------------------ stages
   local stages = {}
-  local function stage(name, fn) stages[#stages + 1] = { name = name, run = fn } end
+  local function stage(name, done, fn) stages[#stages + 1] = { name = name, done = done, run = fn } end
   local results = {}
+  local continued = false
 
   -- Title to the truck: the intro, the title, NEW GAME, Birch's speech, BOY, the name.
-  stage("boot", function()
+  -- With WALK_CONTINUE=1 and a save: CONTINUE.
+  stage("boot", nil, function()
     for _ = 1, 1200 do
       if game.phase == "boot" and game.boot then break end
       wait(1)
     end
     if game.phase ~= "boot" then return false, "the game never reached its boot screens" end
     local wantName = (os.getenv("WALK_NAME") or "ACE"):upper()
+    local wantContinue = os.getenv("WALK_CONTINUE") == "1"
     local typed, namingDone, started = false, false, frame
     local seen = {}
     local function note(k)
@@ -503,6 +851,12 @@ return function(game)
         wait(1)
       end
       local said = since(math.max(0, m - 1))
+      U.log("BOOT", "main menu heard:", said)
+      if wantContinue and said:find("CONTINUE", 1, true) then
+        continued = true
+        L.tap("a", 30)
+        return
+      end
       if not said:find("NEW GAME", 1, true) then
         for _ = 1, 4 do
           said = press("down", 30)
@@ -539,7 +893,11 @@ return function(game)
         elseif tries > 1 then
           U.log("NOTE", "the gender menu ignored " .. (tries - 1) .. " press(es) of up while the picture slid; nothing says to wait")
         end
-        L.tap("a", 20)
+        -- the same wait before A counts
+        for _ = 1, 8 do
+          if not top.key.genderMenu then break end
+          L.tap("a", 25)
+        end
       elseif birch.nameMenu then
         -- Ruby and Sapphire: NEW NAME is the first row
         local said = since(math.max(0, #spoken - 2))
@@ -590,6 +948,12 @@ return function(game)
           if not after:find(letter, 1, true) then finding("naming", "typing " .. letter .. " was not confirmed in speech; heard: " .. after) end
         end
         typed = true
+        -- B deletes: take one letter off and put it back, as a player correcting a slip
+        local deleted = press("b", 20)
+        U.log("NAMING", "B heard:", deleted, "| name field:", tostring(st and st.name))
+        if not deleted:lower():find("delete", 1, true) then finding("naming", "B (delete a letter) was not confirmed in speech; heard: " .. deleted) end
+        local again = press("a", 20)
+        U.log("NAMING", "A again heard:", again, "| name field:", tostring(st and st.name))
         local toOk = press("start", 20)
         U.log("NAMING", "START heard:", toOk)
         if not toOk:lower():find("ok", 1, true) then finding("naming", "START (jump to OK) said nothing about OK; heard: " .. toOk) end
@@ -606,55 +970,301 @@ return function(game)
       else wait(1) end
     end
     if game.phase ~= "field" then return false, "still in the boot screens after " .. (frame - started) .. " frames, on " .. tostring(kind()) end
-    local s = L.session()
-    local name = s and (s.playerName or (s.player and s.player.name) or s.name)
-    U.log("BOOT", "in the field at", L.where(), "player name", tostring(name), "wanted", wantName)
-    if name and tostring(name):upper() ~= wantName then finding("naming", "the name in the save is " .. tostring(name) .. ", typed " .. wantName) end
+    advance({ calm = 30, limit = 1500 })
+    U.log("BOOT", "in the field at", L.where(), "player name", playerName(), "boy", tostring(isBoy()), "continued", tostring(continued))
+    if not continued then
+      if playerName():upper() ~= wantName then finding("naming", "the name in the save is " .. playerName() .. ", typed " .. wantName) end
+      if not isBoy() then finding("menu", "BOY was read when A was pressed and the player is a girl") end
+    end
     return true, L.where()
   end)
 
   -- The truck: wait for it to stop, find the way out in the list, walk out; mother
   -- takes the player indoors.
-  stage("truck", function()
+  stage("truck", function() return not onMap("INSIDE_OF_TRUCK") and v("VAR_LITTLEROOT_INTRO_STATE") >= 3 end, function()
     advance({ calm = 60, limit = 3000 })
-    if not onMap("INSIDE_OF_TRUCK") then return onMap("LITTLEROOT_TOWN") or mapName():find("HOUSE") ~= nil, L.where() end
-    readLists("truck")
-    local outcome, said = go("warps", ".", { untilFn = function() return not onMap("INSIDE_OF_TRUCK") end })
+    if onMap("INSIDE_OF_TRUCK") then
+      visit()
+      go("warps", ".", { untilFn = function() return not onMap("INSIDE_OF_TRUCK") end })
+    end
     advance({ calm = 90, limit = 6000 })
-    local ok = mapName():find("LITTLEROOT_TOWN_.*HOUSE_1F") ~= nil
-    return ok, L.where() .. " after " .. outcome .. ": " .. said:sub(-120)
+    return mapName() == ownHouse() .. "_1F", L.where()
+  end)
+
+  -- Upstairs, the wall clock set by ear, mother's visit, the television downstairs.
+  stage("house", function() return flag("FLAG_SET_WALL_CLOCK") and v("VAR_LITTLEROOT_INTRO_STATE") >= 7 end, function()
+    local own = ownHouse()
+    local clockDone = false
+    local handlers = {}
+    function handlers.wall_clock(top)
+      if clockDone then wait(1) return end
+      for _ = 1, 180 do
+        if saidFor[top.key] then break end
+        wait(1)
+      end
+      local opening = since(math.max(0, #spoken - 1))
+      U.log("CLOCK", "on entry heard:", opening)
+      if not saidFor[top.key] then finding("silent", "the wall clock opened and nothing was read") end
+      local steps = {}
+      for _ = 1, 3 do steps[#steps + 1] = press("right", 30) end
+      steps[#steps + 1] = press("left", 30)
+      U.log("CLOCK", "right, right, right, left heard:", table.concat(steps, " / "))
+      for index, text in ipairs(steps) do
+        if text == "" then finding("clock", "press " .. index .. " of the hand said nothing") end
+      end
+      -- hold right for a second: the hand runs fast
+      local m = mark()
+      L.hold("right", 70)
+      wait(30)
+      U.log("CLOCK", "holding right heard:", since(m))
+      if since(m) == "" then finding("clock", "holding the hand said nothing") end
+      local question = press("a", 90)
+      U.log("CLOCK", "A heard:", question)
+      if not question:find("correct time", 1, true) then finding("clock", "A did not read the confirm question; heard: " .. question) end
+      local after = pickYesNo("YES", question, "the wall clock's confirm")
+      U.log("CLOCK", "YES heard:", after)
+      clockDone = true
+    end
+    if mapName() == own .. "_1F" then
+      visit()
+      go("warps", "2F", { handlers = handlers })
+      advance({ handlers = handlers })
+    end
+    if mapName() ~= own .. "_2F" then return false, "not upstairs: " .. L.where() end
+    visit()
+    if not flag("FLAG_SET_WALL_CLOCK") then
+      local ok, text, outcome = talkTo("signs", "Clock", { handlers = handlers, calm = 90 })
+      U.log("CLOCK", "talk:", tostring(ok), tostring(outcome), tostring(text):sub(-300))
+    end
+    advance({ handlers = handlers, calm = 90 })
+    if not flag("FLAG_SET_WALL_CLOCK") then return false, "the clock is not set: " .. stateLine() end
+    go("warps", "1F", { handlers = handlers })
+    advance({ calm = 120 })
+    return true, L.where() .. " " .. stateLine()
+  end)
+
+  -- Next door: the neighbour's mother, upstairs, the Poké Ball on the floor, the rival.
+  stage("rival_house", function() return v("VAR_LITTLEROOT_RIVAL_STATE") >= 3 end, function()
+    local ok, why = travel(rivalHouse() .. "_2F")
+    if not ok then return false, tostring(why) end
+    visit()
+    local talked, text, outcome = talkTo("objects", "Ball", { calm = 90 })
+    U.log("RIVAL", "the ball:", tostring(talked), tostring(outcome), tostring(text):sub(-300))
+    advance({ calm = 90 })
+    return true, L.where() .. " " .. stateLine()
+  end)
+
+  -- Route 101: Birch's shout, his bag, the starter chosen by ear, the first battle,
+  -- the lab.
+  stage("starter", function() return #party() >= 1 and v("VAR_BIRCH_LAB_STATE") >= 3 end, function()
+    local want = (os.getenv("WALK_STARTER") or "MUDKIP"):upper()
+    local chosen = false
+    local handlers = {}
+    function handlers.starter_choose(top)
+      if chosen then L.tap("a", 20) return end
+      for _ = 1, 240 do
+        if saidFor[top.key] then break end
+        wait(1)
+      end
+      wait(20)
+      local opening = since(math.max(0, #spoken - 2))
+      U.log("STARTER", "on entry heard:", opening)
+      if not saidFor[top.key] then finding("silent", "the starter screen opened and nothing was read") end
+      local here, heardAll = opening, { opening }
+      for _ = 1, 3 do
+        if here:upper():find(want, 1, true) then break end
+        here = press("right", 40)
+        heardAll[#heardAll + 1] = here
+      end
+      for _ = 1, 3 do
+        if here:upper():find(want, 1, true) then break end
+        here = press("left", 40)
+        heardAll[#heardAll + 1] = here
+      end
+      U.log("STARTER", "moving heard:", table.concat(heardAll, " / "))
+      if not here:upper():find(want, 1, true) then
+        finding("starter", "could not hear " .. want .. " while moving over the three balls; heard: " .. table.concat(heardAll, " / "))
+      end
+      local question = press("a", 120)
+      U.log("STARTER", "A heard:", question)
+      if not question:lower():find("choose", 1, true) then finding("starter", "A on a ball did not read the question; heard: " .. question) end
+      local after = pickYesNo("YES", question, "the starter's confirm")
+      U.log("STARTER", "YES heard:", after)
+      chosen = true
+    end
+    local ok, why = travel("LITTLEROOT_TOWN")
+    if not ok then return false, tostring(why) end
+    if v("VAR_ROUTE101_STATE") < 2 then
+      go(conn("Route 101")[1], conn("Route 101")[2], { handlers = handlers, untilFn = function() return v("VAR_ROUTE101_STATE") >= 2 and L.free() end })
+      advance({ handlers = handlers, calm = 60 })
+    end
+    if not onMap("ROUTE101") then return false, "Birch's scene did not start: " .. L.where() .. " " .. stateLine() end
+    visit()
+    local talked, text, outcome = talkTo("objects", "Bag", { handlers = handlers, calm = 120, limit = 30000 })
+    U.log("STARTER", "the bag:", tostring(talked), tostring(outcome), tostring(text):sub(-200))
+    advance({ handlers = handlers, calm = 120, limit = 30000 })
+    return true, L.where() .. " " .. partyLine() .. " " .. stateLine()
+  end)
+
+  -- Through Oldale to Route 103 and the rival's battle.
+  stage("rival_battle", function() return flag("FLAG_DEFEATED_RIVAL_ROUTE103") end, function()
+    local detail = ""
+    for attempt = 1, 3 do
+      local trained, whyNot = trainTo(7, "OLDALE_TOWN", "LITTLEROOT_TOWN", 6)
+      if not trained then U.log("TRAIN", "stopped:", tostring(whyNot), partyLine()) end
+      local ok, why = travel("OLDALE_TOWN")
+      if not ok then return false, tostring(why) end
+      visit()
+      if weak(0.95) then healHere() end
+      ok, why = travel("ROUTE103")
+      if not ok then return false, tostring(why) end
+      visit()
+      local name = rivalName()
+      local talked, text, outcome = talkTo("npcs", name, { calm = 120, limit = 30000 })
+      detail = ("attempt %d: %s %s"):format(attempt, tostring(outcome), tostring(text):sub(-120))
+      U.log("RIVAL", "Route 103:", tostring(talked), detail)
+      advance({ calm = 120 })
+      if flag("FLAG_DEFEATED_RIVAL_ROUTE103") then break end
+      if outcome == "missing" then return false, "the rival is not in the NPC list on Route 103" end
+    end
+    return true, L.where() .. " " .. partyLine() .. " " .. detail
+  end)
+
+  -- Back to the lab for the Pokédex.
+  stage("pokedex", function() return flag("FLAG_SYS_POKEDEX_GET") end, function()
+    local ok, why = travel("LITTLEROOT_TOWN_PROFESSOR_BIRCHS_LAB")
+    if not ok then return false, tostring(why) end
+    advance({ calm = 120, limit = 20000 })
+    visit()
+    if not flag("FLAG_SYS_POKEDEX_GET") then
+      local talked, text, outcome = talkTo("npcs", "Birch", { calm = 120 })
+      U.log("LAB", "Birch:", tostring(talked), tostring(outcome), tostring(text):sub(-200))
+    end
+    return true, L.where() .. " " .. stateLine()
+  end)
+
+  -- Leaving town: mother and the Running Shoes.
+  stage("shoes", function() return flag("FLAG_SYS_B_DASH") end, function()
+    local ok, why = travel("ROUTE101", { untilFn = function() return flag("FLAG_SYS_B_DASH") and L.free() end })
+    advance({ calm = 90 })
+    return ok, tostring(why) .. " " .. L.where() .. " " .. stateLine()
+  end)
+
+  stage("petalburg", function() return flag("FLAG_VISITED_PETALBURG_CITY") end, function()
+    local ok, why = travel("PETALBURG_CITY")
+    return ok, tostring(why) .. " " .. L.where() .. " " .. partyLine()
+  end)
+
+  -- The gym: father, Wally, and the catching lesson (the game plays Wally's battle).
+  stage("catching_lesson", function() return v("VAR_PETALBURG_GYM_STATE") >= 1 end, function()
+    local ok, why = travel("PETALBURG_CITY")
+    if not ok then return false, tostring(why) end
+    visit()
+    healHere()
+    ok, why = travel("PETALBURG_CITY_GYM")
+    if not ok then return false, tostring(why) end
+    advance({ calm = 90 })
+    visit()
+    if v("VAR_PETALBURG_GYM_STATE") < 1 then
+      local m = mark()
+      local talked, text, outcome = talkTo("npcs", "Norman", { calm = 150, limit = 40000 })
+      U.log("LESSON", "Norman:", tostring(talked), tostring(outcome))
+      advance({ calm = 150, limit = 40000 })
+      U.log("LESSON", "everything heard:", since(m):sub(1, 3000))
+      local _ = text
+    end
+    return true, L.where() .. " " .. stateLine()
+  end)
+
+  -- Route 104 and Petalburg Woods: the Devon researcher and the Aqua grunt.
+  stage("woods", function() return v("VAR_PETALBURG_WOODS_STATE") >= 1 end, function()
+    local ok, why = travel("ROUTE104")
+    if not ok then return false, tostring(why) end
+    visit()
+    ok, why = travel("RUSTBORO_CITY", { untilFn = function() return v("VAR_PETALBURG_WOODS_STATE") >= 1 and L.free() end })
+    advance({ calm = 90 })
+    return ok, tostring(why) .. " " .. L.where() .. " " .. partyLine() .. " " .. stateLine()
+  end)
+
+  stage("rustboro", function() return flag("FLAG_VISITED_RUSTBORO_CITY") end, function()
+    local ok, why = travel("RUSTBORO_CITY")
+    return ok, tostring(why) .. " " .. L.where() .. " " .. partyLine()
+  end)
+
+  -- The first gym.
+  stage("roxanne", function() return flag("FLAG_BADGE01_GET") end, function()
+    local detail = ""
+    for attempt = 1, 3 do
+      local ok, why = travel("RUSTBORO_CITY")
+      if not ok then return false, tostring(why) end
+      visit()
+      local trained = trainTo(12, "ROUTE116", "RUSTBORO_CITY", 8)
+      if not trained then U.log("TRAIN", "below level 12:", partyLine()) end
+      ok, why = travel("RUSTBORO_CITY")
+      if not ok then return false, tostring(why) end
+      if weak(0.95) then healHere() end
+      ok, why = travel("RUSTBORO_CITY_GYM")
+      if not ok then return false, tostring(why) end
+      visit()
+      local talked, text, outcome = talkTo("npcs", "Roxanne", { calm = 150, limit = 60000 })
+      detail = ("attempt %d: %s %s"):format(attempt, tostring(outcome), tostring(text):sub(-160))
+      U.log("GYM", "Roxanne:", tostring(talked), detail)
+      advance({ calm = 150, limit = 20000 })
+      if flag("FLAG_BADGE01_GET") then break end
+      if outcome == "missing" then return false, "Roxanne is not in the NPC list" end
+    end
+    return true, L.where() .. " " .. partyLine() .. " " .. detail
   end)
 
   -- ------------------------------------------------------------ run
   local speed = tonumber(os.getenv("WALK_SPEED") or "")
   local stopAfter = os.getenv("WALK_STOP")
+  local saveEach = os.getenv("WALK_SAVE") ~= "0"
   U.log("START", "rse_walkthrough", GameData.id(), "stop after", tostring(stopAfter), "walk speed", tostring(speed or "default"))
   for _, entry in ipairs(stages) do
     local inField = game.phase == "field"
-    U.log("STAGE", "begin", entry.name, "at", inField and L.where() or tostring(game.phase), "party", inField and partyLine() or "")
-    if speed and inField then L.fastWalk(speed) end
-    local began = frame
-    local ok, okOrErr, detail = pcall(entry.run)
-    if not ok then
-      U.log("STAGE", "error", entry.name, tostring(okOrErr))
-      results[#results + 1] = { name = entry.name, ok = false, detail = "driver error: " .. tostring(okOrErr), frames = frame - began }
-      break
+    if continued and entry.done and entry.done() then
+      U.log("STAGE", "skipped", entry.name, "(already done in this save)")
+      results[#results + 1] = { name = entry.name, ok = true, detail = "done in the save continued from", frames = 0 }
+    else
+      U.log("STAGE", "begin", entry.name, "at", inField and L.where() or tostring(game.phase), "party", inField and partyLine() or "")
+      if speed and inField then L.fastWalk(speed) end
+      local began = frame
+      local ok, okOrErr, detail = pcall(entry.run)
+      if not ok then
+        U.log("STAGE", "error", entry.name, tostring(okOrErr))
+        results[#results + 1] = { name = entry.name, ok = false, detail = "driver error: " .. tostring(okOrErr), frames = frame - began }
+        break
+      end
+      local reached = okOrErr == true
+      if reached and entry.done and not entry.done() then
+        reached = false
+        detail = "its goal check does not hold: " .. tostring(detail)
+      end
+      results[#results + 1] = { name = entry.name, ok = reached, detail = tostring(detail), frames = frame - began }
+      U.log("STAGE", reached and "reached" or "stopped", entry.name, tostring(detail), "frames", frame - began)
+      if not reached then
+        if game.phase == "field" and L.free() then
+          U.log("STATE", stateLine(), "party", partyLine())
+          readLists("where it stopped: " .. mapName())
+        end
+        break
+      end
+      if saveEach and entry.name ~= "boot" and entry.name ~= "truck" then
+        local saved = saveGame()
+        U.log("SAVE", "after", entry.name, saved and "saved" or "NOT saved")
+      end
+      if stopAfter == entry.name then break end
     end
-    results[#results + 1] = { name = entry.name, ok = okOrErr == true, detail = tostring(detail), frames = frame - began }
-    U.log("STAGE", okOrErr == true and "reached" or "stopped", entry.name, tostring(detail), "frames", frame - began)
-    if okOrErr ~= true then break end
-    if stopAfter == entry.name then break end
   end
-  local reached = 0
+  local reachedCount = 0
   for _, row in ipairs(results) do
-    if row.ok then reached = reached + 1 end
+    if row.ok then reachedCount = reachedCount + 1 end
     U.log("TABLE", row.name, row.ok and "reached" or "stopped", row.detail, "frames", tostring(row.frames))
   end
-  U.log("RESULT", "rse_walkthrough", GameData.id(), "stages reached", reached, "of", #stages,
+  U.log("RESULT", "rse_walkthrough", GameData.id(), "stages reached", reachedCount, "of", #stages,
     "findings", findingCount, "battles", battles, "party", game.phase == "field" and partyLine() or "")
   Speech.say = say
   U.wait = rawWait
   U.log("DONE")
-  -- keep the unused helpers referenced until their stages exist
-  local _ = { flag, var, lead, talkTo, interact }
 end
