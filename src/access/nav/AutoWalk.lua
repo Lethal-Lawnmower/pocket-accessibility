@@ -332,8 +332,14 @@ function AutoWalk.start(nav, game, adapter, opts)
     if not opts.quiet then
       -- a coordinator may name what is missing ("Needs Surf")
       local needs = type(nav.routeNeeds) == "function" and nav:routeNeeds(goals) or nil
+      -- ...or why this part of the map is shut ("Not at low tide: ...", "Not from here:
+      -- this part is reached from Route 122"), where there is simply no route.  Only a
+      -- coordinator that has closedReason is asked (Gen 3's): Gen 1 and Gen 2 say what
+      -- they said before.
+      local closed = not needs and not journey and PLANNER_REASONS[findErr or "no path"] == "none"
+        and type(nav.closedReason) == "function" and nav:closedReason(goals) or nil
       Speech.say(needs and (tostring(item.label) .. ": " .. needs)
-        or spokenReason(findErr or "no path", item.label), { interrupt = true })
+        or closed or spokenReason(findErr or "no path", item.label), { interrupt = true })
     end
     return false
   end
