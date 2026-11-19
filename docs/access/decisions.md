@@ -588,3 +588,7 @@ Told that a phone which blocks the game because of the touch service would block
 
 
 Addendum (2026-11-11): the owner confirmed, "Yeah, no companion app. Let's just do the touch and no touch version." Research the same day (`android.md`, "What Play Protect's rule is") showed a companion would be blocked exactly as the standard APK is. TalkBack's own pass-through gesture was looked at and judged unrealistic for the game's rapid gestures (owner). The top of the 0.0.5 release page says who the no-touch download is for and lists the regions Google has named.
+
+## 75. Gen 3 work by five agents while the owner cannot test (2026-11-19)
+
+The owner cannot test until Wednesday 2026-11-25. Asked what Gen 3 still needs, he was given a list and answered: "yes, do as much as you can using 5 subagents autonomously." Authorized: five agents working in parallel on Gen 3 (FireRed, LeafGreen, Ruby, Sapphire, Emerald), each on its own branch and worktree, with the lead reviewing and merging to `main` locally: a real-walk Emerald playthrough test, the test harness's battle stall and full reruns, a rerun and repair of the screens drivers, the navigation refusals left after the day's three passes, and Ruby, Sapphire and LeafGreen parity. Not authorized by this: pushing, building or publishing a release, contacting anyone, or work outside Gen 3. The 0.0.5 release stays on hold ("no not yet", 2026-11-11). An agent's report or the lead's review is not the owner's acceptance: everything stays "run in game by driver, not heard" until he tests.
