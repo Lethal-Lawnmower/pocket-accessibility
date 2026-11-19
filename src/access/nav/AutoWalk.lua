@@ -305,6 +305,10 @@ function AutoWalk.start(nav, game, adapter, opts)
     local leg, legErr = nav:regionalNextLeg(attempt)
     if leg and not leg.final then
       journey, goals = attempt, leg.goals
+      -- the selection is lost on the next floor: the coordinator keeps the target (Gen 3)
+      if not opts.quiet and type(nav.rememberJourneyTarget) == "function" then
+        nav:rememberJourneyTarget(item, attempt)
+      end
       final = leg.stopAtGoal == true
       stopText = leg.stopAtGoal and leg.stopText or nil
       danceLeg = leg
@@ -356,8 +360,9 @@ function AutoWalk.start(nav, game, adapter, opts)
     -- a fast game speed moved the player past the last step between two
     -- updates (several tiles per real frame at 200X)
     -- (a walk that ends at a panel is not going through that warp)
+    -- (a kept journey target carries its door's far side as arrivalMapId)
     targetMapId = not stopText and (opts.targetMapId
-      or (not opts.goals and item.type == "warp" and item.destinationMapId)) or nil,
+      or (not opts.goals and ((item.type == "warp" and item.destinationMapId) or item.arrivalMapId))) or nil,
     interaction = interaction,
     nav = nav,
     goals = goals,

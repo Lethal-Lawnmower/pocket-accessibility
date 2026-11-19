@@ -2753,6 +2753,32 @@ function Navigation:journeyMaps(fromMapId, targetMapId)
   return allowed
 end
 
+-- The maps a way round may cross (regionalNextLeg): the area's own, the maps this map's
+-- doors lead to, and the other floors of those places.  Connections are left out: a walk
+-- into the next town and on is no way round, it is another trip.
+function Navigation:wayRoundMaps(mapId, allowed)
+  local areaKeyOf = Navigation.areaKey
+  local round, keys, added = {}, {}, false
+  for id in pairs(allowed or {}) do round[id] = true end
+  round[mapId] = true
+  for _, transition in ipairs(self:regionalTransitions(mapId) or {}) do
+    local dest = transition.destMap
+    if transition.kind ~= "connection" and type(dest) == "string" and not round[dest] then
+      round[dest], added = true, true
+      local key = areaKeyOf(dest)
+      if key then keys[key] = true end
+    end
+  end
+  if not added then return nil end
+  for id in pairs(self.game and self.game.data and self.game.data.maps or {}) do
+    if type(id) == "string" and not round[id] then
+      local key = areaKeyOf(id)
+      if key and keys[key] then round[id] = true end
+    end
+  end
+  return round
+end
+
 -- A Secret Switch anywhere in the target's area that would open a way (Pokemon Mansion:
 -- one flag, one switch per floor, and the way to the basement only from the third floor's
 -- side).  The flags a switch's script changes are supposed flipped, and the journey from
@@ -2838,6 +2864,13 @@ function Navigation:unreachableReason(goals)
   -- the planner's own codes ("no regional path", a time limit) say nothing to a player;
   -- anything else is a sentence: "Needs ...", "Blocked by ...", a story door
   if ok and not leg and type(reason) == "string" and reason:match("^%u") then return reason end
+  -- a way that counts on boulders being pushed, or a floor that switches redraw: both
+  -- are auto-walk's puzzles (BoulderWalk, SwitchWalk), as the spinning gates are
+  if ok and leg and self.journeyPastBoulders then return "Boulders in the way: use auto walk" end
+  local okSwitches, switches = pcall(self.floorSwitchCells, self, world)
+  if okSwitches and type(switches) == "table" and #switches > 0 then
+    return "Floor switches change this floor: use auto walk"
+  end
   return nil
 end
 
@@ -2912,12 +2945,15 @@ function Navigation:regionalNextLeg(navigation)
   -- that cannot be undone come only when nothing else gets there
   -- last, past boulders: on floors ahead, then here too (a way out and back onto this
   -- floor, Mt. Ember's Fire Stone); the floors' puzzles open them when the walk gets there
+  self.journeyPastBoulders = nil
   for _, try in ipairs({ { 1, false }, { 2, false }, { 2, true }, { 2, true, "others" }, { 2, true, "all" } }) do
     self.journeyBoulderFree = try[3]
     local ok
     ok, result, reason = pcall(self.journeySearch, self, start, target, try[1], allowed, nil, try[2])
     self.journeyBoulderFree = nil
     if not ok then error(result) end
+    -- guided navigation asks whether the way found counts on boulders being moved
+    if result then self.journeyPastBoulders = try[3] ~= nil end
     if result or reason ~= "no regional path" then break end
   end
   if not result then
@@ -2938,8 +2974,42 @@ function Navigation:regionalNextLeg(navigation)
           or (aside.final and self:routeNeeds(target.goals)) or nil
         return nil, here or "Blocked by someone further on"
       end
+      -- The way round.  A route's two halves often join only through another place:
+      -- Route 104 through Petalburg Woods, Ever Grande City through Victory Road,
+      -- FireRed's Route 4 through Mt. Moon and Route 10 through Rock Tunnel.  When
+      -- nothing in the area gets there, with or without what the player lacks, the
+      -- search is run once more over the places this map's own doors lead to
+      -- (Navigation:wayRoundMaps), with what the party can do now; then with boulders
+      -- set aside, as above (Victory Road's are pushed when the walk gets to them);
+      -- then with people set aside, to name who stands in that way.  Any map at all was
+      -- tried first: with Mt. Moon's Super Nerd in the corridor it led from Route 4 to
+      -- Cerulean through Pewter, Diglett's Cave, Vermilion and the Underground Path.
+      local round = allowed and self:wayRoundMaps(mapId, allowed) or nil
+      if round then
+        for _, free in ipairs({ false, "all" }) do
+          self.journeyBoulderFree = free or nil
+          local okRound, found = pcall(self.journeySearch, self, start, target, 2, round, 2, true)
+          self.journeyBoulderFree = nil
+          if okRound and found and not found.final then
+            result = found
+            self.journeyPastBoulders = free ~= false
+            break
+          end
+        end
+        if not result then
+          self.routeIgnoringPeople = true
+          local okFree, free = pcall(self.journeySearch, self, start, target, 2, round, 2, true)
+          self.routeIgnoringPeople = nil
+          if okFree and free and not free.final then
+            local way = free.firstTransition
+            local here = way and self:routeNeeds({ { x = way.x, y = way.y } }) or nil
+            return nil, here or ("The way is through " .. self:regionalDestinationName(way.destMap)
+              .. ", blocked by someone further on")
+          end
+        end
+      end
     end
-    return nil, reason
+    if not result then return nil, reason end
   end
   if result.final then
     -- a floor as the target: being on it is the arrival
@@ -3079,7 +3149,56 @@ end
 
 -- A floor picked from the Area list is reached as soon as the journey arrives on it,
 -- whichever way in that takes (journeySearch, target.anywhere).
+--
+-- A journey to something on the player's own map through other floors (Victory Road's far
+-- door, from its near one) loses its selection on the first new floor: the list there does
+-- not have it.  The walk itself carries its target, but whatever takes over on the way
+-- (a floor's boulders, its switches, a walk resumed after a trainer) asks for the selection
+-- again and found none: "Cannot reach ..., auto walk stopped" on Victory Road B1F.  So the
+-- journey's target is kept (AutoWalk calls rememberJourneyTarget) and stands in as the
+-- selection, shaped like an Area target, until the player arrives or chooses another.
+function Navigation:rememberJourneyTarget(item, journey)
+  if type(item) ~= "table" or type(journey) ~= "table" or type(journey.targetGoals) ~= "table" then return end
+  self.journeyTarget = {
+    sourceId = item.id, goals = journey.targetGoals,
+    item = { id = item.id, type = "area", category = "area", label = item.label,
+      description = item.description or item.label, mapId = journey.targetMapId,
+      x = item.x, y = item.y, journeyStandIn = true,
+      arrivalMapId = item.type == "warp" and item.destinationMapId or nil },
+  }
+end
+
+function Navigation:keptJourneyTarget()
+  local kept = self.journeyTarget
+  if not kept then return nil end
+  local overworld = self:worldForCommand()
+  local here = overworld and self:currentMapIdOf(overworld)
+  if not here then return nil end
+  -- the player chose something else, went through the door, or stands on the target
+  local chosen = self.browseSelectionId
+  if (chosen ~= nil and chosen ~= kept.sourceId) or here == kept.item.arrivalMapId then
+    self.journeyTarget = nil
+    return nil
+  end
+  if here == kept.item.mapId then
+    for _, goal in ipairs(kept.goals) do
+      if goal.x == overworld.player.cellX and goal.y == overworld.player.cellY then
+        self.journeyTarget = nil
+        return nil
+      end
+    end
+    -- on its own map, with the selection still on it: the list's own item
+    if chosen == kept.sourceId then return nil end
+  end
+  local goals = {}
+  for i, goal in ipairs(kept.goals) do goals[i] = { x = goal.x, y = goal.y } end
+  goals.anywhere = kept.goals.anywhere
+  return kept.item, goals, overworld
+end
+
 function Navigation:selectedRouteGoals()
+  local keptItem, keptGoals, keptWorld = self:keptJourneyTarget()
+  if keptItem then return keptItem, keptGoals, nil, nil, keptWorld end
   local item, goals, instructions, connection, overworld = Shared.selectedRouteGoals(self)
   if type(item) == "table" and item.floorEntry and type(goals) == "table" then goals.anywhere = true end
   -- a dive spot is reached by being on any of its cells; then the game's own button

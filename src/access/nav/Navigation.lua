@@ -2702,6 +2702,11 @@ function Accessibility:advancePendingRoute(pending, result, routeError)
       and "Cannot reach the next safe boulder pushing position"
       or reason or "Cannot reach yet"
   end
+  -- the Pathfinder's own codes ("time limit exceeded") were spoken as they were
+  if not result and (routeError == "time limit exceeded" or routeError == "node limit exceeded") then
+    routeError = require("src.access.nav.AutoWalk").spokenReason(routeError,
+      pending.navigation and pending.navigation.targetLabel or "there")
+  end
   return self:completePendingRoute(pending, result, routeError)
 end
 

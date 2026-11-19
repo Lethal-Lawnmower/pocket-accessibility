@@ -6,6 +6,7 @@
 --      the other gym leaders
 --   C  Seafoam and Victory Road through their puzzles, and on to Indigo Plateau
 --   D  the Sevii Islands
+--   E  ways round: Route 4 through Mt. Moon, Route 10 through Rock Tunnel
 -- Harness setup (party, badges, items, flags, teleports) goes through the game's own
 -- loader, party and flag store; battles by the harness.  Silent; RESULT lines.
 return function(game)
@@ -340,6 +341,59 @@ return function(game)
         U.log("RESULT", spot[1], "no such map or warp")
       end
     end
+  end
+  if part("E") then
+    -- Ways round, one auto-walk each: a route whose two halves join only through a cave
+    -- (Navigation:regionalNextLeg, "the way round").  Route 4 through Mt. Moon, Route 10
+    -- through Rock Tunnel (lit by the harness on every floor, as Flash would).
+    local Player = require("src.core.game3.player")
+    local function through(title, start, warpIndex, filter, pattern, arrived)
+      arrive(start, warpIndex)
+      local item = L.findLabel(pattern, filter)
+      if not item then
+        U.log("FAIL", title, "not listed:", pattern, "in", filter, "at", L.where())
+        return
+      end
+      L.select(item, filter)
+      L.heard()
+      AutoWalk.start(L.nav(), game, L.adapter())
+      -- A dark floor ends the walk ("Too dark. Use Flash.", decision 37).  The player uses
+      -- Flash and presses auto-walk again, with nothing selected on the new floor: the
+      -- journey's kept target carries on (Navigation:rememberJourneyTarget).
+      local frames, done, said, relit = 0, false, "", 0
+      while frames < 150000 and not done do
+        done = true
+        for frame = 1, 300 do
+          if not (AutoWalk.active() or BoulderWalk.active() or SwitchWalk.active()) then break end
+          if frame == 300 then done = false end
+          if (frames + frame) % 900 == 0 then L.heal() end
+          if not L.battleStep() then
+            if frame % 15 == 0 and L.messageOpen() and not L.free() then L.tap("a", 2) else U.wait(1) end
+          end
+        end
+        frames = frames + 300
+        local heard = L.heard()
+        if heard ~= "" then said = said .. " | " .. heard end
+        if done and heard:find("Too dark", 1, true) and relit < 6 then
+          relit = relit + 1
+          pcall(function() package.loaded["src.core.game3.field_view"].setFlashLevel(0) end)
+          U.wait(5)
+          AutoWalk.start(L.nav(), game, L.adapter())
+          done = false
+        end
+      end
+      if not done then BoulderWalk.stop() SwitchWalk.stop() AutoWalk.stop() end
+      said = said .. " | " .. L.heard()
+      U.log("NOTE", title, "relit", relit)
+      U.log(arrived(said) and "RESULT" or "FAIL", title, "->", L.where(), "|", said:sub(-200))
+    end
+    -- (from a new game's flags Mt. Moon B2F's Super Nerd stands in the corridor: the walk
+    -- is refused with the way named; with him out of the way it is walked)
+    through("Route 4, west half to Cerulean's edge through Mt. Moon", "FR_ROUTE_4", 1, "connections", "Cerulean",
+      function(said) return (L.pos() == "FR_ROUTE_4" and Player.cellX > 60)
+        or said:find("The way is through Mt. Moon 1F, blocked by someone further on", 1, true) ~= nil end)
+    through("Route 10, north half to Lavender's edge through Rock Tunnel", "FR_ROUTE_10", 1, "connections", "Lavender",
+      function() return L.pos() == "FR_ROUTE_10" and Player.cellY > 50 end)
   end
   U.log("DONE")
 end

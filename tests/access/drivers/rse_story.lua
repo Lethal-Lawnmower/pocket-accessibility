@@ -6,6 +6,8 @@
 --   G  every gym, from its door to its leader
 --   F  field walks: first route, ledges, Surf, Waterfall, Dive and back, currents
 --   H  hideouts, Seafloor Cavern, Victory Road and the other late places
+--   W  whole crossings and ways round: Victory Road door to door, Ever Grande City back
+--      down through it, Route 104 through Petalburg Woods, Route 116 through the tunnel
 -- Harness setup (party, badges, flags, teleports) goes through the game's own loader,
 -- party and flag store; battles by the harness.  Silent; RESULT and FAIL lines.  Nobody
 -- hears these runs.
@@ -59,7 +61,8 @@ return function(game)
 
   -- Every puzzle or walk the one command started, to its end, with the harness in
   -- battles and through text the walk waits on.
-  local function run(limit)
+  -- `part`: one stretch of a longer run; at its end the walk is left going
+  local function run(limit, part)
     local Extra = package.loaded["src.access.nav.IceWalk"]
     for frame = 1, limit or 30000 do
       local extraActive = Extra and Extra.active()
@@ -102,6 +105,7 @@ return function(game)
         end
       end
     end
+    if part then return false end
     local stuck = AutoWalk._state()
     U.log("FAIL", "still going at the limit", L.where(), "paused", tostring(stuck and stuck.paused), "still", tostring(stuck and stuck.still), "retry", tostring(stuck and stuck.retryIn), "await", tostring(stuck and stuck.awaitingMap), "held game", tostring(L.adapter().held(game)), "trans", tostring(L.adapter().transitioning()), "goals", tostring(stuck and stuck.goals and stuck.goals[1] and (stuck.goals[1].x .. "," .. stuck.goals[1].y)), "held", tostring(stuck and stuck.held), "steps", L.steps():sub(1, 200),
       "free", tostring(L.free()), "message", tostring(L.messageOpen()),
@@ -375,6 +379,65 @@ return function(game)
         U.log("RESULT", "live list", name, "objects", total, "Person", persons)
       end
     end
+  end
+
+  if part("W") then
+    -- Whole crossings, and ways round: one auto-walk each.  A target on the player's own
+    -- map whose two halves join only through another place (Navigation:regionalNextLeg,
+    -- "the way round"), and Victory Road from one door to the other.
+    local Player = require("src.core.game3.player")
+    local function flash()
+      local flag = L.GameData.flag("FLAG_SYS_USE_FLASH")
+      if flag then L.setFlag(flag, true) end
+    end
+    local function through(title, start, warpIndex, filter, pattern, arrived, limit)
+      if not maps[id(start)] then return end
+      local onlyPlaces = os.getenv("RSE_STORY_PLACES")
+      if onlyPlaces and not onlyPlaces:find(start, 1, true) then return end
+      if not arrive(id(start), warpIndex) then return end
+      flash()
+      local item = L.findLabel(pattern, filter)
+      if not item then
+        summary.failed = summary.failed + 1
+        U.log("FAIL", title, "not listed:", pattern, "in", filter, "at", L.where(), labels(filter))
+        return
+      end
+      L.select(item, filter)
+      local _, targetGoals = L.nav():selectedRouteGoals()
+      L.heard()
+      AutoWalk.start(L.nav(), game, L.adapter())
+      -- every floor on the way is dark again when the walk gets to it
+      local frames, step, done = 0, 600, false
+      while frames < (limit or 120000) and not done do
+        flash()
+        done = run(step, true)
+        frames = frames + step
+      end
+      if not done then run(1) end
+      local said = L.heard()
+      local ok = arrived()
+      summary[ok and "arrived" or "failed"] = summary[ok and "arrived" or "failed"] + 1
+      U.log(ok and "RESULT" or "FAIL", title, "->", L.where(), "|", said:sub(-240))
+      if not ok and os.getenv("RSE_STORY_SHOW") == "1" then
+        L.showFloor(title)
+        local leg, why = L.nav():regionalNextLeg({ targetMapId = id(start), targetGoals = targetGoals })
+        local cells = {}
+        for _, goal in ipairs(leg and leg.goals or {}) do cells[#cells + 1] = goal.x .. "," .. goal.y end
+        U.log("NOTE", "leg from here", leg and (leg.final and "final" or tostring(leg.nextMapId)) or tostring(why), table.concat(cells, " "),
+          "past boulders", tostring(L.nav().journeyPastBoulders))
+        local rows = {}
+        for _, actor in ipairs(L.nav():worldState().npcs) do rows[#rows + 1] = tostring(actor.graphicsId) .. "@" .. actor.cellX .. "," .. actor.cellY end
+        U.log("ACTORS", table.concat(rows, " "))
+      end
+    end
+    through("Victory Road, the south door to the League's", "VICTORY_ROAD_1F", 1, "warps", "Ever Grande City, entrance 2 of 2",
+      function() return L.pos() == id("EVER_GRANDE_CITY") and Player.cellY < 35 end)
+    through("Ever Grande City, the League's side down to the Center", "EVER_GRANDE_CITY", 4, "warps", "Pok..?mon Center 1F",
+      function() return L.pos() == id("EVER_GRANDE_CITY_POKEMON_CENTER_1F") end)
+    through("Route 104, south half to the north edge", "ROUTE104", 1, "connections", "Rustboro",
+      function() return L.pos() == id("ROUTE104") and Player.cellY <= 1 end)
+    through("Route 116, round through Rusturf Tunnel", "ROUTE116", 1, "warps", "Rusturf Tunnel, entrance 2 of 2",
+      function() return L.pos() == id("RUSTURF_TUNNEL") end)
   end
 
   U.log("RESULT", "walks arrived", summary.arrived, "failed", summary.failed)
