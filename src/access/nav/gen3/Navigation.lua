@@ -2982,7 +2982,9 @@ function Navigation:journeyBlocker(result, currentMapId)
         if found and found.kind == "object" then
           local name
           if found.actor.invisible then
-            name = "something hidden"
+            -- a buried trainer (Lavaridge Gym), as routeNeeds says it on the player's own floor
+            local hiddenDef = type(found.actor.def) == "table" and found.actor.def or {}
+            name = tonumber(hiddenDef.trainerType) == 3 and "a hidden trainer" or "something hidden"
           else
             local okLabel, label = pcall(Snapshot.objectLabel, found.actor, {})
             name = okLabel and label or "someone"

@@ -153,6 +153,8 @@ local GFX_LABELS = {
   KYOGRE_ASLEEP = "Kyogre", KYOGRE_FRONT = "Kyogre", KYOGRE_SIDE = "Kyogre",
   RAYQUAZA_STILL = "Rayquaza", KECLEON_BRIDGE_SHADOW = "Kecleon",
   VIGOROTH_CARRYING_BOX = "Vigoroth", VIGOROTH_FACING_AWAY = "Vigoroth",
+  -- Ruby and Sapphire's movers (Emerald's are the Vigoroth above)
+  MACHOKE_CARRYING_BOX = "Machoke", MACHOKE_FACING_AWAY = "Machoke",
   TRICK_HOUSE_STATUE = "Statue", DEOXYS_TRIANGLE = "Triangle", SUBMARINE_SHADOW = "Submarine",
   SS_TIDAL = "S.S. Tidal", UNION_ROOM_NURSE = "Nurse", MYSTERY_GIFT_MAN = "Delivery Man",
   QUINTY_PLUMP = "Man", GIDDY = "Man", HIPSTER = "Man", MAN = "Man",
@@ -193,9 +195,15 @@ end
 local PLAIN_SHEETS = { Man = true, Woman = true, Boy = true, Girl = true, ["Fat Man"] = true,
   ["Old Man"] = true, ["Old Woman"] = true, ["Little Boy"] = true, ["Little Girl"] = true,
   ["Balding Man"] = true }
--- Classes that are a title, not a kind of person: the sheet says more.
-local PLAIN_CLASSES = { ["PKMN TRAINER"] = true, LEADER = true, ["ELITE FOUR"] = true,
-  CHAMPION = true, RIVAL = true, [""] = true }
+-- Classes that are a title, not a kind of person: the sheet says more.  The class table
+-- spells the first one out on all five cartridges ("POK\195\169MON TRAINER", read from each
+-- game's imported trainer data); the short form alone never matched.
+local PLAIN_CLASSES = { ["PKMN TRAINER"] = true, ["POK\195\169MON TRAINER"] = true, LEADER = true,
+  ["ELITE FOUR"] = true, CHAMPION = true, RIVAL = true, [""] = true }
+-- A class that names two people, on one of them.  Emerald draws the twins with a sheet
+-- of their own ("Twin"); Ruby, Sapphire, FireRed and LeafGreen draw each as a little
+-- girl, and "Twins" on one girl read as two people on one cell.
+local ONE_OF_CLASS = { TWINS = "Twin" }
 
 -- "BIRD KEEPER" as "Bird Keeper"; the ROM's short forms spelt out.
 function Snapshot.classLabel(className)
@@ -220,7 +228,7 @@ local function trainerClassLabel(def, actor)
   local okInfo, info = pcall(Trainers.info, trainer)
   local className = okInfo and type(info) == "table" and info.className or nil
   if type(className) ~= "string" or PLAIN_CLASSES[className] then return nil end
-  return Snapshot.classLabel(className)
+  return ONE_OF_CLASS[className] or Snapshot.classLabel(className)
 end
 
 -- Graphics that are things, not someone to talk to (decision 35): the object

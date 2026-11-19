@@ -931,4 +931,45 @@ do
   eq(nav:closedForNow(world("EM_ROUTE110"), { { x = 1, y = 1 } }), nil, "anywhere else says nothing")
 end
 
+do
+  -- Ruby, Sapphire, FireRed and LeafGreen name things Emerald's sheets name differently
+  local Snapshot = require("src.access.nav.gen3.WorldSnapshot")
+  local Scripts = require("src.access.nav.gen3.Scripts")
+  local trainersModule = package.loaded["src.core.game3.scripting.trainers"]
+  package.loaded["src.core.game3.scripting.trainers"] = { info = function(id)
+    return ({ [7] = { className = "TWINS" }, [8] = { className = "POK\195\169MON TRAINER" },
+      [9] = { className = "YOUNG COUPLE" } })[id]
+  end }
+  Scripts.setSource({
+    twin = { { op = "trainerbattle", trainer = 7 } },
+    titled = { { op = "trainerbattle", trainer = 8 } },
+    couple = { { op = "trainerbattle", trainer = 9 } },
+  })
+  Snapshot.setGraphicsNames({ [95] = "OBJ_EVENT_GFX_MACHOKE_CARRYING_BOX", [96] = "OBJ_EVENT_GFX_MACHOKE_FACING_AWAY",
+    [20] = "OBJ_EVENT_GFX_LITTLE_GIRL_1", [23] = "OBJ_EVENT_GFX_MAN_5" })
+  eq(Snapshot.objectLabel({ graphicsId = 95, def = {} }, {}), "Machoke", "Ruby and Sapphire's mover, as Emerald's Vigoroth")
+  eq(Snapshot.objectLabel({ graphicsId = 96, def = {} }, {}), "Machoke", "the mover facing away")
+  eq(Snapshot.objectLabel({ graphicsId = 20, def = { scriptKey = "twin" } }, {}), "Twin", "one of the twins, as Emerald's sheet says it")
+  eq(Snapshot.objectLabel({ graphicsId = 23, def = { scriptKey = "titled" } }, {}), "Man",
+    "the title as the class table spells it is no better than the sheet")
+  eq(Snapshot.objectLabel({ graphicsId = 23, def = { scriptKey = "couple" } }, {}), "Young Couple", "a couple's class stays")
+  Scripts.setSource(nil)
+  Snapshot.setGraphicsNames(nil)
+  package.loaded["src.core.game3.scripting.trainers"] = trainersModule
+end
+
+do
+  -- a buried trainer met through the journey planner is named as one met on this floor is
+  -- (Ruby and Sapphire's Lavaridge Gym reaches four of its 1F holes through B1F)
+  local Navigation3 = require("src.access.nav.gen3.Navigation")
+  local nav = setmetatable({}, { __index = Navigation3 })
+  local function journey(trainerType)
+    local buried = { cellX = 3, cellY = 4, invisible = true, graphicsId = 66, def = { trainerType = trainerType } }
+    return { legs = { { mapId = "RU_LAVARIDGE_TOWN_GYM_B1F", steps = { { x = 3, y = 3 }, { x = 3, y = 4 } } } },
+      maps = { RU_LAVARIDGE_TOWN_GYM_B1F = { world = { npcs = { buried } } } } }
+  end
+  eq((nav:journeyBlocker(journey(3), "RU_LAVARIDGE_TOWN_GYM_B1F")), "a hidden trainer", "a buried trainer on the way")
+  eq((nav:journeyBlocker(journey(0), "RU_LAVARIDGE_TOWN_GYM_B1F")), "something hidden", "anything else unseen keeps its words")
+end
+
 T.finish("gen3 navigation")
