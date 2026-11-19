@@ -34,11 +34,24 @@ running and hands out what upstream already holds: the profile (`map.enginePrefi
     shared `advancePendingRoute` now asks `Navigation:unreachableReason`; Gen 3 answers with `routeNeeds`, then its
     journey planner. `dark_maps` checks the Granite Cave case in Hoenn.
   - A guided-navigation sweep (a scratch driver: every warp and connection of every Emerald map, from its first warp,
-    with the harness party, badges and Flash) found no other unexplained refusal. Left, and right: the Abandoned
-    Ship's locked hidden rooms, the Desert Ruins' and Ancient Tomb's sealed doors. Left by design: from the top of
+    with the harness party, badges and Flash; 800 targets asked) left 55 "Cannot reach yet". Right as they are: the
+    Abandoned Ship's locked hidden rooms, the sealed Desert Ruins, Ancient Tomb and Island Cave.
+    **Open for the next pass**, by kind (each line: map, then what the journey planner said for the same goals):
+    - The journey planner reaches it on the same floor, the Pathfinder behind guided navigation does not: Lavaridge
+      Gym 1F and B1F's holes and springs (7 targets), Route 104 north to Rustboro, Route 125 west to Route 124,
+      Seafloor Cavern Room 1 to Room 2 and Room 8 to Room 3. The two planners disagree on these floors; find where.
+    - Puzzles auto-walk solves but guided navigation only refuses: Trick House 7 (all 9 targets), Mossdeep Gym (the
+      planner says "Blocked by Statue": the statues move with the switches). Say "use auto walk", as spinning gates do.
+    - Story or terrain with no reason given: Lilycove east to Route 124 (the Wailmer barrier), Magma Hideout 1F to 2F,
+      Shoal Cave's rooms (tide), Seafloor Cavern rooms 5, 6, 7 and 4 (boulders), Victory Road B1F to 1F, Route 123 north,
+      Safari Zone south to north (Acro Bike), Underwater Route 127 south, Sootopolis Mystery Events House B1F.
+    - Started at a map's first warp, so a far part of a big map is another Area's way round (Route 104 to Petalburg
+      Woods and the flower shop, Route 112 to Jagged Pass, Fiery Path and Lavaridge, Route 116 to Rusturf Tunnel):
+      by design (decision 25), but the refusal could say the way is through another place.
+    Driver: `tests/access/drivers/gen3_guided_sweep.lua` (its logs are not kept); rerun it to compare. Left by design: from the top of
     Ever Grande City the lower town is "Cannot reach yet", because the way is through Victory Road, another Area, and a
     journey stays in one Area (decision 25). Battle Frontier, Trainer Hill, tents and contest halls were skipped (a
-    teleport into a Battle Dome room crashes upstream's `dome.lua:432` without its challenge set up).
+    teleport into a Battle Dome room crashes upstream's `dome.lua:432` without its challenge set up; the Hall of Fame starts its own scene and wedges the maps after it).
   - Not changed: object names come from the sprite sheet ("Fat Man", "Expert"), as in FireRed; Emerald's unused Cave of
     Origin maps are "Cave of Origin Unused Ruby Sapphire Map 1", reached only from each other.
 - **Area** (decision 25): `UNDERWATER_` comes off the key, so a route and its seabed are one area; a bare route is its own area
