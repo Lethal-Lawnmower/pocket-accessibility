@@ -435,6 +435,12 @@ local function lazyFlags()
   return flag, var
 end
 
+-- A story flag as the game has it now (or as a plan supposes it); false with no game.
+function World.flagSet(id)
+  local flag = lazyFlags()
+  return flag ~= nil and flag(id) == true
+end
+
 -- An alternate layout (setmaplayoutindex) as upstream bakes it for FireRed:
 -- native/layouts/alt_<id>.mid in the extracted data (scripting/ops_a.lua
 -- set_map_layout reads the same file).  Decoded once per id; nil when it

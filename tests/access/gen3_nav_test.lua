@@ -1109,4 +1109,80 @@ do
   maps.FR_OW_ROUTE, maps.FR_OW_NORTH, maps.FR_OW_WEST = nil, nil, nil
 end
 
+do
+  -- a way round through the map next door (Navigation:wayRoundNextDoor): two strips of a
+  -- route that join only along the next town's edge
+  package.loaded["src.core.game3.connections"] = package.loaded["src.core.game3.connections"]
+    or require("src.core.game3.connections")
+  maps.FR_NR_ROUTE = mapDef("FR_NR_ROUTE", { "..#..", "..#..", "..#.." }, {},
+    { connections = { { dir = "north", map = "FR_NR_TOWN", offset = 0 } } })
+  maps.FR_NR_TOWN = mapDef("FR_NR_TOWN", { ".....", "....." }, {},
+    { connections = { { dir = "south", map = "FR_NR_ROUTE", offset = 0 } } })
+  local nav = navFor()
+  local w = worldOn(maps.FR_NR_ROUTE, 4, 2)
+  nav.worldForCommand = function() return w end
+  nav.worldState = function() return w end
+  local goals = { { x = 0, y = 2 } }
+  check(route(nav, w, goals, 2) == nil, "the two strips do not join on the route itself")
+  local leg, reason = nav:regionalNextLeg({ targetMapId = "FR_NR_ROUTE", targetGoals = goals })
+  check(leg and not leg.final and leg.nextMapId == "FR_NR_TOWN", "the way round goes over the edge into the next town: " .. tostring(reason))
+  eq(leg and leg.goals[1].y, 0, "the leg ends on this strip's top edge")
+  eq(leg and leg.edgeDirection, "up", "and says which way to step off")
+  -- with the town's row walled between the strips there is no way round
+  maps.FR_NR_TOWN = mapDef("FR_NR_TOWN", { "..#..", "..#.." }, {},
+    { connections = { { dir = "south", map = "FR_NR_ROUTE", offset = 0 } } })
+  leg, reason = nav:regionalNextLeg({ targetMapId = "FR_NR_ROUTE", targetGoals = goals })
+  check(leg == nil, "no way round where the next map does not join them")
+  maps.FR_NR_ROUTE, maps.FR_NR_TOWN = nil, nil
+end
+
+do
+  -- a door its key opens (Scripts.keyDoor; the Abandoned Ship's rooms): its sign is a
+  -- locked door, and a journey it closes names the key
+  local World = require("src.access.nav.gen3.World")
+  Scripts.setSource({
+    room_door = { { op = "lockall" }, { op = "checkflag", flag = 241 }, { op = "goto_if", target = "door_open" },
+      { op = "checkitem", 282, 1 }, { op = "goto_if", target = "door_locked" }, { op = "removeitem", 282, 1 },
+      { op = "setflag", flag = 241 }, { op = "call", target = "door_draw" }, { op = "special", id = 142 }, { op = "end" } },
+    door_open = { { op = "callstd", std = 4 } },
+    door_locked = { { op = "callstd", std = 4 } },
+    door_draw = { { op = "setmetatile", 6, 8, 555, 1 }, { op = "return" } },
+    poster = { { op = "checkflag", flag = 300 }, { op = "setflag", flag = 300 }, { op = "setmetatile", 1, 1, 5, 0 } },
+  })
+  local door = Scripts.keyDoor("room_door")
+  eq(door and door.flag, 241, "the door's own flag is the first its script checks")
+  eq(door and door.item, 282, "the key is the item it checks for and takes")
+  eq(Scripts.signRole("room_door"), "Locked Door", "such a sign is a locked door, not a hidden switch")
+  eq(Scripts.keyDoor("poster"), nil, "a switch that takes no item is no key door")
+  eq(Scripts.signRole("poster"), "Hidden Switch", "and keeps its name")
+  maps.FR_KD_HALL = mapDef("FR_KD_HALL", { "###", "#.#", "###" }, {},
+    { bgEvents = { { type = "sign", x = 1, y = 0, kind = 0, scriptKey = "room_door" } } })
+  local flagsOn = {}
+  package.loaded["src.core.game3.scripting.space"] = { store = {} }
+  package.loaded["src.core.game3.scripting.flags"] = { getFlag = function(_, _, id) return flagsOn[id] == true end }
+  local labelled = Scripts.itemLabel
+  Scripts.itemLabel = function(id) return id == 282 and "Rm. 2 Key" or nil end
+  local nav = navFor()
+  -- the journey exists only with the door's flag supposed set
+  local supposing
+  nav.journeySearch = function(self)
+    supposing = self.journeySupposing
+    return World.supposedFlags and World.supposedFlags[241] and { cost = 1 } or nil
+  end
+  local start, target = { mapId = "FR_KD_HALL", x = 1, y = 1 }, { mapId = "FR_KD_HALL", goals = { { x = 1, y = 1 } } }
+  nav.session = function() return { bag = { pockets = {} } } end
+  eq(nav:lockedDoor(start, target, nil), "A door on the way is locked: needs the Rm. 2 Key", "without the key the refusal names it")
+  check(supposing == true and World.supposedFlags == nil and nav.journeySupposing == nil, "the supposition is put back after the search")
+  nav.session = function() return { bag = { pockets = { keys = { { id = 282, qty = 1 } } } } } end
+  eq(nav:lockedDoor(start, target, nil), "A door on the way is locked: face it and press A, the Rm. 2 Key opens it",
+    "with the key in the bag it says how the door opens")
+  flagsOn[241] = true
+  eq(nav:lockedDoor(start, target, nil), nil, "a door already opened is not blamed")
+  Scripts.itemLabel = labelled
+  Scripts.setSource(nil)
+  package.loaded["src.core.game3.scripting.space"] = nil
+  package.loaded["src.core.game3.scripting.flags"] = nil
+  maps.FR_KD_HALL = nil
+end
+
 T.finish("gen3 navigation")

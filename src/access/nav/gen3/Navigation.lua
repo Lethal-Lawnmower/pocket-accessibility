@@ -2181,7 +2181,10 @@ local CONNECTION_STEP = { north = "up", south = "down", west = "left", east = "r
 function Navigation:regionalTransitions(mapId)
   local def = self:regionalMapDef(mapId)
   local live = not self.journeySupposing and World.liveView(self.game)
-  local view = (live and live.id == mapId) and live or World.plannedView(self.game, def)
+  -- (a plan that supposes a flag reads the floor as it would then load: a locked door
+  -- that the flag opens is a warp there)
+  local view = (live and live.id == mapId) and live
+    or (self.journeySupposing and World.loadedView(self.game, def)) or World.plannedView(self.game, def)
   if not (def and view) then return {} end
   local result = {}
   for index, warp in ipairs(def.warps or {}) do
@@ -2830,6 +2833,30 @@ function Navigation:wayRoundMaps(mapId, allowed)
   return round
 end
 
+-- A way round through the map next door: out over an edge of this map and back in over
+-- the same edge further along.  FireRed's Route 5 is two strips that join only at
+-- Cerulean City's south edge: the Day Care from the Saffron gate is up the east strip,
+-- eleven steps along Cerulean's bottom row, and down the west one (it said "Cannot reach
+-- yet").  Only this map's own neighbours are searched, with what the party can do now:
+-- a way that needs the neighbour's doors, or a map beyond it, is another trip.
+function Navigation:wayRoundNextDoor(start, target, allowed)
+  if not allowed or target.mapId ~= start.mapId then return nil end
+  local near, added = {}, false
+  for id in pairs(allowed) do near[id] = true end
+  for _, transition in ipairs(self:regionalTransitions(start.mapId) or {}) do
+    if transition.kind == "connection" and type(transition.destMap) == "string" and not near[transition.destMap] then
+      near[transition.destMap], added = true, true
+    end
+  end
+  if not added then return nil end
+  local ok, found = pcall(self.journeySearch, self, start, target, 2, near, 1, false)
+  if ok and found and not found.final then
+    self.journeyPastBoulders = false
+    return found
+  end
+  return nil
+end
+
 -- A Secret Switch anywhere in the target's area that would open a way (Pokemon Mansion:
 -- one flag, one switch per floor, and the way to the basement only from the third floor's
 -- side).  The flags a switch's script changes are supposed flipped, and the journey from
@@ -2930,6 +2957,19 @@ function Navigation:unreachableReason(goals)
   return self:closedReason(goals)
 end
 
+-- Seafoam Islands (FireRed, LeafGreen): Route 20's two halves, and the cave's own east
+-- and west sides, join only across B3F and B4F, whose currents carry a surfer off until
+-- the boulders on the floors above have been pushed down their holes into the water
+-- (pokefirered data/maps/SeafoamIslands_B3F/scripts.inc).  No route is planned through
+-- a puzzle on other floors, so the refusal says what to do; with the currents stilled
+-- the planner finds the way itself.
+local THROUGH_PUZZLE = {
+  { map = "^ROUTE_20$", via = "Seafoam Islands", currentsOn = "SEAFOAM_ISLANDS_B3F",
+    reason = "The way is through Seafoam Islands, past its currents: push the boulders down the holes on each floor first" },
+  { map = "^SEAFOAM_ISLANDS_", via = "Seafoam Islands", currentsOn = "SEAFOAM_ISLANDS_B3F",
+    reason = "The way is past the currents below: push the boulders down the holes on each floor first" },
+}
+
 -- The last reasons, when no route, no missing move and no person explains a refusal:
 -- what the story or the clock keeps shut, then a part of the map that is reached only
 -- from another way in.  Auto-walk asks this too before it says "No route".
@@ -2938,8 +2978,30 @@ function Navigation:closedReason(goals)
   if not world or type(goals) ~= "table" or #goals == 0 then return nil end
   local reason = self:closedForNow(world, goals)
   if reason then return reason end
-  local ok, otherSide = pcall(self.otherWayIn, self, world, goals)
-  return ok and otherSide or nil
+  local ok, otherSide, names = pcall(self.otherWayIn, self, world, goals)
+  if not (ok and otherSide) then return nil end
+  -- a way in that is the far side of a cave whose puzzle is still to do
+  local bare = GameData.bareMapId(self:currentMapIdOf(world)) or ""
+  for _, entry in ipairs(THROUGH_PUZZLE) do
+    local applies = bare:find(entry.map) ~= nil and self:hasCurrents(GameData.mapPrefix() .. entry.currentsOn)
+    for _, name in ipairs(applies and names or {}) do
+      if name:find(entry.via, 1, true) == 1 then return entry.reason end
+    end
+  end
+  return otherSide
+end
+
+-- Whether a map, as its load script would draw it now, has cells of current.
+function Navigation:hasCurrents(mapId)
+  local def = self:regionalMapDef(mapId)
+  local view = def and World.loadedView(self.game, def)
+  if not view then return false end
+  for y = 0, view.heightCells - 1 do
+    for x = 0, view.widthCells - 1 do
+      if Terrain.CURRENT[view:behavior(x, y)] then return true end
+    end
+  end
+  return false
 end
 
 -- A part of this map that no way from here reaches, though a way in from elsewhere
@@ -3017,7 +3079,7 @@ function Navigation:otherWayIn(world, goals)
   elseif #names > 2 then
     said = names[1] .. ", " .. names[2] .. " or " .. names[3]
   end
-  return "Not from here: this part is reached from " .. said
+  return "Not from here: this part is reached from " .. said, names
 end
 
 -- Places the story or the clock keeps shut, where no route and no missing move explains
@@ -3179,6 +3241,45 @@ function Navigation:storyDoor(fromMapId, targetMapId)
   return nil
 end
 
+-- A door on the way that a key opens (Scripts.keyDoor; the Abandoned Ship's rooms).
+-- Each one still locked on the journey's maps is supposed open in turn, its flag set and
+-- the floor read as it would then load: when the journey exists that way, the door is
+-- what stands in it, and the refusal names its key, and says how it opens when the key
+-- is in the bag (the game's script answers an A press facing the door).
+function Navigation:lockedDoor(start, target, allowed)
+  local mapIds, seen = {}, {}
+  local function add(id)
+    if type(id) == "string" and not seen[id] then
+      seen[id] = true
+      mapIds[#mapIds + 1] = id
+    end
+  end
+  add(start.mapId)
+  add(target.mapId)
+  for id in pairs(allowed or {}) do add(id) end
+  table.sort(mapIds)
+  for _, id in ipairs(mapIds) do
+    local def = self:regionalMapDef(id)
+    for _, event in ipairs(def and def.bgEvents or {}) do
+      local door = event.type == "sign" and Scripts.keyDoor(event.scriptKey) or nil
+      if door and not flagSet(door.flag) then
+        World.supposedFlags, self.journeySupposing = { [door.flag] = true }, true
+        local ok, found = pcall(self.journeySearch, self, start, target, 2, allowed, 1, true)
+        World.supposedFlags, self.journeySupposing = nil, nil
+        if ok and found then
+          local name = Scripts.itemLabel(door.item) or "its key"
+          local session = self:session()
+          if bagHas(session and session.bag, door.item) then
+            return "A door on the way is locked: face it and press A, the " .. name .. " opens it"
+          end
+          return "A door on the way is locked: needs the " .. name
+        end
+      end
+    end
+  end
+  return nil
+end
+
 function Navigation:regionalNextLeg(navigation)
   local live = self:worldForCommand()
   if not live then return nil, "Not on a map" end
@@ -3214,6 +3315,8 @@ function Navigation:regionalNextLeg(navigation)
       if needs then return nil, needs end
       local door = self:storyDoor(mapId, target.mapId)
       if door then return nil, door end
+      local locked = self:lockedDoor(start, target, allowed)
+      if locked then return nil, locked end
       -- people the story moves later (the grunts at a hideout's door): the journey with
       -- them set aside names the one in the way here, or says they are further on
       self.routeIgnoringPeople = true
@@ -3250,6 +3353,8 @@ function Navigation:regionalNextLeg(navigation)
             break
           end
         end
+        -- (the same through the next map's edge, before anyone is blamed: below)
+        if not result then result = self:wayRoundNextDoor(start, target, allowed) end
         if not result then
           self.routeIgnoringPeople = true
           local okFree, free = pcall(self.journeySearch, self, start, target, 2, round, 2, true)
@@ -3265,6 +3370,7 @@ function Navigation:regionalNextLeg(navigation)
           end
         end
       end
+      if not result then result = self:wayRoundNextDoor(start, target, allowed) end
     end
     if not result then return nil, reason end
   end
@@ -3464,7 +3570,11 @@ function Navigation:farTargets(world)
     local view = def and World.plannedView(self.game, def)
     local place = tostring(self:regionalDestinationName(id))
     local okSpots, spots = pcall(self.diveSpots, self, view and { map = view, npcs = {}, player = { cellX = -1, cellY = -1 } })
-    for _, spot in ipairs(okSpots and spots or {}) do
+    -- a map with currents is no use from its far end: from Slateport the Sealed Chamber's
+    -- spot was listed and answered "No route" after two thirds of a second
+    local _, currentCells = self:currentFlow(def)
+    local against = currentCells >= CURRENT_MAP_CELLS and not far.downstream[id]
+    for _, spot in ipairs(okSpots and not against and spots or {}) do
       if spot.named and not spot.emerge and spot.rim[1] then
         local label = spot.label .. ", " .. place
         local rim = {}
