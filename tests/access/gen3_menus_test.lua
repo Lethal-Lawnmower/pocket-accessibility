@@ -385,7 +385,7 @@ eq(last(), "How do I do this? Hints for BLUE.", "move: row and description, plac
 Help.level, Help.topic, Help.cursor = "submenu", 2, 1
 Help.rows = { { id = 7, label = "I can't leave a room!" }, { label = "CANCEL" } }
 update()
-eq(last(), "How do I do this? I can't leave a room!, 1 of 2", "submenu: topic, question, position")
+eq(last(), "How do I do this? I can't leave a room! 1 of 2", "submenu: topic, question, position (no comma after the question's own mark)")
 Help.level = "article"
 Help.article = { question = "I can't leave a room!", answer = "L1\nL2\nL3\nL4\nL5\nL6\nL7\nL8" }
 Help.articleScroll = 0
@@ -527,8 +527,8 @@ MR.open, MR.state, MR.cursor, MR._moves, MR._info = true, "list", 1, { 33, 45 },
 MR.prompt = "Teach which move to PIKACHU?"
 Stack.push("move_relearner", MR, { hideBelow = true })
 update()
-eq(last(), "Teach which move to PIKACHU? TACKLE. TYPE NORMAL. POWER 35. ACCURACY 95. PP 35. EFFECT TACKLE hits., 1 of 3",
-  "relearner entry: prompt, move details, position")
+eq(last(), "Teach which move to PIKACHU? TACKLE. TYPE NORMAL. POWER 35. ACCURACY 95. PP 35. EFFECT TACKLE hits. 1 of 3",
+  "relearner entry: prompt, move details, position (no comma after the effect's own full stop)")
 MR.cursor = 2
 update()
 eq(last(), "GROWL. TYPE FIRE. POWER ---. ACCURACY 100. PP 40. EFFECT GROWL hits.",

@@ -33,6 +33,13 @@ local Menus = {}
 
 local position = Common.position
 
+-- A row with its position.  Rows that are sentences (Teachy TV's lessons, the
+-- help system's questions, a move's effect text) end in their own full stop,
+-- question or exclamation mark: no comma after it.
+local function rowAt(label, index, count)
+  return label .. (label:find("[.?!]$") and " " or ", ") .. position(index, count)
+end
+
 -- Common.sentences, also treating a closing ellipsis ("Previously on your
 -- quest…") as the end of a sentence, so no full stop is added after it.
 local ELLIPSIS = "\226\128\166"
@@ -837,7 +844,7 @@ Menus.help = {
         local label = type(row) == "table" and helpText(Help, row.label) or nil
         if label then
           if newLevel or entering then
-            label = label .. ", " .. position(cursor, #rows)
+            label = rowAt(label, cursor, #rows)
             if level == "submenu" then
               parts[#parts + 1] = helpText(Help, pack.topics and pack.topics[Help.topic])
             end
@@ -1062,9 +1069,7 @@ Menus.teachyTv = {
     local row = rows[cursor]
     local label = type(row) == "table" and nonEmpty(speakable(row.label or "")) or nil
     if not label then return nil end
-    -- the lessons are sentences ("Teach me how to battle."): no comma after
-    -- their own full stop or question mark
-    if first then label = label .. (label:find("[.?!]$") and " " or ", ") .. position(cursor, #rows) end
+    if first then label = rowAt(label, cursor, #rows) end
     return label, true
   end,
 }
@@ -1129,7 +1134,7 @@ Menus.moveRelearner = {
         if row then
           if entering or promptChanged then
             if entering then parts[#parts + 1] = prompt and speakable(prompt) or nil end
-            row = row .. ", " .. position(cursor, #(MR._moves or {}) + 1)
+            row = rowAt(row, cursor, #(MR._moves or {}) + 1)
           end
           parts[#parts + 1] = row
         end
