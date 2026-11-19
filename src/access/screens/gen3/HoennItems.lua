@@ -844,12 +844,16 @@ local function shopRead(S, memo, entering)
   local items = type(S._items) == "table" and S._items or {}
   local at = (S.scroll or 0) + (S.row or 0) + 1
   local money = tonumber(S._session and S._session.money)
-  local text
+  local text, queue
   if st == "root" then
     local rows = shopRows(S)
     local label = shopPlain(S, rows[S.cursor or 1])
     if fresh or S._status ~= memo.status then
-      text = sentences({ say(S._status), label and join({ label, position(S.cursor or 1, #rows) }) })
+      -- a clerk's script has just said the greeting as its own message, so it is
+      -- left out and the row waits behind it (FireRed's Shop.read has the same rule)
+      local status = say(S._status)
+      if entering and Items3.messageShows(status) then status, queue = nil, true end
+      text = sentences({ status, label and join({ label, position(S.cursor or 1, #rows) }) })
     elseif S.cursor ~= memo.cursor then
       text = label
     end
@@ -885,7 +889,7 @@ local function shopRead(S, memo, entering)
   end
   if memo.money ~= nil and money ~= memo.money then text = sentences({ text, lib.moneyText(money) }) end
   memo.at, memo.cursor, memo.status, memo.qty, memo.yes, memo.money = at, S.cursor, S._status, S.qty, S.yesCursor, money
-  return text
+  return text, queue
 end
 
 Items.shop = {
@@ -895,9 +899,9 @@ Items.shop = {
     return mod ~= nil and state.layer.mod == mod and H.isHoenn()
   end,
   poll = function(state, memo, entering)
-    local text = shopRead(state.mod, memo, entering)
+    local text, queue = shopRead(state.mod, memo, entering)
     if not text then return nil end
-    return text, true
+    return text, not queue
   end,
 }
 

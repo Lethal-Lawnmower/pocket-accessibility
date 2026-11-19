@@ -809,10 +809,12 @@ reset()
 ShopDialogue.lastText, ShopDialogue.lastSeen = "Hi, there! May I help you?", Top.frame
 poll(screen("shop", ShopMenu))
 eq(last(), "BUY, 1 of 3", "shop right after the clerk's message closed: the greeting is not said twice")
+eq(spoken[#spoken].interrupt, false, "and the row waits behind the greeting still being spoken")
 reset()
 ShopDialogue.lastSeen = Top.frame - 600
 poll(screen("shop", ShopMenu))
 eq(last(), "Hi, there! May I help you? BUY, 1 of 3", "shop long after that message: its own status is said")
+eq(spoken[#spoken].interrupt, true, "and it interrupts, as a new screen does")
 ShopDialogue.lastText, ShopDialogue.lastSeen = nil, nil
 
 -- ------------------------------------------------------------- money box

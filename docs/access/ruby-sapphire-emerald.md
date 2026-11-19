@@ -48,7 +48,7 @@ draws and drives FireRed's module, `boot` names the boot objects.
 | Party | FireRed's presenter; Ruby and Sapphire prompts through their own text | |
 | Summary | Header, page title, "page N of 4" (info, skills, battle moves, contest moves), page | Page; move detail; contest appeal and jam as numbers (hearts on screen); moving a move. Forgetting a move (level up, TM, move tutor): every row "N of 5", the fifth "new move" (choosing it gives up) |
 | Pokédex | "POKéDEX. seen N, owned M", row, position | Row ("not seen" for dashes); START menu; entry (with HT and WT in feet and inches); bar; AREA places or AREA UNKNOWN; CRY; SIZE; search rows and parameters with descriptions; registration after a catch |
-| Shop (and decoration shops) | Clerk line, BUY/SELL/QUIT with position | Rows with price and description; quantity, cost, IN BAG; yes/no; money; selling through the bag |
+| Shop (and decoration shops) | Clerk line (left out when the clerk's own message has just said it; the row then queues behind it), BUY/SELL/QUIT with position | Rows with price and description; quantity, cost, IN BAG; yes/no; money; selling through the bag |
 | Player's PC, item storage, box storage | Question or row with description | Rows; quantities; deposit through the bag; boxes by FireRed's presenter |
 | Starter choice | Birch's message, name, category, position | Selection; "Do you choose this POKéMON?"; yes/no |
 | Wall clock | The time in words (the clock is a picture) | Each minute, every five while the hand runs fast; confirm question, yes/no |

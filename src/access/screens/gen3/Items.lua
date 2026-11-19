@@ -1930,13 +1930,14 @@ function Shop.read(S, memo, entering)
     return nil
   end
   local items = type(S._items) == "table" and S._items or {}
-  local text
+  local text, queue
   if mode == "root" then
     local label = say(romAt("sShopMenuActions_BuySellQuit", (S.cursor or 1) - 1))
     local count = type(S.ROOT) == "table" and #S.ROOT or 3
     if fresh then
       local status = say(S._status)
-      if entering and messageShows(status) then status = nil end
+      -- the greeting is still being spoken as dialogue: the row waits behind it
+      if entering and messageShows(status) then status, queue = nil, true end
       text = sentences(status, label and join({ label, position(S.cursor or 1, count) }))
     elseif S.cursor ~= memo.cursor then
       text = label
@@ -1971,15 +1972,15 @@ function Shop.read(S, memo, entering)
     text = sentences(text, moneyText(money))
   end
   memo.cursor, memo.status, memo.qty, memo.yesNo, memo.money = S.cursor, S._status, S.qty, S.yesNoCursor, money
-  return text
+  return text, queue
 end
 
 Items.shop = {
   matches = Common.matcher("shop", "src.ui.game3.shop_menu"),
   poll = function(state, memo, entering)
-    local text = Shop.read(state.mod, memo, entering)
+    local text, queue = Shop.read(state.mod, memo, entering)
     if not text then return nil end
-    return text, true
+    return text, not queue
   end,
 }
 
