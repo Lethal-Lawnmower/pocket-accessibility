@@ -1154,6 +1154,14 @@ function Navigation:interactiveBrowseObjects(world, puzzle)
       end
     end
   end
+  -- where the player can dive, or come up (Navigation:diveSpots)
+  local okSpots, spots = pcall(self.diveSpots, self, world)
+  for _, spot in ipairs(okSpots and spots or {}) do
+    local nearest = nearestCell(spot.cells, world.player)
+    add({ id = spot.id, label = spot.label, x = nearest.x, y = nearest.y, interaction = "walk_onto",
+      semanticKind = "dive_spot",
+      requirement = (not spot.emerge) and self:fieldMoveRequirement("DIVE") or nil })
+  end
   local def = type(map.def) == "table" and map.def or {}
   local authored = def.accessibilityObjects
   local a11y = type(def.accessibility) == "table" and def.accessibility or nil
@@ -1943,6 +1951,12 @@ function Navigation:routeNeeds(goals)
   for _, step in ipairs(result.steps) do
     local entry = occupied[cellKey(step.x, step.y)]
     if entry and entry.kind == "object" then
+      -- Lavaridge Gym's buried trainers stand in four of its holes, unseen until they
+      -- jump out: not in any list, so a name ("Man") would point at no one
+      if entry.actor.invisible then
+        local def = type(entry.actor.def) == "table" and entry.actor.def or {}
+        return tonumber(def.trainerType) == 3 and "Blocked by a hidden trainer" or "Blocked by something hidden"
+      end
       local okLabel, label = pcall(Snapshot.objectLabel, entry.actor, {})
       return "Blocked by " .. tostring(okLabel and label or "someone")
     end
@@ -2372,6 +2386,194 @@ function Navigation:diveTransitions(world, policy)
   return result
 end
 
+-- Cells of a view numbered by the connected patch they belong to (four neighbours).
+local function patches(view, inPatch)
+  local width, height = view.widthCells, view.heightCells
+  local patch, count, sizes = {}, 0, {}
+  for y = 0, height - 1 do
+    for x = 0, width - 1 do
+      if patch[y * width + x] == nil and inPatch(x, y) then
+        count = count + 1
+        patch[y * width + x] = count
+        local queue, head = { { x, y } }, 1
+        while queue[head] do
+          local cx, cy = queue[head][1], queue[head][2]
+          head = head + 1
+          for _, d in pairs(DELTA) do
+            local nx, ny = cx + d[1], cy + d[2]
+            if nx >= 0 and ny >= 0 and nx < width and ny < height
+               and patch[ny * width + nx] == nil and inPatch(nx, ny) then
+              patch[ny * width + nx] = count
+              queue[#queue + 1] = { nx, ny }
+            end
+          end
+        end
+        sizes[count] = #queue
+      end
+    end
+  end
+  -- the largest patch: a route's open water
+  local largest
+  for number, size in ipairs(sizes) do
+    if not largest or size > sizes[largest] then largest = number end
+  end
+  return patch, largest
+end
+
+local function joinNames(names, limit)
+  local kept = {}
+  for i = 1, math.min(#names, limit or 3) do kept[i] = names[i] end
+  if #kept <= 1 then return kept[1] end
+  return table.concat(kept, ", ", 1, #kept - 1) .. " and " .. kept[#kept]
+end
+
+-- Dive spots (Hoenn).  Route 124 has sixteen patches of deep water over ten separate
+-- seabeds, and most lead only to a pool ringed by rocks; nothing told them apart (the
+-- owner, 2026-11-19: the old scripts' dive points were "multiple and confusing").  Each
+-- patch of deep water over one seabed is one list entry that says where it leads: the
+-- seabed's own doors (Underwater Sootopolis City), then the other waters that seabed
+-- comes up in.  Below the surface each stretch that can surface is a "Way Up" that names
+-- the water above it.  Read from the two maps' cells; cached per map.
+--   returns { { id, label, cells, rim, inGroup, emerge }, ... }
+function Navigation:diveSpots(world)
+  local map = world and world.map
+  local def = map and map.def
+  if type(def) ~= "table" then return {} end
+  self.gen3DiveSpots = self.gen3DiveSpots or setmetatable({}, { __mode = "k" })
+  local cached = self.gen3DiveSpots[def]
+  if cached then return cached end
+  local spots = {}
+  self.gen3DiveSpots[def] = spots
+  local ok, list = pcall(self.diveTransitions, self, world, 3)
+  if not ok or type(list) ~= "table" or #list == 0 then return spots end
+  local mapId = self:currentMapIdOf(world) or tostring(def.id)
+  local otherId = list[1].destMap
+  local otherDef = self:regionalMapDef(otherId)
+  local other = otherDef and World.plannedView(self.game, otherDef)
+  if not other then return spots end
+  local width, otherWidth = map.widthCells, other.widthCells
+  local function open(view) return function(x, y) return view:isWater(x, y) or view:walkableColl(x, y) end end
+  local hereWater, hereOpen = patches(map, open(map))
+  local otherWater, otherOpen = patches(other, open(other))
+  local isDive = {}
+  for _, t in ipairs(list) do isDive[t.y * width + t.x] = t end
+  local divePatch = patches(map, function(x, y) return isDive[y * width + x] ~= nil end)
+
+  -- a door down there that opens on another seabed is named by where that one comes up
+  -- (Route 126's seabed door is "Sootopolis City", not "Underwater Sootopolis City"),
+  -- unless it comes up on this same map (the Sealed Chamber, under Route 134)
+  local function beyond(dest)
+    local destDef = self:regionalMapDef(dest)
+    local destView = destDef and World.plannedView(self.game, destDef)
+    if destView and destView.underwater then
+      -- its header's link, or the one its script sets (Underwater Sootopolis City)
+      local up = type(destDef.emerge) == "table" and destDef.emerge.map or destDef.emerge
+      if type(up) ~= "string" then
+        local scripted = Scripts.diveWarpOf(destDef)
+        up = scripted and scripted.mapId
+      end
+      if type(up) == "string" and up ~= mapId and up ~= otherId then return up end
+    end
+    return dest
+  end
+
+  -- what one stretch of water holds, for a label: whether it is the map's open water
+  -- (its largest stretch), its doors, the edge of the map it reaches, or a pool, with
+  -- the item balls in it
+  local function describe(view, viewDef, water, number, viewMapId, largest)
+    local w, h = view.widthCells, view.heightCells
+    local doors, seen, items, edge = {}, {}, {}, nil
+    for index, warp in ipairs(viewDef.warps or {}) do
+      local _, active = view:warpAt(warp.x, warp.y)
+      if active == index and water[warp.y * w + warp.x] == number then
+        local dest = view:warpDestination(warp)
+        local name = dest and self:regionalDestinationName(beyond(dest))
+        if name and not seen[name] then seen[name] = true doors[#doors + 1] = name end
+      end
+    end
+    for x = 0, w - 1 do
+      if water[x] == number then edge = edge or "north" end
+      if water[(h - 1) * w + x] == number then edge = edge or "south" end
+    end
+    for y = 0, h - 1 do
+      if water[y * w] == number then edge = edge or "west" end
+      if water[y * w + w - 1] == number then edge = edge or "east" end
+    end
+    for _, object in ipairs(viewDef.objects or {}) do
+      if tonumber(object.graphicsId) == GFX.ITEM_BALL and regionalObjectVisible(object)
+         and type(object.x) == "number" and water[object.y * w + object.x] == number then
+        local item = Scripts.itemBallItem(object.scriptKey)
+        local name = item and Scripts.itemLabel(item)
+        if name then items[#items + 1] = name end
+      end
+    end
+    local place = self:regionalDestinationName(viewMapId)
+    local rest = (#doors > 0 and joinNames(doors, 2))
+      or (edge and ("water at the " .. edge .. " edge of " .. place))
+      or (#items > 0 and ("a pool with " .. joinNames(items, 2))) or "an enclosed pool"
+    return { doors = #doors > 0 and joinNames(doors, 2) or nil, open = number == largest, place = place, rest = rest }
+  end
+
+  local groups, order = {}, {}
+  for _, t in ipairs(list) do
+    local below = otherWater[t.destY * otherWidth + t.destX]
+    local key = tostring(divePatch[t.y * width + t.x]) .. ":" .. tostring(below)
+    local group = groups[key]
+    if not group then
+      group = { key = key, cells = {}, below = below, here = hereWater[t.y * width + t.x] }
+      groups[key] = group
+      order[#order + 1] = group
+    end
+    group.cells[#group.cells + 1] = { x = t.x, y = t.y }
+  end
+  for _, group in ipairs(order) do
+    local label
+    if map.underwater then
+      local above = describe(other, otherDef, otherWater, group.below, otherId, otherOpen)
+      label = "Way Up to " .. ((above.open and above.place) or above.rest)
+    else
+      -- the seabed's own doors, then the other waters it comes up in
+      local leads, seen = {}, {}
+      local seabed = describe(other, otherDef, otherWater, group.below, otherId, otherOpen)
+      if seabed.doors then leads[#leads + 1] = seabed.doors seen[seabed.doors] = true end
+      for _, sibling in ipairs(order) do
+        if sibling.below == group.below and sibling.here ~= group.here then
+          local water = describe(map, def, hereWater, sibling.here, mapId, hereOpen)
+          local name = (water.open and "the open water") or water.rest
+          if not seen[name] then seen[name] = true leads[#leads + 1] = name end
+        end
+      end
+      -- a seabed that is a place of its own (Underwater Marine Cave), not this map's
+      local below = self:regionalDestinationName(otherId)
+      if #leads == 0 and below ~= "Underwater " .. self:regionalDestinationName(mapId) then leads[1] = below end
+      label = #leads > 0 and ("Dive Spot to " .. joinNames(leads, 3)) or "Dive Spot, seabed only"
+    end
+    -- the cells a route can end on: the patch's rim (a route from outside meets it first)
+    local inGroup = {}
+    for _, cell in ipairs(group.cells) do inGroup[cell.y * width + cell.x] = true end
+    local rim = {}
+    for _, cell in ipairs(group.cells) do
+      for _, d in pairs(DELTA) do
+        local nx, ny = cell.x + d[1], cell.y + d[2]
+        if nx < 0 or ny < 0 or nx >= width or ny >= map.heightCells or not inGroup[ny * width + nx] then
+          rim[#rim + 1] = cell
+          break
+        end
+      end
+    end
+    spots[#spots + 1] = { id = "dive_spot:" .. mapId .. ":" .. group.key, label = label,
+      cells = group.cells, rim = rim, inGroup = inGroup, emerge = map.underwater == true }
+  end
+  return spots
+end
+
+function Navigation:diveSpotById(world, id)
+  for _, spot in ipairs(self:diveSpots(world)) do
+    if spot.id == id then return spot end
+  end
+  return nil
+end
+
 -- One map as the journey search sees it: its world (the live one for the
 -- map the player is on), its movement graph with every transition cell
 -- (and, on the target map, every target cell) as a goal, its transitions
@@ -2633,7 +2835,9 @@ function Navigation:unreachableReason(goals)
   if okPeople and blocked then return blocked end
   local ok, leg, reason = pcall(self.regionalNextLeg, self,
     { targetMapId = self:currentMapIdOf(world), targetGoals = goals })
-  if ok and not leg and type(reason) == "string" and reason:match("^Needs ") then return reason end
+  -- the planner's own codes ("no regional path", a time limit) say nothing to a player;
+  -- anything else is a sentence: "Needs ...", "Blocked by ...", a story door
+  if ok and not leg and type(reason) == "string" and reason:match("^%u") then return reason end
   return nil
 end
 
@@ -2878,6 +3082,21 @@ end
 function Navigation:selectedRouteGoals()
   local item, goals, instructions, connection, overworld = Shared.selectedRouteGoals(self)
   if type(item) == "table" and item.floorEntry and type(goals) == "table" then goals.anywhere = true end
+  -- a dive spot is reached by being on any of its cells; then the game's own button
+  if type(item) == "table" and item.semanticKind == "dive_spot" and overworld then
+    local spot = self:diveSpotById(overworld, item.id)
+    if spot then
+      local player = overworld.player
+      goals = {}
+      if spot.inGroup[player.cellY * overworld.map.widthCells + player.cellX] then
+        goals[1] = { x = player.cellX, y = player.cellY }
+      else
+        for _, cell in ipairs(spot.rim) do goals[#goals + 1] = { x = cell.x, y = cell.y } end
+      end
+      local hint = spot.emerge and "Press B and answer yes to surface" or "Press A and answer yes to dive"
+      instructions = setmetatable({}, { __index = function() return hint end })
+    end
+  end
   return item, goals, instructions, connection, overworld
 end
 

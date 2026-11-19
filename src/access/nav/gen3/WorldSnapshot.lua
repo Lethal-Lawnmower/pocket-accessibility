@@ -401,7 +401,21 @@ local function mapProxy(view, world, opts)
   projected.warps = projectWarps(view, def, opts)
   projected.connections = projectConnections(def, opts)
   projected.signs = Snapshot.projectSigns(view, def, world.player)
-  return setmetatable({ def = projected, id = view.id }, { __index = view })
+  -- The view's methods run on the view itself, never on this proxy: they read
+  -- self.def (the layout) and fill self.cache.  Run on the proxy, with its relabelled
+  -- def and the view's own cache, the player's cell was cached as "not water" the first
+  -- time the list was opened on it, and the next route from there began "Use Surf".
+  local bound = {}
+  return setmetatable({ def = projected, id = view.id }, { __index = function(_, key)
+    local value = view[key]
+    if type(value) ~= "function" then return value end
+    local method = bound[key]
+    if not method then
+      method = function(_, ...) return value(view, ...) end
+      bound[key] = method
+    end
+    return method
+  end })
 end
 Snapshot.mapProxy = mapProxy
 

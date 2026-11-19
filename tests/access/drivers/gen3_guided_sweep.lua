@@ -12,6 +12,14 @@ return function(game)
   local GameData = require("src.access.nav.gen3.GameData")
   local flash = GameData.flag("FLAG_SYS_USE_FLASH")
   local ids = L.mapIds and L.mapIds() or {}
+  if #ids == 0 then
+    -- FireRed and LeafGreen: every map of the cartridge, by id
+    local prefix = GameData.mapPrefix()
+    for id in pairs(game.data.maps) do
+      if type(id) == "string" and id:sub(1, #prefix) == prefix then ids[#ids + 1] = id end
+    end
+    table.sort(ids)
+  end
   local only = os.getenv("SWEEP_MAPS")
   local counts = { said = 0, refused = 0, bare = 0 }
   for _, mapId in ipairs(ids) do
@@ -48,7 +56,7 @@ return function(game)
               counts.refused = counts.refused + 1
               local _, goals = nav:selectedRouteGoals()
               local okJ, leg, why = pcall(nav.regionalNextLeg, nav,
-                { targetMapId = item.mapId or item.destinationMapId or mapId, targetGoals = goals or {} })
+                { targetMapId = mapId, targetGoals = goals or {} })
               local journey = okJ and (leg and "journey ok" or tostring(why)) or "journey error"
               if first:find("Cannot reach yet", 1, true) then counts.bare = counts.bare + 1 end
               U.log("REFUSED", mapId, tostring(item.label), tostring(item.description), "=>", said, "||", journey)
