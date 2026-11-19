@@ -291,8 +291,20 @@ return function(game)
       L.log("STEP", "incoming call")
       MatchCall.startCall(session, game, { trainerId = trainer })
       wait(40)
+      -- The call waits for the player's next step (step_events.lua): walk until it rings.
       if not Window.isOpen() then
-        L.log("STEP", "queued for a step; starting the window with the same message")
+        L.log("STEP", "queued for a step; walking")
+        for _, key in ipairs({ "left", "right", "left", "right", "up", "down" }) do
+          if Window.isOpen() then break end
+          game.input.state[key] = true
+          wait(24)
+          game.input.state[key] = false
+          wait(30)
+        end
+        L.log("STEP", "window open after walking: " .. tostring(Window.isOpen()) .. " at " .. tostring(session.x) .. "," .. tostring(session.y))
+      end
+      if not Window.isOpen() then
+        L.log("STEP", "no call from a step; starting the window with the same message")
         Window.start({ session = session, message = function() return MatchCall.selectMessage(session, trainer) end })
       end
       wait(120)
