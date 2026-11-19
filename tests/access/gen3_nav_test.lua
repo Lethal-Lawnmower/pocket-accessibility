@@ -1011,4 +1011,24 @@ do
   Snapshot.setGraphicsNames(nil)
 end
 
+do
+  -- FireRed and LeafGreen's sheet MAN (no number) has an entry of its own in the label table
+  -- ("Man"), which answered before the trainer class was asked: Fuchsia Gym's Tamers and
+  -- the man of each Young Couple stayed "Man"
+  local Snapshot = require("src.access.nav.gen3.WorldSnapshot")
+  local Scripts = require("src.access.nav.gen3.Scripts")
+  local trainersModule = package.loaded["src.core.game3.scripting.trainers"]
+  package.loaded["src.core.game3.scripting.trainers"] = { info = function(id)
+    return ({ [7] = { className = "TAMER" } })[id]
+  end }
+  Scripts.setSource({ tamer = { { op = "trainerbattle", trainer = 7 } }, talker = { { op = "msgbox" } } })
+  Snapshot.setGraphicsNames({ [30] = "OBJ_EVENT_GFX_MAN", [31] = "OBJ_EVENT_GFX_HOT_SPRINGS_OLD_WOMAN" })
+  eq(Snapshot.objectLabel({ graphicsId = 30, def = { scriptKey = "tamer" } }, {}), "Tamer", "the sheet MAN takes the class")
+  eq(Snapshot.objectLabel({ graphicsId = 30, def = { scriptKey = "talker" } }, {}), "Man", "and is Man with no battle")
+  eq(Snapshot.objectLabel({ graphicsId = 31, def = { scriptKey = "talker" } }, {}), "Old Woman", "a sheet's own plain label stays")
+  Scripts.setSource(nil)
+  Snapshot.setGraphicsNames(nil)
+  package.loaded["src.core.game3.scripting.trainers"] = trainersModule
+end
+
 T.finish("gen3 navigation")

@@ -291,8 +291,11 @@ function Snapshot.objectLabel(actor, opts)
   local name = gfxName(gfx)
   if not name then return nil end
   name = sheetName(name:gsub("^OBJ_EVENT_GFX_", ""))
-  -- a sheet with its own label first: LINK_RECEPTIONIST is no link partner
-  if GFX_LABELS[name] then return GFX_LABELS[name] end
+  -- a sheet with its own label first: LINK_RECEPTIONIST is no link partner.  One whose
+  -- own label is plain ("Man": FireRed and LeafGreen's sheet MAN, the Mauville old men)
+  -- goes on to ask for a trainer class, as MAN_5 does: answered here, Fuchsia Gym's
+  -- Tamers and the man of each Young Couple stayed "Man"
+  if GFX_LABELS[name] and not PLAIN_SHEETS[GFX_LABELS[name]] then return GFX_LABELS[name] end
   local sheet = name:match("^(%u+)_") or name
   if PLAYER_SHEETS[name] or PLAYER_SHEETS[sheet] or name:match("^RED_") or name:match("^GREEN_") then
     return "Trainer"
