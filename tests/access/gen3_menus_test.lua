@@ -494,7 +494,7 @@ Tv.open, Tv.closing, Tv.state, Tv.cursor = true, false, "list", 1
 Tv._rows = { { label = "Teach me how to battle." }, { label = "CANCEL" } }
 Stack.push("teachy_tv", Tv, { hideBelow = true })
 update()
-eq(last(), "Teach me how to battle., 1 of 2", "Teachy TV list entry")
+eq(last(), "Teach me how to battle. 1 of 2", "Teachy TV list entry: no comma after the lesson's own full stop")
 Tv.cursor = 2
 update()
 eq(last(), "CANCEL", "list move")
@@ -506,7 +506,7 @@ update()
 eq(last(), "HELLO, TRAINERS!", "next lesson page")
 Tv.state, Tv.cursor = "list", 1
 update()
-eq(last(), "Teach me how to battle., 1 of 2", "back on the list")
+eq(last(), "Teach me how to battle. 1 of 2", "back on the list")
 
 -- ------------------------------------------------------- move relearner
 local MR = require("src.ui.game3.move_relearner")

@@ -1062,7 +1062,9 @@ Menus.teachyTv = {
     local row = rows[cursor]
     local label = type(row) == "table" and nonEmpty(speakable(row.label or "")) or nil
     if not label then return nil end
-    if first then label = label .. ", " .. position(cursor, #rows) end
+    -- the lessons are sentences ("Teach me how to battle."): no comma after
+    -- their own full stop or question mark
+    if first then label = label .. (label:find("[.?!]$") and " " or ", ") .. position(cursor, #rows) end
     return label, true
   end,
 }
