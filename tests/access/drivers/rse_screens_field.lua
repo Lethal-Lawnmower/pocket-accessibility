@@ -12,9 +12,28 @@ return function(game)
     only = {}
     for name in os.getenv("RSE_ONLY"):gmatch("[^,]+") do only[name] = true end
   end
+  -- B through whatever a section, or a map's own arrival script, left open (a question
+  -- is answered NO), so the next section starts from the field; what will not close is
+  -- logged.  Without it a secret base's "Want to make your SECRET BASE here?" stayed
+  -- under the decorating sections and the mailbox section after them never opened its PC.
+  local function settle(label)
+    local Message = require("src.ui.game3.message")
+    local Choice = require("src.ui.game3.choice")
+    local Stack = require("src.ui.game3.stack")
+    for _ = 1, 10 do
+      if Choice.isOpen() or Message.open then tap("b", 20)
+      elseif Stack.top() then tap("b", 25)
+      else return true end
+    end
+    L.log("LEFTOVER", tostring(label) .. ": top " .. tostring(L.top()) .. ", message " .. tostring(Message.open)
+      .. ", choice " .. tostring(Choice.isOpen()))
+    return false
+  end
+
   local function section(label, fn)
     if only and not only[label] then return end
     L.section(label, fn)
+    settle(label)
   end
 
   waitFor("boot", function() return game.phase == "boot" and game.boot end, 900)
@@ -150,6 +169,7 @@ return function(game)
     Player.cellX, Player.cellY, Player.px, Player.py = x, y, x * 16, y * 16
     Player.targetX, Player.targetY, Player.facing = x, y, facing
     wait(40)
+    settle("arriving on " .. tostring(const))
   end
 
   -- A through dialogue until `pred`; returns whether it held.
@@ -233,6 +253,92 @@ return function(game)
     tap("a", 30)
     tap("b", 20)
     tap("b", 20)
+    -- A doll placed for real, then put away.  The room is searched for a cell the
+    -- game accepts (its own Decor.canPlace, the check the screen makes on A).
+    if until_("actions", 120) then
+      for _ = 1, 4 do
+        if UI.actionCursor == 0 then break end
+        tap("up", 14)
+      end
+      tap("a", 20)                      -- DECORATE
+      until_("categories", 120)
+      for _ = 1, 9 do
+        if UI.catCursor == 6 then break end
+        tap("down", 14)
+      end
+      tap("a", 20)                      -- DOLL
+      until_("items", 120)
+      tap("a", 30)                      -- the first doll
+      if until_("place", 300) then
+        local Decor = require("src.core.game3.rse.decoration")
+        local SB = require("src.core.game3.rse.secret_base")
+        local function can()
+          local m = UI.mode
+          local ok2, yes = pcall(function()
+            return Decor.canPlace(SB.fieldGrid(), { x = m.x, y = m.y, initialX = m.initialX, initialY = m.initialY }, m.decor)
+          end)
+          return ok2 and yes == true
+        end
+        local path = {}
+        for row = 1, 6 do
+          for _ = 1, 8 do path[#path + 1] = (row % 2 == 1) and "right" or "left" end
+          path[#path + 1] = "down"
+        end
+        local found = can()
+        for _, key in ipairs(path) do
+          if found then break end
+          tap(key, 22)
+          found = can()
+        end
+        local px, py = UI.mode.x, UI.mode.y
+        L.log("CANPLACE", tostring(found) .. " at " .. tostring(px) .. "," .. tostring(py))
+        if found then
+          tap("a", 30)
+          until_("yesno", 300)
+          tap("a", 60)                  -- YES: placed
+          until_("items", 300)
+          L.log("ROOM", tostring(#(session.playerRoomDecorations or {})) .. " placed")
+          tap("b", 20)
+          tap("b", 20)
+          until_("actions", 120)
+          tap("down", 16)               -- PUT AWAY
+          tap("a", 30)
+          if until_("putaway", 300) then
+            taps({ "left", "right" }, 22)
+            for _ = 1, 16 do
+              local m = UI.mode
+              if not m or m.x == px then break end
+              tap(m.x < px and "right" or "left", 22)
+            end
+            for _ = 1, 16 do
+              local m = UI.mode
+              if not m or m.y == py then break end
+              tap(m.y < py and "down" or "up", 22)
+            end
+            tap("a", 30)                -- put it away?
+            wait(90)
+            L.log("STATE", tostring(UI.state))
+            taps({ "down", "up" }, 16)
+            tap("a", 120)               -- YES
+            wait(120)
+            tap("a", 30)
+            tap("b", 30)                -- stop putting away?
+            until_("yesno", 300)
+            wait(10)
+            tap("a", 120)               -- YES
+            until_("actions", 300)
+          end
+        else
+          tap("b", 30)
+          until_("yesno", 120)
+          tap("a", 40)
+          until_("items", 120)
+          tap("b", 20)
+          tap("b", 20)
+        end
+      end
+    end
+    L.log("STATE", tostring(UI.state))
     tap("b", 40)                        -- out to the PC
   end
 
@@ -594,6 +700,25 @@ return function(game)
     waitFor("closed", function() return closed end, 90)
     L.log("CLOSED", tostring(closed))
     L.closeAll()
+    -- OK on a letter with no words: the composer refuses
+    closed = nil
+    local empty = {}
+    for i = 1, 9 do empty[i] = 65535 end
+    Composer.write({ words = empty }, { session = session, onClose = function() closed = true end })
+    waitFor("input", function() return Composer._state == "input" end, 120)
+    wait(10)
+    tap("start", 18)                    -- OK
+    tap("a", 30)
+    L.log("CONFIRM", tostring(Composer._confirm and Composer._confirm.kind))
+    tap("a", 30)                        -- back to the letter
+    L.log("CONFIRM", tostring(Composer._confirm and Composer._confirm.kind))
+    for _ = 1, 6 do
+      if closed then break end
+      if Composer._confirm and Composer._confirm.kind == "cancel" then tap("up", 16) tap("a", 30) else tap("b", 30) end
+    end
+    waitFor("closed", function() return closed end, 90)
+    L.log("CLOSED", tostring(closed))
+    L.closeAll()
   end)
 
   section("em_words", function()
@@ -617,10 +742,18 @@ return function(game)
     tap("a", 30)
     wait(20)
     taps({ "down", "up" }, 16)
-    for _ = 1, 8 do
+    -- Out by the screen's own state: B leaves the save question and any list; at the
+    -- phrase it asks "Quit editing?", which opens on NO.  (Pressing B, up, A blindly
+    -- reopened the word groups for ever and left the editor over the casino sections.)
+    for _ = 1, 12 do
       if done then break end
-      tap("b", 30)
-      if not done then tap("up", 16) tap("a", 30) end
+      local st = EasyChat._state
+      if st and st.mode == "CANCEL_CONFIRM" then
+        if st.confirmChoice ~= 1 then tap("up", 16) end
+        tap("a", 30)
+      else
+        tap("b", 30)
+      end
     end
     L.log("DONE", tostring(done))
     L.closeAll()
@@ -735,6 +868,64 @@ return function(game)
     L.closeAll()
   end)
 
+  -- Reel Time, which the machine grants by chance.  A test aid: the first spin's
+  -- bias is given the REELTIME bit and its draw is set to two spins; the machine's
+  -- own scene and its two slower spins then run by key press.
+  section("reeltime", function()
+    giveCoins(120)
+    goTo("MAP_MAUVILLE_CITY_GAME_CORNER", 4, 7, "left")
+    tap("a", 30)
+    local Base = require("src.ui.game3.rse.slot_machine")
+    mashUntil(function() return Base.active() ~= nil end, 80)
+    local s = Base.active()
+    if not s then L.log("FAIL", "no slot machine") return end
+    local ST = Base.STATE
+    local Slots = require("src.core.game3.rse.slot_machine")
+    local core = s.core
+    local draw = core.drawMachineBias
+    core.drawMachineBias = function(self, ...)
+      draw(self, ...)
+      self.machineBias = require("bit").bor(self.machineBias, Slots.BIAS.REELTIME)
+      self.drawMachineBias = nil
+    end
+    core.getReelTimeDraw = function(self)
+      self.reelTimeDraw = 2
+      self.getReelTimeDraw = nil
+    end
+    local spins, frames, granted = 0, 0, false
+    while Base.active() and frames < 60 * 300 do
+      local cs = core.state
+      if not granted and (core.reelTimeSpinsLeft or 0) > 0 then
+        granted = true
+        L.log("REELTIME", tostring(core.reelTimeSpinsLeft))
+      end
+      if cs == ST.BET_INPUT then
+        spins = spins + 1
+        L.log("SPIN", spins .. ", Reel Time spins left " .. tostring(core.reelTimeSpinsLeft))
+        if (spins > 1 and (core.reelTimeSpinsLeft or 0) == 0) or spins > 8 or core.coins < 3 then
+          tap("b", 30)
+          taps({ "down", "up" }, 18)
+          tap("a", 60)                  -- YES: quit
+        else
+          tap("down", 16)
+          tap("a", 20)
+        end
+      elseif cs == ST.WAIT_REEL_STOP then
+        wait(20)
+        tap("a", 10)
+      elseif s.message and not s.yesNo then
+        tap("a", 20)
+      else
+        wait(1)
+      end
+      frames = frames + 1
+    end
+    L.log("FINISHED", tostring(Base.active() == nil) .. " spins " .. spins .. " Reel Time " .. tostring(granted))
+    wait(60)
+    L.talk(10)
+    L.closeAll()
+  end)
+
   section("coins", function()
     -- The coins box beside a script's message (coins.c), and the money box.
     giveCoins(77)
@@ -774,9 +965,21 @@ return function(game)
     tap("a", 25)                        -- NO
     tap("a", 25)                        -- teach?
     tap("a", 25)                        -- YES
-    for _ = 1, 10 do
+    -- B on the forget screen asks "Stop trying to teach?"; YES returns to the move list,
+    -- as in the game, so the tutor is left there by B and "Give up?" YES.  (Pressing A
+    -- on the list taught the move again and the section never finished.)
+    local Rse = require("src.ui.game3.rse.move_relearner")
+    local backed = false
+    for _ = 1, 24 do
       if finished then break end
-      if L.top() == "summary" then tap("b", 40) else tap("a", 25) end
+      if L.top() == "summary" then
+        tap("b", 40)
+        backed = true
+      elseif backed and Rse.state == "list" then
+        tap("b", 25)
+      else
+        tap("a", 25)
+      end
     end
     L.log("FINISHED", tostring(finished))
     L.closeAll()

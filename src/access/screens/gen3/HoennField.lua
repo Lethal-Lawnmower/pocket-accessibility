@@ -143,10 +143,12 @@ Field.decoration = {
     if not (D and D.open_) then return nil end
     local s = D.state
     local parts, queued = {}, false
-    -- the description in the action menu is said with its row
+    -- The description in the action menu is said with its row.  A message printed
+    -- over that menu is not a description (PUT AWAY with nothing out: "There are no
+    -- decorations in use."): the state has left "actions" while it prints.
     if D.msg ~= memo.msg then
       memo.msg = D.msg
-      if D.msg and D.view ~= "actions" then parts[#parts + 1] = say(D.msg.text) end
+      if D.msg and (D.view ~= "actions" or s ~= "actions") then parts[#parts + 1] = say(D.msg.text) end
     end
     local changed = s ~= memo.state
     if s == "actions" then
