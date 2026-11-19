@@ -1901,15 +1901,23 @@ function Shop.quantity(S, first)
   return join({ quantity(S.qty, max), total, inBagText })
 end
 
--- A clerk's script shows the greeting through the message module, then opens
--- the shop over it with the same line as its status.  The dialogue presenter
--- has said that page, so the shop's opening leaves it out; a shop opened
--- with no message under it says its status as before.
+-- A clerk's script shows the greeting through the message module, then closes
+-- it and opens the shop with the same line as its status (adapters.lua
+-- openShop).  The dialogue presenter has just said that page, so the shop's
+-- opening leaves it out; a shop opened with no such message a moment before
+-- says its status as before.
 local function messageShows(text)
+  if not text then return false end
   local Message = loaded("src.ui.game3.message")
-  if not (text and Message and Message.open and type(Message._pages) == "table") then return false end
-  return say(Message._pages[Message._page or 1]) == text
+  if Message and Message.open and type(Message._pages) == "table"
+      and say(Message._pages[Message._page or 1]) == text then
+    return true
+  end
+  local Dialogue = loaded("src.access.screens.gen3.Dialogue")
+  return Dialogue ~= nil and Dialogue.lastText == text and Dialogue.lastSeen ~= nil
+    and Top.frame - Dialogue.lastSeen <= 8
 end
+Items.messageShows = messageShows
 
 function Shop.read(S, memo, entering)
   if not S.open or S._rse then return nil end

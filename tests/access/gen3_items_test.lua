@@ -802,6 +802,18 @@ ShopMessage._pages = { "Welcome!" }
 poll(screen("shop", ShopMenu))
 eq(last(), "Hi, there! May I help you? BUY, 1 of 3", "shop over another message: its own status is said")
 ShopMessage.open, ShopMessage._pages, ShopMessage._page = messageWas[1], messageWas[2], messageWas[3]
+-- the script closes its message as it opens the shop (adapters.lua openShop):
+-- what the dialogue presenter said a moment before counts
+local ShopDialogue = require("src.access.screens.gen3.Dialogue")
+reset()
+ShopDialogue.lastText, ShopDialogue.lastSeen = "Hi, there! May I help you?", Top.frame
+poll(screen("shop", ShopMenu))
+eq(last(), "BUY, 1 of 3", "shop right after the clerk's message closed: the greeting is not said twice")
+reset()
+ShopDialogue.lastSeen = Top.frame - 600
+poll(screen("shop", ShopMenu))
+eq(last(), "Hi, there! May I help you? BUY, 1 of 3", "shop long after that message: its own status is said")
+ShopDialogue.lastText, ShopDialogue.lastSeen = nil, nil
 
 -- ------------------------------------------------------------- money box
 local MoneyBox = require("src.ui.game3.money_box")
