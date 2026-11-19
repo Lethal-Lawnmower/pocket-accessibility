@@ -54,8 +54,8 @@ function L.new(game)
     return (Message and Message.isOpen and Message.isOpen()) or (Choice and Choice.active)
   end
   self.messageOpen = messageOpen
-  self.battles = 0
-  local inBattle = false
+  self.battles, self.battlesLost = 0, 0
+  local inBattle, battleMap = false, nil
   local function battleModule()
     return package.loaded["src.core.game3.battle.init"] or package.loaded["src.core.game3.battle"]
   end
@@ -114,8 +114,26 @@ function L.new(game)
   -- A battle: press through it (the harness party's first move wins).
   local function battleStep()
     local active = Gen3.battleActive()
-    if active and not inBattle then self.battles = self.battles + 1 U.log("BATTLE", "started at", self.where()) end
-    if not active and inBattle then U.log("BATTLE", "ended at", self.where()) end
+    if active and not inBattle then
+      self.battles = self.battles + 1
+      battleMap = self.pos()
+      U.log("BATTLE", "started at", self.where())
+    end
+    if not active and inBattle then
+      U.log("BATTLE", "ended at", self.where())
+      if self.pos() ~= battleMap then
+        -- The battle was lost: the game took the player to a Pokemon Center.  Its
+        -- "whited out" screen is no message box, so nothing else here pages it and the
+        -- field never came free again (every later test said "Not on a map"); upstream's
+        -- own test helper pages it.
+        self.battlesLost = self.battlesLost + 1
+        local last = {}
+        for i = math.max(1, #self.said - 14), #self.said do last[#last + 1] = self.said[i] end
+        U.log("WARN", "battle lost, from", tostring(battleMap), "to", self.where(), "|", table.concat(last, " | "):sub(-700))
+        local ok, err = pcall(U.clearWhiteoutRush, game)
+        if not ok then U.log("WARN", "clearWhiteoutRush:", tostring(err)) end
+      end
+    end
     inBattle = active
     if active then
       self.heal()
@@ -268,7 +286,7 @@ function L.new(game)
       ids[#ids + 1] = FieldMoves.MOVES[name] or name
       pp[#pp + 1] = 30
     end
-    mon.moves, mon.pp, mon.maxPp = ids, pp, pp
+    mon.moves, mon.pp, mon.maxPp = ids, pp, { unpack(pp) }
     for _, key in ipairs(badges or {}) do
       Flags.setFlag(Space.store, nil, FieldMoves.BADGE_FLAGS[key], true)
     end
@@ -287,11 +305,24 @@ function L.new(game)
     Flags.setFlag(Space.store, Space.vm and Space.vm.ctx or nil, flag, on ~= false)
   end
 
+  -- What a Pokemon Center does for the party: HP, status and PP (30 a move, as the
+  -- harness gives them).  In a battle the Pokemon out is a copy that is written back
+  -- over the party when the battle ends, so its HP is topped up too: with HP alone and
+  -- the party alone, a status condition or the damage of several battles on one walk
+  -- could lose a battle, and a FireRed story run whited out in Viridian Gym.
   function self.heal()
     for _, mon in ipairs(self.session().party or {}) do
       local max = tonumber(mon.maxHP or mon.maxHp or (mon.stats and mon.stats.hp))
       if max then mon.hp = max end
+      mon.status, mon.sleep = nil, nil
+      if type(mon.pp) == "table" then
+        for i in ipairs(mon.moves or {}) do mon.pp[i] = math.max(tonumber(mon.pp[i]) or 0, 30) end
+      end
     end
+    local Battle = battleModule()
+    local st = Battle and Battle._active and Battle._st
+    local out = st and st.player and st.player.mon
+    if out and (tonumber(out.hp) or 0) > 0 and tonumber(out.maxHp) then out.hp = tonumber(out.maxHp) end
   end
 
   -- Hold a direction for `frames` (a step across a connection or a push).
