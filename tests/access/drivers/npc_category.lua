@@ -5,8 +5,10 @@
 --   ISOLATED_DRIVER=tests/access/drivers/npc_category.lua
 return function(game)
   local version = os.getenv("POKEPORT_VERSION") or "red"
-  local isGen3 = version == "firered" or version == "leafgreen"
-  local L = dofile(isGen3 and "tests/access/drivers/gen3_nav_lib.lua"
+  local isHoenn = version == "emerald" or version == "ruby" or version == "sapphire"
+  local isGen3 = isHoenn or version == "firered" or version == "leafgreen"
+  local L = dofile(isHoenn and "tests/access/drivers/rse_nav_lib.lua"
+    or isGen3 and "tests/access/drivers/gen3_nav_lib.lua"
     or "tests/access/drivers/gen2_nav_lib.lua").new(game)
   local U = L.U
   local isGen1 = version == "red" or version == "blue" or version == "yellow"
@@ -25,6 +27,18 @@ return function(game)
     gold = { { "UNION_CAVE_1F", 5, 19 }, { "CHERRYGROVE_POKECENTER_1F", 4, 6 } },
     silver = { { "UNION_CAVE_1F", 5, 19 }, { "CHERRYGROVE_POKECENTER_1F", 4, 6 } },
   }
+  -- Hoenn: a lab with Pokémon and people, a Pokémon Center, a wood with item balls and
+  -- trainers; each entered at its first warp
+  if isHoenn then
+    rooms[version] = {}
+    for _, name in ipairs({ "LITTLEROOT_TOWN_PROFESSOR_BIRCHS_LAB", "OLDALE_TOWN_POKEMON_CENTER_1F",
+        "PETALBURG_WOODS", "RUSTBORO_CITY_DEVON_CORP_1F" }) do
+      local id = L.id(name)
+      local def = game.data.maps[id]
+      local warp = def and def.warps and def.warps[1]
+      if warp then rooms[version][#rooms[version] + 1] = { id, warp.x, warp.y } end
+    end
+  end
   for _, room in ipairs(rooms[version] or {}) do
     if isGen1 then U.teleport(game, room[1], room[2], room[3], "up") else L.teleport(room[1], room[2], room[3]) end
     U.wait(60)

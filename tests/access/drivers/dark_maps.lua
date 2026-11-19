@@ -6,8 +6,10 @@
 --   ISOLATED_DRIVER=tests/access/drivers/dark_maps.lua
 return function(game)
   local version = os.getenv("POKEPORT_VERSION") or "red"
-  local isGen3 = version == "firered" or version == "leafgreen"
-  local L = dofile(isGen3 and "tests/access/drivers/gen3_nav_lib.lua"
+  local isHoenn = version == "emerald" or version == "ruby" or version == "sapphire"
+  local isGen3 = isHoenn or version == "firered" or version == "leafgreen"
+  local L = dofile(isHoenn and "tests/access/drivers/rse_nav_lib.lua"
+    or isGen3 and "tests/access/drivers/gen3_nav_lib.lua"
     or "tests/access/drivers/gen2_nav_lib.lua").new(game)
   local U = L.U
   local AutoWalk = require("src.access.nav.AutoWalk")
@@ -25,7 +27,7 @@ return function(game)
     crystal = "DARK_CAVE_VIOLET_ENTRANCE", gold = "DARK_CAVE_VIOLET_ENTRANCE",
     silver = "DARK_CAVE_VIOLET_ENTRANCE",
   }
-  local mapId = rooms[version]
+  local mapId = rooms[version] or (isHoenn and L.id("GRANITE_CAVE_B1F"))
   -- Gen 2 keeps its maps apart from the Gen 1 table
   local maps = game.data.gen2Maps or game.data.maps
   local record = maps[mapId]
@@ -107,6 +109,11 @@ return function(game)
     game.overworld:setDark(false)
   elseif isGen3 then
     package.loaded["src.core.game3.field_view"].setFlashLevel(0)
+    -- Hoenn keeps a cave's level at 1 after Flash; its flag says the cave is lit
+    if isHoenn then
+      local flag = require("src.access.nav.gen3.GameData").flag("FLAG_SYS_USE_FLASH")
+      if flag then L.setFlag(flag) end
+    end
   else
     game.world.flashUsed = true
   end

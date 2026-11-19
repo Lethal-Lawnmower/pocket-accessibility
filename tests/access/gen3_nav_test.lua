@@ -870,6 +870,7 @@ do
   Snapshot.playerGender = function() return 1 end
   eq(Snapshot.locationName({ id = "EM_LITTLEROOT_TOWN_MAYS_HOUSE_2F" }, nil, nil, nil, nil),
     "Your House 2F", "a girl's own house, before she has a name")
+  eq(Snapshot.mapIdName("EM_METEOR_FALLS_B1F_2R"), "Meteor Falls B1F Room 2", "a room number is spelt out")
   Snapshot.playerGender = function() return nil end
   eq(Snapshot.locationName({ id = "EM_LITTLEROOT_TOWN_MAYS_HOUSE_1F" }, nil, nil, "Alex", nil),
     "Littleroot Town May's House 1F", "no session: the map's own name")

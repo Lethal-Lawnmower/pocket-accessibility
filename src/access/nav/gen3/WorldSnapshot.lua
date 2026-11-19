@@ -64,7 +64,8 @@ function Snapshot.mapIdName(mapId)
   id = GameData.RS_UNDERWATER[id] and ("UNDERWATER_" .. GameData.RS_UNDERWATER[id]) or id
   local words = {}
   for word in id:gmatch("[^_]+") do
-    local fixed = MAP_WORDS[word]
+    -- Meteor Falls' and Magma Hideout's rooms: METEOR_FALLS_1F_2R
+    local fixed = MAP_WORDS[word] or (word:match("^%d+R$") and ("Room " .. word:sub(1, -2)))
     words[#words + 1] = fixed or Shared.humanize(word) or word
   end
   return table.concat(words, " ")
