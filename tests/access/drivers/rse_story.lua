@@ -314,7 +314,26 @@ return function(game)
     area("Weather Institute 1F to 2F", "ROUTE119_WEATHER_INSTITUTE_1F", "2F$", "ROUTE119_WEATHER_INSTITUTE_2F")
     area("Space Center 1F to 2F", "MOSSDEEP_CITY_SPACE_CENTER_1F", "Space Center 2F$", "MOSSDEEP_CITY_SPACE_CENTER_2F")
     area("Safari Zone South to Southwest", "SAFARI_ZONE_SOUTH", "Southwest$", "SAFARI_ZONE_SOUTHWEST")
-    area("Shoal Cave entrance to Ice Room", "SHOAL_CAVE_LOW_TIDE_ENTRANCE_ROOM", "Ice Room$", "SHOAL_CAVE_LOW_TIDE_ICE_ROOM")
+    -- the Ice Room is reached at low tide only, and the tide is the real clock's: once a
+    -- real map edge has been crossed (the Safari walk above), arriving here from 9 in the
+    -- morning to 3, or at night, sets high tide and floods the way.  Seen 2026-11-19: the
+    -- same walk passed alone and failed after the Safari walk, the flag set.
+    do
+      local start = "SHOAL_CAVE_LOW_TIDE_ENTRANCE_ROOM"
+      local onlyPlaces = os.getenv("RSE_STORY_PLACES")
+      local tide = L.GameData.flag("FLAG_SYS_SHOAL_TIDE")
+      local Space = require("src.core.game3.scripting.space")
+      local Flags = require("src.core.game3.scripting.flags")
+      local high = false
+      if maps[id(start)] and tide and not (onlyPlaces and not onlyPlaces:find(start, 1, true)) and arrive(id(start)) then
+        high = Flags.getFlag(Space.store, nil, tide) == true
+      end
+      if high then
+        U.log("NOTE", "Shoal Cave is at high tide by the clock: the walk to the Ice Room is left out")
+      else
+        area("Shoal Cave entrance to Ice Room", start, "Ice Room$", "SHOAL_CAVE_LOW_TIDE_ICE_ROOM")
+      end
+    end
     -- the Trick House's rooms, each to its scroll
     -- (5 is the Mechadolls' quiz, a script that holds the player: not a walk)
     for _, number in ipairs({ 1, 2, 3, 4, 6, 7, 8 }) do
@@ -438,6 +457,14 @@ return function(game)
       function() return L.pos() == id("ROUTE104") and Player.cellY <= 1 end)
     through("Route 116, round through Rusturf Tunnel", "ROUTE116", 1, "warps", "Rusturf Tunnel, entrance 2 of 2",
       function() return L.pos() == id("RUSTURF_TUNNEL") end)
+    -- the currents west of Pacifidlog: chosen from the town, the journey takes the lane
+    -- that reaches the water over the Sealed Chamber (chosen on Route 134 it is "No route")
+    through("Pacifidlog down the currents to the Sealed Chamber's dive spot", "PACIFIDLOG_TOWN", 1, "area", "Sealed Chamber, Route 134",
+      function()
+        if L.pos() ~= id("ROUTE134") then return false end
+        local item = L.findLabel("^Dive Spot to Underwater Sealed Chamber", "all")
+        return item ~= nil and tostring(item.description):find(": here", 1, true) ~= nil
+      end)
   end
 
   U.log("RESULT", "walks arrived", summary.arrived, "failed", summary.failed)

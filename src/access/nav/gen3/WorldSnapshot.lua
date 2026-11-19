@@ -186,6 +186,43 @@ local function personLabel(name)
   return Shared.humanize(base)
 end
 
+-- Sheets that say nothing of who someone is.  A trainer drawn with one is named by the
+-- trainer class the game itself shows in the battle ("Bird Keeper", "Ruin Maniac",
+-- "Cooltrainer"): Emerald lists 166 "Man" and 158 "Woman", many of them trainers.  A
+-- sheet that already names a class or a person keeps its name.
+local PLAIN_SHEETS = { Man = true, Woman = true, Boy = true, Girl = true, ["Fat Man"] = true,
+  ["Old Man"] = true, ["Old Woman"] = true, ["Little Boy"] = true, ["Little Girl"] = true,
+  ["Balding Man"] = true }
+-- Classes that are a title, not a kind of person: the sheet says more.
+local PLAIN_CLASSES = { ["PKMN TRAINER"] = true, LEADER = true, ["ELITE FOUR"] = true,
+  CHAMPION = true, RIVAL = true, [""] = true }
+
+-- "BIRD KEEPER" as "Bird Keeper"; the ROM's short forms spelt out.
+function Snapshot.classLabel(className)
+  if type(className) ~= "string" then return nil end
+  local name = className:gsub("\226\153\130", ""):gsub("\226\153\128", "") -- the swimmers' gender signs
+    :gsub("PKMN", "POK\195\169MON"):gsub("POK\195\169FAN", "POK\195\169 FAN")
+    :gsub("POK\195\169MANIAC", "POK\195\169 MANIAC"):gsub("%s+", " "):gsub("^ ", ""):gsub(" $", "")
+  if name == "" then return nil end
+  local words = {}
+  for word in name:gmatch("%S+") do
+    words[#words + 1] = word == "AND" and "and" or (word:sub(1, 1) .. word:sub(2):lower())
+  end
+  return table.concat(words, " ")
+end
+
+local function trainerClassLabel(def, actor)
+  local key = def.scriptKey or actor.scriptKey
+  local okTrainer, trainer = pcall(Scripts.trainerOf, key)
+  if not (okTrainer and trainer) then return nil end
+  local Trainers = package.loaded["src.core.game3.scripting.trainers"]
+  if not (Trainers and type(Trainers.info) == "function") then return nil end
+  local okInfo, info = pcall(Trainers.info, trainer)
+  local className = okInfo and type(info) == "table" and info.className or nil
+  if type(className) ~= "string" or PLAIN_CLASSES[className] then return nil end
+  return Snapshot.classLabel(className)
+end
+
 -- Graphics that are things, not someone to talk to (decision 35): the object
 -- list keeps them, and every other actor is listed under NPCs.
 local THING_GRAPHICS = {
@@ -232,7 +269,9 @@ function Snapshot.objectLabel(actor, opts)
     local rival = opts and opts.rivalName
     return nonempty(rival) and rival or "Rival"
   end
-  return personLabel(name)
+  local label = personLabel(name)
+  if PLAIN_SHEETS[label] then return trainerClassLabel(def, actor) or label end
+  return label
 end
 
 local function projectActor(actor, opts)

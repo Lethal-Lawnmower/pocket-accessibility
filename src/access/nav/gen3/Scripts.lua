@@ -248,6 +248,18 @@ function Scripts.cardKeyDoorOpenFlag(key)
   return Scripts.reach(key).flagsChecked[1]
 end
 
+-- The trainer an object's own script battles (its trainerbattle command's trainer
+-- number), or nil.  Only the script itself: a branch is someone the story brings in.
+function Scripts.trainerOf(key)
+  for _, cmd in ipairs(Scripts.get(key) or {}) do
+    if type(cmd) == "table" and cmd.op == "trainerbattle" then
+      local trainer = tonumber(cmd.trainer or cmd[1])
+      return trainer and trainer > 0 and trainer or nil
+    end
+  end
+  return nil
+end
+
 -- The item an item ball holds (numeric FireRed item id), or nil.
 function Scripts.itemBallItem(key)
   local list = Scripts.get(key)

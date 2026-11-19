@@ -162,6 +162,13 @@ the target where the list no longer has it (its stand-in item may carry
 `arrivalMapId`, the map whose arrival ends the walk). The Pathfinder's own
 "time limit exceeded" and "node limit exceeded" are spoken as "Could not
 plan a route to ... in time" by guided navigation too.
+A journey leg that ends at a connection may say which way to step off
+(`edgeDirection`; Gen 2 and, since 2026-11-19, Gen 3), for a walk that is
+already on the edge cell. For a coordinator that sets
+`journeyWaitsForLanding` (Gen 3), auto-walk waits after a connection until
+the player's cell is on the new map before it plans the next leg (the
+crossing happens mid-step). A journey's target goals may carry `journeyAllowed`, the
+set of maps the journey may cross (Gen 3's far dive spots).
 
 Battles pause it and it resumes afterwards (owner request, 2026-10-31):
 any screen opening pauses the walk and releases the direction; returning to

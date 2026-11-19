@@ -877,4 +877,58 @@ do
   GameData.isHoenn, GameData.bareMapId, Snapshot.playerGender = isHoenn, bare, gender
 end
 
+do
+  -- a trainer drawn with a plain sheet is named by the class the battle shows
+  local Snapshot = require("src.access.nav.gen3.WorldSnapshot")
+  local Scripts = require("src.access.nav.gen3.Scripts")
+  eq(Snapshot.classLabel("BIRD KEEPER"), "Bird Keeper", "a class in the ROM's capitals")
+  eq(Snapshot.classLabel("PKMN RANGER"), "Pok\195\169mon Ranger", "PKMN spelt out")
+  eq(Snapshot.classLabel("SWIMMER\226\153\130"), "Swimmer", "the gender sign goes")
+  eq(Snapshot.classLabel("SR. AND JR."), "Sr. and Jr.", "a pair's class")
+  eq(Snapshot.classLabel("POK\195\169FAN"), "Pok\195\169 Fan", "as the sheet's own label spells it")
+  local trainersModule = package.loaded["src.core.game3.scripting.trainers"]
+  package.loaded["src.core.game3.scripting.trainers"] = { info = function(id)
+    return ({ [7] = { className = "BIRD KEEPER" }, [8] = { className = "PKMN TRAINER" } })[id]
+  end }
+  Scripts.setSource({
+    keeper = { { op = "trainerbattle", trainer = 7 }, { op = "end" } },
+    wally = { { op = "trainerbattle", trainer = 8 } },
+    talker = { { op = "msgbox" } },
+  })
+  Snapshot.setGraphicsNames({ [23] = "OBJ_EVENT_GFX_MAN_5", [40] = "OBJ_EVENT_GFX_HIKER" })
+  eq(Snapshot.objectLabel({ graphicsId = 23, def = { scriptKey = "keeper" } }, {}), "Bird Keeper", "a plain sheet takes the class")
+  eq(Snapshot.objectLabel({ graphicsId = 23, def = { scriptKey = "wally" } }, {}), "Man", "a title is no better than the sheet")
+  eq(Snapshot.objectLabel({ graphicsId = 23, def = { scriptKey = "talker" } }, {}), "Man", "no battle, no class")
+  eq(Snapshot.objectLabel({ graphicsId = 40, def = { scriptKey = "keeper" } }, {}), "Hiker", "a sheet that names a class keeps it")
+  Scripts.setSource(nil)
+  Snapshot.setGraphicsNames(nil)
+  package.loaded["src.core.game3.scripting.trainers"] = trainersModule
+end
+
+do
+  -- places the story or the tide keeps shut say so, where nothing else explains a refusal
+  local Navigation3 = require("src.access.nav.gen3.Navigation")
+  local nav = setmetatable({}, { __index = Navigation3 })
+  local function world(id, water, blocked)
+    return { map = { id = id, widthCells = 10, heightCells = 10,
+      isWater = function(_, x, y) return water and water[x .. "," .. y] == true end,
+      overrideBlocked = function(_, x, y) return blocked and blocked[x .. "," .. y] == true end } }
+  end
+  eq(nav:closedForNow(world("EM_DESERT_RUINS"), { { x = 1, y = 1 } }),
+    "Sealed: the braille on the far wall says how to open it", "a sealed chamber")
+  nav.shoalHighTide = function() return false end
+  eq(nav:closedForNow(world("EM_SHOAL_CAVE_LOW_TIDE_INNER_ROOM"), { { x = 1, y = 1 } }),
+    "Not at low tide: this part is reached at high tide", "Shoal Cave at low tide")
+  nav.shoalHighTide = function() return true end
+  eq(nav:closedForNow(world("EM_SHOAL_CAVE_LOW_TIDE_INNER_ROOM"), { { x = 1, y = 1 } }),
+    "Not at high tide: this part is reached at low tide", "the same room at high tide: the flag, not the map's name")
+  eq(nav:closedForNow(world("EM_LILYCOVE_CITY", { ["5,5"] = true }, { ["7,5"] = true }), { { x = 5, y = 5 } }),
+    "Blocked by a group of Wailmer", "Lilycove's water while the Wailmer are drawn")
+  eq(nav:closedForNow(world("EM_LILYCOVE_CITY", { ["5,5"] = true }, {}), { { x = 5, y = 5 } }), nil,
+    "no Wailmer, no such reason")
+  eq(nav:closedForNow(world("EM_LILYCOVE_CITY", { ["5,5"] = true }, { ["7,5"] = true }), { { x = 2, y = 2 } }), nil,
+    "a door in town is not the Wailmer's")
+  eq(nav:closedForNow(world("EM_ROUTE110"), { { x = 1, y = 1 } }), nil, "anywhere else says nothing")
+end
+
 T.finish("gen3 navigation")

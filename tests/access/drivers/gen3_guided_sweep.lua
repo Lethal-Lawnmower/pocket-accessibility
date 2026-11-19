@@ -8,7 +8,13 @@ return function(game)
   local L = dofile(isHoenn and "tests/access/drivers/rse_nav_lib.lua" or "tests/access/drivers/gen3_nav_lib.lua").new(game)
   local U = L.U
   if not L.boot() then U.log("FAIL", "boot") return end
-  if L.giveParty then pcall(L.giveParty) end
+  if isHoenn then
+    pcall(L.giveParty)
+  else
+    -- the Kanto harness takes its party spelt out (no default): without one every water
+    -- edge was refused for want of Surf
+    pcall(L.giveParty, 9, 90, { "SURF", "STRENGTH", "CUT" }, { "SURF", "STRENGTH", "CUT", "WATERFALL", "ROCK_SMASH", "FLASH" })
+  end
   local GameData = require("src.access.nav.gen3.GameData")
   local flash = GameData.flag("FLAG_SYS_USE_FLASH")
   local ids = L.mapIds and L.mapIds() or {}

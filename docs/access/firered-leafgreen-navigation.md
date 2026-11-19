@@ -263,10 +263,28 @@ Shared with Hoenn; the account is in `ruby-sapphire-emerald-navigation.md`, "Sec
 - **A journey keeps its target** across floors whose list does not have it, as in Hoenn's Victory Road.
 - **Guided navigation** says "Boulders in the way: use auto walk" and "Floor switches change this floor: use auto
   walk" where it said "Cannot reach yet".
-- **Open:** the guided sweep on FireRed (996 targets, before these changes, and with no party because the driver's
-  party call failed there) left 43 refusals; several say "No path" where a field move is missing (Cinnabar's east
-  edge, Pallet's south, Route 20's): find why that is not "Needs Surf". Pokémon Mansion's and Seafoam's refusals are
-  their switches and currents. Run it again with a party first.
+- **Third pass (2026-11-19)**, shared with Hoenn (`ruby-sapphire-emerald-navigation.md`, "Third pass"):
+  - the guided sweep's party call failed on FireRed (the Kanto harness takes its party spelt out), so every water
+    edge was refused; with a party, and the changes below, 996 targets leave 8 bare refusals (43, then 29, before);
+  - an edge crossed only by water said "No path" to a player without Surf: Pallet's south edge now says "Needs Surf
+    and Soul Badge" (probed with a party that has neither);
+  - who is in the way is named: Route 16 to Route 17 "Blocked by Snorlax"; Route 4 east "The way is through Mt. Moon
+    1F, blocked by Fossil in Mt. Moon B2F";
+  - Pokémon Mansion's refusals say "Switches change this floor: use auto walk";
+  - trainers drawn with a plain sheet take their trainer class (Viridian Gym's two "Man").
+  - regression after it: FireRed `gen3_nav` 16 checks, `gen3_nav_more` 13, `gen3_nav_gaps` 33, `gen3_nav_puzzle` 6,
+    `gen3_boulders` and `gen3_switches` with no failure; LeafGreen `gen3_nav` 16, `gen3_nav_more`, `npc_category`.
+    `gen3_story` on FireRed: parts A and B passed, then the harness stalled in a trainer battle at a level-up screen
+    on Victory Road 2F and every walk after it failed for that reason (it did the same at Fuchsia Gym before this
+    pass: the harness's battle presses do not get past that screen; not fixed). Run on their own, parts C, N, M
+    and D have no failure: Seafoam to B4F, Victory Road 1F to 3F and out to Route 23, the Mansion to B1F, Mt. Ember's
+    Fire Stone, the Sevii walks. Part E, run alone: Route 4 east is refused with "The way is through Mt. Moon 1F, blocked by Fossil in
+    Mt. Moon B2F", and Route 10's north half reaches Lavender's edge through Rock Tunnel (five relights). In one
+    run with C, N, M and D before it, E did not finish in 50 minutes and its output was lost (most likely the same
+    level-up stall; not confirmed).
+- **Left bare (8):** Seafoam Islands' currents and boulders (4) and Route 20's two halves, which join only through
+  them (2); Route 5's Day Care from the south gate (not looked into); Three Island Port to Dunsparce Tunnel's far door
+  (not looked into; the tunnel's two ends may not join until the story digs it through).
 
 ## Known gaps
 

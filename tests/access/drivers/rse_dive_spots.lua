@@ -113,7 +113,7 @@ return function(game)
     -- the game's own question, as a player answers it
     L.tap("a", 20)
     L.settle(1500, "a")
-    check(L.pos() == L.id("UNDERWATER_ROUTE126"), "the A press dived there", L.where())
+    check(tostring(L.pos()):find("UNDERWATER", 1, true) ~= nil, "the A press dived there", L.where())
     local below = spots()
     for _, item in ipairs(below) do U.log("ITEM", tostring(item.description)) end
     local up

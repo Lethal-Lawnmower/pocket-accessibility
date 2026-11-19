@@ -1028,24 +1028,31 @@ function Navigation:connectionGoals(world, item, anyMove)
   local destView = World.plannedView(self.game, destDef)
   local step = CONNECTION_STEP_OF[item.direction]
   if not (destView and step) then return Shared.connectionGoals(self, world, item) end
-  local canSurf = anyMove or (world.player and world.player.surfing == true) or self:hmAllowed(world, "SURF")
-  local goals = {}
   local width, height = map.widthCells, map.heightCells
   local count = (step == "up" or step == "down") and width or height
-  for coordinate = 0, count - 1 do
-    local x = (step == "left") and 0 or (step == "right") and (width - 1) or coordinate
-    local y = (step == "up") and 0 or (step == "down") and (height - 1) or coordinate
-    local ok, lx, ly = pcall(C.connectionLanding, destDef, conn, step, x, y)
-    if ok and lx and not map:dirBlocked(x, y, nil, nil, step)
-       and not destView:dirBlocked(nil, nil, lx, ly, step) then
-      local hereWater, hereLand = map:isWater(x, y), map:isWalkableCell(x, y)
-      local thereWater, thereLand = destView:isWater(lx, ly), destView:isWalkableCell(lx, ly)
-      if (hereLand and thereLand)
-         or (canSurf and hereWater and (thereWater or (thereLand and destView:elevation(lx, ly) == 3))) then
-        goals[#goals + 1] = { x = x, y = y }
+  local function crossings(canSurf)
+    local goals = {}
+    for coordinate = 0, count - 1 do
+      local x = (step == "left") and 0 or (step == "right") and (width - 1) or coordinate
+      local y = (step == "up") and 0 or (step == "down") and (height - 1) or coordinate
+      local ok, lx, ly = pcall(C.connectionLanding, destDef, conn, step, x, y)
+      if ok and lx and not map:dirBlocked(x, y, nil, nil, step)
+         and not destView:dirBlocked(nil, nil, lx, ly, step) then
+        local hereWater, hereLand = map:isWater(x, y), map:isWalkableCell(x, y)
+        local thereWater, thereLand = destView:isWater(lx, ly), destView:isWalkableCell(lx, ly)
+        if (hereLand and thereLand)
+           or (canSurf and hereWater and (thereWater or (thereLand and destView:elevation(lx, ly) == 3))) then
+          goals[#goals + 1] = { x = x, y = y }
+        end
       end
     end
+    return goals
   end
+  local canSurf = anyMove or (world.player and world.player.surfing == true) or self:hmAllowed(world, "SURF")
+  local goals = crossings(canSurf)
+  -- An edge crossed only by water still has its crossings for a player who cannot Surf:
+  -- the route then names the move ("Needs Surf") where no goal at all said "No path".
+  if #goals == 0 and not canSurf then goals = crossings(true) end
   return goals
 end
 
@@ -1629,8 +1636,10 @@ function Navigation:routeOptionsFor(world, goals, policy)
   local occupied = occupancy(world)
   -- routeNeeds asks for the way with people set aside, to name who stands in it
   if self.routeIgnoringPeople then
+    -- all but those essentialBlocker is testing: they stay where they stand
+    local solid = self.routeSolidPeople
     for key, entry in pairs(occupied) do
-      if entry.kind == "object" then occupied[key] = nil end
+      if entry.kind == "object" and not (solid and solid[entry.actor.def or entry.actor]) then occupied[key] = nil end
     end
   end
   -- on the Mach Bike a journey plans cracked floors and slopes as floor; the walk on the
@@ -1932,6 +1941,9 @@ Navigation.stepOffWarpTargets = true
 -- a warp that lands on the same map (Saffron Gym's pads) moves the player off the route
 -- without a new map: the journey is planned again from there, not the old leg's cell
 Navigation.replanJourneyOffRoute = true
+-- a connection is crossed mid-step: the next leg is planned once the player's cell is on
+-- the new map (AutoWalk.update)
+Navigation.journeyWaitsForLanding = true
 
 -- What stands in the way, for auto-walk's refusal when there is no route: a
 -- person (or other object that is no cut tree, rock, boulder or item) in the
@@ -2517,10 +2529,14 @@ function Navigation:diveSpots(world)
   local groups, order = {}, {}
   for _, t in ipairs(list) do
     local below = otherWater[t.destY * otherWidth + t.destX]
-    local key = tostring(divePatch[t.y * width + t.x]) .. ":" .. tostring(below)
+    -- one entry for each stretch of water over each seabed: two patches of deep water in
+    -- the same stretch over the same seabed are one place to dive, the nearer one (Route
+    -- 126 listed "Dive Spot to water at the north edge" twice, 17 cells apart)
+    local here = hereWater[t.y * width + t.x]
+    local key = tostring(here or ("p" .. tostring(divePatch[t.y * width + t.x]))) .. ":" .. tostring(below)
     local group = groups[key]
     if not group then
-      group = { key = key, cells = {}, below = below, here = hereWater[t.y * width + t.x] }
+      group = { key = key, cells = {}, below = below, here = here }
       groups[key] = group
       order[#order + 1] = group
     end
@@ -2545,8 +2561,11 @@ function Navigation:diveSpots(world)
       end
       -- a seabed that is a place of its own (Underwater Marine Cave), not this map's
       local below = self:regionalDestinationName(otherId)
-      if #leads == 0 and below ~= "Underwater " .. self:regionalDestinationName(mapId) then leads[1] = below end
+      local ownPlace = #leads == 0 and below ~= "Underwater " .. self:regionalDestinationName(mapId)
+      if ownPlace then leads[1] = below end
       label = #leads > 0 and ("Dive Spot to " .. joinNames(leads, 3)) or "Dive Spot, seabed only"
+      -- somewhere a player sets out for from further off (Navigation:farDiveSpots)
+      group.named = seabed.doors ~= nil or ownPlace
     end
     -- the cells a route can end on: the patch's rim (a route from outside meets it first)
     local inGroup = {}
@@ -2562,7 +2581,20 @@ function Navigation:diveSpots(world)
       end
     end
     spots[#spots + 1] = { id = "dive_spot:" .. mapId .. ":" .. group.key, label = label,
-      cells = group.cells, rim = rim, inGroup = inGroup, emerge = map.underwater == true }
+      cells = group.cells, rim = rim, inGroup = inGroup, emerge = map.underwater == true,
+      named = group.named == true }
+  end
+  -- several that lead to the same kind of place are numbered, as a map's doors are
+  -- ("entrance 2 of 6"): Route 124 has six "seabed only", and a number is what a player
+  -- can keep ("the third one had the shard")
+  local count, nth = {}, {}
+  for _, spot in ipairs(spots) do count[spot.label] = (count[spot.label] or 0) + 1 end
+  for _, spot in ipairs(spots) do
+    local total = count[spot.label]
+    if total > 1 then
+      nth[spot.label] = (nth[spot.label] or 0) + 1
+      spot.label = spot.label .. ", " .. nth[spot.label] .. " of " .. total
+    end
   end
   return spots
 end
@@ -2871,6 +2903,115 @@ function Navigation:unreachableReason(goals)
   if okSwitches and type(switches) == "table" and #switches > 0 then
     return "Floor switches change this floor: use auto walk"
   end
+  -- Pokémon Mansion's Secret Switches, Ruby and Sapphire's Mossdeep Gym: SwitchWalk tries them
+  local okSigns, signs = pcall(self.switchSigns, self, world)
+  if okSigns and type(signs) == "table" and #signs > 0 then
+    return "Switches change this floor: use auto walk"
+  end
+  return self:closedForNow(world, goals)
+end
+
+-- Places the story or the clock keeps shut, where no route and no missing move explains
+-- the refusal.  Each is the game's own rule, said as a player would be told it:
+--   Lilycove's Wailmer (pokeemerald data/maps/LilycoveCity/scripts.inc, drawn by the load
+--     script until the story sends Team Aqua's away) close the cove and the way east;
+--   the three sealed chambers open by what their braille says;
+--   Shoal Cave's two tides each reach rooms the other does not;
+--   the Mystery Events House's stairs are walled off in the map itself.
+local CLOSED_FOR_NOW = {
+  { map = "^LILYCOVE_CITY$", byWater = true, overrides = true, reason = "Blocked by a group of Wailmer" },
+  { map = "^DESERT_RUINS$", reason = "Sealed: the braille on the far wall says how to open it" },
+  { map = "^ISLAND_CAVE$", reason = "Sealed: the braille on the far wall says how to open it" },
+  { map = "^ANCIENT_TOMB$", reason = "Sealed: the braille on the far wall says how to open it" },
+  -- (the rooms keep their "low tide" map at either tide: the tide is FLAG_SYS_SHOAL_TIDE,
+  -- set at high tide, which swaps their layout, pokeemerald time_events.c)
+  { map = "^SHOAL_CAVE_", tide = true, reason = "Not at low tide: this part is reached at high tide",
+    highReason = "Not at high tide: this part is reached at low tide" },
+  { map = "MYSTERY_EVENTS_HOUSE_1F$", reason = "The stairs are closed off" },
+}
+
+function Navigation:closedForNow(world, goals)
+  local map = world and world.map
+  local bare = map and GameData.bareMapId(self:currentMapIdOf(world))
+  if type(bare) ~= "string" then return nil end
+  for _, entry in ipairs(CLOSED_FOR_NOW) do
+    if bare:find(entry.map) then
+      local applies = true
+      if entry.byWater then
+        -- only for a target on or beside the water: the town's own doors are not the Wailmer's
+        applies = false
+        for _, goal in ipairs(goals) do
+          if map:isWater(goal.x, goal.y) or map:isWater(goal.x, goal.y + 1) or goal.x == map.widthCells - 1 then
+            applies = true
+            break
+          end
+        end
+      end
+      if applies and entry.overrides then
+        applies = false
+        for y = 0, map.heightCells - 1 do
+          for x = 0, map.widthCells - 1 do
+            if map:overrideBlocked(x, y) then applies = true break end
+          end
+          if applies then break end
+        end
+      end
+      if applies and entry.tide and self:shoalHighTide() then return entry.highReason end
+      if applies then return entry.reason end
+    end
+  end
+  return nil
+end
+
+-- Shoal Cave's tide as the game has it now (tests replace this).
+function Navigation:shoalHighTide()
+  local flag = GameData.flag("FLAG_SYS_SHOAL_TIDE")
+  return flag ~= nil and flagSet(flag)
+end
+
+-- Who stands in a journey planned with people set aside: the first person on its way,
+-- with the place when that is not this map ("Snorlax", "Super Nerd in Mt. Moon B2F").
+-- Nil when no one on it can be named.
+function Navigation:journeyBlocker(result, currentMapId)
+  for _, leg in ipairs(result and result.legs or {}) do
+    local entry = result.maps and result.maps[leg.mapId]
+    local okCells, occupied = pcall(occupancy, entry and entry.world or {})
+    if okCells and type(occupied) == "table" then
+      for _, step in ipairs(leg.steps or {}) do
+        local found = occupied[cellKey(step.x, step.y)]
+        if found and found.kind == "object" then
+          local name
+          if found.actor.invisible then
+            name = "something hidden"
+          else
+            local okLabel, label = pcall(Snapshot.objectLabel, found.actor, {})
+            name = okLabel and label or "someone"
+          end
+          if leg.mapId ~= currentMapId then name = name .. " in " .. self:regionalDestinationName(leg.mapId) end
+          return name, found.actor
+        end
+      end
+    end
+  end
+  return nil
+end
+
+-- The one the way cannot do without.  The shortest way with everyone set aside walks
+-- through whoever is nearest (a Youngster in Mt. Moon 1F who can be walked round), so
+-- each person on it is stood back up in turn and the journey searched again (`search`,
+-- with people set aside but for those): the first whose return leaves no way is named.
+function Navigation:essentialBlocker(search, first, currentMapId)
+  local solid, result = {}, first
+  for _ = 1, 8 do
+    local name, actor = self:journeyBlocker(result, currentMapId)
+    if not actor then return nil end
+    solid[actor.def or actor] = true
+    self.routeIgnoringPeople, self.routeSolidPeople = true, solid
+    local ok, again = pcall(search)
+    self.routeIgnoringPeople, self.routeSolidPeople = nil, nil
+    if not (ok and again) then return name end
+    result = again
+  end
   return nil
 end
 
@@ -2939,7 +3080,8 @@ function Navigation:regionalNextLeg(navigation)
   if type(target.mapId) ~= "string" or type(target.goals) ~= "table" or #target.goals == 0 then
     return nil, "no regional path"
   end
-  local allowed = self:journeyMaps(mapId, target.mapId)
+  -- the maps a target names for its own journey (a far dive spot's), else its area's
+  local allowed = target.goals.journeyAllowed or self:journeyMaps(mapId, target.mapId)
   local result, reason
   -- a journey that can be walked is walked: an elevator's menu and a fall
   -- that cannot be undone come only when nothing else gets there
@@ -2972,7 +3114,10 @@ function Navigation:regionalNextLeg(navigation)
         local way = aside.firstTransition
         local here = (way and self:routeNeeds({ { x = way.x, y = way.y } }))
           or (aside.final and self:routeNeeds(target.goals)) or nil
-        return nil, here or "Blocked by someone further on"
+        local who = not here and self:essentialBlocker(function()
+          return self:journeySearch(start, target, 2, allowed, nil, true)
+        end, aside, mapId) or nil
+        return nil, here or (who and ("Blocked by " .. who)) or "Blocked by someone further on"
       end
       -- The way round.  A route's two halves often join only through another place:
       -- Route 104 through Petalburg Woods, Ever Grande City through Victory Road,
@@ -3003,8 +3148,11 @@ function Navigation:regionalNextLeg(navigation)
           if okFree and free and not free.final then
             local way = free.firstTransition
             local here = way and self:routeNeeds({ { x = way.x, y = way.y } }) or nil
+            local who = not here and self:essentialBlocker(function()
+              return self:journeySearch(start, target, 2, round, 2, true)
+            end, free, mapId) or nil
             return nil, here or ("The way is through " .. self:regionalDestinationName(way.destMap)
-              .. ", blocked by someone further on")
+              .. ", blocked by " .. (who or "someone further on"))
           end
         end
       end
@@ -3072,6 +3220,10 @@ function Navigation:regionalNextLeg(navigation)
     final = false,
     goals = { { x = transition.x, y = transition.y } },
     nextMapId = transition.destMap,
+    -- the way off the map at a connection: a walk that is already on the edge cell (a
+    -- current set it down there, Route 132's west edge) presses it, where it used to
+    -- stop with "Could not go through"
+    edgeDirection = transition.kind == "connection" and CONNECTION_STEP_OF[transition.direction] or nil,
     -- auto-walk ends here and says what to do: the game's menu or the ice
     -- is the player's (AutoWalk: stopAtGoal)
     stopAtGoal = stopText ~= nil, stopText = stopText,
@@ -3103,7 +3255,73 @@ local function areaKey(mapId)
 end
 Navigation.areaKey = areaKey
 
+-- Dive spots that lead to a place of their own (Sootopolis City, Seafloor Cavern, the
+-- Sealed Chamber), on the maps up to three connections from this one, for the Area list.
+-- The sea west of Pacifidlog is why: its currents carry the player through Routes 132
+-- and 133 in whichever lane they entered, and only some lanes reach the water over the
+-- Sealed Chamber on Route 134.  Chosen there, the list says "No route"; chosen from
+-- upstream, the journey is planned across the three routes and takes the right lane.
+function Navigation:farDiveSpots(world)
+  local here = self:currentMapIdOf(world)
+  local map = world and world.map
+  if type(here) ~= "string" or not map or map.underwater then return {} end
+  self.gen3FarDive = self.gen3FarDive or {}
+  local cached = self.gen3FarDive[here]
+  if cached then return cached end
+  local items = {}
+  self.gen3FarDive[here] = items
+  local Connections = loaded("src.core.game3.connections")
+  if not (Connections and Connections.each) then return items end
+  local within, frontier, order = { [here] = true }, { here }, {}
+  for _ = 1, 3 do
+    local nextFrontier = {}
+    for _, id in ipairs(frontier) do
+      local def = self:regionalMapDef(id)
+      for _, row in ipairs(def and call(Connections.each, def) or {}) do
+        local nextDef = type(row.map) == "string" and self:regionalMapDef(row.map) or nil
+        local nextId = nextDef and nextDef.id
+        if type(nextId) == "string" and not within[nextId] then
+          within[nextId] = true
+          nextFrontier[#nextFrontier + 1] = nextId
+          order[#order + 1] = nextId
+        end
+      end
+    end
+    frontier = nextFrontier
+  end
+  for _, id in ipairs(order) do
+    local def = self:regionalMapDef(id)
+    local view = def and World.plannedView(self.game, def)
+    local okSpots, spots = pcall(self.diveSpots, self, view and { map = view, npcs = {}, player = { cellX = -1, cellY = -1 } })
+    for _, spot in ipairs(okSpots and spots or {}) do
+      if spot.named and not spot.emerge and spot.rim[1] then
+        local label = spot.label .. ", " .. tostring(self:regionalDestinationName(id))
+        local rim = {}
+        for _, cell in ipairs(spot.rim) do rim[#rim + 1] = { x = cell.x, y = cell.y } end
+        rim.journeyAllowed = within
+        items[#items + 1] = { id = "area:" .. spot.id, type = "area", category = "area", label = label,
+          description = label, mapId = id, x = spot.rim[1].x, y = spot.rim[1].y, farDiveRim = rim }
+      end
+    end
+  end
+  return items
+end
+
 function Navigation:areaBrowse(world)
+  local items = self:areaFloors(world)
+  local okFar, far = pcall(self.farDiveSpots, self, world)
+  -- the spots are worked out once a map; whether the party can dive is asked each time
+  local needsDive = self:fieldMoveRequirement("DIVE")
+  for _, spot in ipairs(okFar and far or {}) do
+    local item = {}
+    for key, value in pairs(spot) do item[key] = value end
+    item.requirement = needsDive
+    items[#items + 1] = item
+  end
+  return items
+end
+
+function Navigation:areaFloors(world)
   local data = self.game and self.game.data
   local maps = data and data.maps or {}
   local here = self:currentMapIdOf(world)
@@ -3201,6 +3419,8 @@ function Navigation:selectedRouteGoals()
   if keptItem then return keptItem, keptGoals, nil, nil, keptWorld end
   local item, goals, instructions, connection, overworld = Shared.selectedRouteGoals(self)
   if type(item) == "table" and item.floorEntry and type(goals) == "table" then goals.anywhere = true end
+  -- a dive spot on a map further on: any cell of its rim, over the maps between
+  if type(item) == "table" and item.farDiveRim then goals = item.farDiveRim end
   -- a dive spot is reached by being on any of its cells; then the game's own button
   if type(item) == "table" and item.semanticKind == "dive_spot" and overworld then
     local spot = self:diveSpotById(overworld, item.id)

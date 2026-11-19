@@ -52,11 +52,13 @@ All of this is run in game by driver, silent; nobody has heard it.
   open water", "to water at the east edge of Route 124"), else "Dive Spot, seabed only". Below, each stretch that can
   surface is "Way Up to Route 126", "Way Up to an enclosed pool", "Way Up to Sootopolis City". Guided navigation and
   auto-walk go to the nearest cell of one and say the game's button ("Press A and answer yes to dive", B to
-  surface); without the move the entry says "Needs Dive". Emerald: 93 entries on 25 maps (Route 124 has 16 over ten
-  seabeds, six of them "seabed only"); Ruby: 77 on 20. "The open water" is the map's largest stretch; a smaller one
-  that reaches the map's edge is "water at the north edge of ...". Hidden items on a seabed are not listed, as
-  elsewhere. Driver `rse_dive_spots`: Emerald 10/10, with a dive to Underwater Route 126 and back by the
-  list alone. Agent's wording, open to the owner.
+  surface); without the move the entry says "Needs Dive". Two patches of deep water in the same stretch over the same seabed are one entry (the
+  nearer cell is the target); entries that still share a label are numbered as a map's doors are ("Dive Spot, seabed
+  only, 3 of 6"). Emerald: 88 entries on 25 maps (Route 124 has 16 over ten seabeds, six of them "seabed only");
+  Ruby and Sapphire: 76 on 20. "The open water" is the map's largest stretch; a smaller one that reaches the map's
+  edge is "water at the north edge of ...". Hidden items on a seabed are not listed, as elsewhere. Driver
+  `rse_dive_spots`: Emerald, Ruby and Sapphire, with a dive under Route 126 and back by the list alone
+  (results under "Third pass"). Agent's wording, open to the owner.
 - **The list broke routes from water (all five Gen 3 games).** `WorldSnapshot.mapProxy` ran the view's methods on
   the proxy, whose relabelled `def` has no layout, with the view's own cache: the cell the player stood on was cached
   "not water" the first time the list was opened there, and the next route from that cell began "Use Surf facing
@@ -81,14 +83,65 @@ All of this is run in game by driver, silent; nobody has heard it.
   switches (Mossdeep Gym, Trick House 7) "Floor switches change this floor: use auto walk". Lavaridge Gym's buried
   trainers stand in four of its holes, unseen and in no list: "Blocked by a hidden trainer", not "Blocked by Man"
   (agent's wording, open to the owner: it tells the player a trainer is there before the trainer jumps out).
-- **Of the 55, left "Cannot reach yet" and why:** the Abandoned Ship's locked rooms and the three sealed Regi doors
-  (right); Lilycove east to Route 124 (the Wailmers are drawn by a load script, so no person to name; not looked
-  into why the harness's badges do not clear them); Route 112's south-west pocket with Jagged Pass and Lavaridge's
-  edge (reached by the cable car and down Jagged Pass: the ride is the player's); Route 123's north-east from its
-  west end (one-way ledges); Route 125's north-west water from Shoal Cave (no way found even over any map, 1 second:
-  it is reached from Route 124 through a dive; not explained); Safari Zone South to North and the Mystery Events
-  House's stairs (not looked into); Magma Hideout 2F Room 3 from 1F. The sweep was not run again after the last
-  changes: do that first next time.
+- **Of the 55 bare refusals, 9 are left** after the third pass below: the Abandoned Ship's locked rooms asked from
+  inside another room (3; a player comes from the corridor, where the game's own "locked" text answers); Magma
+  Hideout 2F Room 3 from 1F (not looked into); Route 112's south-west pocket with Jagged Pass and Lavaridge's edge
+  (2; reached by the cable car and down Jagged Pass: the ride is the player's); Route 123's north-east from its west
+  end (one-way ledges); Route 125's north-west water from Shoal Cave (it joins Route 124 only: a row of rocks
+  closes it from the rest of Route 125, seen in the planner's grid); Safari Zone South to North asked from the
+  entrance door's own cell, which the attendant closes (from anywhere a player stands it says "Needs Acro Bike").
+
+## Third pass (2026-11-19, the same request: "try and fix any of the navigation/pathfinder gaps along the way")
+
+Run in game by driver, silent; nobody has heard it.
+
+- **The currents west of Pacifidlog** (`Navigation:farDiveSpots`, in the Area list). Routes 132 and 133 carry the
+  player west in whichever lane they entered, and only some lanes reach the water over the Sealed Chamber on Route
+  134. Going connection by connection ("West connection to Route 133", then 134) ended on Route 134 with "No route
+  to Dive Spot to Underwater Sealed Chamber from here" (probed: Pacifidlog, three connections, then the dive spot).
+  A dive spot that leads to a place of its own (a seabed door, or a seabed that is its own place: Sootopolis City,
+  Seafloor Cavern, the Sealed Chamber) is now in the Area list of every surface map within three connections, as
+  "Dive Spot to Underwater Sealed Chamber, Route 134"; its journey is planned over those maps only, and the planner,
+  which knows the currents, takes the lane that gets there. `rse_story` W, Emerald: Pacifidlog to that water in one
+  auto-walk, through two trainer battles. Three more things had to be right for it:
+  - a connection is crossed mid-step, and auto-walk planned the next leg while the player's cell still read 80,24
+    on a map 80 wide: "Cannot reach ..., auto walk stopped". It waits until the cell is on the map
+    (`AutoWalk.update`, for a coordinator that sets `journeyWaitsForLanding`: Gen 3 only, Gen 1 and 2 as before);
+  - a current can set the player down on the very edge cell a leg ends at; with no step left the walk said "Could
+    not go through". Gen 3's legs now say which way to step off (`edgeDirection`, as Gen 2's do);
+  - the journey's maps may come with its target (`goals.journeyAllowed`), where they were only ever its area's.
+- **Who is in the way, by name** (`journeyBlocker`, `essentialBlocker`). "Blocked by someone further on" named no
+  one. The way with everyone set aside walks through whoever is nearest, so each person on it is stood back up in
+  turn and the journey searched again; the first whose return leaves no way is named, with the place when it is
+  not this map. FireRed's Route 16 to Route 17: "Blocked by Snorlax"; Route 4 east: "The way is through Mt. Moon 1F,
+  blocked by Fossil in Mt. Moon B2F" (true: the two fossils close the corridor until one is taken; the first
+  version named a Youngster who can be walked round).
+- **Places the story or the tide keeps shut** (`closedForNow`, the last thing asked): Lilycove's water while the
+  Wailmer are drawn, "Blocked by a group of Wailmer" (they close the cove and the only way east to Route 124, seen
+  in the planner's grid; the earlier note that the harness's badges should clear them was wrong: the story does);
+  the three sealed chambers, "Sealed: the braille on the far wall says how to open it"; Shoal Cave, "Not at low
+  tide: this part is reached at high tide" and the reverse, by the game's own tide flag (the rooms keep their "low
+  tide" map at either tide. Found because `rse_story`'s walk to the Ice Room said "No route" in a run after 9 in
+  the morning: once a real map edge has been crossed the cave's own script sets the tide from the clock, and the
+  flag was set. The driver now leaves that walk out at high tide, with a NOTE); the Mystery Events House's stairs, "The stairs are
+  closed off" (walled in the map itself). Agent's wording, open to the owner.
+- **Switches.** A floor with Secret Switches or Ruby and Sapphire's Hidden Switches says "Switches change this
+  floor: use auto walk", as floor switches did.
+- **An edge crossed only by water** had no crossing at all for a player without Surf, so guided navigation said "No
+  path"; it now says the move ("Needs Surf", with the badge when that is missing too). `Navigation:connectionGoals`.
+- **Trainers drawn with a plain sheet** ("Man", "Woman", "Boy", "Girl", "Fat Man", "Old Man", "Old Woman", "Little
+  Boy", "Little Girl", "Balding Man") are named by the trainer class the battle shows, read from the object's own
+  `trainerbattle` command: "Bird Keeper", "Ruin Maniac", "Tamer". A title (PKMN TRAINER, LEADER, ELITE FOUR,
+  CHAMPION, RIVAL) is no better than the sheet and is not used. Emerald's label sweep: "Man" 166 to 100, "Woman"
+  158 to 109. Agent's choice, open to the owner.
+- **Guided sweep, Emerald**: 925 targets, 9 bare refusals (55 before the second pass, 18 after it).
+- **Regression after this pass** (drivers, silent; the unit suites pass, 189 checks in `gen3_nav_test`).
+  Emerald: `rse_nav_sweep`, `rse_dive_spots`, `dark_maps`, `npc_category` with no failure; `rse_story` 40 walks
+  arrived, with the four story blocks it has always reported as failures (the grunts at Aqua Hideout and Seafloor
+  Cavern, New Mauville's key, Sky Pillar on foot) and Shoal Cave's Ice Room left out because the run was at high
+  tide; part W 5 of 5 on the last code. Ruby: `rse_dive_spots`, and `rse_story` 40 arrived with its four blocks,
+  W 5 of 5. Sapphire: `rse_dive_spots` (its `rse_story` was last run before this pass: the same four blocks).
+  FireRed and LeafGreen: `firered-leafgreen-navigation.md`.
 
 ## Tiles and field moves
 
@@ -171,6 +224,13 @@ because the game's tide follows the clock (`UpdateShoalTideFlag`); low tide arri
 - **Secret bases:** a spot is listed and walked to. Secret Power, and a base's own decorations, are not run.
 - **Unexplained:** in Ruby and Sapphire, Seafloor Cavern's entrance with the grunt in the way, the walk's first move brought up the game's Dive question (the harness answered yes). Not looked into. A real player can answer no.
 - **Petalburg Gym:** Norman's object stands by the door in a new game's state, so "door to leader" there is a few steps and proves nothing about the rooms. The rooms' doors are warps the planner reads; none was walked to Norman in a later state.
+- **A dive spot's label is worked out once a map** in a session: "a pool with Red Shard" still says so after the shard
+  is taken, until the game is started again.
+- **Far dive spots** are listed within three connections and only when they lead to a place of their own; an island or
+  item in the currents (Route 132's, 133's, 134's) is still chosen on its own map, where the lane may already be wrong.
+  The arrival says "Arrived at Dive Spot ...", not which button dives: the list on that map has the spot, with the button.
+- **The blocker's name** is the first person without whom no way exists; where two people each close a different way the
+  first found is named. An object drawn by a script is no person and is not named, except Lilycove's Wailmer.
 - **Ways round stop at doors.** A way round never crosses a connection, so two halves of a route that join only through
   the next town (or by a ride) stay "Cannot reach yet". A journey whose way passes through the map a door target leads to
   ends there (Route 104 south to "Petalburg Woods, entrance 3 of 3" would end inside the woods' south door). Not seen in a run.

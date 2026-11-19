@@ -686,6 +686,15 @@ function AutoWalk.update(top)
   if walk.awaitingMap then
     if not onMap(top) or transitioning() then return end
     if overworld.map == walk.map and not walk.sameMapLeg then return end
+    -- a connection is crossed mid-step: the map is the next one while the player's cell
+    -- is still counted off its edge (Pacifidlog's west edge onto Route 132 read 80,24 on
+    -- a map 80 wide, and the next leg, planned from there, was "Cannot reach")
+    -- (asked for by the coordinator: Gen 3's.  Gen 1's and Gen 2's journeys are as they were.)
+    local map = overworld.map
+    if walk.nav.journeyWaitsForLanding and type(map) == "table" and type(map.inBounds) == "function"
+       and not map:inBounds(player.cellX, player.cellY) then
+      return
+    end
     return nextLeg()
   end
   if walk.teleported and onMap(top) and not transitioning() then return AutoWalk.stop(arrivalText()) end

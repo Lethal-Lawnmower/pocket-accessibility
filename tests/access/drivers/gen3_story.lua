@@ -387,11 +387,11 @@ return function(game)
       U.log("NOTE", title, "relit", relit)
       U.log(arrived(said) and "RESULT" or "FAIL", title, "->", L.where(), "|", said:sub(-200))
     end
-    -- (from a new game's flags Mt. Moon B2F's Super Nerd stands in the corridor: the walk
-    -- is refused with the way named; with him out of the way it is walked)
+    -- (from a new game's flags Mt. Moon B2F's two fossils close the corridor until one is
+    -- taken: the walk is refused with the way and the fossil named)
     through("Route 4, west half to Cerulean's edge through Mt. Moon", "FR_ROUTE_4", 1, "connections", "Cerulean",
       function(said) return (L.pos() == "FR_ROUTE_4" and Player.cellX > 60)
-        or said:find("The way is through Mt. Moon 1F, blocked by someone further on", 1, true) ~= nil end)
+        or said:find("The way is through Mt. Moon 1F, blocked by Fossil in Mt. Moon B2F", 1, true) ~= nil end)
     through("Route 10, north half to Lavender's edge through Rock Tunnel", "FR_ROUTE_10", 1, "connections", "Lavender",
       function() return L.pos() == "FR_ROUTE_10" and Player.cellY > 50 end)
   end
