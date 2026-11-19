@@ -788,6 +788,21 @@ ShopMenu.mode, ShopMenu._status, session.money = "buy_msg", "Here you are!\nThan
 poll(shopScreen)
 eq(last(), "Here you are! Thank you! MONEY ¥2100", "purchase message and new money")
 
+-- a clerk's script: the greeting is a message page, said by the dialogue
+-- presenter, and the shop opens over it with the same line as its status
+local ShopMessage = require("src.ui.game3.message")
+local messageWas = { ShopMessage.open, ShopMessage._pages, ShopMessage._page }
+reset()
+ShopMessage.open, ShopMessage._pages, ShopMessage._page = true, { "Hi, there!\nMay I help you?" }, 1
+ShopMenu.mode, ShopMenu.cursor, ShopMenu._status = "root", 1, "Hi, there!\nMay I help you?"
+poll(screen("shop", ShopMenu))
+eq(last(), "BUY, 1 of 3", "shop over the clerk's message: the greeting is not said twice")
+reset()
+ShopMessage._pages = { "Welcome!" }
+poll(screen("shop", ShopMenu))
+eq(last(), "Hi, there! May I help you? BUY, 1 of 3", "shop over another message: its own status is said")
+ShopMessage.open, ShopMessage._pages, ShopMessage._page = messageWas[1], messageWas[2], messageWas[3]
+
 -- ------------------------------------------------------------- money box
 local MoneyBox = require("src.ui.game3.money_box")
 reset()

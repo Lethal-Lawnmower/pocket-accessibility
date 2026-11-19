@@ -1899,6 +1899,16 @@ function Shop.quantity(S, first)
   return join({ quantity(S.qty, max), total, inBagText })
 end
 
+-- A clerk's script shows the greeting through the message module, then opens
+-- the shop over it with the same line as its status.  The dialogue presenter
+-- has said that page, so the shop's opening leaves it out; a shop opened
+-- with no message under it says its status as before.
+local function messageShows(text)
+  local Message = loaded("src.ui.game3.message")
+  if not (text and Message and Message.open and type(Message._pages) == "table") then return false end
+  return say(Message._pages[Message._page or 1]) == text
+end
+
 function Shop.read(S, memo, entering)
   if not S.open or S._rse then return nil end
   local mode = S.mode or "root"
@@ -1915,7 +1925,9 @@ function Shop.read(S, memo, entering)
     local label = say(romAt("sShopMenuActions_BuySellQuit", (S.cursor or 1) - 1))
     local count = type(S.ROOT) == "table" and #S.ROOT or 3
     if fresh then
-      text = sentences(say(S._status), label and join({ label, position(S.cursor or 1, count) }))
+      local status = say(S._status)
+      if entering and messageShows(status) then status = nil end
+      text = sentences(status, label and join({ label, position(S.cursor or 1, count) }))
     elseif S.cursor ~= memo.cursor then
       text = label
     elseif S._status ~= memo.status then
