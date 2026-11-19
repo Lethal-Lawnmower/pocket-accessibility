@@ -723,8 +723,15 @@ local function dexRead(view, memo, entering)
     local parts = {}
     if info.text ~= memo.info or memo.fresh then
       memo.info = info.text
-      parts[#parts + 1] = dexInfoText(info.text)
-      if memo.fresh then memo.screen = nil end
+      -- Back from AREA, CRY or SIZE, loadInfo shows the page with its old text
+      -- and builds the same text again a few frames later: a new table with
+      -- nothing new to say, so the page is compared by what it says.
+      local text = dexInfoText(info.text)
+      if text ~= memo.infoText or memo.fresh then
+        memo.infoText = text
+        parts[#parts + 1] = text
+        if memo.fresh then memo.screen = nil end
+      end
     end
     if memo.screen ~= view.selectedScreen then
       memo.screen = view.selectedScreen
