@@ -2628,6 +2628,9 @@ end
 function Navigation:unreachableReason(goals)
   local world = self:worldForCommand()
   if not world or type(goals) ~= "table" or #goals == 0 then return nil end
+  -- someone standing in the only way ("Blocked by Team Aqua Grunt"), as auto-walk says it
+  local okPeople, blocked = pcall(self.routeNeeds, self, goals)
+  if okPeople and blocked then return blocked end
   local ok, leg, reason = pcall(self.regionalNextLeg, self,
     { targetMapId = self:currentMapIdOf(world), targetGoals = goals })
   if ok and not leg and type(reason) == "string" and reason:match("^Needs ") then return reason end
