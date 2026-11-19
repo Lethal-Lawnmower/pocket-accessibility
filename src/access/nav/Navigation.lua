@@ -2694,9 +2694,13 @@ function Accessibility:advancePendingRoute(pending, result, routeError)
     return self:refreshActiveNavigation()
   end
   if not result and routeError == "no path" then
+    -- a coordinator may know what is missing that the policies here do not
+    -- (Gen 3: "Needs Mach Bike", as auto-walk says it)
+    local reason = not (pending.navigation and pending.navigation.puzzle)
+      and type(self.unreachableReason) == "function" and self:unreachableReason(pending.goals) or nil
     routeError = pending.navigation and pending.navigation.puzzle
       and "Cannot reach the next safe boulder pushing position"
-      or "Cannot reach yet"
+      or reason or "Cannot reach yet"
   end
   return self:completePendingRoute(pending, result, routeError)
 end

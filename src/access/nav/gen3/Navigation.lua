@@ -2620,6 +2620,20 @@ function Navigation:journeyOpeningGoals(item, world)
   return { { x = transition.x, y = transition.y } }
 end
 
+-- Why guided navigation cannot reach a place on this floor.  The shared check knows the
+-- field moves only; the journey planner also knows the bikes, Dive and the Card Key, and
+-- auto-walk says its reason ("Needs Mach Bike" past Granite Cave B1F's cracked floor),
+-- so guided navigation asks it too rather than say "Cannot reach yet"
+-- (the shared Navigation:advancePendingRoute calls this when every policy failed).
+function Navigation:unreachableReason(goals)
+  local world = self:worldForCommand()
+  if not world or type(goals) ~= "table" or #goals == 0 then return nil end
+  local ok, leg, reason = pcall(self.regionalNextLeg, self,
+    { targetMapId = self:currentMapIdOf(world), targetGoals = goals })
+  if ok and not leg and type(reason) == "string" and reason:match("^Needs ") then return reason end
+  return nil
+end
+
 -- What a journey that is possible only with everything (policy 3) still
 -- needs, as Gen 1 says it for a route on one map ("Needs Card Key").
 function Navigation:journeyRequirement(result)

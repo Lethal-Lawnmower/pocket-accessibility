@@ -20,6 +20,17 @@ running and hands out what upstream already holds: the profile (`map.enginePrefi
   picked it, and it is named (checked on May's house, the Contest Hall, a Battle Tent and Lilycove's Pokémon Center,
   2026-11-09). The sweep counts these, and exits that lead back where the player came in, as "variable", not
   generic. The link receptionist's sheet (`LINK_RECEPTIONIST`) was called "Trainer" as a link partner's; fixed.
+- **Polish sweep (2026-11-19, owner's request "a heavy third generation polish sweep").** Found by listing every label of
+  Emerald, Ruby and FireRed (`RSE_SWEEP_LIST=1`) and reading the speech in the walk logs:
+  - Signs: the first page, lines joined, cut at a word at 64 (was the first line at 48 bytes). An arrow starting a line is a
+    direction ("ROUTE 104, east: PETALBURG CITY"), inside a sentence a word ("A short walk up way!"); a filled-in word goes
+    with its quotes and "'S" (Dewford Hall was "Sign: “'S"); "1O4" on Route 104's sign is read as 104; the treasure
+    hunters' list says "Wanted item, Trade item RED SHARD for FIRE STONE". `Scripts.signLine`, tested in `gen3_nav_test`.
+  - Littleroot: the house that matches the player's gender is "<name>'s House 1F" (was "Littleroot Town Brendan's House 1F"
+    for a boy's own house); the other keeps the rival's name. Gender from the session (`Snapshot.playerGender`).
+  - Rooms: Meteor Falls' and Magma Hideout's "1F 1r" are "1F Room 1".
+  - Not changed: object names come from the sprite sheet ("Fat Man", "Expert"), as in FireRed; Emerald's unused Cave of
+    Origin maps are "Cave of Origin Unused Ruby Sapphire Map 1", reached only from each other.
 - **Area** (decision 25): `UNDERWATER_` comes off the key, so a route and its seabed are one area; a bare route is its own area
   (FireRed's routes have none); Secret Base rooms and Battle Pyramid squares have no Area list.
 

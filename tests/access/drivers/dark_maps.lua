@@ -122,5 +122,23 @@ return function(game)
   report("after Flash")
   tryCamera("after Flash")
   tryNavigation("after Flash", far)
+  -- Granite Cave B1F: the ladders past the cracked floor need the Mach Bike, and guided
+  -- navigation says so as auto-walk does (it said "Cannot reach yet" until 2026-11-19)
+  if isHoenn then
+    local _, nav = worldAndNav()
+    for _, item in ipairs(nav:captureWorld("all").browse or {}) do
+      if tostring(item.label):match("B2F, entrance 3 of") then
+        nav.browseFilter, nav.browseSelectionId = "all", item.id
+        L.heard()
+        nav:describeRouteToSelected()
+        U.wait(30)
+        local said = L.heard()
+        U.log(said:find("Needs Mach Bike", 1, true) and "PASS" or "FAIL", "guided past the cracked floor", said)
+        if nav.activeNavigation then nav:stopNavigation(false) end
+        nav:cancelPendingRoute(false)
+        break
+      end
+    end
+  end
   U.log("RESULT", "dark_maps done")
 end
