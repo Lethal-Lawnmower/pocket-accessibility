@@ -177,11 +177,17 @@ rental and swap (`Factory.init`, `generateInitialRentalMons`, the rest of the re
 as the other side), the refusal and same-species lines (forced by the driver), the
 Pyramid floor (`Pyramid.init`, `seedFloor`, then its map), both toss-choice and battle
 bag openings, Pike's room, Ruby and Sapphire's record board (the native's one call).
-The other facility results windows ran as modules. Not run: the pass's Battle Record
-row with a record saved and its playback; the Pyramid bag's refusal messages and GIVE
-through the party; the bag used in a real battle; a real Pyramid or Pike challenge
-from its lobby; Dome's EXIT button; a Ranking Hall row with a name, or link multi's
-two names. The Frontier Pass cursor is free: "nearest" and its way are ours, measured
+The other facility results windows ran as modules. Run since (2026-11-19, Emerald):
+the previous tree's close button ("EXIT"); the Pyramid bag's USE on an item with no
+use on a floor ("DAD's advice…") and GIVE through the party it opens ("ZIGGY was
+given the HYPER POTION to hold."); a Ranking Hall row with a name ("1. ROXIE Win
+streak: 42") and link multi's two names, set in the save's own lists. Link multi draws
+its names a line above and below the rank; they are said after the rank, joined by
+"and" (ours). The pass's Battle Record cannot hold a record: upstream's
+`rse/recorded_battle.lua` has no `canCopy` or `play` (source read), so the pass always
+prints "There is no Battle Record.", which is said. Not run: the Pyramid bag's
+mail and key item refusals; the bag used in a real battle; a real Pyramid or Pike
+challenge from its lobby. The Frontier Pass cursor is free: "nearest" and its way are ours, measured
 from the screen's own button rectangles, not from what the player can see; the head on
 the map outdoors is said as the nearest landmark.
 
