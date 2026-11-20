@@ -36,7 +36,10 @@ and recorded in the topic file.
   not reached by any driver. Not heard; no owner test.
 - **Upstream v0.4.8, merged 2026-11-20 on branch `upstream-v0.4.8`** (decision 78; `2ac4162d`,
   only `README.md` conflicted, ours kept). Brought into `main` by fast-forward the same day at the
-  owner's word ("to main."); not pushed. Cache formats changed for
+  owner's word ("to main."); `main` not pushed. Test IPA at the owner's request ("Build another IPA with
+  our latest stuff."): `dd937a33` pushed to `ios-build`, iOS run 44811222682 passed (simulator smoke
+  test), delivered to the owner's Downloads as `PocketAccessibility-unsigned-2026-11-20-v048.ipa`.
+  Not installed or heard on a device. Cache formats changed for
   Red, Blue, Yellow (v17 / yellow9), Gold, Silver, Crystal (v20 / crystal9): each re-imports once.
   Upstream moved Gen 2 screen wording to cartridge text labels; Gen 2 speech adapted (`ccf836a0`,
   `gold-silver-crystal.md`), and a presenter error no longer stops the game (`1bea5bce`, found when
