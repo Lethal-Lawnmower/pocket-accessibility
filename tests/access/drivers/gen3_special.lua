@@ -264,6 +264,75 @@ return function(game)
     wait(5)
   end)
 
+  -- Two screens the first runs only unit tested, by the game's own scripts (found by
+  -- name in the script bundle, so nothing depends on where the player stands): a
+  -- Pewter Museum fossil picture, and the Berry Powder man's box and list.
+  local function scriptNamed(...)
+    local found
+    for name in pairs(Space.bundle and Space.bundle.labels or {}) do
+      local hit = true
+      for _, part in ipairs({ ... }) do
+        if not name:find(part, 1, true) then hit = false end
+      end
+      if hit and (not found or #name < #found) then found = name end
+    end
+    return found
+  end
+  local function runScript(label, presses)
+    U.log("SCRIPT", tostring(label))
+    if not label then return false end
+    Space.startScript(label)
+    for _ = 1, presses do
+      wait(40)
+      if not busy() and not Stack.top() then break end
+      tap("a", 20)
+    end
+    settle()
+    return true
+  end
+
+  step("museum fossil by its script", function()
+    local MapCatalog = require("src.import.gba.map_catalog")
+    local mapId = MapCatalog.pretToEngine("PewterCity_Museum_1F")
+    goTo(mapId, 4, 5, "up")
+    local label = scriptNamed("Museum_1F", "AerodactylFossil") or scriptNamed("Museum_1F", "Fossil")
+    if label then runScript(label, 6) return end
+    -- FireRed and LeafGreen have no script label names (only the Hoenn games define
+    -- SCRIPT_LABELS), so start each of the map's own object scripts in turn: the
+    -- fossils are among them, and the screens they open are logged as they come.
+    -- 2026-11-19 the six object scripts held no fossil: the exhibits are the map's
+    -- background events, so those are started too.
+    local def = game.data.maps[mapId] or {}
+    local function runEvent(kind, index, key, localId, extra)
+      U.log(kind, tostring(index), tostring(extra), tostring(key))
+      Space.startScript(key, localId)
+      for _ = 1, 8 do
+        wait(40)
+        if not busy() and not Stack.top() then break end
+        tap("a", 20)
+      end
+      settle()
+    end
+    for index, obj in ipairs(def.objects or {}) do
+      if obj.scriptKey then
+        runEvent("OBJECT", index, obj.scriptKey, tonumber(obj.localId or obj.index) or index, obj.graphicsId or obj.gfx)
+      end
+    end
+    for index, event in ipairs(def.bgEvents or {}) do
+      if event.scriptKey then runEvent("BGEVENT", index, event.scriptKey, nil, tostring(event.x) .. "," .. tostring(event.y)) end
+    end
+  end)
+
+  step("Berry Powder man by his script", function()
+    local MapCatalog = require("src.import.gba.map_catalog")
+    local label = scriptNamed("BerryPowderMan") or scriptNamed("PowderMan") or scriptNamed("BerryPowder")
+    local house = label and label:match("^(.-)_EventScript")
+    U.log("HOUSE", tostring(house))
+    if house then goTo(MapCatalog.pretToEngine(house), 4, 4, "up") end
+    -- the BERRY POWDER he asks about is the Berry Crush record's own field
+    runScript(label, 10)
+  end)
+
   step("level-up window", function()
     local Growth = require("src.ui.game3.stat_growth")
     Growth.open({ species = 25 }, { maxHp = 20, atk = 10, def = 10, spa = 9, spd = 9, spe = 12 },

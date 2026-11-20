@@ -385,7 +385,7 @@ eq(last(), "How do I do this? Hints for BLUE.", "move: row and description, plac
 Help.level, Help.topic, Help.cursor = "submenu", 2, 1
 Help.rows = { { id = 7, label = "I can't leave a room!" }, { label = "CANCEL" } }
 update()
-eq(last(), "How do I do this? I can't leave a room!, 1 of 2", "submenu: topic, question, position")
+eq(last(), "How do I do this? I can't leave a room! 1 of 2", "submenu: topic, question, position (no comma after the question's own mark)")
 Help.level = "article"
 Help.article = { question = "I can't leave a room!", answer = "L1\nL2\nL3\nL4\nL5\nL6\nL7\nL8" }
 Help.articleScroll = 0
@@ -494,7 +494,7 @@ Tv.open, Tv.closing, Tv.state, Tv.cursor = true, false, "list", 1
 Tv._rows = { { label = "Teach me how to battle." }, { label = "CANCEL" } }
 Stack.push("teachy_tv", Tv, { hideBelow = true })
 update()
-eq(last(), "Teach me how to battle., 1 of 2", "Teachy TV list entry")
+eq(last(), "Teach me how to battle. 1 of 2", "Teachy TV list entry: no comma after the lesson's own full stop")
 Tv.cursor = 2
 update()
 eq(last(), "CANCEL", "list move")
@@ -506,7 +506,7 @@ update()
 eq(last(), "HELLO, TRAINERS!", "next lesson page")
 Tv.state, Tv.cursor = "list", 1
 update()
-eq(last(), "Teach me how to battle., 1 of 2", "back on the list")
+eq(last(), "Teach me how to battle. 1 of 2", "back on the list")
 
 -- ------------------------------------------------------- move relearner
 local MR = require("src.ui.game3.move_relearner")
@@ -527,8 +527,8 @@ MR.open, MR.state, MR.cursor, MR._moves, MR._info = true, "list", 1, { 33, 45 },
 MR.prompt = "Teach which move to PIKACHU?"
 Stack.push("move_relearner", MR, { hideBelow = true })
 update()
-eq(last(), "Teach which move to PIKACHU? TACKLE. TYPE NORMAL. POWER 35. ACCURACY 95. PP 35. EFFECT TACKLE hits., 1 of 3",
-  "relearner entry: prompt, move details, position")
+eq(last(), "Teach which move to PIKACHU? TACKLE. TYPE NORMAL. POWER 35. ACCURACY 95. PP 35. EFFECT TACKLE hits. 1 of 3",
+  "relearner entry: prompt, move details, position (no comma after the effect's own full stop)")
 MR.cursor = 2
 update()
 eq(last(), "GROWL. TYPE FIRE. POWER ---. ACCURACY 100. PP 40. EFFECT GROWL hits.",
@@ -735,6 +735,9 @@ eq(Settings.dialogueWhole(bare), false, "no block: page by page")
 eq(bare.options.firered, nil, "the block is not created by reading")
 
 eq(Menus.speakable("{A_BUTTON}NEXT"), "A button NEXT", "button tags keep a space after them")
+eq(Menus.speakable("CONFUSION, PSYCHC"), "CONFUSION, PSYCHIC", "the cart's six-letter PSYCHC is said in full")
+eq(Menus.speakable("ELECTR/FLYING"), "ELECTRIC/FLYING", "the cart's six-letter ELECTR is said in full")
+eq(Menus.speakable("ELECTRODE used PSYCHIC!"), "ELECTRODE used PSYCHIC!", "whole words only: ELECTRODE and PSYCHIC are untouched")
 eq(Menus.speakable("{DPAD_ANY}MOVE {DPAD_UP}{DPAD_DOWN}{DPAD_LEFT}{DPAD_RIGHT}"), "the control pad MOVE up down left right",
   "every pad glyph TextIR decodes has words")
 

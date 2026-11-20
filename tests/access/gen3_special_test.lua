@@ -464,7 +464,7 @@ do
   EC.footerLabels = function() return { "DEL. ALL", "CANCEL", "OK" } end
   EC.openFlag = true
   EC._state = { title = "PROFILE", instr1 = "Combine four words", instr2 = "and make your profile.",
-    confirm1 = "Your profile", confirm2 = "Is it as shown?", words = { 1, E.EC_WORD_UNDEFINED, 2, E.EC_WORD_UNDEFINED },
+    confirm1 = "Your profile", confirm2 = "is as shown. Okay?", words = { 1, E.EC_WORD_UNDEFINED, 2, E.EC_WORD_UNDEFINED },
     count = 4, cols = 2, mode = "SLOT", selectedSlot = 1, footerIdx = 3,
     groups = { { name = "POKéMON", words = {} }, { name = "GREETINGS", words = { { id = 1, text = "HELLO" }, { id = 9, text = "BYE" } } } },
     groupCursor = 1, wordCursor = 1, wordPage = 0, confirmChoice = 1 }
@@ -496,7 +496,8 @@ do
   eq(last(), "OK, 3 of 3", "footer")
   st.mode, st.confirmChoice = "CONFIRM", 1
   SR.update(p)
-  eq(last(), "Your profile HELLO BYE FRIEND. Is it as shown? YES", "confirm with the phrase")
+  -- the cart's two lines (gText_YourProfile, gText_IsAsShownOkay) are one sentence
+  eq(last(), "Your profile is as shown. Okay? HELLO BYE FRIEND. YES", "confirm: the question whole, then the phrase")
   st.mode, st.confirmChoice = "CANCEL_CONFIRM", 2
   SR.update(p)
   eq(last(), "Quit editing? NO", "cancel question")
@@ -720,6 +721,11 @@ do
   overlays()
   eq(last(), "Picture of a KABUTOPS fossil", "fossil picture")
   check(not called, "MuseumPic.isActive is never called")
+  Space.vm = nil
+  overlays()
+  Space.vm = { ctx = { museumFossilPic = { species = 142 } } }
+  overlays()
+  eq(last(), "Picture of an AERODACTYL fossil", "fossil picture before a vowel")
   MuseumPic.isActive = origActive
   Space.vm = nil
 

@@ -236,6 +236,22 @@ return function(game)
     Records.showRankingHall(session, 0, 1)
     wait(40)
     Records.remove()
+    -- Rows with names: a record in the save's own lists, as record mixing leaves them;
+    -- link multi keeps two names a row.
+    do
+      local Hall = require("src.core.game3.rse.frontier.ranking_hall")
+      local one, two = Hall.saved(session)
+      one[1][1][1] = { id = { 1, 2, 3, 4 }, name = "ROXIE", language = 2, winStreak = 42 }
+      two[1][1] = { id1 = { 1, 2, 3, 4 }, id2 = { 5, 6, 7, 8 }, name1 = "ROXIE", name2 = "WALLY", language = 2, winStreak = 17 }
+      L.log("WINDOW", "ranking hall with a name")
+      Records.showRankingHall(session, Util.RANKING_HALL.TOWER_SINGLES, 0)
+      wait(40)
+      L.log("WINDOW", "ranking hall, link multi with two names")
+      Records.showRankingHall(session, Util.RANKING_HALL.TOWER_LINK, 0)
+      wait(40)
+      Records.remove()
+      wait(4)
+    end
     -- natives_frontier: ShowBattlePointsWindow, UpdateBattlePointsWindow
     L.log("WINDOW", "bp")
     Records.showBp(session)
@@ -387,7 +403,7 @@ return function(game)
     waitInput()
     wait(20)
     -- To the close button by the tree's own movement table.
-    do
+    local function toCloseButton()
       local M = require("src.ui.game3.rse.pokeblock_gfx").of("rse/frontier_f2"):manifest().dome
       local KEYS = { "up", "down", "left", "right" }
       local cur = tonumber(f.curChallengeBattleNum) or 0
@@ -413,6 +429,7 @@ return function(game)
       end
       taps(path, 12)
     end
+    toCloseButton()
     L.log("CURSOR", tostring(UI._st.cursor))
     tap("a", 10)
     waitFor("closed", function() return not UI.isOpen() end, 200)
@@ -455,8 +472,12 @@ return function(game)
     waitInput()
     wait(20)
     tap("down", 16)
-    tap("b", 10)
+    toCloseButton()                     -- this tree's close button is EXIT
+    L.log("CURSOR", tostring(UI._st.cursor) .. " close button " .. tostring(UI.CLOSE_BUTTON))
+    wait(10)
+    tap("a", 10)
     waitFor("closed", function() return closed end, 200)
+    if not closed then tap("b", 10) waitFor("closed", function() return closed end, 200) end
     wait(20)
     f.curChallengeBattleNum = 0
     L.log("TOP", tostring(L.top()))
@@ -665,6 +686,60 @@ return function(game)
     L.log("MODE", tostring(PBag._st.mode))
     tap("down", 16)
     tap("b", 16)
+    -- A refusal and GIVE: USE on an item with no use on the floor, then a held item
+    -- given through the party the bag opens.
+    do
+      local function toRow(id)
+        for _ = 1, 12 do tap("up", 10) end
+        for _ = 1, 12 do
+          if PBag.selectedItem() == id then return true end
+          tap("down", 10)
+        end
+        return PBag.selectedItem() == id
+      end
+      local function toAction(name)
+        local acts = PBag.ACTIONS.field
+        for _, key in ipairs({ "right", "down", "left", "up", "right", "down" }) do
+          if acts[PBag._st.menuCursor] == name then return true end
+          tap(key, 14)
+        end
+        return acts[PBag._st.menuCursor] == name
+      end
+      local okX, xAttack = pcall(function() return Items:require("items", "ITEM_X_ATTACK") end)
+      if okX then
+        Py.bagAdd(session, xAttack, 1)
+        PBag.refresh()
+        wait(10)
+        L.log("ROW", "X ATTACK " .. tostring(toRow(xAttack)))
+        tap("a", 16)
+        L.log("ACTION", "USE " .. tostring(toAction("USE_FIELD")))
+        tap("a", 20)
+        L.log("MODE", tostring(PBag._st.mode))
+        tap("a", 16)
+        L.log("MODE", tostring(PBag._st.mode))
+      end
+      local hyper = Items:require("items", "ITEM_HYPER_POTION")
+      L.log("ROW", "HYPER POTION " .. tostring(toRow(hyper)))
+      tap("a", 16)
+      L.log("ACTION", "GIVE " .. tostring(toAction("GIVE")))
+      tap("a", 40)
+      wait(30)
+      L.log("TOP", tostring(L.top()))
+      if L.top() ~= PBag.ID and L.top() ~= "rse_pyramid_bag" then
+        tap("down", 20)
+        tap("a", 40)                     -- the second Pokémon
+        for _ = 1, 8 do
+          if L.top() == "rse_pyramid_bag" then break end
+          tap("a", 30)
+        end
+        for _ = 1, 4 do
+          if L.top() == "rse_pyramid_bag" then break end
+          tap("b", 30)
+        end
+      end
+      wait(30)
+      L.log("TOP", tostring(L.top()) .. " " .. tostring(PBag._st.mode) .. " held " .. tostring(session.party[2] and session.party[2].item))
+    end
     tap("b", 40)
     waitFor("closed", function() return not PBag.isOpen() end, 120)
     wait(30)

@@ -173,7 +173,12 @@ local PAINT_LAYERS = { g3u_battle = true }
 -- with its HUD, long before the player can open OPTION.
 local optionsWrapped = false
 
+-- Counts calls of Top.resolve (at least one a frame), so a presenter can tell
+-- "a moment ago" from "earlier" (Dialogue.lastSeen).
+Top.frame = 0
+
 function Top.resolve(game)
+  Top.frame = Top.frame + 1
   if type(game) ~= "table" or game.phase == "arena" then return nil end
   if not optionsWrapped then
     local Settings = loaded("src.access.Settings")

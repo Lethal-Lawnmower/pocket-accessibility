@@ -291,8 +291,20 @@ return function(game)
       L.log("STEP", "incoming call")
       MatchCall.startCall(session, game, { trainerId = trainer })
       wait(40)
+      -- The call waits for the player's next step (step_events.lua): walk until it rings.
       if not Window.isOpen() then
-        L.log("STEP", "queued for a step; starting the window with the same message")
+        L.log("STEP", "queued for a step; walking")
+        for _, key in ipairs({ "left", "right", "left", "right", "up", "down" }) do
+          if Window.isOpen() then break end
+          game.input.state[key] = true
+          wait(24)
+          game.input.state[key] = false
+          wait(30)
+        end
+        L.log("STEP", "window open after walking: " .. tostring(Window.isOpen()) .. " at " .. tostring(session.x) .. "," .. tostring(session.y))
+      end
+      if not Window.isOpen() then
+        L.log("STEP", "no call from a step; starting the window with the same message")
         Window.start({ session = session, message = function() return MatchCall.selectMessage(session, trainer) end })
       end
       wait(120)
@@ -334,6 +346,55 @@ return function(game)
       tap("b", 80)
       tap("b", 80)
       L.log("CLOSED", tostring(closed))
+      L.closeAll()
+    end)
+
+    -- The same tutorial by the game's own script (Mr. Stone's call in Rustboro City,
+    -- special OpenPokenavForTutorial), found by name in the script bundle.
+    section("tutorial_script", function()
+      L.closeAll()
+      local Space = require("src.core.game3.scripting.space")
+      local Message = require("src.ui.game3.message")
+      local label
+      for name in pairs(Space.bundle and Space.bundle.labels or {}) do
+        if name:find("MatchCallTutorial", 1, true) and (not label or #name < #label) then label = name end
+      end
+      L.log("SCRIPT", tostring(label))
+      if not label then return end
+      -- 2026-11-19 from Route 118 the script said nothing and the Pokenav never
+      -- opened: run it where the game runs it, in Rustboro City.
+      teleport("RUSTBORO_CITY$", 16, 20)
+      wait(30)
+      local started = Space.startScript(label)
+      L.log("STARTED", tostring(started) .. " status " .. tostring(Space.vm and Space.vm.ctx.status))
+      for _ = 1, 80 do
+        if nav() then break end
+        -- the script opens its own start menu on POKENAV (2026-11-19: "4 of 8") and
+        -- waits for A there
+        if Message.open or L.top() == "start" then tap("a", 16) else wait(8) end
+      end
+      L.log("OPEN", tostring(nav() ~= nil) .. " " .. tostring(L.top())
+        .. " status " .. tostring(Space.vm and Space.vm.ctx.status))
+      if not nav() then return end
+      wait(120)
+      tap("b", 20)                      -- refused during the tutorial
+      taps({ "down", "down" }, 20)
+      tap("a", 90)                      -- MATCH CALL
+      tap("a", 25)
+      tap("a", 25)                      -- CALL
+      for _ = 1, 30 do
+        local s = nav()
+        if not s or s.screen.handler == "list" then break end
+        tap("a", 40)
+      end
+      wait(30)
+      tap("b", 80)
+      tap("b", 80)
+      for _ = 1, 20 do
+        if not nav() and not Message.open and not (Space.vm and Space.vm:isRunning()) then break end
+        if Message.open then tap("a", 16) else tap("b", 30) end
+      end
+      L.log("TOP", tostring(L.top()) .. " script " .. tostring(Space.vm and Space.vm:isRunning()))
       L.closeAll()
     end)
   else

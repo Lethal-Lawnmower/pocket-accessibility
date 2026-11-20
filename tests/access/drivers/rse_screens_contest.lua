@@ -199,6 +199,60 @@ return function(game)
     wait(30)
   end)
 
+  -- A turn the player's Pokémon cannot take: its first move is given a contest effect
+  -- that misses the next turn (as HYPER BEAM's does), played in round 1, so round 2
+  -- prints "can't participate" and has no move list.
+  section("contest_skip", function()
+    local c = enter(0, 0)
+    if not c then L.log("FAIL", "no contest") return end
+    local Contest = require("src.core.game3.rse.contest")
+    local skipMove
+    for id, row in pairs(c.data and c.data.moves or {}) do
+      if type(row) == "table" and row.effect == Contest.EFFECT.JAMS_OTHERS_BUT_MISS_ONE_TURN
+          and (not skipMove or id < skipMove) then
+        skipMove = id
+      end
+    end
+    L.log("MOVE", tostring(skipMove))
+    if not skipMove then return end
+    c.mons[c.playerIndex].moves[0] = skipMove
+    local finished
+    contestUi("stage", "src.ui.game3.rse.contest").open({ contest = c, session = session,
+      onDone = function() finished = true end })
+    local Stage = require("src.ui.game3.rse.contest")
+    wait(30)
+    local rounds, frames, inMenu, skipped = 0, 0, false, 0
+    while not finished and frames < 60 * 60 * 20 do
+      local s = Stage.active()
+      if not s then break end
+      local task = s.m.tasks.t[s.mainTaskId]
+      if task and s.fn.taskHandleMoveSelectInput == task.func then
+        if not inMenu then
+          inMenu = true
+          rounds = rounds + 1
+          L.log("ROUND", rounds)
+          tap("a", 10)                  -- the first move
+        end
+      else
+        inMenu = false
+        if task and s.fn.taskTryShowMoveSelectScreen == task.func and c:isTurnDisabled(c.playerIndex) then
+          skipped = skipped + 1
+          if skipped == 1 then L.log("SKIPPED", "appeal " .. tostring(c.contest.appealNumber + 1)) wait(40) end
+          tap("a", 8)
+        elseif task and (s.fn.taskTryShowMoveSelectScreen == task.func or s.fn.taskPrintRoundResultText == task.func
+            or s.fn.taskWaitForOutOfTimeMsg == task.func) then
+          tap("a", 8)
+        else
+          wait(1)
+        end
+      end
+      frames = frames + 1
+    end
+    L.log("FINISHED", tostring(finished) .. " rounds with a move list " .. rounds .. " frames " .. frames)
+    wait(40)
+    L.closeAll()
+  end)
+
   section("case", function()
     blocks()
     Pokeblock.openCase(session, {})
@@ -321,6 +375,25 @@ return function(game)
         if Message.isOpen() and Message.isWaiting() then tap("a", 20) else wait(1) end
       end
     end
+    -- 2026-11-19 on Ruby the RUN press landed on POKeBLOCK, the case stayed open, the
+    -- battle never ended and the blender's bag could not open: close the case and RUN
+    -- again until the battle is over.
+    for _ = 1, 10 do
+      if not Battle.isActive() then break end
+      local top = tostring(L.top())
+      local Message = require("src.ui.game3.message")
+      if top:find("pokeblock", 1, true) then tap("b", 40)
+      elseif atMenu() then
+        for _ = 1, 4 do
+          local c = (Ui._menuIndex or 1) - 1
+          if c == 3 then break end
+          if c % 2 ~= 1 then tap(c % 2 == 0 and "right" or "left", 20) else tap(c < 2 and "down" or "up", 20) end
+        end
+        L.log("RUNFROM", tostring((Ui._menuIndex or 1) - 1))
+        tap("a", 60)
+      elseif Message.isOpen() and Message.isWaiting() then tap("a", 20)
+      else wait(40) end
+    end
     session.safari = nil
     wait(60)
     L.log("INBATTLE", tostring(Battle.isActive()))
@@ -346,9 +419,14 @@ return function(game)
     local Mod = Screens.get("berry_blender", session) or require("src.ui.game3.rse.berry_blender")
     local finished
     local RsPolicy = require("src.core.game3.rs.berry_blender_policy")
-    local screen = Mod.open({ session = session, opponents = 1, blendMaster = false,
-      version = Profile.forSession(session).id, playerName = "MAY",
-      onDone = function() finished = true end })
+    local screen
+    local function open()
+      finished = nil
+      screen = Mod.open({ session = session, opponents = 1, blendMaster = false,
+        version = Profile.forSession(session).id, playerName = "MAY",
+        onDone = function() finished = true end })
+    end
+    open()
     L.log("NB", tostring(NB ~= nil and RsPolicy ~= nil))
     wait(30)
     L.log("TOP", tostring(L.top()))
@@ -372,7 +450,12 @@ return function(game)
         return cue(self, id, opts)
       end
     end
-    while not finished and frames < 60 * 180 do
+    -- `plan` answers each "blend another BERRY?" in turn: "yes" (another game), "full"
+    -- (the driver fills the case, then YES: refused), "none" (the driver takes every
+    -- berry out of the bag, then YES: refused), "no".
+    local function play(plan)
+    local limit = frames + 60 * 180 * #plan
+    while not finished and frames < limit do
       local top = L.top()
       if top == "rse_berry_tag" or top == "rs_berry_tag" then
         wait(40)
@@ -415,22 +498,51 @@ return function(game)
         end
         cool = math.max(0, cool - 1)
       elseif screen.yesNo then
-        L.log("STEP", "another?")
+        answered = answered + 1
+        local answer = plan[math.min(answered, #plan)] or "no"
+        if answered > #plan then answer = "no" end
+        L.log("STEP", "another? " .. answer)
+        if answer == "full" then
+          for _ = 1, 60 do
+            if Pokeblock.firstFreeSlot(session) == -1 then break end
+            Pokeblock.add(session, Pokeblock.new({ color = 1, spicy = 1, dry = 0, sweet = 0, bitter = 0, sour = 0, feel = 1 }))
+          end
+        elseif answer == "none" then
+          local Rse = require("src.ui.game3.rse.berry_blender")
+          for _ = 1, 60 do
+            local id = Rse.firstBerry(session)
+            if id == 0 then break end
+            Bag.set(session.bag, id, 0)
+          end
+          L.log("BERRIES", tostring(Rse.hasBerries(session)))
+        end
         tap("down", 20)
         tap("up", 20)
-        tap("down", 20)
+        if answer == "no" then tap("down", 20) end
         tap("a", 20)
-        answered = answered + 1
-      elseif screen.printer or (screen.cb == "end") then
+      elseif screen.printer or (screen.cb == "end") or (screen.cb == "again") then
         tap("a", 12)
       else
         wait(1)
       end
       frames = frames + 1
     end
-    if nav and cue then nav.cue = cue end
     L.log("FINISHED", tostring(finished) .. " played " .. tostring(played) .. " frames " .. frames .. " answered " .. answered
       .. " tones " .. tones)
+    end
+    if byTone then
+      play({ "no" })
+    else
+      play({ "yes", "full" })
+      wait(60)
+      L.closeAll()
+      L.log("STEP", "second visit")
+      answered = 0
+      open()
+      wait(30)
+      play({ "none" })
+    end
+    if nav and cue then nav.cue = cue end
     wait(40)
   end)
 

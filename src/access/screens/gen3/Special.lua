@@ -1180,7 +1180,10 @@ Special.easyChat = add({
       if modeChanged then
         memo.choice = st.confirmChoice
         if mode == "CONFIRM" then
-          parts[#parts + 1] = say(st.confirm1) .. " " .. easyPhrase(st) .. ". " .. say(st.confirm2)
+          -- the box's two lines are one sentence ("Your profile" / "is as shown.
+          -- Okay?"), so the phrase follows it instead of splitting it
+          parts[#parts + 1] = say(st.confirm1) .. " " .. say(st.confirm2)
+          parts[#parts + 1] = easyPhrase(st)
         elseif mode == "CANCEL_CONFIRM" then
           parts[#parts + 1] = say(rom("gText_QuitEditing"))
         else
@@ -1785,7 +1788,12 @@ Special.picture = add({
     memo.said = true
     local name = speciesName(state.species)
     if not name then return nil end
-    if state.fossil then return "Picture of a " .. say(name) .. " fossil", false end
+    if state.fossil then
+      -- "an AERODACTYL fossil" (run in game 2026-11-19 said "a AERODACTYL")
+      local spoken = say(name)
+      local article = spoken:match("^[AEIOUaeiou]") and "an " or "a "
+      return "Picture of " .. article .. spoken .. " fossil", false
+    end
     return "Picture: " .. say(name), false
   end,
 })

@@ -595,7 +595,7 @@ poll(dexScreen)
 eq(last(), "POKéMON LIST. number 001, BULBASAUR, caught, type GRASS and POISON, 1 of 4", "list row: caught with types")
 Pokedex.listCursor = 2
 poll(dexScreen)
-eq(last(), "number 002, -----", "unseen row as drawn")
+eq(last(), "number 002, not seen", "unseen row: its dashes said as words, as in Hoenn's list")
 Pokedex.listCursor = 4
 poll(dexScreen)
 eq(last(), "number 004, CHARMANDER, seen", "seen row")
@@ -787,6 +787,35 @@ eq(last(), "POTION, and you want 3. That will be ¥900. Okay? YES", "buy confirm
 ShopMenu.mode, ShopMenu._status, session.money = "buy_msg", "Here you are!\nThank you!", 2100
 poll(shopScreen)
 eq(last(), "Here you are! Thank you! MONEY ¥2100", "purchase message and new money")
+
+-- a clerk's script: the greeting is a message page, said by the dialogue
+-- presenter, and the shop opens over it with the same line as its status
+local ShopMessage = require("src.ui.game3.message")
+local messageWas = { ShopMessage.open, ShopMessage._pages, ShopMessage._page }
+reset()
+ShopMessage.open, ShopMessage._pages, ShopMessage._page = true, { "Hi, there!\nMay I help you?" }, 1
+ShopMenu.mode, ShopMenu.cursor, ShopMenu._status = "root", 1, "Hi, there!\nMay I help you?"
+poll(screen("shop", ShopMenu))
+eq(last(), "BUY, 1 of 3", "shop over the clerk's message: the greeting is not said twice")
+reset()
+ShopMessage._pages = { "Welcome!" }
+poll(screen("shop", ShopMenu))
+eq(last(), "Hi, there! May I help you? BUY, 1 of 3", "shop over another message: its own status is said")
+ShopMessage.open, ShopMessage._pages, ShopMessage._page = messageWas[1], messageWas[2], messageWas[3]
+-- the script closes its message as it opens the shop (adapters.lua openShop):
+-- what the dialogue presenter said a moment before counts
+local ShopDialogue = require("src.access.screens.gen3.Dialogue")
+reset()
+ShopDialogue.lastText, ShopDialogue.lastSeen = "Hi, there! May I help you?", Top.frame
+poll(screen("shop", ShopMenu))
+eq(last(), "BUY, 1 of 3", "shop right after the clerk's message closed: the greeting is not said twice")
+eq(spoken[#spoken].interrupt, false, "and the row waits behind the greeting still being spoken")
+reset()
+ShopDialogue.lastSeen = Top.frame - 600
+poll(screen("shop", ShopMenu))
+eq(last(), "Hi, there! May I help you? BUY, 1 of 3", "shop long after that message: its own status is said")
+eq(spoken[#spoken].interrupt, true, "and it interrupts, as a new screen does")
+ShopDialogue.lastText, ShopDialogue.lastSeen = nil, nil
 
 -- ------------------------------------------------------------- money box
 local MoneyBox = require("src.ui.game3.money_box")

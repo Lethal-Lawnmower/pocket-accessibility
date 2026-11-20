@@ -370,7 +370,66 @@ return function(game)
     L.closeAll()
   end)
 
+  -- A clerk's own script: the greeting as a message, then the shop over it
+  -- (the "shop" section above opens the module with no script).
+  section("clerk", function()
+    local Map = require("src.core.game3.map")
+    local Player = require("src.core.game3.player")
+    local MapIds = require("src.core.game3.map_ids")
+    local Objects = require("src.core.game3.objects")
+    local Message = require("src.ui.game3.message")
+    local ShopMenu = require("src.ui.game3.shop_menu")
+    local function goTo(x, y, facing)
+      L.closeAll()
+      Map.load(nil, game, MapIds.forConst("MAP_OLDALE_TOWN_MART"), { x = x, y = y, facing = facing })
+      local s = L.session()
+      s.x, s.y, s.facing = x, y, facing
+      Player.cellX, Player.cellY, Player.px, Player.py = x, y, x * 16, y * 16
+      Player.targetX, Player.targetY, Player.facing = x, y, facing
+      wait(40)
+    end
+    goTo(4, 6, "up")
+    local clerk
+    for _, d in ipairs(Objects._defs or {}) do
+      local what = tostring(d.sprite) .. " " .. tostring(d.graphicsId or d.gfx) .. " " .. tostring(d.script)
+      L.log("OBJECT", what .. " at " .. tostring(d.x) .. "," .. tostring(d.y))
+      -- OBJ_EVENT_GFX_MART_EMPLOYEE is 83 in all three games' event_objects constants
+      if (d.graphicsId or d.gfx) == 83 or what:find("Clerk") or what:find("MART_EMPLOYEE") then clerk = d end
+    end
+    if not clerk then L.log("FAIL", "no clerk on " .. tostring(L.session().map)) return end
+    for _, away in ipairs({ 1, 2 }) do   -- beside the clerk, or across the counter
+      goTo(clerk.x + away, clerk.y, "left")
+      tap("a", 20)
+      for _ = 1, 60 do
+        if ShopMenu.open then break end
+        if Message.open and Message.isWaiting and Message.isWaiting() then tap("a", 12) else wait(6) end
+      end
+      if ShopMenu.open then break end
+      L.talk(6)
+    end
+    L.log("SHOP", tostring(ShopMenu.open) .. " " .. tostring(L.top()))
+    if not ShopMenu.open then return end
+    wait(30)
+    taps({ "down", "up" }, 15)
+    tap("a", 70)                        -- BUY
+    tap("down", 15)
+    tap("b", 70)
+    tap("b", 40)                        -- QUIT
+    for _ = 1, 12 do
+      if not Message.open and not Stack.top() then break end
+      tap("a", 20)
+    end
+    L.closeAll()
+  end)
+
   section("pokenav", function()
+    do
+      local Message = require("src.ui.game3.message")
+      local Choice = require("src.ui.game3.choice")
+      local Space = require("src.core.game3.scripting.space")
+      L.log("BEFORE", "top " .. tostring(L.top()) .. " message " .. tostring(Message.open) .. " choice "
+        .. tostring(Choice.active) .. " script " .. tostring(Space.vm and Space.vm:isRunning()) .. " phase " .. tostring(game.phase))
+    end
     if not startTo("pokenav") then return end
     tap("a", 90)
     L.log("TOP", tostring(L.top()))

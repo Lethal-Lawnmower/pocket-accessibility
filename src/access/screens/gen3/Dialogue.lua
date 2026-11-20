@@ -18,6 +18,7 @@
 local Common = require("src.access.screens.gen3.Common")
 local Gen2Common = require("src.access.screens.gen2.Common")
 local Settings = require("src.access.Settings")
+local Top = require("src.access.screens.gen3.Top")
 
 local Dialogue = {}
 
@@ -35,6 +36,9 @@ Dialogue.message = {
     local Message = state.mod
     local pages = state.key
     if not Message or Message._pages ~= pages or Message._frame == "braille" then return nil end
+    -- When this message was last on screen and what was said for it, for a screen
+    -- that closes it and shows the same line as its own (the shop's greeting).
+    Dialogue.lastSeen = Top.frame
     if Settings.dialogueWhole(state.game) then
       if memo.whole then return nil end
       memo.whole = true
@@ -44,6 +48,7 @@ Dialogue.message = {
       end
       local text = say(all)
       if text == "" then return nil end
+      Dialogue.lastText = text
       return text, true
     end
     local page = Message._page or 1
@@ -60,6 +65,7 @@ Dialogue.message = {
     end
     local text = say(lines)
     if text == "" then return nil end
+    Dialogue.lastText = text
     return text, true
   end,
 }

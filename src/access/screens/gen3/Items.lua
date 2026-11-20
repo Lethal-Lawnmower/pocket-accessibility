@@ -1300,7 +1300,9 @@ function Dex.listRow(D, list, i)
   local isSeen = seen(D, sp)
   local isCaught = caught(D, sp)
   local types = isCaught and P and try(P.types, sp) or nil
-  return join({ Dex.number(D, sp), isSeen and say(try(P and P.name, sp)) or say(rom("gText_5Dashes")),
+  -- an unseen row draws five dashes (gText_5Dashes), which a screen reader
+  -- skips or spells: "not seen", the words Hoenn's list uses for the same row
+  return join({ Dex.number(D, sp), isSeen and say(try(P and P.name, sp)) or "not seen",
     isCaught and "caught" or (isSeen and "seen" or nil),
     types and typesText(types[1], types[2]) or nil })
 end
@@ -1899,6 +1901,24 @@ function Shop.quantity(S, first)
   return join({ quantity(S.qty, max), total, inBagText })
 end
 
+-- A clerk's script shows the greeting through the message module, then closes
+-- it and opens the shop with the same line as its status (adapters.lua
+-- openShop).  The dialogue presenter has just said that page, so the shop's
+-- opening leaves it out; a shop opened with no such message a moment before
+-- says its status as before.
+local function messageShows(text)
+  if not text then return false end
+  local Message = loaded("src.ui.game3.message")
+  if Message and Message.open and type(Message._pages) == "table"
+      and say(Message._pages[Message._page or 1]) == text then
+    return true
+  end
+  local Dialogue = loaded("src.access.screens.gen3.Dialogue")
+  return Dialogue ~= nil and Dialogue.lastText == text and Dialogue.lastSeen ~= nil
+    and Top.frame - Dialogue.lastSeen <= 8
+end
+Items.messageShows = messageShows
+
 function Shop.read(S, memo, entering)
   if not S.open or S._rse then return nil end
   local mode = S.mode or "root"
@@ -1910,12 +1930,15 @@ function Shop.read(S, memo, entering)
     return nil
   end
   local items = type(S._items) == "table" and S._items or {}
-  local text
+  local text, queue
   if mode == "root" then
     local label = say(romAt("sShopMenuActions_BuySellQuit", (S.cursor or 1) - 1))
     local count = type(S.ROOT) == "table" and #S.ROOT or 3
     if fresh then
-      text = sentences(say(S._status), label and join({ label, position(S.cursor or 1, count) }))
+      local status = say(S._status)
+      -- the greeting is still being spoken as dialogue: the row waits behind it
+      if entering and messageShows(status) then status, queue = nil, true end
+      text = sentences(status, label and join({ label, position(S.cursor or 1, count) }))
     elseif S.cursor ~= memo.cursor then
       text = label
     elseif S._status ~= memo.status then
@@ -1949,15 +1972,15 @@ function Shop.read(S, memo, entering)
     text = sentences(text, moneyText(money))
   end
   memo.cursor, memo.status, memo.qty, memo.yesNo, memo.money = S.cursor, S._status, S.qty, S.yesNoCursor, money
-  return text
+  return text, queue
 end
 
 Items.shop = {
   matches = Common.matcher("shop", "src.ui.game3.shop_menu"),
   poll = function(state, memo, entering)
-    local text = Shop.read(state.mod, memo, entering)
+    local text, queue = Shop.read(state.mod, memo, entering)
     if not text then return nil end
-    return text, true
+    return text, not queue
   end,
 }
 

@@ -72,10 +72,21 @@ local TAG_WORDS = {
   UP_ARROW = "up ", DOWN_ARROW = "down ", LEFT_ARROW = "left ", RIGHT_ARROW = "right ",
 }
 
+-- Type names the cart cuts to six letters to fit its windows (gTypeNames:
+-- PSYCHC, ELECTR), which a screen reader spells or garbles; said in full,
+-- as whole words only.
+local CUT_WORDS = { PSYCHC = "PSYCHIC", ELECTR = "ELECTRIC" }
+
+local function fullWords(text)
+  if not (text:find("PSYCHC", 1, true) or text:find("ELECTR", 1, true)) then return text end
+  return (text:gsub("%f[%w]%u+%f[%W]", CUT_WORDS))
+end
+
 function Common.speakable(text)
   text = stripControls(tostring(text or ""))
   text = text:gsub("{PK}{MN}", "{PKMN}")
   text = text:gsub("{([%u%d_]+)[^}]*}", function(tag) return TAG_WORDS[tag] or "" end)
+  text = fullWords(text)
   text = text:gsub("\f", "\n")
   local lines = {}
   for line in (text .. "\n"):gmatch("(.-)\n") do
@@ -90,6 +101,7 @@ function Common.lines(text)
   text = stripControls(tostring(text or ""))
   text = text:gsub("{PK}{MN}", "{PKMN}")
   text = text:gsub("{([%u%d_]+)[^}]*}", function(tag) return TAG_WORDS[tag] or "" end)
+  text = fullWords(text)
   local lines = {}
   for line in (text:gsub("\f", "\n") .. "\n"):gmatch("(.-)\n") do
     line = line:gsub("^%s+", ""):gsub("%s+$", "")
