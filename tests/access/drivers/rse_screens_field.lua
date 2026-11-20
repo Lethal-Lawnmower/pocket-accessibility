@@ -726,7 +726,9 @@ return function(game)
       L.log("SCRIPT", label)
       Space.startScript(label)
       local opened = false
-      for _ = 1, 60 do
+      -- The editor opens only after his last line closes and the screen fades:
+      -- the Sapphire run of 2026-11-19 outlasted 60 rounds and left it open.
+      for _ = 1, 200 do
         if L.top() == "rs_trendy_phrase" then opened = true break end
         -- "have you heard about this?" NO: he then asks for a new phrase
         if Choice.isOpen() then tap("down", 16) tap("a", 16)
