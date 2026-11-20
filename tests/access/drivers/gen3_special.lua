@@ -300,18 +300,26 @@ return function(game)
     -- FireRed and LeafGreen have no script label names (only the Hoenn games define
     -- SCRIPT_LABELS), so start each of the map's own object scripts in turn: the
     -- fossils are among them, and the screens they open are logged as they come.
+    -- 2026-11-19 the six object scripts held no fossil: the exhibits are the map's
+    -- background events, so those are started too.
     local def = game.data.maps[mapId] or {}
+    local function runEvent(kind, index, key, localId, extra)
+      U.log(kind, tostring(index), tostring(extra), tostring(key))
+      Space.startScript(key, localId)
+      for _ = 1, 8 do
+        wait(40)
+        if not busy() and not Stack.top() then break end
+        tap("a", 20)
+      end
+      settle()
+    end
     for index, obj in ipairs(def.objects or {}) do
       if obj.scriptKey then
-        U.log("OBJECT", tostring(index), tostring(obj.graphicsId or obj.gfx), tostring(obj.scriptKey))
-        Space.startScript(obj.scriptKey, tonumber(obj.localId or obj.index) or index)
-        for _ = 1, 8 do
-          wait(40)
-          if not busy() and not Stack.top() then break end
-          tap("a", 20)
-        end
-        settle()
+        runEvent("OBJECT", index, obj.scriptKey, tonumber(obj.localId or obj.index) or index, obj.graphicsId or obj.gfx)
       end
+    end
+    for index, event in ipairs(def.bgEvents or {}) do
+      if event.scriptKey then runEvent("BGEVENT", index, event.scriptKey, nil, tostring(event.x) .. "," .. tostring(event.y)) end
     end
   end)
 
