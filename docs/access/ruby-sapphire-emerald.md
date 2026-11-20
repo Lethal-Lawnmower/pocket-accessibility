@@ -222,22 +222,17 @@ Safari there is BALL, POKéBLOCK, GO NEAR, RUN. Weather and ability lines are
 ordinary battle messages ("Wild KYOGRE's DRIZZLE made it rain!", "The sandstorm
 rages."), so they speak like any message.
 
-Run in game in Emerald (`drivers/rse_battle.lua`): wild catch with Pokédex page
-and nickname question, level up with learn-move questions, SHIFT trainer battle,
-run, Safari, double battle with both menus and targets, weather; every scene
-TALLY missed=0.
+Run in game (`drivers/rse_battle.lua`): wild catch with Pokédex page and nickname
+question, level up with learn-move questions, a move forgotten through the
+summary, SHIFT trainer battle, run, Safari, double battle with both menus and
+targets, weather; every scene TALLY missed=0.
 
-Forgetting a move (2026-11-09; the owner noted the old Access scripts could not
-do this), run in game on Emerald and Ruby, silent, read from logs: a level up in
-battle answered YES and a move chosen (`rse_battle` scene `forget`), the move
-tutor teaching over a known move (`rse_screens_field` `tutor_forget`, cursor down
-to the new move's row and back), and a TM from the party screen (`tm_forget`).
-Each said the questions, every row with its position, the new move as "new
-move", "1, 2 and... Poof!", the forgotten and learned lines, and the moves
-changed. Before this, the drivers only answered NO or pressed B on the forget
-screen, so the choosing itself had never run in Hoenn; the rows had no position
-after the first and the fifth was not marked (fixed in `HoennItems.lua` and
-FireRed's `Items.lua`). "new move" is our wording, open to the owner.
+Forgetting a move (the owner noted the old Access scripts could not do this) runs
+three ways: a level up in battle (`rse_battle` scene `forget`), the move tutor
+(`rse_screens_field` `tutor_forget`) and a TM from the party screen (`tm_forget`).
+Each says the questions, every row with its position, the fifth as "new move"
+(our wording, open to the owner), "1, 2 and... Poof!", and the forgotten and
+learned lines.
 
 ## PC Clock mod (2026-11-10, decision 70)
 

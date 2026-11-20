@@ -264,6 +264,49 @@ return function(game)
     wait(5)
   end)
 
+  -- Two screens the first runs only unit tested, by the game's own scripts (found by
+  -- name in the script bundle, so nothing depends on where the player stands): a
+  -- Pewter Museum fossil picture, and the Berry Powder man's box and list.
+  local function scriptNamed(...)
+    local found
+    for name in pairs(Space.bundle and Space.bundle.labels or {}) do
+      local hit = true
+      for _, part in ipairs({ ... }) do
+        if not name:find(part, 1, true) then hit = false end
+      end
+      if hit and (not found or #name < #found) then found = name end
+    end
+    return found
+  end
+  local function runScript(label, presses)
+    U.log("SCRIPT", tostring(label))
+    if not label then return false end
+    Space.startScript(label)
+    for _ = 1, presses do
+      wait(40)
+      if not busy() and not Stack.top() then break end
+      tap("a", 20)
+    end
+    settle()
+    return true
+  end
+
+  step("museum fossil by its script", function()
+    local MapCatalog = require("src.import.gba.map_catalog")
+    goTo(MapCatalog.pretToEngine("PewterCity_Museum_1F"), 4, 5, "up")
+    runScript(scriptNamed("Museum_1F", "AerodactylFossil") or scriptNamed("Museum_1F", "Fossil"), 6)
+  end)
+
+  step("Berry Powder man by his script", function()
+    local MapCatalog = require("src.import.gba.map_catalog")
+    local label = scriptNamed("BerryPowderMan") or scriptNamed("PowderMan") or scriptNamed("BerryPowder")
+    local house = label and label:match("^(.-)_EventScript")
+    U.log("HOUSE", tostring(house))
+    if house then goTo(MapCatalog.pretToEngine(house), 4, 4, "up") end
+    -- the BERRY POWDER he asks about is the Berry Crush record's own field
+    runScript(label, 10)
+  end)
+
   step("level-up window", function()
     local Growth = require("src.ui.game3.stat_growth")
     Growth.open({ species = 25 }, { maxHp = 20, atk = 10, def = 10, spa = 9, spd = 9, spe = 12 },

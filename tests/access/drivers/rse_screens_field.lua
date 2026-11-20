@@ -719,6 +719,35 @@ return function(game)
     waitFor("closed", function() return closed end, 90)
     L.log("CLOSED", tostring(closed))
     L.closeAll()
+    -- The trendy phrase editor by the game's own script: Dewford's boy asks for a phrase.
+    local label = "DewfordTown_EventScript_TrendyPhraseBoy"
+    if Space.bundle and Space.bundle.labels and Space.bundle.labels[label] then
+      goTo("MAP_DEWFORD_TOWN", 8, 8, "up")
+      L.log("SCRIPT", label)
+      Space.startScript(label)
+      local opened = false
+      for _ = 1, 60 do
+        if L.top() == "rs_trendy_phrase" then opened = true break end
+        -- "have you heard about this?" NO: he then asks for a new phrase
+        if Choice.isOpen() then tap("down", 16) tap("a", 16)
+        elseif Message.open then tap("a", 16) else wait(8) end
+      end
+      L.log("TRENDY", tostring(opened) .. " " .. tostring(L.top()))
+      if opened then
+        waitFor("input", function() return Trend._state == "input" end, 120)
+        wait(20)
+        taps({ "right", "left" }, 16)
+        for _ = 1, 8 do
+          if L.top() ~= "rs_trendy_phrase" then break end
+          if Trend._confirm and Trend._confirm.kind == "cancel" then tap("up", 16) tap("a", 30) else tap("b", 30) end
+        end
+      end
+      for _ = 1, 12 do
+        if not Message.open and not Choice.isOpen() and not (Space.vm and Space.vm:isRunning()) then break end
+        tap("b", 20)
+      end
+      L.log("TOP", tostring(L.top()))
+    end
   end)
 
   section("em_words", function()
