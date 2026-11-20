@@ -83,7 +83,7 @@ All of this is run in game by driver, silent; nobody has heard it.
   switches (Mossdeep Gym, Trick House 7) "Floor switches change this floor: use auto walk". Lavaridge Gym's buried
   trainers stand in four of its holes, unseen and in no list: "Blocked by a hidden trainer", not "Blocked by Man"
   (agent's wording, open to the owner: it tells the player a trainer is there before the trainer jumps out).
-- **Of the 55 bare refusals, 9 are left** after the third pass below: the Abandoned Ship's locked rooms asked from
+- **Of the 55 bare refusals, 9 are left** after the third pass below (none after the fourth, which says what became of them): the Abandoned Ship's locked rooms asked from
   inside another room (3; a player comes from the corridor, where the game's own "locked" text answers); Magma
   Hideout 2F Room 3 from 1F (not looked into); Route 112's south-west pocket with Jagged Pass and Lavaridge's edge
   (2; reached by the cable car and down Jagged Pass: the ride is the player's); Route 123's north-east from its west
@@ -117,8 +117,9 @@ Run in game by driver, silent; nobody has heard it.
   blocked by Fossil in Mt. Moon B2F" (true: the two fossils close the corridor until one is taken; the first
   version named a Youngster who can be walked round).
 - **Places the story or the tide keeps shut** (`closedForNow`, the last thing asked): Lilycove's water while the
-  Wailmer are drawn, "Blocked by a group of Wailmer" (they close the cove and the only way east to Route 124, seen
-  in the planner's grid; the earlier note that the harness's badges should clear them was wrong: the story does);
+  Wailmer are drawn, "Blocked by a group of Wailmer" (they close the only way east to Route 124, seen in the planner's
+  grid; corrected in the fourth pass: this said they closed the cove too, but the hideout's door has a route with
+  them drawn, as agent parity found; the earlier note that the harness's badges should clear them was wrong: the story does);
   the three sealed chambers, "Sealed: the braille on the far wall says how to open it"; Shoal Cave, "Not at low
   tide: this part is reached at high tide" and the reverse, by the game's own tide flag (the rooms keep their "low
   tide" map at either tide. Found because `rse_story`'s walk to the Ice Room said "No route" in a run after 9 in
@@ -142,6 +143,89 @@ Run in game by driver, silent; nobody has heard it.
   tide; part W 5 of 5 on the last code. Ruby: `rse_dive_spots`, and `rse_story` 40 arrived with its four blocks,
   W 5 of 5. Sapphire: `rse_dive_spots` (its `rse_story` was last run before this pass: the same four blocks).
   FireRed and LeafGreen: `firered-leafgreen-navigation.md`.
+
+## Fourth pass (2026-11-19, the same request, carried on)
+
+Run in game by driver, silent, unless a line says otherwise; nobody has heard it.
+
+- **Things down the currents** (`Navigation:farMaps`, `farTargets`, in the Area list). The item balls of a map with
+  currents are listed on the maps up to three connections upstream of it, as "Max Revive, Route 133", and their
+  journey is planned across the routes like a far dive spot's. "Upstream" is read from the maps: a map with at least 8
+  cells of current, entered the way most of them run, through maps entered that way themselves (Routes 132, 133 and
+  134 from Pacifidlog or Route 131; none from Slateport). Only Routes 132 to 134 have currents and connections in
+  Emerald, so no other Area list grows; FireRed has none. Built each time the list opens: a ball taken is gone.
+  The Sealed Chamber's far dive spot follows the same rule now (from Slateport it was listed and answered "No route"
+  after two thirds of a second). From Pacifidlog eight entries are listed. Two have a way there: Route 133's Star
+  Piece, at the end of one of Route 132's northern lanes, and the Sealed Chamber's dive spot; both are walked from
+  the town in one auto-walk each in `rse_story` W. The other six (Route 132's Rare Candy and Protein, Route 133's
+  Big Pearl and Max Revive, Route 134's Carbos and Star Piece) are reached only by a current that ends on land, and
+  are answered "No route to ... from here" in 0.5 to 0.8 seconds (next item). Before that rule, Rare Candy, Max
+  Revive and Carbos were walked to and arrived.
+- **A current that ends on land is not planned.** Upstream carries the player onto the land and leaves them surfing
+  there (Route 134's east sandbar: `Player.surfing` set on a sand cell). Walking along the sand does not dismount
+  them (a dismount needs a change of elevation, and sand and player are both 3), and from it neither Surf nor a step
+  into the water works (probes `batch_em6`, `batch_em7`): the walk to Route 134's Star Piece stopped there with
+  "Could not use Surf, auto walk stopped. Use Surf facing down". The player is stranded until Fly or the like. An
+  upstream fault, worked round in the planner (`forcedChain`): such a carry is no move, so the six balls above are
+  refused rather than walked into a trap. A first try that kept the carry and only refused Surf from the cell it
+  ends on did not help (the player is still surfing a cell further on) and was reverted. A player who surfs into
+  such a current by hand still meets it. Whether Fly-holders should be led there anyway is the owner's call.
+- **Arrival says what to do.** A far dive spot: "Arrived at Dive Spot to Underwater Sealed Chamber, Route 134. Press
+  A and answer yes to dive" (guided navigation's last leg ends with the same words: unit test only). An item ball
+  from the Area list, here and in FireRed: "Arrived at Rare Candy, Route 132. Face left and interact".
+- **A dive spot's label follows its item balls**: worked out again when a ball on its map or the map below is taken
+  or appears, not once a session (unit test; not run in game).
+- **Parts reached from another side** (`Navigation:otherWayIn`, the last reason asked, in `closedReason`). The
+  movement graph is turned round and searched back from the target; every door or edge of the map from which the
+  target can be reached, with what the party can do now, is named: "Not from here: this part is reached from Route
+  122" (Route 123's east end past its one-way ledges), "from Lavaridge Town" and "from Jagged Pass" (Route 112's
+  pocket), "from Route 124" (Route 125's north-west water), "from Route 132" (an item on Route 133 the current has
+  carried the player past). The target's own far side is named only when no other way in reaches it. Auto-walk asks
+  `closedReason` too before it says "No route" (Gen 3's coordinator only), so the tide, the Wailmer and these are
+  said by both. 0.001 to 0.04 seconds a refusal. Agent's wording, open to the owner.
+- **Key doors** (`Scripts.keyDoor`, `Navigation:lockedDoor`). The Abandoned Ship's four locked rooms were listed as
+  "Hidden Switch"; they are "Locked Door, needs Rm. 2 Key" until opened (the key's name as the game spells it). A
+  journey a locked door closes says "A door on the way is locked: needs the Rm. 2 Key": the door's flag is supposed
+  set, the floor read as it would then load, and the journey searched again. Seen for rooms 1, 2, 4 and 6 and for
+  the Storage Key's room. With the key in the bag it says "face it and press A, the Rm. 2 Key opens it": unit test
+  only (the probe's item name was not taken by the harness).
+- **Who blocks, past boulders.** The search with people set aside is run again with boulders set aside too. Magma
+  Hideout 1F to "Magma Hideout 2F Room 3" was the bare refusal "not looked into": that door is in a nook of 1F above
+  a ledge, the way out of 2F Room 3, which is reached round through 2F Room 1, 3F Room 1, 4F and 3F Room 3, past
+  1F's boulders and the people in 4F's corridor. It says "Blocked by Maxie in Magma Hideout 4F".
+- **Safari Zone South's entrance cell** is the door itself, walled on three sides with the attendant below it; the
+  game walks the player off it on the way in (`onFrame` script), so no one stands there to ask. From there it now
+  says "Not from here: this part is reached from Safari Zone North"; from where a player stands, "Needs Acro Bike".
+- **Who stands on the goal is named first** (`routeNeeds`, unit test only). Emerald's Lavaridge Gym 1F, holes 6,
+  7, 10 and 14 (the buried trainers' own cells) say "Blocked by Man", the gym's guide at 12,16 (agent parity's probe);
+  Ruby says "Blocked by a hidden trainer". `routeNeeds` now asks the goal cell's occupant before the first person on
+  the way, and the unit check passes, but in game (probe `batch_em10`) the four holes still say "Blocked by Man": the
+  sentence comes from somewhere else (a second try, the same order in `journeyBlocker`, changed nothing and was not
+  kept). Not solved.
+- **Route 124's east edge from the treasure hunters' door** gave "Could not plan a route ... in time" in agent
+  parity's sweep (Emerald and Ruby). Asked again from that door (probe `batch_em9`): "Not from here: this part is
+  reached from Route 125", in 0.04 seconds; not reproduced, so most likely the sweep's 25-frame wait.
+- **A sample beyond the sweep** (probe `batch_em3`): guided navigation to everything in the list, from every door of
+  the map and one cell of each run of crossable edge cells, on Routes 110, 111, 113, 114, 119, 120, 121, 123, Meteor
+  Falls (three rooms), Mt. Pyre outside and summit, Sootopolis and Ever Grande: 2975 asked, 916 not a route. Most are
+  starts no player stands on in this state (a cell of an edge run cut off by ledges, a house door with a guard
+  outside it) and the answer is then true for that cell: "Not from here: this part is reached from ..." 548 times,
+  "Blocked by Team Aqua Grunt" 116 and "The way is through Route 110 Seaside Cycling Road South Entrance, blocked by
+  Team Aqua Grunt" 40 (on Route 110 five of them stand across y 83 with hide flag 900, unset in the harness's
+  flags, cutting its south part off; Route 119's east edge not looked into), "Blocked by Man" 49 (Route 111's Winstrate door: a man, hide flag 768, stands on the cell below it), "Blocked
+  by Expert" 33 (Sootopolis, mostly from its warp 4 at 31,16: an Expert stands at 31,18), "Blocked by
+  Triathlete" 6, "Needs Acro Bike" 6. 104 gave no answer in
+  30 frames (secret base spots and items on Routes 111, 119, 120: the probe's wait, not a refusal; not followed up),
+  11 were a bare "Cannot reach yet" (Route 111's south-west edge cell and Winstrate door, Route 119's east edge) and
+  2 "Could not plan a route ... in time". No wrong refusal was found among those read; not every one was read.
+- **Guided sweep, Emerald** (`gen3_guided_sweep`): 925 asked, 0 refused (9 bare before this pass). It asks from
+  each map's first warp only; a sample from every door and edge of fifteen big maps is below.
+- **The sweep driver** now skips the Battle Tower's rooms (they crashed it on Ruby and Sapphire) and the Champion's
+  room (its battle stalled the harness on FireRed), sweeps One Island's `SEVII_` maps with FireRed's, waits up to 265
+  frames for an answer, and counts a target with none (NOANSWER) and "Could not plan a route ... in time" as refused.
+  Not rerun since; the counts here are from the driver before.
+- **Regression after this pass** (drivers, silent; unit suites pass, 261 checks in `gen3_nav_test` after main was
+  merged). Emerald: `rse_nav_sweep` 3/3, `rse_dive_spots` failures=0, `dark_maps` and `npc_category` with no failure, `rse_story` H 22 arrived with its four known blocks (Shoal Cave's Ice Room left out at high tide), W 6 arrived and 1 failed: Route 133's Max Revive, refused by this pass's own sandbar rule and since dropped from the driver. These ran on ce91fdfc, whose planner the branch has again after a revert; not on fresh profiles. FireRed: `firered-leafgreen-navigation.md`.
 
 ## Tiles and field moves
 
@@ -222,13 +306,18 @@ because the game's tide follows the clock (`UpdateShoalTideFlag`); low tide arri
 - **Acro Bike:** Jagged Pass upward, Safari Zone's rails: "Needs Acro Bike", no walk.
 - **Mach Bike:** the player must already be riding; only Sky Pillar 2F was ridden. Granite Cave B2F's cracks, Mirage Tower's and the muddy slopes are the same search, not run.
 - **Secret bases:** a spot is listed and walked to. Secret Power, and a base's own decorations, are not run.
-- **Unexplained:** in Ruby and Sapphire, Seafloor Cavern's entrance with the grunt in the way, the walk's first move brought up the game's Dive question (the harness answered yes). Not looked into. A real player can answer no.
+- **Seafloor Cavern's entrance in Ruby and Sapphire** (was "Unexplained"): the note supposed a grunt in the way, but there is no grunt there in those games (agent parity, fourth pass). Why the walk's first move brought up the game's Dive question (the harness answered yes) was not looked into further. A real player can answer no.
 - **Petalburg Gym:** Norman's object stands by the door in a new game's state, so "door to leader" there is a few steps and proves nothing about the rooms. The rooms' doors are warps the planner reads; none was walked to Norman in a later state.
-- **A dive spot's label is worked out once a map** in a session: "a pool with Red Shard" still says so after the shard
-  is taken, until the game is started again.
-- **Far dive spots** are listed within three connections and only when they lead to a place of their own; an island or
-  item in the currents (Route 132's, 133's, 134's) is still chosen on its own map, where the lane may already be wrong.
-  The arrival says "Arrived at Dive Spot ...", not which button dives: the list on that map has the spot, with the button.
+- **Far targets** (dive spots that lead to a place of their own, item balls down a current) are listed within three
+  connections. Trainers, signs and hidden items on Routes 132 to 134 are still chosen on their own map; past them the
+  answer is "Not from here: this part is reached from Route 132".
+- **"Reached from" names a place, not a way.** Where the only way in is the target's own far side the sentence can
+  send the player to a place that is itself shut (FireRed's Dunsparce Tunnel). A map of more than 16000 cells is not
+  searched. The with-key sentence for a locked door and guided navigation's arrival hint are unit-tested only.
+- **Surfing into a current that ends on a sandbar** strands the player there, still surfing (upstream, Route 134's
+  east edge): the planner avoids it, the game is not changed. Six item balls on Routes 132 to 134 are listed and
+  answered with a bare "No route to ... from here"; nothing says why.
+- **Lavaridge Gym 1F's four buried trainers' holes** say "Blocked by Man" (its guide) in Emerald (fourth pass; cause not found).
 - **The blocker's name** is the first person without whom no way exists; where two people each close a different way the
   first found is named. An object drawn by a script is no person and is not named, except Lilycove's Wailmer.
 - **Ways round stop at doors.** A way round never crosses a connection, so two halves of a route that join only through

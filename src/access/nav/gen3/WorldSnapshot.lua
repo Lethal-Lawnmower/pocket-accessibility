@@ -440,6 +440,14 @@ function Snapshot.projectSigns(view, def, player)
           if not view:isWalkableCell(cell.x, cell.y) then skip = false break end
         end
       end
+      -- a door its key opens: named with the key until it has been opened
+      local keyDoor = roleKind == "key_door" and Scripts.keyDoor(key) or nil
+      if keyDoor then
+        local World = require("src.access.nav.gen3.World")
+        skip = World.flagSet(keyDoor.flag)
+        local keyName = Scripts.itemLabel(keyDoor.item)
+        if keyName then role = "Locked Door, needs " .. keyName end
+      end
       if not skip then
         local nearest, best = cells[1], math.huge
         if type(player) == "table" and type(player.cellX) == "number" then

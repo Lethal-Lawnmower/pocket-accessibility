@@ -1763,6 +1763,11 @@ function Navigation:routeOptionsFor(world, goals, policy)
         local water = map:isWater(nx, ny)
         if onWater then
           if not water and not landCell(nx, ny) then break end
+          -- Carried onto land.  Upstream leaves the player surfing there as far as the
+          -- game knows (seen on Route 134's east sandbar: surfing set, standing on sand),
+          -- so it offers no Surf and auto-walk stopped with "Could not use Surf".  Not a
+          -- move to plan: another lane is taken, or the walk says there is no route.
+          if not water then return nil end
         elseif water or not landCell(nx, ny) or mismatch(x, y, nx, ny) then
           break
         end
@@ -1960,7 +1965,12 @@ function Navigation:routeNeeds(goals)
   local found, result = pcall(Pathfinder.find, options)
   if not (found and result and type(result.steps) == "table") then return nil end
   local occupied = occupancy(world)
-  for _, step in ipairs(result.steps) do
+  -- Whoever stands on the goal itself first: on the way there, the first person met can
+  -- be one the way goes round once they are back (Emerald's Lavaridge Gym: its guide by
+  -- the door was named for the holes the buried trainers stand in)
+  local order = { result.steps[#result.steps] }
+  for _, step in ipairs(result.steps) do order[#order + 1] = step end
+  for _, step in ipairs(order) do
     local entry = occupied[cellKey(step.x, step.y)]
     if entry and entry.kind == "object" then
       -- Lavaridge Gym's buried trainers stand in four of its holes, unseen until they
@@ -2181,7 +2191,10 @@ local CONNECTION_STEP = { north = "up", south = "down", west = "left", east = "r
 function Navigation:regionalTransitions(mapId)
   local def = self:regionalMapDef(mapId)
   local live = not self.journeySupposing and World.liveView(self.game)
-  local view = (live and live.id == mapId) and live or World.plannedView(self.game, def)
+  -- (a plan that supposes a flag reads the floor as it would then load: a locked door
+  -- that the flag opens is a warp there)
+  local view = (live and live.id == mapId) and live
+    or (self.journeySupposing and World.loadedView(self.game, def)) or World.plannedView(self.game, def)
   if not (def and view) then return {} end
   local result = {}
   for index, warp in ipairs(def.warps or {}) do
@@ -2432,6 +2445,21 @@ local function patches(view, inPatch)
   return patch, largest
 end
 
+-- Which item balls the game would show on a map and the one above or below it, as one
+-- string: what a dive spot's label depends on besides the maps themselves.
+local function itemBallsShown(def, otherDef)
+  local shown = {}
+  for _, mapDef in ipairs({ def, otherDef }) do
+    for _, object in ipairs(type(mapDef) == "table" and mapDef.objects or {}) do
+      if tonumber(object.graphicsId) == GFX.ITEM_BALL then
+        shown[#shown + 1] = regionalObjectVisible(object) and "1" or "0"
+      end
+    end
+    shown[#shown + 1] = "/"
+  end
+  return table.concat(shown)
+end
+
 local function joinNames(names, limit)
   local kept = {}
   for i = 1, math.min(#names, limit or 3) do kept[i] = names[i] end
@@ -2445,7 +2473,9 @@ end
 -- patch of deep water over one seabed is one list entry that says where it leads: the
 -- seabed's own doors (Underwater Sootopolis City), then the other waters that seabed
 -- comes up in.  Below the surface each stretch that can surface is a "Way Up" that names
--- the water above it.  Read from the two maps' cells; cached per map.
+-- the water above it.  Read from the two maps' cells; cached per map, until an item ball
+-- on either map is taken or appears (a label names them: "a pool with Red Shard" was
+-- still said after the shard was picked up, until the game was started again).
 --   returns { { id, label, cells, rim, inGroup, emerge }, ... }
 function Navigation:diveSpots(world)
   local map = world and world.map
@@ -2453,9 +2483,10 @@ function Navigation:diveSpots(world)
   if type(def) ~= "table" then return {} end
   self.gen3DiveSpots = self.gen3DiveSpots or setmetatable({}, { __mode = "k" })
   local cached = self.gen3DiveSpots[def]
-  if cached then return cached end
+  if cached and cached.balls == itemBallsShown(def, cached.otherDef) then return cached.spots end
   local spots = {}
-  self.gen3DiveSpots[def] = spots
+  local entry = { spots = spots, balls = itemBallsShown(def, nil) }
+  self.gen3DiveSpots[def] = entry
   local ok, list = pcall(self.diveTransitions, self, world, 3)
   if not ok or type(list) ~= "table" or #list == 0 then return spots end
   local mapId = self:currentMapIdOf(world) or tostring(def.id)
@@ -2463,6 +2494,7 @@ function Navigation:diveSpots(world)
   local otherDef = self:regionalMapDef(otherId)
   local other = otherDef and World.plannedView(self.game, otherDef)
   if not other then return spots end
+  entry.otherDef, entry.balls = otherDef, itemBallsShown(def, otherDef)
   local width, otherWidth = map.widthCells, other.widthCells
   local function open(view) return function(x, y) return view:isWater(x, y) or view:walkableColl(x, y) end end
   local hereWater, hereOpen = patches(map, open(map))
@@ -2811,6 +2843,30 @@ function Navigation:wayRoundMaps(mapId, allowed)
   return round
 end
 
+-- A way round through the map next door: out over an edge of this map and back in over
+-- the same edge further along.  FireRed's Route 5 is two strips that join only at
+-- Cerulean City's south edge: the Day Care from the Saffron gate is up the east strip,
+-- eleven steps along Cerulean's bottom row, and down the west one (it said "Cannot reach
+-- yet").  Only this map's own neighbours are searched, with what the party can do now:
+-- a way that needs the neighbour's doors, or a map beyond it, is another trip.
+function Navigation:wayRoundNextDoor(start, target, allowed)
+  if not allowed or target.mapId ~= start.mapId then return nil end
+  local near, added = {}, false
+  for id in pairs(allowed) do near[id] = true end
+  for _, transition in ipairs(self:regionalTransitions(start.mapId) or {}) do
+    if transition.kind == "connection" and type(transition.destMap) == "string" and not near[transition.destMap] then
+      near[transition.destMap], added = true, true
+    end
+  end
+  if not added then return nil end
+  local ok, found = pcall(self.journeySearch, self, start, target, 2, near, 1, false)
+  if ok and found and not found.final then
+    self.journeyPastBoulders = false
+    return found
+  end
+  return nil
+end
+
 -- A Secret Switch anywhere in the target's area that would open a way (Pokemon Mansion:
 -- one flag, one switch per floor, and the way to the basement only from the third floor's
 -- side).  The flags a switch's script changes are supposed flipped, and the journey from
@@ -2908,7 +2964,132 @@ function Navigation:unreachableReason(goals)
   if okSigns and type(signs) == "table" and #signs > 0 then
     return "Switches change this floor: use auto walk"
   end
-  return self:closedForNow(world, goals)
+  return self:closedReason(goals)
+end
+
+-- Seafoam Islands (FireRed, LeafGreen): Route 20's two halves, and the cave's own east
+-- and west sides, join only across B3F and B4F, whose currents carry a surfer off until
+-- the boulders on the floors above have been pushed down their holes into the water
+-- (pokefirered data/maps/SeafoamIslands_B3F/scripts.inc).  No route is planned through
+-- a puzzle on other floors, so the refusal says what to do.  Said only while a boulder is
+-- still to come down onto B3F (its copy there is hidden until it falls); afterwards the
+-- plain "reached from" sentence stands.  Probed on a fresh profile with the hide flags a
+-- new game sets (66 to 71, 76, 77): no way through is planned, with or without the
+-- boulders set aside.  Whether the planner crosses once they are all down is not known.
+local THROUGH_PUZZLE = {
+  { map = "^ROUTE_20$", via = "Seafoam Islands", currentsOn = "SEAFOAM_ISLANDS_B3F",
+    reason = "The way is through Seafoam Islands, past its currents: push the boulders down the holes on each floor first" },
+  { map = "^SEAFOAM_ISLANDS_", via = "Seafoam Islands", currentsOn = "SEAFOAM_ISLANDS_B3F",
+    reason = "The way is past the currents below: push the boulders down the holes on each floor first" },
+}
+
+-- The last reasons, when no route, no missing move and no person explains a refusal:
+-- what the story or the clock keeps shut, then a part of the map that is reached only
+-- from another way in.  Auto-walk asks this too before it says "No route".
+function Navigation:closedReason(goals)
+  local world = self:worldForCommand()
+  if not world or type(goals) ~= "table" or #goals == 0 then return nil end
+  local reason = self:closedForNow(world, goals)
+  if reason then return reason end
+  local ok, otherSide, names = pcall(self.otherWayIn, self, world, goals)
+  if not (ok and otherSide) then return nil end
+  -- a way in that is the far side of a cave whose puzzle is still to do
+  local bare = GameData.bareMapId(self:currentMapIdOf(world)) or ""
+  for _, entry in ipairs(THROUGH_PUZZLE) do
+    local applies = bare:find(entry.map) ~= nil and self:boulderStillToCome(GameData.mapPrefix() .. entry.currentsOn)
+    for _, name in ipairs(applies and names or {}) do
+      if name:find(entry.via, 1, true) == 1 then return entry.reason end
+    end
+  end
+  return otherSide
+end
+
+-- Whether a boulder the game keeps hidden on this map is still to arrive: one that drops
+-- in from the floor above is an object here from the start, hidden until it has fallen.
+function Navigation:boulderStillToCome(mapId)
+  local def = self:regionalMapDef(mapId)
+  for _, object in ipairs(def and def.objects or {}) do
+    if tonumber(object.graphicsId) == GFX.BOULDER and not regionalObjectVisible(object) then return true end
+  end
+  return false
+end
+
+-- A part of this map that no way from here reaches, though a way in from elsewhere
+-- does: past one-way ledges (Route 123's east end from its west, Route 112's pocket
+-- under Jagged Pass), behind a row of rocks (Route 125's north-west water), back up a
+-- current (Routes 132 to 134).  The movement graph is turned round and searched back
+-- from the target, with what the party can do now and everyone where they stand: every
+-- door or edge of the map from which the target can be reached is a place to come in
+-- from, and is named ("Not from here: this part is reached from Route 122").  The
+-- target's own way in is named only when there is no other.  Nil when nothing reaches it.
+local OTHER_WAY_MAX_CELLS = 16000
+
+function Navigation:otherWayIn(world, goals)
+  local map = world and world.map
+  local mapId = self:currentMapIdOf(world)
+  if not (map and type(mapId) == "string") then return nil end
+  local width, height = map.widthCells, map.heightCells
+  if width * height > OTHER_WAY_MAX_CELLS then return nil end
+  local options = self:routeOptionsFor(world, goals, 2)
+  if not options then return nil end
+  local reverse = {}
+  for y = 0, height - 1 do
+    for x = 0, width - 1 do
+      if map:isWalkableCell(x, y) or map:isWater(x, y) or map:warpAt(x, y) then
+        for _, edge in ipairs(options.neighbors(x, y)) do
+          local key = edge.y * width + edge.x
+          local list = reverse[key]
+          if not list then
+            list = {}
+            reverse[key] = list
+          end
+          list[#list + 1] = y * width + x
+        end
+      end
+    end
+  end
+  local reaches, queue, head = {}, {}, 1
+  for _, goal in ipairs(goals) do
+    local key = goal.y * width + goal.x
+    if map:inBounds(goal.x, goal.y) and not reaches[key] then
+      reaches[key] = "goal"
+      queue[#queue + 1] = key
+    end
+  end
+  while queue[head] do
+    for _, from in ipairs(reverse[queue[head]] or {}) do
+      if not reaches[from] then
+        reaches[from] = true
+        queue[#queue + 1] = from
+      end
+    end
+    head = head + 1
+  end
+  -- a way from where the player stands: not this reason's case
+  if reaches[world.player.cellY * width + world.player.cellX] then return nil end
+  -- (a way in is "another" when any of its cells is not one of the target's own)
+  local others, own, seen = {}, {}, {}
+  local transitions = self:regionalTransitions(mapId)
+  for _, wanted in ipairs({ true, "goal" }) do
+    for _, transition in ipairs(transitions) do
+      local name = reaches[transition.y * width + transition.x] == wanted
+        and self:regionalDestinationName(transition.destMap)
+      if name and not seen[name] then
+        seen[name] = true
+        local list = wanted == "goal" and own or others
+        list[#list + 1] = name
+      end
+    end
+  end
+  local names = #others > 0 and others or own
+  if #names == 0 then return nil end
+  local said = names[1]
+  if #names == 2 then
+    said = names[1] .. " or " .. names[2]
+  elseif #names > 2 then
+    said = names[1] .. ", " .. names[2] .. " or " .. names[3]
+  end
+  return "Not from here: this part is reached from " .. said, names
 end
 
 -- Places the story or the clock keeps shut, where no route and no missing move explains
@@ -3072,6 +3253,45 @@ function Navigation:storyDoor(fromMapId, targetMapId)
   return nil
 end
 
+-- A door on the way that a key opens (Scripts.keyDoor; the Abandoned Ship's rooms).
+-- Each one still locked on the journey's maps is supposed open in turn, its flag set and
+-- the floor read as it would then load: when the journey exists that way, the door is
+-- what stands in it, and the refusal names its key, and says how it opens when the key
+-- is in the bag (the game's script answers an A press facing the door).
+function Navigation:lockedDoor(start, target, allowed)
+  local mapIds, seen = {}, {}
+  local function add(id)
+    if type(id) == "string" and not seen[id] then
+      seen[id] = true
+      mapIds[#mapIds + 1] = id
+    end
+  end
+  add(start.mapId)
+  add(target.mapId)
+  for id in pairs(allowed or {}) do add(id) end
+  table.sort(mapIds)
+  for _, id in ipairs(mapIds) do
+    local def = self:regionalMapDef(id)
+    for _, event in ipairs(def and def.bgEvents or {}) do
+      local door = event.type == "sign" and Scripts.keyDoor(event.scriptKey) or nil
+      if door and not flagSet(door.flag) then
+        World.supposedFlags, self.journeySupposing = { [door.flag] = true }, true
+        local ok, found = pcall(self.journeySearch, self, start, target, 2, allowed, 1, true)
+        World.supposedFlags, self.journeySupposing = nil, nil
+        if ok and found then
+          local name = Scripts.itemLabel(door.item) or "its key"
+          local session = self:session()
+          if bagHas(session and session.bag, door.item) then
+            return "A door on the way is locked: face it and press A, the " .. name .. " opens it"
+          end
+          return "A door on the way is locked: needs the " .. name
+        end
+      end
+    end
+  end
+  return nil
+end
+
 function Navigation:regionalNextLeg(navigation)
   local live = self:worldForCommand()
   if not live then return nil, "Not on a map" end
@@ -3107,17 +3327,32 @@ function Navigation:regionalNextLeg(navigation)
       if needs then return nil, needs end
       local door = self:storyDoor(mapId, target.mapId)
       if door then return nil, door end
+      local locked = self:lockedDoor(start, target, allowed)
+      if locked then return nil, locked end
       -- people the story moves later (the grunts at a hideout's door): the journey with
       -- them set aside names the one in the way here, or says they are further on
-      self.routeIgnoringPeople = true
-      local okAside, aside = pcall(self.journeySearch, self, start, target, 2, allowed, nil, true)
-      self.routeIgnoringPeople = nil
-      if okAside and aside then
+      -- (then with the boulders set aside as well: Magma Hideout's far rooms from its
+      -- door are past 1F's boulders and, on 4F, the people the story stands in the one
+      -- corridor; with the boulders in the plan no one was named and it said nothing)
+      local aside, asideFree
+      for _, free in ipairs({ false, "all" }) do
+        self.routeIgnoringPeople, self.journeyBoulderFree = true, free or nil
+        local okAside, found = pcall(self.journeySearch, self, start, target, 2, allowed, nil, true)
+        self.routeIgnoringPeople, self.journeyBoulderFree = nil, nil
+        if okAside and found then
+          aside, asideFree = found, free or nil
+          break
+        end
+      end
+      if aside then
         local way = aside.firstTransition
         local here = (way and self:routeNeeds({ { x = way.x, y = way.y } }))
           or (aside.final and self:routeNeeds(target.goals)) or nil
         local who = not here and self:essentialBlocker(function()
-          return self:journeySearch(start, target, 2, allowed, nil, true)
+          self.journeyBoulderFree = asideFree
+          local okAgain, again = pcall(self.journeySearch, self, start, target, 2, allowed, nil, true)
+          self.journeyBoulderFree = nil
+          return okAgain and again or nil
         end, aside, mapId) or nil
         return nil, here or (who and ("Blocked by " .. who)) or "Blocked by someone further on"
       end
@@ -3143,6 +3378,8 @@ function Navigation:regionalNextLeg(navigation)
             break
           end
         end
+        -- (the same through the next map's edge, before anyone is blamed: below)
+        if not result then result = self:wayRoundNextDoor(start, target, allowed) end
         if not result then
           self.routeIgnoringPeople = true
           local okFree, free = pcall(self.journeySearch, self, start, target, 2, round, 2, true)
@@ -3158,6 +3395,7 @@ function Navigation:regionalNextLeg(navigation)
           end
         end
       end
+      if not result then result = self:wayRoundNextDoor(start, target, allowed) end
     end
     if not result then return nil, reason end
   end
@@ -3174,8 +3412,11 @@ function Navigation:regionalNextLeg(navigation)
     for _, goal in ipairs(navigation.targetGoals) do
       if live.map:inBounds(goal.x, goal.y) then goals[#goals + 1] = goal end
     end
+    -- what to do there, when the target says (a far dive spot: the game's button)
+    local hint = navigation.targetGoals.arrivalHint
     return { final = true, goals = #goals > 0 and goals or navigation.targetGoals,
-      appendInstructions = navigation.targetAppendInstructions }
+      appendInstructions = navigation.targetAppendInstructions
+        or (hint and function(parts) parts[#parts + 1] = hint end) or nil }
   end
   local transition = result.firstTransition
   local destinationName = self:regionalDestinationName(transition.destMap)
@@ -3257,52 +3498,133 @@ local function areaKey(mapId)
 end
 Navigation.areaKey = areaKey
 
--- Dive spots that lead to a place of their own (Sootopolis City, Seafloor Cavern, the
--- Sealed Chamber), on the maps up to three connections from this one, for the Area list.
--- The sea west of Pacifidlog is why: its currents carry the player through Routes 132
--- and 133 in whichever lane they entered, and only some lanes reach the water over the
--- Sealed Chamber on Route 134.  Chosen there, the list says "No route"; chosen from
--- upstream, the journey is planned across the three routes and takes the right lane.
-function Navigation:farDiveSpots(world)
+-- Which way a map's currents carry the player, as a connection's direction ("west"), and
+-- how many cells of current it has.  Read from the map's cells once.
+local STEP_COMPASS = { up = "north", down = "south", left = "west", right = "east" }
+-- a map "has currents" from this many cells of them: Routes 132 to 134 have hundreds
+local CURRENT_MAP_CELLS = 8
+
+function Navigation:currentFlow(def)
+  if type(def) ~= "table" then return nil, 0 end
+  self.gen3CurrentFlow = self.gen3CurrentFlow or setmetatable({}, { __mode = "k" })
+  local cached = self.gen3CurrentFlow[def]
+  if not cached then
+    cached = { count = 0 }
+    self.gen3CurrentFlow[def] = cached
+    local view = World.plannedView(self.game, def)
+    local counts = {}
+    for y = 0, (view and view.heightCells or 0) - 1 do
+      for x = 0, view.widthCells - 1 do
+        local direction = Terrain.CURRENT[view:behavior(x, y)]
+        if direction then
+          counts[direction] = (counts[direction] or 0) + 1
+          cached.count = cached.count + 1
+        end
+      end
+    end
+    local most
+    for _, direction in ipairs(ORDER) do
+      if counts[direction] and (not most or counts[direction] > counts[most]) then most = direction end
+    end
+    cached.direction = most and STEP_COMPASS[most] or nil
+  end
+  return cached.direction, cached.count
+end
+
+-- The surface maps up to three connections from this one, nearest first, and which of
+-- them lie down a current from here: a map with currents, entered the way they run,
+-- through maps that were themselves entered that way (Routes 132, 133 and 134 from
+-- Pacifidlog; none of them from Slateport, which is at the far end).  Worked out once a map.
+--   returns { within = { [mapId] = true }, order = { mapId, ... }, downstream = { [mapId] = true } }
+function Navigation:farMaps(world)
   local here = self:currentMapIdOf(world)
   local map = world and world.map
-  if type(here) ~= "string" or not map or map.underwater then return {} end
-  self.gen3FarDive = self.gen3FarDive or {}
-  local cached = self.gen3FarDive[here]
+  local none = { within = {}, order = {}, downstream = {} }
+  if type(here) ~= "string" or not map or map.underwater then return none end
+  self.gen3FarMaps = self.gen3FarMaps or {}
+  local cached = self.gen3FarMaps[here]
   if cached then return cached end
-  local items = {}
-  self.gen3FarDive[here] = items
   local Connections = loaded("src.core.game3.connections")
-  if not (Connections and Connections.each) then return items end
-  local within, frontier, order = { [here] = true }, { here }, {}
+  if not (Connections and Connections.each) then return none end
+  local far = { within = { [here] = true }, order = {}, downstream = {} }
+  self.gen3FarMaps[here] = far
+  local frontier = { here }
   for _ = 1, 3 do
     local nextFrontier = {}
     for _, id in ipairs(frontier) do
       local def = self:regionalMapDef(id)
+      local _, cells = self:currentFlow(def)
+      -- a map with currents passes the player on only when it was entered with them
+      local passesOn = id == here or cells < CURRENT_MAP_CELLS or far.downstream[id] == true
       for _, row in ipairs(def and call(Connections.each, def) or {}) do
         local nextDef = type(row.map) == "string" and self:regionalMapDef(row.map) or nil
         local nextId = nextDef and nextDef.id
-        if type(nextId) == "string" and not within[nextId] then
-          within[nextId] = true
+        if type(nextId) == "string" and not far.within[nextId] then
+          far.within[nextId] = true
           nextFrontier[#nextFrontier + 1] = nextId
-          order[#order + 1] = nextId
+          far.order[#far.order + 1] = nextId
+          local flow, nextCells = self:currentFlow(nextDef)
+          far.downstream[nextId] = (passesOn and nextCells >= CURRENT_MAP_CELLS and flow == row.dir) or nil
         end
       end
     end
     frontier = nextFrontier
   end
-  for _, id in ipairs(order) do
+  return far
+end
+
+local DIVE_HINT = "Press A and answer yes to dive"
+
+-- What a player sets out for from further off, for the Area list: on the maps up to
+-- three connections from this one,
+--   * dive spots that lead to a place of their own (Sootopolis City, Seafloor Cavern,
+--     the Sealed Chamber);
+--   * the item balls on maps down a current from here (Navigation:farMaps).
+-- The sea west of Pacifidlog is why: its currents carry the player through Routes 132
+-- and 133 in whichever lane they entered, and only some lanes reach the water over the
+-- Sealed Chamber on Route 134, or the sandbar an item lies on.  Chosen there, the list
+-- says "No route"; chosen from upstream, the journey is planned across the three routes
+-- and takes the right lane.  Item balls are limited to maps with currents so that an
+-- ordinary route's Area list does not fill with its neighbours' items.  Built each time:
+-- a ball taken is gone from the list, and a dive spot's label follows its balls.
+function Navigation:farTargets(world)
+  local far = self:farMaps(world)
+  local items = {}
+  for _, id in ipairs(far.order) do
     local def = self:regionalMapDef(id)
     local view = def and World.plannedView(self.game, def)
+    local place = tostring(self:regionalDestinationName(id))
     local okSpots, spots = pcall(self.diveSpots, self, view and { map = view, npcs = {}, player = { cellX = -1, cellY = -1 } })
-    for _, spot in ipairs(okSpots and spots or {}) do
+    -- a map with currents is no use from its far end: from Slateport the Sealed Chamber's
+    -- spot was listed and answered "No route" after two thirds of a second
+    local _, currentCells = self:currentFlow(def)
+    local against = currentCells >= CURRENT_MAP_CELLS and not far.downstream[id]
+    for _, spot in ipairs(okSpots and not against and spots or {}) do
       if spot.named and not spot.emerge and spot.rim[1] then
-        local label = spot.label .. ", " .. tostring(self:regionalDestinationName(id))
+        local label = spot.label .. ", " .. place
         local rim = {}
         for _, cell in ipairs(spot.rim) do rim[#rim + 1] = { x = cell.x, y = cell.y } end
-        rim.journeyAllowed = within
+        -- the journey's own maps, and what guided navigation adds on arrival
+        rim.journeyAllowed, rim.arrivalHint = far.within, DIVE_HINT
         items[#items + 1] = { id = "area:" .. spot.id, type = "area", category = "area", label = label,
           description = label, mapId = id, x = spot.rim[1].x, y = spot.rim[1].y, farDiveRim = rim }
+      end
+    end
+    if far.downstream[id] then
+      for _, object in ipairs(def.objects or {}) do
+        if tonumber(object.graphicsId) == GFX.ITEM_BALL and regionalObjectVisible(object)
+           and type(object.x) == "number" and type(object.y) == "number" then
+          local itemId = Scripts.itemBallItem(object.scriptKey)
+          local itemName = itemId and Scripts.itemLabel(itemId)
+          if itemName then
+            local label = itemName .. ", " .. place
+            items[#items + 1] = {
+              id = "area:" .. id .. ":" .. tostring(object.index or object.localId),
+              type = "area", category = "area", label = label, description = label,
+              mapId = id, x = object.x, y = object.y, journeyAllowed = far.within,
+            }
+          end
+        end
       end
     end
   end
@@ -3311,14 +3633,16 @@ end
 
 function Navigation:areaBrowse(world)
   local items = self:areaFloors(world)
-  local okFar, far = pcall(self.farDiveSpots, self, world)
-  -- the spots are worked out once a map; whether the party can dive is asked each time
+  local listed = {}
+  for _, item in ipairs(items) do listed[item.id] = true end
+  local okFar, far = pcall(self.farTargets, self, world)
   local needsDive = self:fieldMoveRequirement("DIVE")
-  for _, spot in ipairs(okFar and far or {}) do
-    local item = {}
-    for key, value in pairs(spot) do item[key] = value end
-    item.requirement = needsDive
-    items[#items + 1] = item
+  for _, item in ipairs(okFar and far or {}) do
+    -- (a map of this same area is in the list already, with its items)
+    if not listed[item.id] then
+      if item.farDiveRim then item.requirement = needsDive end
+      items[#items + 1] = item
+    end
   end
   return items
 end
@@ -3421,8 +3745,21 @@ function Navigation:selectedRouteGoals()
   if keptItem then return keptItem, keptGoals, nil, nil, keptWorld end
   local item, goals, instructions, connection, overworld = Shared.selectedRouteGoals(self)
   if type(item) == "table" and item.floorEntry and type(goals) == "table" then goals.anywhere = true end
-  -- a dive spot on a map further on: any cell of its rim, over the maps between
-  if type(item) == "table" and item.farDiveRim then goals = item.farDiveRim end
+  -- a dive spot on a map further on: any cell of its rim, over the maps between; the
+  -- arrival says the game's button, as the spot's own entry does on its map
+  if type(item) == "table" and item.farDiveRim then
+    goals = item.farDiveRim
+    instructions = setmetatable({}, { __index = function() return DIVE_HINT end })
+  elseif type(item) == "table" and item.type == "area" and not item.floorEntry
+     and not item.journeyStandIn and type(goals) == "table" then
+    -- an item ball on another map: the journey's own maps when it names them (one down
+    -- a current), and which way the ball is from the cell the walk ends on
+    goals.journeyAllowed = item.journeyAllowed
+    instructions = {}
+    for facing, d in pairs(DELTA) do
+      instructions[cellKey(item.x - d[1], item.y - d[2])] = "Face " .. facing .. " and interact"
+    end
+  end
   -- a dive spot is reached by being on any of its cells; then the game's own button
   if type(item) == "table" and item.semanticKind == "dive_spot" and overworld then
     local spot = self:diveSpotById(overworld, item.id)

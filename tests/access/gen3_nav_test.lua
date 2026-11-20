@@ -932,6 +932,275 @@ do
 end
 
 do
+  -- Things down a current (Navigation:farMaps, farTargets): the Area list has the item
+  -- balls of maps entered the way their currents run, and their journey takes the lane
+  local Navigation3 = require("src.access.nav.gen3.Navigation")
+  CELL["<"] = { 0x29, 0x51, 1 }
+  local function sea(id, rows, connections, objects)
+    return mapDef(id, rows, {}, { connections = connections, objects = objects or {} })
+  end
+  maps.FR_FAR_TOWN = sea("FR_FAR_TOWN", { "~~~~", "~~~~", "~~~~" },
+    { { dir = "west", map = "FR_FAR_SEA_A", offset = 0 } })
+  -- two lanes, joined only at the east end
+  maps.FR_FAR_SEA_A = sea("FR_FAR_SEA_A", { "<<<<<~", "#####~", "<<<<<~" },
+    { { dir = "east", map = "FR_FAR_TOWN", offset = 0 }, { dir = "west", map = "FR_FAR_SEA_B", offset = 0 } })
+  -- the ball's sandbar is at the end of the north lane only
+  local ball = { x = 0, y = 0, graphicsId = 92, scriptKey = "far_ball", index = 1, localId = 1 }
+  maps.FR_FAR_SEA_B = sea("FR_FAR_SEA_B", { "..~<<<<<", "########", "~~~<<<<<" },
+    { { dir = "east", map = "FR_FAR_SEA_A", offset = 0 }, { dir = "west", map = "FR_FAR_END", offset = 0 } }, { ball })
+  maps.FR_FAR_END = sea("FR_FAR_END", { "~~~~", "####", "~~~~" },
+    { { dir = "east", map = "FR_FAR_SEA_B", offset = 0 } })
+  Scripts.setSource({ far_ball = { { op = "setorcopyvar", 0x8000, 355 }, { op = "callstd", std = 1 } } })
+  local labelled = Scripts.itemLabel
+  Scripts.itemLabel = function() return "Rare Candy" end
+  local taken = false
+  package.loaded["src.core.game3.scripting.space"] = { objectVisible = function(object) return not (taken and object == ball) end }
+  package.loaded["src.core.game3.connections"] = package.loaded["src.core.game3.connections"]
+    or require("src.core.game3.connections")
+  allowed.SURF = true
+  local nav = navFor()
+  local function standOn(mapId, x, y)
+    local w = worldOn(maps[mapId], x, y, {}, true)
+    nav.worldForCommand = function() return w end
+    nav.worldState = function() return w end
+    return w
+  end
+  local flow, cells = nav:currentFlow(maps.FR_FAR_SEA_A)
+  eq(flow, "west", "a map's currents run one way")
+  eq(cells, 10, "its cells of current are counted")
+  eq(select(2, nav:currentFlow(maps.FR_FAR_TOWN)), 0, "calm water has none")
+  local town = standOn("FR_FAR_TOWN", 1, 2)
+  local far = nav:farMaps(town)
+  check(far.downstream.FR_FAR_SEA_A and far.downstream.FR_FAR_SEA_B and not far.downstream.FR_FAR_END,
+    "from upstream, the maps with currents entered the way they run are downstream")
+  local function listed(world)
+    local labels = {}
+    for _, item in ipairs(nav:areaBrowse(world)) do labels[#labels + 1] = item.label end
+    return table.concat(labels, "; ")
+  end
+  eq(listed(town), "Rare Candy, Far Sea B", "the ball down the current is in the Area list")
+  local item = nav:areaBrowse(town)[1]
+  nav.browseSelectionId = item.id
+  nav.selectedBrowseItem = function() return item end
+  local _, goals, hints = nav:selectedRouteGoals()
+  check(goals.journeyAllowed == far.within, "its journey may cross the maps between")
+  eq(hints["1,0"], "Face left and interact", "the arrival says which way the ball is")
+  -- from the south lane's side of the town the journey still takes the north lane
+  local result, why = nav:journeySearch({ mapId = "FR_FAR_TOWN", x = 1, y = 2 },
+    { mapId = "FR_FAR_SEA_B", goals = goals }, 2, goals.journeyAllowed, nil, true)
+  check(result ~= nil, "a journey down the currents is planned: " .. tostring(why))
+  local first = result and result.firstTransition
+  eq(first and (first.destMap .. " row " .. first.y), "FR_FAR_SEA_A row 0", "it leaves the town in the lane that reaches the ball")
+  -- already in the wrong lane: no way, and nothing pretends otherwise
+  standOn("FR_FAR_SEA_A", 0, 2)
+  result, why = nav:journeySearch({ mapId = "FR_FAR_SEA_A", x = 0, y = 2 },
+    { mapId = "FR_FAR_SEA_B", goals = goals }, 2, goals.journeyAllowed, nil, true)
+  eq(why, "no regional path", "the south lane does not reach it")
+  -- from the far end, against the current, nothing is listed
+  local farEnd = standOn("FR_FAR_END", 1, 0)
+  check(next(nav:farMaps(farEnd).downstream) == nil, "from the far end no map is downstream")
+  eq(listed(farEnd), "", "and the Area list does not fill with what cannot be reached")
+  -- the ball taken: gone from the list the next time it opens
+  taken = true
+  eq(listed(town), "", "a ball that was picked up is no longer listed")
+  taken = false
+  Scripts.itemLabel = labelled
+  Scripts.setSource(nil)
+  allowed.SURF = nil
+  package.loaded["src.core.game3.scripting.space"] = nil
+  maps.FR_FAR_TOWN, maps.FR_FAR_SEA_A, maps.FR_FAR_SEA_B, maps.FR_FAR_END = nil, nil, nil, nil
+end
+
+do
+  -- A current that carries the player onto land leaves them surfing there (upstream): from
+  -- that sand neither Surf nor a step into the water is possible (probed on Route 134), so
+  -- no route is planned through such a carry.
+  CELL["<"] = { 0x29, 0x51, 1 }
+  maps.FR_SANDBAR = mapDef("FR_SANDBAR", { "..<<~", "~~###", "~~~~~" })
+  allowed.SURF = true
+  local nav = navFor()
+  local result = route(nav, worldOn(maps.FR_SANDBAR, 4, 0, {}, true), { { x = 0, y = 0 } })
+  eq(result and kinds(result) or "none", "none", "the sandbar a current ends on is not a way in")
+  result = route(nav, worldOn(maps.FR_SANDBAR, 4, 2, {}, true), { { x = 0, y = 2 } })
+  eq(kinds(result), "left left left left", "calm water beside it is crossed as ever")
+  allowed.SURF = nil
+end
+
+do
+  -- a dive spot's label follows its item balls (it was worked out once a session), and a
+  -- far dive spot's arrival says the game's button
+  local Navigation3 = require("src.access.nav.gen3.Navigation")
+  CELL["d"] = { 0x29, 0x12, 1 }
+  local diveModule = package.loaded["src.core.game3.dive"]
+  package.loaded["src.core.game3.dive"] = {
+    isDiveable = function(beh) return beh == 0x12 end, isUnableToEmerge = function() return false end }
+  local shard = { x = 5, y = 1, graphicsId = 92, scriptKey = "pool_ball", index = 1, localId = 1 }
+  maps.FR_DIVE_TOP = mapDef("FR_DIVE_TOP", { "#######", "~d~#d.#", "#######" }, {},
+    { dive = "FR_DIVE_SEABED", objects = { shard } })
+  maps.FR_DIVE_SEABED = mapDef("FR_DIVE_SEABED", { "#######", "......#", "#######" }, {},
+    { mapType = 5, emerge = "FR_DIVE_TOP" })
+  Scripts.setSource({ pool_ball = { { op = "setorcopyvar", 0x8000, 48 }, { op = "callstd", std = 1 } } })
+  local labelled = Scripts.itemLabel
+  Scripts.itemLabel = function() return "Red Shard" end
+  local taken = false
+  package.loaded["src.core.game3.scripting.space"] = { objectVisible = function(object) return not (taken and object == shard) end }
+  local nav = navFor()
+  local world = worldOn(maps.FR_DIVE_TOP, 0, 1, {}, true)
+  local function labels()
+    local list = {}
+    for _, spot in ipairs(nav:diveSpots(world)) do list[#list + 1] = spot.label end
+    table.sort(list)
+    return table.concat(list, "; ")
+  end
+  eq(labels(), "Dive Spot to a pool with Red Shard; Dive Spot to the open water", "a dive spot names the ball in the pool it leads to")
+  local before = nav:diveSpots(world)
+  check(nav:diveSpots(world) == before, "asked again with nothing changed, the same list is handed back")
+  taken = true
+  eq(labels(), "Dive Spot to an enclosed pool; Dive Spot to the open water", "with the ball taken the label no longer names it")
+  check(nav:diveSpots(world) ~= before, "the list was worked out again")
+  taken = false
+  -- the final leg of a guided journey to a far dive spot says the button
+  local rim = { { x = 1, y = 1 } }
+  rim.arrivalHint = "Press A and answer yes to dive"
+  nav.worldForCommand = function() return world end
+  nav.worldState = function() return world end
+  local leg, reason = nav:regionalNextLeg({ targetMapId = "FR_DIVE_TOP", targetGoals = rim })
+  check(leg and leg.final, "on the spot's own map the leg is final: " .. tostring(reason))
+  local parts = {}
+  if leg and leg.appendInstructions then leg.appendInstructions(parts) end
+  eq(parts[1], "Press A and answer yes to dive", "and it ends with the button")
+  -- auto-walk's arrival reads the same hint from the selection
+  local farItem = { id = "area:dive", type = "area", category = "area", label = "Dive Spot, Far", mapId = "FR_DIVE_TOP",
+    x = 1, y = 1, farDiveRim = rim }
+  nav.browseSelectionId = farItem.id
+  nav.selectedBrowseItem = function() return farItem end
+  local _, goals, hints = nav:selectedRouteGoals()
+  check(goals == rim, "a far dive spot's goals are its rim")
+  eq(hints and hints["1,1"], "Press A and answer yes to dive", "whichever cell the walk ends on, the arrival says the button")
+  Scripts.itemLabel = labelled
+  Scripts.setSource(nil)
+  package.loaded["src.core.game3.dive"] = diveModule
+  package.loaded["src.core.game3.scripting.space"] = nil
+  maps.FR_DIVE_TOP, maps.FR_DIVE_SEABED = nil, nil
+end
+
+do
+  -- a part of the map reached only from another way in (Navigation:otherWayIn): one-way
+  -- ledges between the player and the target
+  package.loaded["src.core.game3.connections"] = package.loaded["src.core.game3.connections"]
+    or require("src.core.game3.connections")
+  local function shelf(connections)
+    return mapDef("FR_OW_ROUTE", { ".......", ".......", "LLLLLLL", ".......", "......." }, {}, { connections = connections })
+  end
+  maps.FR_OW_NORTH = mapDef("FR_OW_NORTH", { ".......", "......." }, {},
+    { connections = { { dir = "south", map = "FR_OW_ROUTE", offset = 0 } } })
+  maps.FR_OW_WEST = mapDef("FR_OW_WEST", { "..", "..", "##", "..", ".." }, {},
+    { connections = { { dir = "east", map = "FR_OW_ROUTE", offset = 0 } } })
+  maps.FR_OW_ROUTE = shelf({ { dir = "north", map = "FR_OW_NORTH", offset = 0 } })
+  local nav = navFor()
+  local function standOn(x, y)
+    local w = worldOn(maps.FR_OW_ROUTE, x, y)
+    nav.worldForCommand = function() return w end
+    nav.worldState = function() return w end
+    return w
+  end
+  local below = standOn(3, 4)
+  local goals = nav:connectionGoals(below, { direction = "north" })
+  check(#goals > 0 and route(nav, below, goals, 2) == nil, "the shelf above the ledges cannot be reached from below")
+  eq(nav:otherWayIn(below, goals), "Not from here: this part is reached from Ow North",
+    "with no other way in, the target's own far side is where to come from")
+  eq(nav:closedReason(goals), "Not from here: this part is reached from Ow North", "it is one of the last reasons")
+  -- another edge reaches the shelf: that is the way round, and the one named
+  maps.FR_OW_ROUTE = shelf({ { dir = "north", map = "FR_OW_NORTH", offset = 0 }, { dir = "west", map = "FR_OW_WEST", offset = 0 } })
+  below = standOn(3, 4)
+  eq(nav:otherWayIn(below, goals), "Not from here: this part is reached from Ow West", "another way in is named before the target's own")
+  -- from the shelf itself there is a way: no such reason
+  local above = standOn(3, 0)
+  eq(nav:otherWayIn(above, goals), nil, "where a way exists this says nothing")
+  -- a cell nothing reaches at all
+  maps.FR_OW_ROUTE = mapDef("FR_OW_ROUTE", { "...#.", "...##", "....." }, {}, {})
+  below = standOn(0, 0)
+  eq(nav:otherWayIn(below, { { x = 4, y = 0 } }), nil, "a walled-in cell has no way in to name")
+  maps.FR_OW_ROUTE, maps.FR_OW_NORTH, maps.FR_OW_WEST = nil, nil, nil
+end
+
+do
+  -- a way round through the map next door (Navigation:wayRoundNextDoor): two strips of a
+  -- route that join only along the next town's edge
+  package.loaded["src.core.game3.connections"] = package.loaded["src.core.game3.connections"]
+    or require("src.core.game3.connections")
+  maps.FR_NR_ROUTE = mapDef("FR_NR_ROUTE", { "..#..", "..#..", "..#.." }, {},
+    { connections = { { dir = "north", map = "FR_NR_TOWN", offset = 0 } } })
+  maps.FR_NR_TOWN = mapDef("FR_NR_TOWN", { ".....", "....." }, {},
+    { connections = { { dir = "south", map = "FR_NR_ROUTE", offset = 0 } } })
+  local nav = navFor()
+  local w = worldOn(maps.FR_NR_ROUTE, 4, 2)
+  nav.worldForCommand = function() return w end
+  nav.worldState = function() return w end
+  local goals = { { x = 0, y = 2 } }
+  check(route(nav, w, goals, 2) == nil, "the two strips do not join on the route itself")
+  local leg, reason = nav:regionalNextLeg({ targetMapId = "FR_NR_ROUTE", targetGoals = goals })
+  check(leg and not leg.final and leg.nextMapId == "FR_NR_TOWN", "the way round goes over the edge into the next town: " .. tostring(reason))
+  eq(leg and leg.goals[1].y, 0, "the leg ends on this strip's top edge")
+  eq(leg and leg.edgeDirection, "up", "and says which way to step off")
+  -- with the town's row walled between the strips there is no way round
+  maps.FR_NR_TOWN = mapDef("FR_NR_TOWN", { "..#..", "..#.." }, {},
+    { connections = { { dir = "south", map = "FR_NR_ROUTE", offset = 0 } } })
+  leg, reason = nav:regionalNextLeg({ targetMapId = "FR_NR_ROUTE", targetGoals = goals })
+  check(leg == nil, "no way round where the next map does not join them")
+  maps.FR_NR_ROUTE, maps.FR_NR_TOWN = nil, nil
+end
+
+do
+  -- a door its key opens (Scripts.keyDoor; the Abandoned Ship's rooms): its sign is a
+  -- locked door, and a journey it closes names the key
+  local World = require("src.access.nav.gen3.World")
+  Scripts.setSource({
+    room_door = { { op = "lockall" }, { op = "checkflag", flag = 241 }, { op = "goto_if", target = "door_open" },
+      { op = "checkitem", 282, 1 }, { op = "goto_if", target = "door_locked" }, { op = "removeitem", 282, 1 },
+      { op = "setflag", flag = 241 }, { op = "call", target = "door_draw" }, { op = "special", id = 142 }, { op = "end" } },
+    door_open = { { op = "callstd", std = 4 } },
+    door_locked = { { op = "callstd", std = 4 } },
+    door_draw = { { op = "setmetatile", 6, 8, 555, 1 }, { op = "return" } },
+    poster = { { op = "checkflag", flag = 300 }, { op = "setflag", flag = 300 }, { op = "setmetatile", 1, 1, 5, 0 } },
+  })
+  local door = Scripts.keyDoor("room_door")
+  eq(door and door.flag, 241, "the door's own flag is the first its script checks")
+  eq(door and door.item, 282, "the key is the item it checks for and takes")
+  eq(Scripts.signRole("room_door"), "Locked Door", "such a sign is a locked door, not a hidden switch")
+  eq(Scripts.keyDoor("poster"), nil, "a switch that takes no item is no key door")
+  eq(Scripts.signRole("poster"), "Hidden Switch", "and keeps its name")
+  maps.FR_KD_HALL = mapDef("FR_KD_HALL", { "###", "#.#", "###" }, {},
+    { bgEvents = { { type = "sign", x = 1, y = 0, kind = 0, scriptKey = "room_door" } } })
+  local flagsOn = {}
+  package.loaded["src.core.game3.scripting.space"] = { store = {} }
+  package.loaded["src.core.game3.scripting.flags"] = { getFlag = function(_, _, id) return flagsOn[id] == true end }
+  local labelled = Scripts.itemLabel
+  Scripts.itemLabel = function(id) return id == 282 and "Rm. 2 Key" or nil end
+  local nav = navFor()
+  -- the journey exists only with the door's flag supposed set
+  local supposing
+  nav.journeySearch = function(self)
+    supposing = self.journeySupposing
+    return World.supposedFlags and World.supposedFlags[241] and { cost = 1 } or nil
+  end
+  local start, target = { mapId = "FR_KD_HALL", x = 1, y = 1 }, { mapId = "FR_KD_HALL", goals = { { x = 1, y = 1 } } }
+  nav.session = function() return { bag = { pockets = {} } } end
+  eq(nav:lockedDoor(start, target, nil), "A door on the way is locked: needs the Rm. 2 Key", "without the key the refusal names it")
+  check(supposing == true and World.supposedFlags == nil and nav.journeySupposing == nil, "the supposition is put back after the search")
+  nav.session = function() return { bag = { pockets = { keys = { { id = 282, qty = 1 } } } } } end
+  eq(nav:lockedDoor(start, target, nil), "A door on the way is locked: face it and press A, the Rm. 2 Key opens it",
+    "with the key in the bag it says how the door opens")
+  flagsOn[241] = true
+  eq(nav:lockedDoor(start, target, nil), nil, "a door already opened is not blamed")
+  Scripts.itemLabel = labelled
+  Scripts.setSource(nil)
+  package.loaded["src.core.game3.scripting.space"] = nil
+  package.loaded["src.core.game3.scripting.flags"] = nil
+  maps.FR_KD_HALL = nil
+end
+
+do
   -- Ruby, Sapphire, FireRed and LeafGreen name things Emerald's sheets name differently
   local Snapshot = require("src.access.nav.gen3.WorldSnapshot")
   local Scripts = require("src.access.nav.gen3.Scripts")
@@ -1036,6 +1305,21 @@ do
   local Scripts = require("src.access.nav.gen3.Scripts")
   eq(Scripts.signLine("The biggest SHROOMISH in history!\n{STR_VAR_2}'s {STR_VAR_3}-inch giant!"),
     "The biggest SHROOMISH in history!", "a sentence of placeholders is left out")
+end
+
+do
+  -- routeNeeds names whoever stands on the goal before the first person on the way there
+  -- (Emerald's Lavaridge Gym: the guide by the door was named for a buried trainer's hole)
+  maps.FR_TEST_HOLES = mapDef("FR_TEST_HOLES", { ".....", "....." })
+  local guide = { cellX = 1, cellY = 0, graphicsId = 23, currentElevation = 3, localId = 1,
+    def = { graphicsId = 23, index = 1, trainerType = 0 } }
+  local buried = { cellX = 4, cellY = 0, graphicsId = 66, currentElevation = 3, localId = 2, invisible = true,
+    def = { graphicsId = 66, index = 2, trainerType = 3 } }
+  local nav = navFor()
+  local w = worldOn(maps.FR_TEST_HOLES, 0, 0, { guide, buried })
+  nav.worldForCommand = function() return w end
+  eq(nav:routeNeeds({ { x = 4, y = 0 } }), "Blocked by a hidden trainer", "the one in the hole, not the guide on the way")
+  maps.FR_TEST_HOLES = nil
 end
 
 T.finish("gen3 navigation")

@@ -138,6 +138,7 @@ function Scripts.signRole(key)
   end
   if s.ops.checkmoney and s.ops.additem then return "Vending Machine", "vending_machine" end
   if s.ops.setmetatile then
+    if Scripts.keyDoor(key) then return "Locked Door", "key_door" end
     local yesNo = s.stds[5] == true
     if yesNo and s.ops.trainerbattle then return "Quiz Machine", "quiz_machine" end
     if yesNo and (s.ops.setflag or s.ops.clearflag) then return "Secret Switch", "secret_switch" end
@@ -234,6 +235,27 @@ function Scripts.signWords(key)
     return nil
   end
   return words(key, 0)
+end
+
+-- A door one key opens: its sign's script checks the door's own flag, then the bag for
+-- an item, takes it, sets the flag and draws the door open (the Abandoned Ship's four
+-- locked rooms, pokeemerald data/maps/AbandonedShip_HiddenFloorCorridors/scripts.inc;
+-- they were listed as "Hidden Switch").  Returns { flag, item }, or nil.
+function Scripts.keyDoor(key)
+  local list = Scripts.get(key)
+  if not list then return nil end
+  local s = Scripts.reach(key, 4)
+  if not (s.ops.checkitem and s.ops.removeitem and s.ops.setflag and s.ops.setmetatile) then return nil end
+  local item
+  for _, cmd in ipairs(list) do
+    if type(cmd) == "table" and cmd.op == "checkitem" then
+      item = tonumber(cmd.item or cmd[1])
+      break
+    end
+  end
+  local flag = s.flagsChecked[1]
+  if not (item and item > 0 and flag) then return nil end
+  return { flag = flag, item = item }
 end
 
 function Scripts.cardKeyFlag(key)

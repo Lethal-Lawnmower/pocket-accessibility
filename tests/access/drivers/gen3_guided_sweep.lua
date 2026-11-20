@@ -1,6 +1,8 @@
 -- Guided navigation to every warp and connection of every Gen 3 map, entered at its first
 -- warp with the harness party, badges and Flash. Logs each refusal (REFUSED) with what the
 -- journey planner says for the same goals. SWEEP_MAPS limits it, SWEEP_FROM resumes it.
+-- A target that gets no answer in 265 frames is logged NOANSWER and counted as refused;
+-- SWEEP_ANSWERS=1 logs every answer (ANS).
 -- Silent and isolated: ISOLATED_DRIVER=tests/access/drivers/gen3_guided_sweep.lua
 return function(game)
   local version = os.getenv("POKEPORT_VERSION")
@@ -19,10 +21,10 @@ return function(game)
   local flash = GameData.flag("FLAG_SYS_USE_FLASH")
   local ids = L.mapIds and L.mapIds() or {}
   if #ids == 0 then
-    -- FireRed and LeafGreen: every map of the cartridge, by id
+    -- FireRed and LeafGreen: every map of the cartridge, by id (One Island's carry SEVII_)
     local prefix = GameData.mapPrefix()
     for id in pairs(game.data.maps) do
-      if type(id) == "string" and id:sub(1, #prefix) == prefix then ids[#ids + 1] = id end
+      if type(id) == "string" and (id:sub(1, #prefix) == prefix or id:sub(1, 6) == "SEVII_") then ids[#ids + 1] = id end
     end
     table.sort(ids)
   end
@@ -31,7 +33,10 @@ return function(game)
   for _, mapId in ipairs(ids) do
     local def = game.data.maps[mapId]
     local warp = def and def.warps and def.warps[1]
-    if warp and not mapId:find("BATTLE_FRONTIER", 1, true) and not mapId:find("TRAINER_HILL", 1, true) and not mapId:find("EVER_GRANDE_CITY_[A-Z]*S_ROOM") and not mapId:find("BATTLE_TENT", 1, true) and not mapId:find("HALL_OF_FAME", 1, true) and not mapId:find("CONTEST", 1, true) and (not os.getenv("SWEEP_FROM") or mapId > os.getenv("SWEEP_FROM")) and (not only or only:find(mapId, 1, true)) then
+    if warp and not mapId:find("BATTLE_FRONTIER", 1, true) and not mapId:find("TRAINER_HILL", 1, true) and not mapId:find("EVER_GRANDE_CITY_[A-Z]*S_ROOM") and not mapId:find("BATTLE_TENT", 1, true) and not mapId:find("HALL_OF_FAME", 1, true)
+       -- the Battle Tower's rooms crash the teleport on Ruby and Sapphire, and the Champion's
+       -- room starts a battle the harness stalls in (FireRed: every map after it uncaptured)
+       and not mapId:find("BATTLE_TOWER_[BCE]") and not mapId:find("LEAGUE_CHAMPIONS_ROOM", 1, true) and not mapId:find("CONTEST", 1, true) and (not os.getenv("SWEEP_FROM") or mapId > os.getenv("SWEEP_FROM")) and (not only or only:find(mapId, 1, true)) then
       local okT = pcall(L.teleport, mapId, warp.x, warp.y)
       U.wait(20)
       -- a script on arrival (a tent's greeting) holds a dialog: close it
@@ -54,11 +59,23 @@ return function(game)
             pcall(nav.describeRouteToSelected, nav)
             U.wait(25)
             local said = L.heard()
+            -- a long route's search outlasts 25 frames: wait, and say so if nothing comes
+            local late = 0
+            while said == "" and late < 240 do
+              U.wait(5)
+              late = late + 5
+              said = L.heard()
+            end
+            if os.getenv("SWEEP_ANSWERS") == "1" then U.log("ANS", mapId, tostring(item.label), "=>", said) end
             if nav.activeNavigation then pcall(nav.stopNavigation, nav, false) end
             pcall(nav.cancelPendingRoute, nav, false)
             counts.said = counts.said + 1
             local first = said:match("^[^|]*") or ""
-            if first:find("Cannot reach", 1, true) or first:find("No path", 1, true) or first:find("No route", 1, true) then
+            if said == "" then
+              counts.refused = counts.refused + 1
+              U.log("NOANSWER", mapId, tostring(item.label), tostring(item.description))
+            elseif first:find("Cannot reach", 1, true) or first:find("No path", 1, true) or first:find("No route", 1, true)
+               or first:find("Could not plan", 1, true) then
               counts.refused = counts.refused + 1
               local _, goals = nav:selectedRouteGoals()
               local okJ, leg, why = pcall(nav.regionalNextLeg, nav,
