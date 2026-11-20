@@ -39,6 +39,9 @@ local function topState()
   return stackModule.states[#stackModule.states]
 end
 
+-- Presenter errors already logged (by message), see poll.
+local reported = {}
+
 local function poll(state, entering, presenter, queue)
   presenter = presenter or lastPresenter
   local memo = memos[state]
@@ -46,7 +49,17 @@ local function poll(state, entering, presenter, queue)
     memo = {}
     memos[state] = memo
   end
-  local text, interrupt = presenter.poll(state, memo, entering)
+  -- A presenter reads upstream screens it does not own; when an upstream
+  -- update changes what it reads, the error must cost speech, not the game.
+  -- Logged once per message (with its traceback) so drivers still see it.
+  local ok, text, interrupt = xpcall(presenter.poll, debug.traceback, state, memo, entering)
+  if not ok then
+    if not reported[text] then
+      reported[text] = true
+      require("src.core.Logger").warn("[access] presenter error: %s", tostring(text))
+    end
+    return false
+  end
   if queue then interrupt = false end
   if text then Speech.say(text, { interrupt = interrupt, screen = true }) end
   return text ~= nil

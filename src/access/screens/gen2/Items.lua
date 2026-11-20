@@ -726,8 +726,10 @@ end
 local function boxPickRow(pc, i)
   local Boxes = package.loaded["src.core.gen2.Boxes"]
   local save = pc.save or {}
-  local name = Boxes and Boxes.name and Boxes.name(save, i) or nil
-  if not name then return nil end
+  -- Upstream v0.4.x names a box from the cartridge text (third argument).
+  local data = pc.game and pc.game.data
+  local ok, name = pcall(Boxes and Boxes.name or error, save, i, data)
+  if not ok or type(name) ~= "string" then return nil end
   local box = type(save.boxes) == "table" and save.boxes[i]
   local count = type(box) == "table" and #box or 0
   local cap = Boxes.MONS_PER_BOX
