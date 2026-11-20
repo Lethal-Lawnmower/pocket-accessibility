@@ -349,6 +349,11 @@ return function(game)
     return AutoWalk.active() or BoulderWalk.active() or SwitchWalk.active() or IceWalk.active() or Chase.active()
   end
   local unhandled = {}
+  -- A stage's handler for a screen: by its kind, else `handlers.any` (given the kind).
+  local function handlerFor(handlers, k)
+    if not handlers then return nil end
+    return handlers[k] or handlers.any
+  end
   -- Advance text, questions and battles until the field has been free for `calm`
   -- frames, or `untilFn` holds.  `handlers[kind]` plays a screen of its own.
   local function advance(opts)
@@ -366,9 +371,9 @@ return function(game)
       elseif k == "message" then
         run = 0
         L.tap("a", 8)
-      elseif k and opts.handlers and opts.handlers[k] then
+      elseif k and handlerFor(opts.handlers, k) then
         run = 0
-        opts.handlers[k](top)
+        handlerFor(opts.handlers, k)(top, k)
       elseif k then
         run = 0
         if not unhandled[k] then
@@ -496,8 +501,8 @@ return function(game)
         answerChoice(opts.policy)
       elseif k == "message" and (not AutoWalk.walking() or textFor > 60) then
         L.tap("a", 8)
-      elseif k and k ~= "message" and opts.handlers and opts.handlers[k] then
-        opts.handlers[k](top)
+      elseif k and k ~= "message" and handlerFor(opts.handlers, k) then
+        handlerFor(opts.handlers, k)(top, k)
       else
         wait(1)
       end
@@ -785,6 +790,11 @@ return function(game)
   local function healHere()
     local town = mapName()
     U.log("HEAL", "to the Pokémon Center of", town, "party", partyLine())
+    if not TOWN_LABEL[town] and not town:find("POKEMON_CENTER_1F") then
+      -- a scene carried the player indoors (Devon's employee): not a town with a Center
+      U.log("HEAL", "not in a town with a Center:", L.where())
+      return false
+    end
     if not town:find("POKEMON_CENTER_1F") then
       go("warps", "Center 1F")
       if not mapName():find("POKEMON_CENTER_1F") then
@@ -1312,10 +1322,92 @@ return function(game)
     return flag("FLAG_RECEIVED_POKENAV"), L.where() .. " " .. gruntLine()
   end)
 
+  -- Emerald's Match Call lesson outside Devon: the game opens the start menu and waits
+  -- for POKeNAV, MATCH CALL, MR. STONE, CALL.  Each choice is made by what was read.
+  local function lastSaid() return spoken[#spoken] and spoken[#spoken].text or "", spoken[#spoken] and spoken[#spoken].frame or 0 end
+  local function matchCallHandlers()
+    local handlers, phase, tries = {}, "menu", 0
+    local function moveOn(next)
+      phase, tries = next, 0
+      L.tap("a", 40)
+    end
+    -- one more press in this phase; past a dozen the lesson is given up and logged
+    local function another(now)
+      tries = tries + 1
+      U.log("MATCHCALL", phase, "press", tries, "after:", tostring(now):sub(1, 160))
+      if tries > 12 then
+        finding("pokenav", "Match Call lesson: the " .. phase .. " step never read what was wanted; last heard: " .. tostring(now):sub(1, 160))
+        phase = "gave up"
+        return
+      end
+      press("down", 30)
+    end
+    function handlers.start()
+      local now = lastSaid()
+      local rows = { now }
+      for _ = 1, 10 do
+        if now:upper():find("NAV", 1, true) then break end
+        now = press("down", 20)
+        rows[#rows + 1] = now
+      end
+      U.log("MATCHCALL", "start menu heard:", table.concat(rows, " / "):sub(1, 400))
+      if not now:upper():find("NAV", 1, true) then
+        finding("menu", "POKeNAV was not read in the start menu; heard: " .. table.concat(rows, " / "):sub(-200))
+        L.tap("b", 20)
+        return
+      end
+      phase = "menu"
+      L.tap("a", 40)
+    end
+    function handlers.any(_, k)
+      if not tostring(k):find("pokenav") then L.tap("a", 10) return end
+      local now, at = lastSaid()
+      local upper = now:upper()
+      if phase == "menu" then
+        if upper:find("MATCH CALL, %d+ OF") then
+          U.log("MATCHCALL", "menu:", now:sub(1, 200))
+          moveOn("list")
+        else
+          another(now)
+        end
+      elseif phase == "list" then
+        if upper:find("STONE", 1, true) then
+          U.log("MATCHCALL", "list:", now:sub(1, 200))
+          moveOn("options")
+        else
+          another(now)
+        end
+      elseif phase == "options" then
+        if upper:find("^CALL") then
+          U.log("MATCHCALL", "options:", now)
+          moveOn("call")
+        else
+          another(now)
+        end
+      elseif phase == "gave up" then
+        L.tap("b", 30)
+      else
+        -- the call: A while it talks, B once it has been quiet a while (back out)
+        tries = tries + 1
+        if tries > 300 then
+          finding("pokenav", "Match Call lesson: the call did not end after 300 presses; last heard: " .. now:sub(1, 160))
+          phase = "gave up"
+        elseif frame - at > 90 then
+          U.log("MATCHCALL", "call quiet, B; last heard:", now:sub(1, 160))
+          L.tap("b", 30)
+        else
+          L.tap("a", 10)
+        end
+      end
+    end
+    return handlers
+  end
+
   -- Mr. Briney's cottage on Route 104 and the boat to Dewford.
   stage("dewford", function() return flag("FLAG_VISITED_DEWFORD_TOWN") end, function()
     local there = function() return onMap("DEWFORD_TOWN") and L.free() end
-    local ok, why = travel("ROUTE104_MR_BRINEYS_HOUSE", { untilFn = there })
+    local handlers = matchCallHandlers()
+    local ok, why = travel("ROUTE104_MR_BRINEYS_HOUSE", { untilFn = there, handlers = handlers })
     if not ok and not there() then return false, tostring(why) .. " " .. gruntLine() end
     visit()
     if not there() then
