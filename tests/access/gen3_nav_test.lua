@@ -1031,4 +1031,11 @@ do
   package.loaded["src.core.game3.scripting.trainers"] = trainersModule
 end
 
+do
+  -- Sootopolis's size records: the second sentence is only what the game fills in
+  local Scripts = require("src.access.nav.gen3.Scripts")
+  eq(Scripts.signLine("The biggest SHROOMISH in history!\n{STR_VAR_2}'s {STR_VAR_3}-inch giant!"),
+    "The biggest SHROOMISH in history!", "a sentence of placeholders is left out")
+end
+
 T.finish("gen3 navigation")
