@@ -361,12 +361,18 @@ return function(game)
       end
       L.log("SCRIPT", tostring(label))
       if not label then return end
-      Space.startScript(label)
+      -- 2026-11-19 from Route 118 the script said nothing and the Pokenav never
+      -- opened: run it where the game runs it, in Rustboro City.
+      teleport("RUSTBORO_CITY$", 16, 20)
+      wait(30)
+      local started = Space.startScript(label)
+      L.log("STARTED", tostring(started) .. " status " .. tostring(Space.vm and Space.vm.ctx.status))
       for _ = 1, 80 do
         if nav() then break end
         if Message.open then tap("a", 16) else wait(8) end
       end
-      L.log("OPEN", tostring(nav() ~= nil) .. " " .. tostring(L.top()))
+      L.log("OPEN", tostring(nav() ~= nil) .. " " .. tostring(L.top())
+        .. " status " .. tostring(Space.vm and Space.vm.ctx.status))
       if not nav() then return end
       wait(120)
       tap("b", 20)                      -- refused during the tutorial
