@@ -106,6 +106,7 @@ surrounding tiles, pathfinding start ("1 right"), and Pallet Town's warps
 | Hold left trigger | Navigation modifier (on the map, the game no longer sees it, so it does not lower game speed; the left shoulder still does) |
 | Left trigger + D-pad up / down | Previous / next object category (All, Warps, Connections, Signposts, NPCs, Objects, Area; FireRed adds Misc after Objects) |
 | Left trigger + D-pad left / right | Previous / next object in the category |
+| In battle: left trigger + D-pad up / down | Your HP / the enemy's HP, both Pokémon of a side in a double battle (decision 76; the Shift+H and H commands). The trigger is kept from the game in battle too; left and right do nothing there |
 | Left stick click | Auto-walk to the selected object; again to stop |
 | Right stick click | Guided navigation to the selected object (the K command); again to stop |
 

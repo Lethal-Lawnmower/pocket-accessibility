@@ -266,6 +266,7 @@ return function(game)
   local function health()
     local Gen3Battle = require("src.access.screens.gen3.Battle")
     U.log("HEALTH", tostring(Gen3Battle.health(nil, "enemy")), "|", tostring(Gen3Battle.health(nil, "player")))
+    dofile("tests/access/drivers/hp_keys.lua")(U)
   end
   local function answer(yes)
     wait(30)

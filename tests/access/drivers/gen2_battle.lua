@@ -184,6 +184,7 @@ return function(game)
         if t.phase == "menu" and not healthLogged then
           healthLogged = true
           U.log("HEALTH", Gen2Battle.health(t, "player"), "|", Gen2Battle.health(t, "enemy"))
+          dofile("tests/access/drivers/hp_keys.lua")(U)
         end
         local handler = on[t.phase]
         -- a line holding for A (a question before its YES/NO box included),

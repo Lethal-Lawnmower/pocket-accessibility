@@ -478,6 +478,7 @@ figure it out isn't the way to go"): README "Controls", the Android launcher's T
 | Off the map | Swipe | One D-pad press |
 | Map | Two-finger swipe left / right | Previous / next navigation point in the category |
 | Map | Two-finger swipe up / down | Previous / next category (decision 23's trigger plus D-pad) |
+| Battle | Two-finger swipe up / down | Your HP / the enemy's HP, both of a side in a double battle (decision 76, as Shift+H and H) |
 | Map | Tap | MANUAL and HYBRID: spoken directions to the selected point, as the keyboard's K and the right stick click. AUTO: auto-walk to it, as the left stick click. Again stops either. Reported once the double-tap window has passed, so a stop comes about 0.3 s after the tap |
 | Anywhere | Double tap | A |
 | same | Two-finger double tap | B |
@@ -488,7 +489,7 @@ figure it out isn't the way to go"): README "Controls", the Android launcher's T
 A two-finger turn does nothing (2026-11-10: the walking mode is chosen in the options only; until then a
 clockwise turn started auto-walk and a counterclockwise one stopped it). The recogniser still tells a turn
 (45 degrees or more) from a two-finger swipe, so a twisting pair is not read as a swipe. Off the map a
-two-finger swipe does nothing. While a walk runs, any gesture stops it, as any controller button does. Holding a
+two-finger swipe does nothing, except up and down in battle (decision 76). While a walk runs, any gesture stops it, as any controller button does. Holding a
 direction is not decided and not recognised.
 
 Until 2026-11-10 the screen was cut in halves: portrait top navigated and bottom moved; landscape, from

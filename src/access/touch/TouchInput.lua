@@ -19,6 +19,10 @@
 --                        plus D-pad):
 --                          left / right  previous / next navigation point
 --                          up / down     previous / next category
+--                        in battle (the owner, 2026-11-20):
+--                          up            your Pokemon's HP
+--                          down          the enemy's HP
+--                        (both of a side in a double battle)
 --   tap                  on the map: in AUTO walking, auto-walk to the selected
 --                        point (again stops it); otherwise spoken directions
 --                        to it, as the keyboard's K and the right stick click
@@ -61,6 +65,9 @@ local TAP_FRAMES = 2
 local STEP_MAX_FRAMES = 24
 -- quick swipes queue up to this many steps
 local STEP_QUEUE_MAX = 4
+
+-- Two-finger swipes in battle: health, as the left trigger and D-pad.
+local BATTLE_SWIPES = { up = "read_player_health", down = "read_enemy_health" }
 
 local NAV_SWIPES = {
   up = "previous_item_filter", down = "next_item_filter",
@@ -335,7 +342,13 @@ function TouchInput.perform(gesture)
   end
 
   if gesture.kind == "swipe" and gesture.fingers == 2 then
-    if not onMap then return end
+    if not onMap then
+      local health = BATTLE_SWIPES[gesture.direction]
+      if health and nav and dep("nav").inBattle(nav) then
+        pcall(nav.handleCommand, nav, health)
+      end
+      return
+    end
     pcall(nav.handleCommand, nav, NAV_SWIPES[gesture.direction])
     -- after the point's own announcement, its first leg
     if walkingMode(game) == "hybrid" then announceLeg(nav, false) end

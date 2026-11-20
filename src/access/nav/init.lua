@@ -224,13 +224,30 @@ local DPAD_ACTIONS = {
   dpleft = "previous_map_item", dpright = "next_map_item",
 }
 
+-- In battle the same modifier reads health (the owner, 2026-11-20): with the
+-- left trigger held, D-pad up says your Pokemon's HP and D-pad down the
+-- enemy's, both Pokemon of a side in a double battle (the H and Shift+H
+-- commands).  Left and right do nothing in battle.
+local BATTLE_DPAD_ACTIONS = {
+  dpup = "read_player_health", dpdown = "read_enemy_health",
+}
+
+-- True while a battle is running, by the coordinator's own test for H.
+function Nav.inBattle(nav)
+  if not (nav and nav.battleForCommand) then return false end
+  local ok, battle = pcall(nav.battleForCommand, nav)
+  return ok and battle ~= nil
+end
+
 -- Returns true when the axis event is ours (consumed).
 function Nav.gamepadaxis(_, axis, value)
   if axis ~= "triggerleft" then return false end
   if value >= TRIGGER_ON then modifierHeld = true
   elseif value <= TRIGGER_OFF then modifierHeld = false end
   local nav, adapter, game = ensure()
-  return nav ~= nil and adapter.onMap(game)
+  -- kept from upstream's speed control on the map and in battle, where the
+  -- trigger is the modifier (the left shoulder still lowers the speed)
+  return nav ~= nil and (adapter.onMap(game) or Nav.inBattle(nav))
 end
 
 -- Returns true when the button press is ours (consumed).
@@ -257,6 +274,13 @@ function Nav.gamepadpressed(_, button)
   end
   if AutoWalk.walking() and button ~= "leftstick" then
     AutoWalk.stop("Auto walk stopped")
+    consumedButtons[button] = true
+    return true
+  end
+  if modifierHeld and BATTLE_DPAD_ACTIONS[button] and Nav.inBattle(nav) then
+    nav:handleCommand(BATTLE_DPAD_ACTIONS[button])
+    -- keep the held D-pad from moving the battle cursor
+    if game.input and game.input.padEventSeen then game.input:padEventSeen(button) end
     consumedButtons[button] = true
     return true
   end

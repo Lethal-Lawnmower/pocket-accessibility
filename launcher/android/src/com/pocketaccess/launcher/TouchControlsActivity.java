@@ -82,6 +82,8 @@ public final class TouchControlsActivity extends Activity {
         text(root, "Two-finger swipe left or right: the previous or next thing on the map. "
             + "Two-finger swipe up or down: change the category. "
             + "Your two fingers can sit side by side or one above the other.");
+        text(root, "In battle, two-finger swipe up: your Pokémon's HP. Two-finger swipe down: the enemy's HP. "
+            + "In a double battle you hear both on that side.");
         text(root, "Tap: spoken directions to what you picked, which keep coming as you walk. Tap again to stop them. "
             + "In Auto walking, a tap walks you there instead, and another tap stops.");
         text(root, "Double tap: A. Two-finger double tap: B. "

@@ -90,8 +90,10 @@ Ruby, Sapphire and Emerald use this presenter; their notes are in
 ## Not covered yet
 
 - Shift and switch prompts and link battles: not yet checked in a game run.
-- On-demand status keys (for example "read enemy HP" from Pokémon Access) belong
-  to the commands workstream.
+- On-demand health: H (enemy) and Shift+H (yours) in command mode; on a
+  controller, left trigger plus D-pad up (yours) or down (enemy); on touch, a
+  two-finger swipe up or down (decision 76). Other on-demand status keys
+  (EXP, held item, weather) are not built.
 - Gen 2: ball shakes (the failure line says how close it was), on-demand
   EXP, held item, weather and screens; link-battle waiting phases (not run);
   the Battle Tower, the Bug-Catching Contest and the catching tutorial are

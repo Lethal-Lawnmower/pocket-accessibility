@@ -228,8 +228,10 @@ autoWalk = {
   end,
   active = function() return autoWalk.activeNow end,
 }
+local inBattleNow = false
 local nav = {
   context = function() return coordinator, adapter, game end,
+  inBattle = function() return inBattleNow end,
   walking = function() return walkingNow end,
   stopWalks = function()
     if walkingNow then walkingNow = false stopped = stopped + 1 return true end
@@ -240,6 +242,7 @@ local nav = {
 local function setup(onMap)
   TouchInput._resetForTests()
   spoken, commands, autoCalls, stopped = {}, {}, {}, 0
+  inBattleNow = false
   walkingNow, autoWalk.activeNow = false, false
   planResult, planReason = nil, nil
   options = {}
@@ -393,6 +396,14 @@ setup(false)
 swipe2("up")
 eq(pressedButtons(), "", "off the map a two-finger swipe does nothing")
 eq(#commands, 0, "and is no navigation command")
+
+-- in battle: two fingers up is your HP, down the enemy's (the owner, 2026-11-20)
+setup(false)
+inBattleNow = true
+swipe2("up") swipe2("down", TOP) swipe2("left") swipe2("right")
+eq(table.concat(commands, ","), "read_player_health,read_enemy_health",
+  "in battle: up your HP, down the enemy's, left and right nothing")
+eq(pressedButtons(), "", "and no D-pad press")
 setup(false)
 touch({ { 600, BOTTOM }, { 1000, BOTTOM } }, 0, 0, 0.4, 90)
 eq(#autoCalls, 0, "a turn off the map does not start auto-walk")

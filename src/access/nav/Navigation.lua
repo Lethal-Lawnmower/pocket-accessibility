@@ -3318,7 +3318,7 @@ function Accessibility:handleCommand(actionId)
     local helpLines = {
       "Accessibility help. F7 toggles command mode. F8 reads this help.",
       "While command mode is on, J and L browse map items. Shift J and Shift L change the item filter. K gives spoken directions to the selected item as you move: press K again to stop. Shift K auto-walks to it, and any key stops the walk. These keys only work on the map. H reads enemy health and Shift H reads player health.",
-      "On a controller, hold the left trigger: D-pad up and down change the item filter, left and right browse map items. Click the right stick for spoken directions and the left stick to auto-walk.",
+      "On a controller, hold the left trigger: D-pad up and down change the item filter, left and right browse map items. Click the right stick for spoken directions and the left stick to auto-walk. In battle, hold the left trigger: D-pad up reads your health and down the enemy's.",
     }
     -- drop the camera line when it is off (announceManual stops at a nil)
     local parts = {}

@@ -36,6 +36,7 @@ return function(game)
     if not untilMenu() then break end
     U.wait(20)
     if turn == 1 then
+      dofile("tests/access/drivers/hp_keys.lua")(U)
       press("right")      -- POKéMON
       press("down")       -- RUN
       press("left")       -- ITEM
