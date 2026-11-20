@@ -1335,6 +1335,16 @@ return function(game)
     local function another(now)
       tries = tries + 1
       U.log("MATCHCALL", phase, "press", tries, "after:", tostring(now):sub(1, 160))
+      -- what upstream's Pokénav shows (read only), to tell a silent screen from a lost press
+      local Pokenav = package.loaded["src.ui.game3.rse.pokenav.init"]
+      local okShell, shell = pcall(function() return Pokenav and Pokenav.active() end)
+      local screen = okShell and type(shell) == "table" and shell.screen or nil
+      U.log("MATCHCALL", "state:", "shell phase", tostring(okShell and type(shell) == "table" and shell.phase),
+        "mode", tostring(okShell and type(shell) == "table" and shell.mode),
+        "handler", tostring(screen and screen.handler), "visible", tostring(screen and screen.visible),
+        "options", tostring(screen and screen.options and #screen.options), "cursor", tostring(screen and screen.optionCursor),
+        "printer", tostring(screen and screen.printer ~= nil), "callBox", tostring(screen and screen.callBox),
+        "checkPage", tostring(screen and screen.checkPage))
       if tries > 12 then
         finding("pokenav", "Match Call lesson: the " .. phase .. " step never read what was wanted; last heard: " .. tostring(now):sub(1, 160))
         phase = "gave up"
@@ -1381,22 +1391,32 @@ return function(game)
         if upper:find("^CALL") then
           U.log("MATCHCALL", "options:", now)
           moveOn("call")
+        elseif upper:find("STONE", 1, true) then
+          -- still the list's words: the A was taken before the list took input
+          -- (r10, r11: upstream's handler stayed "list"); press A again, as a player would
+          tries = tries + 1
+          finding("pokenav", "Match Call list: A on MR. STONE did nothing the first time (the list was read before it took input)")
+          U.log("MATCHCALL", "options: A again, try", tries)
+          if tries > 12 then phase = "gave up" else L.tap("a", 10) wait(40) end
         else
           another(now)
         end
       elseif phase == "gave up" then
-        L.tap("b", 30)
+        -- the game will not let the lesson be left: end the stage here, with the log
+        error("the Match Call lesson could not be finished by ear", 0)
       else
-        -- the call: A while it talks, B once it has been quiet a while (back out)
+        -- the call, then out: B turns the call's pages and hangs up (A would hang up and
+        -- then open MR. STONE's options again and call him a second time, r12), then
+        -- leaves the list and the Pokénav
         tries = tries + 1
-        if tries > 300 then
-          finding("pokenav", "Match Call lesson: the call did not end after 300 presses; last heard: " .. now:sub(1, 160))
+        if tries > 400 then
+          finding("pokenav", "Match Call lesson: the Pokénav was not left after 400 presses of B; last heard: " .. now:sub(1, 160))
           phase = "gave up"
-        elseif frame - at > 90 then
-          U.log("MATCHCALL", "call quiet, B; last heard:", now:sub(1, 160))
+        elseif frame - at > 30 then
+          U.log("MATCHCALL", "B; last heard:", now:sub(1, 160))
           L.tap("b", 30)
         else
-          L.tap("a", 10)
+          wait(1)
         end
       end
     end
