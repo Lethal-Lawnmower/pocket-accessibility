@@ -8,7 +8,7 @@
 --   H  hideouts, Seafloor Cavern, Victory Road and the other late places
 --   W  whole crossings and ways round: Victory Road door to door, Ever Grande City back
 --      down through it, Route 104 through Petalburg Woods, Route 116 through the tunnel,
---      and from Pacifidlog down the currents to a dive spot and two item balls
+--      and from Pacifidlog down the currents to a dive spot and an item ball
 -- Harness setup (party, badges, flags, teleports) goes through the game's own loader,
 -- party and flag store; battles by the harness.  Silent; RESULT and FAIL lines.  Nobody
 -- hears these runs.
@@ -466,9 +466,10 @@ return function(game)
         local item = L.findLabel("^Dive Spot to Underwater Sealed Chamber", "all")
         return item ~= nil and tostring(item.description):find(": here", 1, true) ~= nil
       end)
-    -- an item ball down the same currents (Navigation:farTargets): Route 133's Max Revive
-    -- lies on a sandbar that only Route 132's southernmost lane leads to, and its Star
-    -- Piece at the end of a northern one; chosen in the town, each journey takes its lane
+    -- an item ball down the same currents (Navigation:farTargets): Route 133's Star Piece
+    -- lies at the end of one of Route 132's northern lanes; chosen in the town, the journey
+    -- takes that lane.  (Its Max Revive is reached only by a current that sets the player
+    -- down on a sandbar still surfing, stranded there: refused, so not walked here.)
     local function besideBall(mapName)
       if L.pos() ~= id(mapName) then return false end
       local Scripts = require("src.access.nav.gen3.Scripts")
@@ -480,8 +481,6 @@ return function(game)
       end
       return false
     end
-    through("Pacifidlog down the currents to Route 133's Max Revive", "PACIFIDLOG_TOWN", 1, "area", "^Max Revive, Route 133",
-      function() return besideBall("ROUTE133") end)
     through("Pacifidlog down the currents to Route 133's Star Piece", "PACIFIDLOG_TOWN", 1, "area", "^Star Piece, Route 133",
       function() return besideBall("ROUTE133") end)
   end
