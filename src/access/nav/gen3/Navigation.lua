@@ -1763,6 +1763,11 @@ function Navigation:routeOptionsFor(world, goals, policy)
         local water = map:isWater(nx, ny)
         if onWater then
           if not water and not landCell(nx, ny) then break end
+          -- Carried onto land.  Upstream leaves the player surfing there as far as the
+          -- game knows (seen on Route 134's east sandbar: surfing set, standing on sand),
+          -- so it offers no Surf and auto-walk stopped with "Could not use Surf".  Not a
+          -- move to plan: another lane is taken, or the walk says there is no route.
+          if not water then return nil end
         elseif water or not landCell(nx, ny) or mismatch(x, y, nx, ny) then
           break
         end
@@ -2961,8 +2966,11 @@ end
 -- and west sides, join only across B3F and B4F, whose currents carry a surfer off until
 -- the boulders on the floors above have been pushed down their holes into the water
 -- (pokefirered data/maps/SeafoamIslands_B3F/scripts.inc).  No route is planned through
--- a puzzle on other floors, so the refusal says what to do; with the currents stilled
--- the planner finds the way itself.
+-- a puzzle on other floors, so the refusal says what to do.  Said only while a boulder is
+-- still to come down onto B3F (its copy there is hidden until it falls); afterwards the
+-- plain "reached from" sentence stands.  Probed on a fresh profile with the hide flags a
+-- new game sets (66 to 71, 76, 77): no way through is planned, with or without the
+-- boulders set aside.  Whether the planner crosses once they are all down is not known.
 local THROUGH_PUZZLE = {
   { map = "^ROUTE_20$", via = "Seafoam Islands", currentsOn = "SEAFOAM_ISLANDS_B3F",
     reason = "The way is through Seafoam Islands, past its currents: push the boulders down the holes on each floor first" },
@@ -2983,7 +2991,7 @@ function Navigation:closedReason(goals)
   -- a way in that is the far side of a cave whose puzzle is still to do
   local bare = GameData.bareMapId(self:currentMapIdOf(world)) or ""
   for _, entry in ipairs(THROUGH_PUZZLE) do
-    local applies = bare:find(entry.map) ~= nil and self:hasCurrents(GameData.mapPrefix() .. entry.currentsOn)
+    local applies = bare:find(entry.map) ~= nil and self:boulderStillToCome(GameData.mapPrefix() .. entry.currentsOn)
     for _, name in ipairs(applies and names or {}) do
       if name:find(entry.via, 1, true) == 1 then return entry.reason end
     end
@@ -2991,15 +2999,12 @@ function Navigation:closedReason(goals)
   return otherSide
 end
 
--- Whether a map, as its load script would draw it now, has cells of current.
-function Navigation:hasCurrents(mapId)
+-- Whether a boulder the game keeps hidden on this map is still to arrive: one that drops
+-- in from the floor above is an object here from the start, hidden until it has fallen.
+function Navigation:boulderStillToCome(mapId)
   local def = self:regionalMapDef(mapId)
-  local view = def and World.loadedView(self.game, def)
-  if not view then return false end
-  for y = 0, view.heightCells - 1 do
-    for x = 0, view.widthCells - 1 do
-      if Terrain.CURRENT[view:behavior(x, y)] then return true end
-    end
+  for _, object in ipairs(def and def.objects or {}) do
+    if tonumber(object.graphicsId) == GFX.BOULDER and not regionalObjectVisible(object) then return true end
   end
   return false
 end
