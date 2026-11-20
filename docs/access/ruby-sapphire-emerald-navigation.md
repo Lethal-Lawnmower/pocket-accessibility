@@ -196,9 +196,15 @@ Run in game by driver, silent, unless a line says otherwise; nobody has heard it
 - **Safari Zone South's entrance cell** is the door itself, walled on three sides with the attendant below it; the
   game walks the player off it on the way in (`onFrame` script), so no one stands there to ask. From there it now
   says "Not from here: this part is reached from Safari Zone North"; from where a player stands, "Needs Acro Bike".
-- **Who stands on the goal is named first** (`routeNeeds`). Emerald's Lavaridge Gym 1F, holes 6, 7, 10 and 14 (the
-  buried trainers' own cells) said "Blocked by Man": the guide by the door is the first person met with everyone set
-  aside. The goal's occupant is asked first now: "Blocked by a hidden trainer", as Ruby said (unit test; probe LAVA).
+- **Who stands on the goal is named first** (`routeNeeds`, unit test only). Emerald's Lavaridge Gym 1F, holes 6,
+  7, 10 and 14 (the buried trainers' own cells) say "Blocked by Man", the gym's guide at 12,16 (agent parity's probe);
+  Ruby says "Blocked by a hidden trainer". `routeNeeds` now asks the goal cell's occupant before the first person on
+  the way, and the unit check passes, but in game (probe `batch_em10`) the four holes still say "Blocked by Man": the
+  sentence comes from somewhere else (a second try, the same order in `journeyBlocker`, changed nothing and was not
+  kept). Not solved.
+- **Route 124's east edge from the treasure hunters' door** gave "Could not plan a route ... in time" in agent
+  parity's sweep (Emerald and Ruby). Asked again from that door (probe `batch_em9`): "Not from here: this part is
+  reached from Route 125", in 0.04 seconds; not reproduced, so most likely the sweep's 25-frame wait.
 - **A sample beyond the sweep** (probe `batch_em3`): guided navigation to everything in the list, from every door of
   the map and one cell of each run of crossable edge cells, on Routes 110, 111, 113, 114, 119, 120, 121, 123, Meteor
   Falls (three rooms), Mt. Pyre outside and summit, Sootopolis and Ever Grande: 2975 asked, 916 not a route. Most are
@@ -311,6 +317,7 @@ because the game's tide follows the clock (`UpdateShoalTideFlag`); low tide arri
 - **Surfing into a current that ends on a sandbar** strands the player there, still surfing (upstream, Route 134's
   east edge): the planner avoids it, the game is not changed. Six item balls on Routes 132 to 134 are listed and
   answered with a bare "No route to ... from here"; nothing says why.
+- **Lavaridge Gym 1F's four buried trainers' holes** say "Blocked by Man" (its guide) in Emerald (fourth pass; cause not found).
 - **The blocker's name** is the first person without whom no way exists; where two people each close a different way the
   first found is named. An object drawn by a script is no person and is not named, except Lilycove's Wailmer.
 - **Ways round stop at doors.** A way round never crosses a connection, so two halves of a route that join only through

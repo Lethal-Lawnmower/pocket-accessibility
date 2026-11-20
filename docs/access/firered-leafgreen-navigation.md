@@ -303,11 +303,19 @@ Shared with Hoenn; the account is in `ruby-sapphire-emerald-navigation.md`, "Sec
     down, the harness's own state before this pass) the planner still joins neither half: whether the game does
     then was not established. Agent's wording, open to the owner.
   - An item ball chosen from the Area list says which way to face on arrival ("Face left and interact").
+  - **Victory Road 2F's exit** (`gen3_story` C, "No route to Route 23 from here" at 3F 32,18, as agent harness
+    reported). Probe `batch_fr7`, fresh profile: walked 1F to 2F, 2F to 3F, 3F back to 2F (arriving at 36,17), then
+    2F to Route 23: arrived. Then 2F loaded afresh at 34,9 (the cell `gen3_story`'s walk back arrives at) and the same
+    target: the journey is planned "past boulders" (boulders set aside) into 3F, the walk pushes 3F's boulders round
+    the floor and stops at 32,18 with "No route to Route 23 from here". So it is the journey planning, not boulder
+    state left by the walks before: with boulders set aside the planner sends the player through a 3F that the
+    pushes cannot open from that side. Not fixed.
   - **Guided sweep, FireRed**: the after-run stalled in the Champion's room's battle (the harness), and 43 maps after it were not captured; rerun from there on: 611 asked, 0 refused, 0 bare. All 8 bare refusals of the third pass are in that part; the maps before it had none in the stalled run either.
   - **Regression after it** (each on a fresh profile): `gen3_nav` 15/15, `gen3_nav_more` 13/13, `gen3_nav_gaps` 32/32, `gen3_nav_puzzle` 5/5, no failure (two copies of the chain ran, one on a fresh profile; each log holds one run).
 
 ## Known gaps
 
+- Victory Road 2F to Route 23 from 2F's 34,9: the journey past boulders goes into 3F and ends there with "No route" (fourth pass; from 36,17 it arrives).
 - Mt. Ember's Fire Stone: "No route" from the entrance (superseded: `gen3_story` walks to it since the boulder work; seen 2026-11-19). Its room looks to need a boulder moved through a space
   a rock fills until smashed, and the search counts rocks as fixed for boulders. Optional item; not solved.
 - `remoteSwitch` looks one flip ahead, and the walk can win battles on the way before it knows the next flip.
