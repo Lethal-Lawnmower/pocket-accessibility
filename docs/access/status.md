@@ -35,7 +35,8 @@ and recorded in the topic file.
   `gen2_region_proof_test` fails only from a path with spaces. The new Gen 2 UI LAYOUT row was
   not reached by any driver. Not heard; no owner test.
 - **Upstream v0.4.8, merged 2026-11-20 on branch `upstream-v0.4.8`** (decision 78; `2ac4162d`,
-  only `README.md` conflicted, ours kept). Not in `main`, not pushed. Cache formats changed for
+  only `README.md` conflicted, ours kept). Brought into `main` by fast-forward the same day at the
+  owner's word ("to main."); not pushed. Cache formats changed for
   Red, Blue, Yellow (v17 / yellow9), Gold, Silver, Crystal (v20 / crystal9): each re-imports once.
   Upstream moved Gen 2 screen wording to cartridge text labels; Gen 2 speech adapted (`ccf836a0`,
   `gold-silver-crystal.md`), and a presenter error no longer stops the game (`1bea5bce`, found when

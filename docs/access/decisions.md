@@ -606,3 +606,5 @@ Addendum (2026-11-20): the owner accepted the tap: "Sounds good, as long as they
 ## 78. Upstream update to v0.4.8 (2026-11-20)
 
 Asked "How far behind are we upstream?", the owner was told: 50 commits, releases v0.4.1 to v0.4.8, last merged v0.4.0 on 2026-11-02, next update due early December under decision 9, and that the update would go on a separate branch with the drivers rerun. The owner: "Yeah, let's do it." Authorized: merge upstream tag `v0.4.8` on branch `upstream-v0.4.8`, adapt the layer to it and test. Not covered: merging the branch into `main`, pushing, or a release; those are asked separately. Decision 9's monthly rhythm is unchanged; this update came early at the owner's word.
+
+Addendum (2026-11-20): after the driver results the owner said "to main." The branch was fast-forwarded into `main` locally. Pushing is still asked separately.
