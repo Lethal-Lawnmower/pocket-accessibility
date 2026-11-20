@@ -369,7 +369,9 @@ return function(game)
       L.log("STARTED", tostring(started) .. " status " .. tostring(Space.vm and Space.vm.ctx.status))
       for _ = 1, 80 do
         if nav() then break end
-        if Message.open then tap("a", 16) else wait(8) end
+        -- the script opens its own start menu on POKENAV (2026-11-19: "4 of 8") and
+        -- waits for A there
+        if Message.open or L.top() == "start" then tap("a", 16) else wait(8) end
       end
       L.log("OPEN", tostring(nav() ~= nil) .. " " .. tostring(L.top())
         .. " status " .. tostring(Space.vm and Space.vm.ctx.status))
