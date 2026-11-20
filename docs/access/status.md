@@ -34,6 +34,22 @@ and recorded in the topic file.
   Owner's Crystal playthrough on the merged code (their report, 2026-11-03): through the fourth gym and its invisible floors "with no issues".
   `gen2_region_proof_test` fails only from a path with spaces. The new Gen 2 UI LAYOUT row was
   not reached by any driver. Not heard; no owner test.
+- **Upstream v0.4.8, merged 2026-11-20 on branch `upstream-v0.4.8`** (decision 78; `2ac4162d`,
+  only `README.md` conflicted, ours kept). Not in `main`, not pushed. Cache formats changed for
+  Red, Blue, Yellow (v17 / yellow9), Gold, Silver, Crystal (v20 / crystal9): each re-imports once.
+  Upstream moved Gen 2 screen wording to cartridge text labels; Gen 2 speech adapted (`ccf836a0`,
+  `gold-silver-crystal.md`), and a presenter error no longer stops the game (`1bea5bce`, found when
+  the Crystal `gen2_items` driver crashed in CHANGE BOX). Unit tests: all pass. Run in game by
+  driver, silent, fresh profiles: Red `menus_and_text`, `more_screens`, `battle`, `navigation`,
+  `gen1_screens`; Yellow `yellow_follower`; Crystal `gen2_items`, `gen2_info`, `gen2_special`,
+  `gen2_battle`, `gen2_nav`, `gen2_menus`; Gold `gen2_nav_more`; FireRed `gen3_menus`, `gen3_items`,
+  `gen3_battle`; Emerald `rse_menus`, `rse_screens`, `rse_battle`: no driver error, no presenter
+  error, no raw text label in speech; health and shop money keys answer in all three
+  generations. FireRed first hung on an old agent profile; on a fresh import all three passed.
+  Not compared line by line with the old code; navigation sweeps, story drivers, Ruby, Sapphire,
+  LeafGreen, Blue and Silver not run. New wording heard from the cartridge: card flip ("Play with
+  three coins?"), Oak's clock (a page of dots first, "MONDAY, is it?"), Trainer Card page 3 shows
+  the Johto badges as the screen now does. Not heard; no owner test.
 - `POKEPORT_IMPORT_ONLY` with a current cache starts the game instead of quitting (old code
   too): scripted imports need a timeout.
 - Driver runs: `gen2_menus` needs `POKEPORT_BOOT_CINEMA=1`; many drivers log speech only with

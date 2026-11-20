@@ -27,6 +27,20 @@ share the `gs` engine; Crystal is `crystal`.
 - **Held screens.** Some screens draw another screen that is not on the
   stack (a mart's selling pack, MapRadio's radio, MoveTutor's party). The
   holder's presenter speaks the held screen.
+- **Cartridge text (since upstream v0.4.x, merged 2026-11-20).** Most Gen 2
+  screens no longer hold their wording: a table row holds a text label
+  (`"MenuHeader_BuySell.MenuData#1"`, `"_PlayersPCAskWhatDoText"`) and the
+  screen prints it through `src/core/RomText.lua` from the imported
+  cartridge (`game.data.text`), which errors on a missing label. Speech
+  reads labels the same way: `Common.tr` tries `Common.rom` first (the
+  running game's text, `src/access/CurrentGame.lua`), `Common.romLine`
+  picks one line of a multi-line label, and `Common.speakable` drops the
+  `{DONE}` / `{PROMPT}` endings. Some names are now pictures only (PACK
+  pockets, Pokégear cards); their spoken names are ours, keyed by the
+  screen's `id`. Several screens keep their texts on the instance
+  (`ContestMenu.TEXT`, `Diploma.certification`, `SlotMachine:text(key)`),
+  read there. Unit tests give fake games upstream's fixtures through
+  `tests/access/gen2_rom_text.lua`.
 - **Options.** Gen 2 has its own OPTION screen; the ACCESSIBILITY page is
   added there too and stored in Gen 2's options block (`menus-and-text.md`,
   decision 26).
