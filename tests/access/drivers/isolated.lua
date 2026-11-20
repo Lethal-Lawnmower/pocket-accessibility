@@ -7,8 +7,13 @@
 --   POKEPORT_DRIVER=tests/access/drivers/isolated.lua
 --   ISOLATED_DRIVER=tests/access/drivers/yellow_follower.lua
 return function(game)
-  -- a log redirected to a file keeps its lines when the run is closed at a time limit
-  pcall(function() io.stdout:setvbuf("line") end)
+  -- A log redirected to a file keeps its lines when the run is closed at a time limit.
+  -- Windows' C runtime treats "line" as full buffering (a killed run lost its last
+  -- block of output), so output is unbuffered there.
+  pcall(function()
+    local windows = love.system and love.system.getOS() == "Windows"
+    io.stdout:setvbuf(windows and "no" or "line")
+  end)
   -- On Android, minimising sends the app to the background, where SDL pauses the game.
   -- The emulator test runs have no window or audio anyway.
   if not (love.system and love.system.getOS() == "Android") then

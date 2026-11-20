@@ -52,7 +52,7 @@ return function(game)
   local function arrive(mapId, warpIndex)
     local x, y = entry(mapId, warpIndex)
     L.heal()
-    L.teleport(mapId, x, y, "down")
+    L.teleport(mapId, x, y, "down") -- (first ends a battle an earlier walk left up)
     L.settle(120, true)
     return L.where()
   end
@@ -75,20 +75,28 @@ return function(game)
       end
     end
     BoulderWalk.stop() SwitchWalk.stop() AutoWalk.stop()
-    U.log("FAIL", "still going at the limit", L.where())
+    U.log("FAIL", "still going at the limit", L.where(), L.battleState())
+    -- a battle the walk stopped in is finished (or left) here, so that the walks after
+    -- this one start on the field and fail only for their own reasons
+    if not L.endBattle() then U.log("WARN", "the field is not free after the stall", L.where()) end
     return false
   end
 
   -- One auto-walk to the first item of `filter` whose label matches; `reachedMap`, when
-  -- given, is what must be true after it.
+  -- given, is what must be true after it.  With none given, or when the walk ends on the
+  -- map it began on, it must also say it arrived: "No route" leaves the player on the
+  -- gym's own map, and that used to count as reaching the leader.
+  local summary = { arrived = 0, failed = 0 }
   local function walk(name, filter, pattern, reachedMap)
     local item = L.findLabel(pattern, filter)
     if not item then
+      summary.failed = summary.failed + 1
       local labels = {}
       for _, candidate in ipairs(L.browse(filter)) do labels[#labels + 1] = tostring(candidate.label) end
       U.log("FAIL", name, "not listed:", pattern, "in", filter, "at", L.where(), table.concat(labels, "; "):sub(1, 500))
       return false
     end
+    local startMap = L.pos()
     L.select(item, filter)
     L.heard()
     AutoWalk.start(L.nav(), game, L.adapter())
@@ -96,7 +104,11 @@ return function(game)
     local said = L.heard()
     local mapId = L.pos()
     local ok = not reachedMap or mapId == reachedMap
-    U.log(ok and "RESULT" or "FAIL", name, "->", L.where(), "|", said:sub(-120))
+    if ok and (not reachedMap or mapId == startMap) then
+      ok = said:find("Arrived", 1, true) ~= nil or said:find(" is here", 1, true) ~= nil
+    end
+    summary[ok and "arrived" or "failed"] = summary[ok and "arrived" or "failed"] + 1
+    U.log(ok and "RESULT" or "FAIL", name, "->", L.where(), "|", said:sub(-160))
     return ok
   end
 
@@ -124,6 +136,10 @@ return function(game)
       end
       if first then
         arrive(first)
+        -- a trainer who sees the player stops the field a few seconds after the
+        -- teleport (Tanoby Ruins' Ruin Maniac): wait until the field has stayed free
+        -- for five seconds, the battle played through, before the Area list is read
+        L.settle(1800, true, 300)
         local listed = {}
         for _, item in ipairs(L.browse("area")) do
           if item.floorEntry then listed[item.mapId] = item end
@@ -253,11 +269,13 @@ return function(game)
     local Scripts = require("src.access.nav.gen3.Scripts")
     arrive("FR_POKEMON_MANSION_1F")
     local n = L.nav()
-    local world = n:worldForCommand()
+    local world, worldWhy = n:worldForCommand()
+    if not world then U.log("FAIL", "Mansion switches: no world at", L.where(), tostring(worldWhy)) end
     local target = { mapId = "FR_POKEMON_MANSION_B1F", goals = { { x = 0, y = 0 }, anywhere = true } }
     target.anywhere = true
     local allowed = n:journeyMaps("FR_POKEMON_MANSION_1F", "FR_POKEMON_MANSION_B1F")
-    for _, id in ipairs({ "FR_POKEMON_MANSION_1F", "FR_POKEMON_MANSION_2F", "FR_POKEMON_MANSION_3F", "FR_POKEMON_MANSION_B1F" }) do
+    for _, id in ipairs(world and { "FR_POKEMON_MANSION_1F", "FR_POKEMON_MANSION_2F", "FR_POKEMON_MANSION_3F",
+        "FR_POKEMON_MANSION_B1F" } or {}) do
       for _, event in ipairs(maps[id].bgEvents or {}) do
         if select(2, Scripts.signRole(event.scriptKey)) == "secret_switch" then
           local flags = {}
@@ -351,6 +369,7 @@ return function(game)
       arrive(start, warpIndex)
       local item = L.findLabel(pattern, filter)
       if not item then
+        summary.failed = summary.failed + 1
         U.log("FAIL", title, "not listed:", pattern, "in", filter, "at", L.where())
         return
       end
@@ -385,7 +404,9 @@ return function(game)
       if not done then BoulderWalk.stop() SwitchWalk.stop() AutoWalk.stop() end
       said = said .. " | " .. L.heard()
       U.log("NOTE", title, "relit", relit)
-      U.log(arrived(said) and "RESULT" or "FAIL", title, "->", L.where(), "|", said:sub(-200))
+      local ok = arrived(said)
+      summary[ok and "arrived" or "failed"] = summary[ok and "arrived" or "failed"] + 1
+      U.log(ok and "RESULT" or "FAIL", title, "->", L.where(), "|", said:sub(-200))
     end
     -- (from a new game's flags Mt. Moon B2F's two fossils close the corridor until one is
     -- taken: the walk is refused with the way and the fossil named)
@@ -395,5 +416,6 @@ return function(game)
     through("Route 10, north half to Lavender's edge through Rock Tunnel", "FR_ROUTE_10", 1, "connections", "Lavender",
       function() return L.pos() == "FR_ROUTE_10" and Player.cellY > 50 end)
   end
+  U.log("RESULT", "story walks", "arrived", summary.arrived, "failed", summary.failed, "battles", L.battles)
   U.log("DONE")
 end

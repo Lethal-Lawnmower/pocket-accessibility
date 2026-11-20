@@ -54,28 +54,140 @@ function L.new(game)
     return (Message and Message.isOpen and Message.isOpen()) or (Choice and Choice.active)
   end
   self.messageOpen = messageOpen
-  self.battles = 0
-  local inBattle = false
-  -- A battle: press A through it (the harness party's first move wins).
+  self.battles, self.battlesLost = 0, 0
+  local inBattle, battleMap = false, nil
+  local function battleModule()
+    return package.loaded["src.core.game3.battle.init"] or package.loaded["src.core.game3.battle"]
+  end
+  local function loadedOpen(name)
+    local module = package.loaded[name]
+    return module and module.isOpen and module.isOpen() and module or nil
+  end
+
+  -- What a battle is waiting on that upstream's auto-fight does not answer: "stats"
+  -- (the level-up window), "forget" (the list of moves to forget), "choice" (a YES/NO
+  -- question) or nil.  While Battle._auto is on, upstream's battle passes no input to
+  -- these (src/core/game3/battle/init.lua, "Choice input during award": the block is
+  -- skipped under _auto), so with auto-fight left on a level-up never ended.
+  local function battlePrompt(Battle)
+    if not (Battle and Battle._active and Battle.statWindowPhase and Battle.statWindowPhase()) then return nil end
+    if loadedOpen("src.ui.game3.stat_growth") then return "stats" end
+    if loadedOpen("src.ui.game3.summary_menu") then return "forget" end
+    local Choice = package.loaded["src.ui.game3.choice"]
+    if Choice and Choice.active then return "choice" end
+    return nil
+  end
+
+  -- The last thing the battle's text box was given (its own log), on one line.
+  local function battleQuestion()
+    local Ui = package.loaded["src.core.game3.battle.ui"]
+    local log = Ui and Ui._log
+    return (tostring(log and log[#log] or ""):gsub("%s+", " "))
+  end
+
+  -- Where a battle stands, for a log line when one will not end.
+  function self.battleState()
+    local Battle = battleModule()
+    if not (Battle and Battle._active) then return "no battle" end
+    local Ui = package.loaded["src.core.game3.battle.ui"]
+    return "battle phase " .. tostring(Battle._phase) .. ", menu " .. tostring(Ui and Ui._mode)
+      .. ", waiting on " .. tostring(battlePrompt(Battle)) .. ", auto " .. tostring(Battle._auto)
+      .. ", last text: " .. battleQuestion():sub(-90)
+  end
+
+  -- One press as the player at the controls, with auto-fight off for as long as the
+  -- prompt is up and on again the frame it goes (before the battle's next step, so the
+  -- turns that follow are still chosen for us).
+  local function answerPrompt(Battle, button)
+    Battle._auto = false
+    game.input.pressQueue[#game.input.pressQueue + 1] = button
+    game.input.state[button] = true
+    for frame = 1, 8 do
+      U.wait(1)
+      if frame == 2 then game.input.state[button] = false end
+      if not battlePrompt(Battle) then break end
+    end
+    game.input.state[button] = false
+    if not battlePrompt(Battle) then Battle._auto = true end
+  end
+
+  -- A battle: press through it (the harness party's first move wins).
   local function battleStep()
     local active = Gen3.battleActive()
-    if active and not inBattle then self.battles = self.battles + 1 U.log("BATTLE", "started at", self.where()) end
-    if not active and inBattle then U.log("BATTLE", "ended at", self.where()) end
+    if active and not inBattle then
+      self.battles = self.battles + 1
+      battleMap = self.pos()
+      U.log("BATTLE", "started at", self.where())
+    end
+    if not active and inBattle then
+      U.log("BATTLE", "ended at", self.where())
+      if self.pos() ~= battleMap then
+        -- The battle was lost: the game took the player to a Pokemon Center.  Its
+        -- "whited out" screen is no message box, so nothing else here pages it and the
+        -- field never came free again (every later test said "Not on a map"); upstream's
+        -- own test helper pages it.
+        self.battlesLost = self.battlesLost + 1
+        local last = {}
+        for i = math.max(1, #self.said - 14), #self.said do last[#last + 1] = self.said[i] end
+        U.log("WARN", "battle lost, from", tostring(battleMap), "to", self.where(), "|", table.concat(last, " | "):sub(-700))
+        local ok, err = pcall(U.clearWhiteoutRush, game)
+        if not ok then U.log("WARN", "clearWhiteoutRush:", tostring(err)) end
+      end
+    end
     inBattle = active
     if active then
       self.heal()
-      -- upstream's own auto-fight switch (the battle's autoFight option)
-      -- chooses the moves; A pages the text and every third press is B,
-      -- which backs out of "Will you change POKéMON?" and the party screen
-      local Battle = package.loaded["src.core.game3.battle.init"] or package.loaded["src.core.game3.battle"]
-      if Battle and Battle._active then Battle._auto = true end
-      self.battleTaps = (self.battleTaps or 0) + 1
-      self.tap(self.battleTaps % 3 == 0 and "b" or "a", 6)
+      local Battle = battleModule()
+      local prompt = battlePrompt(Battle)
+      if prompt == "stats" then
+        -- both pages of the level-up window
+        answerPrompt(Battle, "a")
+      elseif prompt == "forget" then
+        -- never forget a move the walks need: back out, to "stop learning?"
+        answerPrompt(Battle, "b")
+      elseif prompt == "choice" then
+        -- a new move is declined as a player would: NO to "delete a move?", YES to
+        -- "stop learning?"; any other question (a nickname, changing Pokemon) is NO
+        local LearnMove = package.loaded["src.core.game3.battle.learn_move"]
+        local question = battleQuestion()
+        local learning = LearnMove and LearnMove.waitingChoice and LearnMove.waitingChoice()
+        local yes = learning and question:find("Stop learning", 1, true) ~= nil
+        if learning then U.log("BATTLE", "answered", yes and "YES" or "NO", "to", question:sub(-80)) end
+        answerPrompt(Battle, yes and "a" or "b")
+      else
+        -- upstream's own auto-fight switch (the battle's autoFight option)
+        -- chooses the moves; A pages the text and every third press is B,
+        -- which backs out of "Will you change POKéMON?" and the party screen
+        if Battle and Battle._active then Battle._auto = true end
+        self.battleTaps = (self.battleTaps or 0) + 1
+        self.tap(self.battleTaps % 3 == 0 and "b" or "a", 6)
+      end
       return true
     end
     return false
   end
   self.battleStep = battleStep
+
+  -- A battle still up after a walk was stopped: play it to its end, so that the next
+  -- test starts on the field and one stall cannot fail everything after it.  A battle
+  -- that still will not end is left through the game's own Battle.abort, and logged.
+  -- Returns true when the field is free.
+  function self.endBattle(limit)
+    if Gen3.battleActive() then
+      for _ = 1, limit or 4000 do
+        if not battleStep() then break end
+      end
+      if Gen3.battleActive() then
+        U.log("WARN", "battle would not end, left by Battle.abort:", self.battleState())
+        local Battle = battleModule()
+        local ok, err = pcall(function() Battle.abort("run") end)
+        if not ok then U.log("WARN", "Battle.abort:", tostring(err)) end
+        U.wait(60)
+      end
+      battleStep() -- logs the end
+    end
+    return self.settle(900, true)
+  end
 
   -- Wait until the field has been free for `calm` frames in a row; press A
   -- (or `mash`) through text meanwhile.
@@ -134,6 +246,7 @@ function L.new(game)
   -- Teleport through the game's own map loader (as F.goTo does).
   function self.teleport(mapId, x, y, facing)
     AutoWalk.stop()
+    if Gen3.battleActive() then self.endBattle() end -- never load a map under a battle
     self.settle(300, true, 5)
     local Map = require("src.core.game3.map")
     local Player = require("src.core.game3.player")
@@ -173,7 +286,7 @@ function L.new(game)
       ids[#ids + 1] = FieldMoves.MOVES[name] or name
       pp[#pp + 1] = 30
     end
-    mon.moves, mon.pp, mon.maxPp = ids, pp, pp
+    mon.moves, mon.pp, mon.maxPp = ids, pp, { unpack(pp) }
     for _, key in ipairs(badges or {}) do
       Flags.setFlag(Space.store, nil, FieldMoves.BADGE_FLAGS[key], true)
     end
@@ -192,11 +305,24 @@ function L.new(game)
     Flags.setFlag(Space.store, Space.vm and Space.vm.ctx or nil, flag, on ~= false)
   end
 
+  -- What a Pokemon Center does for the party: HP, status and PP (30 a move, as the
+  -- harness gives them).  In a battle the Pokemon out is a copy that is written back
+  -- over the party when the battle ends, so its HP is topped up too: with HP alone and
+  -- the party alone, a status condition or the damage of several battles on one walk
+  -- could lose a battle, and a FireRed story run whited out in Viridian Gym.
   function self.heal()
     for _, mon in ipairs(self.session().party or {}) do
       local max = tonumber(mon.maxHP or mon.maxHp or (mon.stats and mon.stats.hp))
       if max then mon.hp = max end
+      mon.status, mon.sleep = nil, nil
+      if type(mon.pp) == "table" then
+        for i in ipairs(mon.moves or {}) do mon.pp[i] = math.max(tonumber(mon.pp[i]) or 0, 30) end
+      end
     end
+    local Battle = battleModule()
+    local st = Battle and Battle._active and Battle._st
+    local out = st and st.player and st.player.mon
+    if out and (tonumber(out.hp) or 0) > 0 and tonumber(out.maxHp) then out.hp = tonumber(out.maxHp) end
   end
 
   -- Hold a direction for `frames` (a step across a connection or a push).
