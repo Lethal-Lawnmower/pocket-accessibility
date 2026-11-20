@@ -721,6 +721,11 @@ do
   overlays()
   eq(last(), "Picture of a KABUTOPS fossil", "fossil picture")
   check(not called, "MuseumPic.isActive is never called")
+  Space.vm = nil
+  overlays()
+  Space.vm = { ctx = { museumFossilPic = { species = 142 } } }
+  overlays()
+  eq(last(), "Picture of an AERODACTYL fossil", "fossil picture before a vowel")
   MuseumPic.isActive = origActive
   Space.vm = nil
 

@@ -1788,7 +1788,12 @@ Special.picture = add({
     memo.said = true
     local name = speciesName(state.species)
     if not name then return nil end
-    if state.fossil then return "Picture of a " .. say(name) .. " fossil", false end
+    if state.fossil then
+      -- "an AERODACTYL fossil" (run in game 2026-11-19 said "a AERODACTYL")
+      local spoken = say(name)
+      local article = spoken:match("^[AEIOUaeiou]") and "an " or "a "
+      return "Picture of " .. article .. spoken .. " fossil", false
+    end
     return "Picture: " .. say(name), false
   end,
 })
