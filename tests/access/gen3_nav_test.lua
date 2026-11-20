@@ -1012,19 +1012,17 @@ do
 end
 
 do
-  -- A current that carries the player onto land leaves them surfing there (upstream), so
-  -- the game offers no Surf from that cell: a route goes on by land first, never "Use Surf"
-  -- straight from it.  The carry itself stays a move (it is how most balls down the
-  -- currents are reached).
+  -- A current that carries the player onto land leaves them surfing there (upstream): from
+  -- that sand neither Surf nor a step into the water is possible (probed on Route 134), so
+  -- no route is planned through such a carry.
   CELL["<"] = { 0x29, 0x51, 1 }
-  maps.FR_SANDBAR = mapDef("FR_SANDBAR", { "..<<~", "~~###" })
+  maps.FR_SANDBAR = mapDef("FR_SANDBAR", { "..<<~", "~~###", "~~~~~" })
   allowed.SURF = true
   local nav = navFor()
-  local result = route(nav, worldOn(maps.FR_SANDBAR, 4, 0, {}, true), { { x = 0, y = 1 } })
-  eq(kinds(result), "left(current) left down(surf)",
-    "carried onto the sandbar, then a step along it before Surf")
-  result = route(nav, worldOn(maps.FR_SANDBAR, 1, 0, {}, false), { { x = 1, y = 1 } })
-  eq(kinds(result), "left down(surf) right", "no Surf from the cell the current ends on")
+  local result = route(nav, worldOn(maps.FR_SANDBAR, 4, 0, {}, true), { { x = 0, y = 0 } })
+  eq(result and kinds(result) or "none", "none", "the sandbar a current ends on is not a way in")
+  result = route(nav, worldOn(maps.FR_SANDBAR, 4, 2, {}, true), { { x = 0, y = 2 } })
+  eq(kinds(result), "left left left left", "calm water beside it is crossed as ever")
   allowed.SURF = nil
 end
 

@@ -1763,6 +1763,11 @@ function Navigation:routeOptionsFor(world, goals, policy)
         local water = map:isWater(nx, ny)
         if onWater then
           if not water and not landCell(nx, ny) then break end
+          -- Carried onto land.  Upstream leaves the player surfing there as far as the
+          -- game knows (seen on Route 134's east sandbar: surfing set, standing on sand),
+          -- so it offers no Surf and auto-walk stopped with "Could not use Surf".  Not a
+          -- move to plan: another lane is taken, or the walk says there is no route.
+          if not water then return nil end
         elseif water or not landCell(nx, ny) or mismatch(x, y, nx, ny) then
           break
         end
@@ -1775,33 +1780,6 @@ function Navigation:routeOptionsFor(world, goals, policy)
       if travelled > limit then return nil end
     end
     return x, y, kind, travelled
-  end
-
-  -- A land cell a current carries the player onto (a water cell next to it whose current
-  -- runs into it).  Upstream leaves the player surfing there as far as the game knows
-  -- (seen on Route 134's east sandbar: surfing set, standing on sand), so pressing A at
-  -- the water offers no Surf, and auto-walk stopped with "Could not use Surf" on the way
-  -- to Route 134's Star Piece.  A step onto more land is a dismount and puts that right,
-  -- so Surf is never started from such a cell: the route walks a cell on first, or takes
-  -- another lane.  Forbidding the carry itself (the first version) left nearly every
-  -- item down the currents with no route, Rare Candy on Route 132 among them.
-  local strandedCache = {}
-  local function strandedByCurrent(x, y)
-    local key = cellKey(x, y)
-    if strandedCache[key] ~= nil then return strandedCache[key] end
-    local stranded = false
-    if not map:isWater(x, y) then
-      for _, direction in ipairs(ORDER) do
-        local d = DELTA[direction]
-        local sx, sy = x - d[1], y - d[2]
-        if map:inBounds(sx, sy) and map:isWater(sx, sy) then
-          local runs, kind = Terrain.forced(map:behavior(sx, sy))
-          if kind == "current" and runs == direction then stranded = true break end
-        end
-      end
-    end
-    strandedCache[key] = stranded
-    return stranded
   end
 
   local FORCED_TEXT = {
@@ -1887,7 +1865,6 @@ function Navigation:routeOptionsFor(world, goals, policy)
       -- from land onto water takes Surf (an A press facing it; the hop
       -- ignores elevation)
       if not canSurf or map:warpKind(x, y) then return nil end
-      if strandedByCurrent(fromX, fromY) then return nil end
       entryKind, entryInstruction = "surf", "Use Surf facing " .. direction
     else
       if not enterable(fromX, fromY, x, y, direction, onWater) then return nil end
