@@ -208,6 +208,7 @@ return function(game)
     taps({ "down", "up" }, 15)
     tap("a", 30)                        -- quantity
     tap("up", 15)
+    dofile("tests/access/drivers/shop_keys.lua")(nil, "quantity")
     tap("a", 30)                        -- confirm
     tap("down", 15)
     tap("up", 15)

@@ -23,7 +23,8 @@
 --                          up            your Pokemon's HP
 --                          down          the enemy's HP
 --                        (both of a side in a double battle)
---   tap                  on the map: in AUTO walking, auto-walk to the selected
+--   tap                  in a shop: the money (decision 77)
+--                        on the map: in AUTO walking, auto-walk to the selected
 --                        point (again stops it); otherwise spoken directions
 --                        to it, as the keyboard's K and the right stick click
 --                        (again stops them) (the owner, 2026-11-10)
@@ -90,6 +91,7 @@ local DEFAULTS = {
   settings = function() return require("src.access.Settings") end,
   currentGame = function() return require("src.access.CurrentGame") end,
   nav = function() return require("src.access.nav") end,
+  shopMoney = function() return require("src.access.ShopMoney") end,
   autoWalk = function() return require("src.access.nav.AutoWalk") end,
   screenReader = function() return require("src.access.screens.ScreenReader") end,
   -- leaving the game: main.lua's quit; the launcher takes over (on iOS LÖVE
@@ -395,6 +397,10 @@ function TouchInput.perform(gesture)
       else
         pcall(nav.handleCommand, nav, DIRECTIONS)
       end
+    elseif nav then
+      -- in a shop a tap says the money, as the left stick click (decision 77)
+      local okMoney, money = pcall(dep("shopMoney").text, game)
+      if okMoney and money then pcall(nav.announceManual, nav, { money }) end
     end
     return
   end

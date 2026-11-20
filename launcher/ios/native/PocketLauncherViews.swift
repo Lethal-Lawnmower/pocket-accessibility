@@ -143,6 +143,7 @@ struct TouchControlsView: View {
                     + "or one above the other.")
                 Text(verbatim: "In battle, two-finger swipe up: your Pokémon's HP. Two-finger swipe down: the enemy's HP. "
                     + "In a double battle you hear both on that side.")
+                Text(verbatim: "In a shop, tap: your money.")
                 Text(verbatim: "Tap: spoken directions to what you picked, which keep coming as you walk. "
                     + "Tap again to stop them. In Auto walking, a tap walks you there instead, and another "
                     + "tap stops.")

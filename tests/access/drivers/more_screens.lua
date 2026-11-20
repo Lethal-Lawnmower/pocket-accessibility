@@ -73,10 +73,12 @@ return function(game)
     if top ~= game.overworld and type(top) == "table" and top.items then break end
     press("a", 15)
   end
+  dofile("tests/access/drivers/shop_keys.lua")(U, "root")
   press("a", 30)          -- BUY
   press("a", 30)          -- past "Take your time."
   press("down")
   press("a", 30)          -- quantity with price
+  dofile("tests/access/drivers/shop_keys.lua")(U, "quantity")
   press("up")
   press("a", 40)          -- price prompt
   press("a", 40)          -- scroll its last line; YES/NO appears

@@ -127,7 +127,7 @@ The game's own controls are arrow keys or WASD to move, Z or Enter for A, X or B
 
 The navigation keys only work on the map, so they never get in the way of menus or battles.
 
-**On a controller,** including on Android, hold the left trigger and use the D-pad: up and down change the category, and left and right move through it. Click the right stick for spoken directions, and the left stick to auto-walk. Click again to stop. In battle, hold the left trigger and press D-pad up for your Pokémon's HP, or D-pad down for the enemy's. In a double battle you hear both Pokémon on that side.
+**On a controller,** including on Android, hold the left trigger and use the D-pad: up and down change the category, and left and right move through it. Click the right stick for spoken directions, and the left stick to auto-walk. Click again to stop. In battle, hold the left trigger and press D-pad up for your Pokémon's HP, or D-pad down for the enemy's. In a double battle you hear both Pokémon on that side. In a shop, click the left stick to hear your money.
 
 **On a touchscreen,** your screen reader stays on. Set it up once:
 
@@ -149,6 +149,10 @@ On the map:
 In battle:
 
 - **Two-finger swipe up:** your Pokémon's HP. **Two-finger swipe down:** the enemy's HP. In a double battle you hear both Pokémon on that side.
+
+In a shop:
+
+- **Tap:** your money.
 
 Walking styles, under TOUCH WALKING in the game's ACCESSIBILITY options:
 

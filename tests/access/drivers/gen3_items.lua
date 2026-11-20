@@ -303,6 +303,7 @@ return function(game)
     tap("up", 15)
     tap("a", 25)                    -- quantity
     tap("up", 15)
+    dofile("tests/access/drivers/shop_keys.lua")(U, "quantity")
     tap("a", 25)                    -- confirm
     tap("a", 40)                    -- YES
     tap("a", 30)

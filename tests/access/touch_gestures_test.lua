@@ -229,6 +229,8 @@ autoWalk = {
   active = function() return autoWalk.activeNow end,
 }
 local inBattleNow = false
+local shopMoneyNow = nil
+local announced = {}
 local nav = {
   context = function() return coordinator, adapter, game end,
   inBattle = function() return inBattleNow end,
@@ -243,6 +245,7 @@ local function setup(onMap)
   TouchInput._resetForTests()
   spoken, commands, autoCalls, stopped = {}, {}, {}, 0
   inBattleNow = false
+  shopMoneyNow, announced = nil, {}
   walkingNow, autoWalk.activeNow = false, false
   planResult, planReason = nil, nil
   options = {}
@@ -250,6 +253,7 @@ local function setup(onMap)
   overworld = { map = {}, player = { cellX = 5, cellY = 5, moving = false, facing = "down" } }
   coordinator = {
     handleCommand = function(_, id) commands[#commands + 1] = id return true end,
+    announceManual = function(_, parts) announced[#announced + 1] = table.concat(parts, " ") return true end,
     worldForCommand = function() return overworld end,
   }
   adapter = {
@@ -258,6 +262,7 @@ local function setup(onMap)
   }
   TouchInput.configure({
     speech = speech, settings = settings, autoWalk = autoWalk, nav = nav,
+    shopMoney = { text = function() return shopMoneyNow end },
     currentGame = { live = function() return game end },
     clock = function() return now end,
     size = function() return W, H end,
@@ -466,6 +471,27 @@ walkingNow = true
 swipe("left")
 eq(stopped, 1, "a swipe while walking stops the walk")
 eq(pressedButtons(), "", "and does nothing else")
+
+-- a one-finger tap in a shop says the money (decision 77); elsewhere off
+-- the map it does nothing
+setup(false)
+shopMoneyNow = "Money ¥3000"
+touch({ { 800, TOP } }, 0, 0, 0.08)
+frames(25)
+eq(table.concat(announced, ","), "Money ¥3000", "in a shop a tap says the money")
+eq(pressedButtons(), "", "and presses no button")
+setup(false)
+touch({ { 800, TOP } }, 0, 0, 0.08)
+frames(25)
+eq(#announced + #commands, 0, "off the map, not in a shop, a tap does nothing")
+setup(false)
+shopMoneyNow = "Money ¥3000"
+touch({ { 800, TOP } }, 0, 0, 0.08)
+frames(2)
+touch({ { 800, TOP } }, 0, 0, 0.08)
+frames(25)
+eq(#announced, 0, "a double tap in a shop is still A, not the money")
+eq(pressedButtons(), "a", "and is A")
 
 -- a one-finger tap on the map: directions to the selected point (K, the
 -- right stick); reported once the double-tap window has passed

@@ -107,6 +107,7 @@ surrounding tiles, pathfinding start ("1 right"), and Pallet Town's warps
 | Left trigger + D-pad up / down | Previous / next object category (All, Warps, Connections, Signposts, NPCs, Objects, Area; FireRed adds Misc after Objects) |
 | Left trigger + D-pad left / right | Previous / next object in the category |
 | In battle: left trigger + D-pad up / down | Your HP / the enemy's HP, both Pokémon of a side in a double battle (decision 76; the Shift+H and H commands). The trigger is kept from the game in battle too; left and right do nothing there |
+| In a shop: left stick click | Your money, "Money ¥3000" (decision 77; `src/access/ShopMoney.lua`), while buying and selling too |
 | Left stick click | Auto-walk to the selected object; again to stop |
 | Right stick click | Guided navigation to the selected object (the K command); again to stop |
 

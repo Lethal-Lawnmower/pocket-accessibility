@@ -479,6 +479,7 @@ figure it out isn't the way to go"): README "Controls", the Android launcher's T
 | Map | Two-finger swipe left / right | Previous / next navigation point in the category |
 | Map | Two-finger swipe up / down | Previous / next category (decision 23's trigger plus D-pad) |
 | Battle | Two-finger swipe up / down | Your HP / the enemy's HP, both of a side in a double battle (decision 76, as Shift+H and H) |
+| Shop | Tap | Your money, "Money ¥3000", as the left stick click (decision 77). Reported once the double-tap window has passed; a double tap is still A |
 | Map | Tap | MANUAL and HYBRID: spoken directions to the selected point, as the keyboard's K and the right stick click. AUTO: auto-walk to it, as the left stick click. Again stops either. Reported once the double-tap window has passed, so a stop comes about 0.3 s after the tap |
 | Anywhere | Double tap | A |
 | same | Two-finger double tap | B |

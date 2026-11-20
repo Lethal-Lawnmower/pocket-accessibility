@@ -284,6 +284,14 @@ function Nav.gamepadpressed(_, button)
     consumedButtons[button] = true
     return true
   end
+  -- in a shop the left stick click says the money (decision 77)
+  if button == "leftstick" and not adapter.onMap(game) then
+    local money = require("src.access.ShopMoney").text(game)
+    if not money then return false end
+    nav:announceManual({ money })
+    consumedButtons[button] = true
+    return true
+  end
   if not adapter.onMap(game) then return false end
   if button == "leftstick" then
     AutoWalk.start(coordinator, game, adapter)

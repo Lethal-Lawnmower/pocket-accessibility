@@ -160,6 +160,7 @@ return function(game)
   end
   if mart then
     wait(10)
+    dofile("tests/access/drivers/shop_keys.lua")(U, "root")
     tap("down") tap("up")
     tap("a", 20)            -- BUY
     tap("down") tap("up")
