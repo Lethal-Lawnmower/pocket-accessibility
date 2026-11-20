@@ -375,6 +375,25 @@ return function(game)
         if Message.isOpen() and Message.isWaiting() then tap("a", 20) else wait(1) end
       end
     end
+    -- 2026-11-19 on Ruby the RUN press landed on POKeBLOCK, the case stayed open, the
+    -- battle never ended and the blender's bag could not open: close the case and RUN
+    -- again until the battle is over.
+    for _ = 1, 10 do
+      if not Battle.isActive() then break end
+      local top = tostring(L.top())
+      local Message = require("src.ui.game3.message")
+      if top:find("pokeblock", 1, true) then tap("b", 40)
+      elseif atMenu() then
+        for _ = 1, 4 do
+          local c = (Ui._menuIndex or 1) - 1
+          if c == 3 then break end
+          if c % 2 ~= 1 then tap(c % 2 == 0 and "right" or "left", 20) else tap(c < 2 and "down" or "up", 20) end
+        end
+        L.log("RUNFROM", tostring((Ui._menuIndex or 1) - 1))
+        tap("a", 60)
+      elseif Message.isOpen() and Message.isWaiting() then tap("a", 20)
+      else wait(40) end
+    end
     session.safari = nil
     wait(60)
     L.log("INBATTLE", tostring(Battle.isActive()))
