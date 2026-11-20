@@ -1432,7 +1432,34 @@ return function(game)
     visit()
     if not there() then
       local m = mark()
-      local talked, text, outcome = talkTo("npcs", "Briney", { calm = 150, limit = 40000 })
+      local talked, text, outcome = talkTo("npcs", "Briney", { calm = 150, limit = 40000, optional = true })
+      if outcome == "missing" then
+        -- r14: the list names him by his sheet, "Expert"; a player tries the one person
+        finding("name", "Mr. Briney is listed as Expert in his cottage (" .. tostring(text):sub(1, 120) .. ")")
+        -- he walks about the room: "Face right and interact" can be stale by the time it
+        -- is acted on (r15: the step right moved the player instead), so try again
+        for attempt = 1, 4 do
+          talked, text, outcome = talkTo("npcs", "^Expert", { calm = 150, limit = 40000 })
+          U.log("BRINEY", "try", attempt, tostring(talked), tostring(outcome))
+          if talked or there() then break end
+        end
+        -- r16: four times the step said by the arrival moved the player instead (he had
+        -- walked on).  Listen to the list again and act only when it says he is one step
+        -- away, as a careful player would.
+        for attempt = 1, 30 do
+          if talked or there() then break end
+          local item = choose("npcs", "^Expert")
+          local way = tostring(item):match("^Expert: 1 (%a+);")
+          if way == "up" or way == "down" or way == "left" or way == "right" then
+            L.tap(way, 4)
+            talked, text = interact({ calm = 150, limit = 40000, expectText = false })
+            U.log("BRINEY", "adjacent try", attempt, way, tostring(talked))
+          else
+            wait(20)
+            if attempt % 5 == 0 then go("npcs", "^Expert") end
+          end
+        end
+      end
       U.log("BRINEY", "Mr. Briney:", tostring(talked), tostring(outcome), tostring(text):sub(-300))
       advance({ calm = 150, limit = 40000 })
       U.log("BRINEY", "everything heard:", since(m):sub(1, 2000))
