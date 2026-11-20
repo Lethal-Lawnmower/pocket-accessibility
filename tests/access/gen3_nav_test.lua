@@ -1307,4 +1307,19 @@ do
     "The biggest SHROOMISH in history!", "a sentence of placeholders is left out")
 end
 
+do
+  -- routeNeeds names whoever stands on the goal before the first person on the way there
+  -- (Emerald's Lavaridge Gym: the guide by the door was named for a buried trainer's hole)
+  maps.FR_TEST_HOLES = mapDef("FR_TEST_HOLES", { ".....", "....." })
+  local guide = { cellX = 1, cellY = 0, graphicsId = 23, currentElevation = 3, localId = 1,
+    def = { graphicsId = 23, index = 1, trainerType = 0 } }
+  local buried = { cellX = 4, cellY = 0, graphicsId = 66, currentElevation = 3, localId = 2, invisible = true,
+    def = { graphicsId = 66, index = 2, trainerType = 3 } }
+  local nav = navFor()
+  local w = worldOn(maps.FR_TEST_HOLES, 0, 0, { guide, buried })
+  nav.worldForCommand = function() return w end
+  eq(nav:routeNeeds({ { x = 4, y = 0 } }), "Blocked by a hidden trainer", "the one in the hole, not the guide on the way")
+  maps.FR_TEST_HOLES = nil
+end
+
 T.finish("gen3 navigation")

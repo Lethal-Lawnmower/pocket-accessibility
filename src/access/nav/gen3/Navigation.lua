@@ -1965,7 +1965,12 @@ function Navigation:routeNeeds(goals)
   local found, result = pcall(Pathfinder.find, options)
   if not (found and result and type(result.steps) == "table") then return nil end
   local occupied = occupancy(world)
-  for _, step in ipairs(result.steps) do
+  -- Whoever stands on the goal itself first: on the way there, the first person met can
+  -- be one the way goes round once they are back (Emerald's Lavaridge Gym: its guide by
+  -- the door was named for the holes the buried trainers stand in)
+  local order = { result.steps[#result.steps] }
+  for _, step in ipairs(result.steps) do order[#order + 1] = step end
+  for _, step in ipairs(order) do
     local entry = occupied[cellKey(step.x, step.y)]
     if entry and entry.kind == "object" then
       -- Lavaridge Gym's buried trainers stand in four of its holes, unseen until they
