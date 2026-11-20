@@ -6,12 +6,19 @@
 -- variable writes, no gifted party, no healing by the harness: a weak party walks to a
 -- Pokémon Center.  Every utterance is logged with the screen it came from.
 --
+-- Stages, each with a goal check read from the game's flags and variables: boot, truck,
+-- house, rival_house, starter, rival_battle, pokedex, shoes, petalburg, catching_lesson,
+-- woods, rustboro, roxanne, devon_goods, pokenav, dewford.  Written for Emerald; Ruby and
+-- Sapphire name some of these variables differently.
+--
 --   FRESH=1                 start from clean game data (the runner's switch)
 --   WALK_STOP=<stage>       stop after this stage
 --   WALK_SPEED=<n>          AUTO-WALK SPEED (the game's own accessibility option); the
 --                           default is the option's default
 --   WALK_NAME=<letters>     the name typed on the naming screen (default ACE)
 --   WALK_STARTER=<name>     TREECKO, TORCHIC or MUDKIP (default MUDKIP)
+--   WALK_CONTINUE=1         CONTINUE from the save instead of NEW GAME; stages already
+--                           done in it are skipped
 --
 -- Lines: SAID (speech, with the screen), SCREEN (what is on top), STAGE (a stage's
 -- start and result), FINDING (something a blind player would trip on), CHEAT (the
@@ -277,6 +284,11 @@ return function(game)
       -- the party or its summary is not wanted (one Pokémon): B backs out
       L.tap((k == "party" or k == "summary") and "b" or "a", 12)
       return
+    end
+    -- Wally's catching lesson: the game drives that menu itself; listen, do not press
+    local st = Battle and Battle._st
+    if st and st.kinds and st.kinds.tutorial == "wally" then
+      if mode == "menu" or mode == "moves" then wait(1) return end
     end
     if mode == "menu" then
       -- the menu's words (both sides, then the command under the cursor) follow its opening
@@ -719,13 +731,20 @@ return function(game)
     elseif map == "ROUTE104" then
       -- the route is in two halves joined by the woods: the connection is chosen and
       -- the layer is left to find the way round
-      return { PETALBURG_CITY = conn("Petalburg City"), RUSTBORO_CITY = conn("Rustboro City") }
+      return { PETALBURG_CITY = conn("Petalburg City"), RUSTBORO_CITY = conn("Rustboro City"),
+        ROUTE104_MR_BRINEYS_HOUSE = warp("Mr. Briney's House") }
+    elseif map == "ROUTE104_MR_BRINEYS_HOUSE" then return { ROUTE104 = exitTo("Route 104") }
     elseif map == "PETALBURG_WOODS" then
       -- three ways out, all read as Route 104: the one furthest north leads on
       return { RUSTBORO_CITY = { "warps", "Route 104", best = northmost } }
     elseif map == "RUSTBORO_CITY" then
       return { ROUTE104 = conn("Route 104"), ROUTE116 = conn("Route 116"), RUSTBORO_CITY_GYM = warp("Rustboro City Gym"),
-        RUSTBORO_CITY_POKEMON_CENTER_1F = warp("Center 1F") }
+        RUSTBORO_CITY_POKEMON_CENTER_1F = warp("Center 1F"), RUSTBORO_CITY_DEVON_CORP_1F = warp("Devon Corp 1F") }
+    elseif map == "RUSTBORO_CITY_DEVON_CORP_1F" then
+      return { RUSTBORO_CITY = exitTo("Rustboro City"), RUSTBORO_CITY_DEVON_CORP_2F = warp("2F") }
+    elseif map == "RUSTBORO_CITY_DEVON_CORP_2F" then
+      return { RUSTBORO_CITY_DEVON_CORP_1F = warp("1F"), RUSTBORO_CITY_DEVON_CORP_3F = warp("3F") }
+    elseif map == "RUSTBORO_CITY_DEVON_CORP_3F" then return { RUSTBORO_CITY_DEVON_CORP_2F = warp("2F") }
     elseif map == "RUSTBORO_CITY_GYM" then return { RUSTBORO_CITY = exitTo("Rustboro City") }
     elseif map == "ROUTE116" then return { RUSTBORO_CITY = conn("Rustboro City"), RUSTURF_TUNNEL = warp("Rusturf Tunnel") }
     elseif map == "RUSTURF_TUNNEL" then return { ROUTE116 = warp("Route 116") }
@@ -1238,6 +1257,76 @@ return function(game)
       if outcome == "missing" then return false, "Roxanne is not in the NPC list" end
     end
     return true, L.where() .. " " .. partyLine() .. " " .. detail
+  end)
+
+  -- The Devon Goods: the grunt's escape through Rustboro, Route 116, Mr. Briney and
+  -- the grunt in Rusturf Tunnel.
+  local function gruntLine()
+    return ("rustboro %d route116 %d tunnel %d stolen %s recovered %s returned %s pokenav %s briney %d"):format(
+      v("VAR_RUSTBORO_CITY_STATE"), v("VAR_ROUTE116_STATE"), v("VAR_RUSTURF_TUNNEL_STATE"),
+      tostring(flag("FLAG_DEVON_GOODS_STOLEN")), tostring(flag("FLAG_RECOVERED_DEVON_GOODS")),
+      tostring(flag("FLAG_RETURNED_DEVON_GOODS")), tostring(flag("FLAG_RECEIVED_POKENAV")), v("VAR_BRINEY_HOUSE_STATE"))
+  end
+  stage("devon_goods", function() return flag("FLAG_RECOVERED_DEVON_GOODS") end, function()
+    local detail = ""
+    local recovered = function() return flag("FLAG_RECOVERED_DEVON_GOODS") and L.free() end
+    for attempt = 1, 3 do
+      local ok, why = travel("RUSTBORO_CITY")
+      if not ok then return false, tostring(why) end
+      if weak(0.95) then healHere() end
+      ok, why = travel("RUSTURF_TUNNEL", { untilFn = recovered })
+      if recovered() then break end
+      if not ok then return false, tostring(why) .. " " .. gruntLine() end
+      visit()
+      local talked, text, outcome = talkTo("npcs", "[Gg]runt", { calm = 150, limit = 40000 })
+      detail = ("attempt %d: %s %s"):format(attempt, tostring(outcome), tostring(text):sub(-160))
+      U.log("GOODS", "the grunt:", tostring(talked), detail, gruntLine())
+      advance({ calm = 150, limit = 20000 })
+      if flag("FLAG_RECOVERED_DEVON_GOODS") then break end
+      if outcome == "missing" then return false, "no grunt in the NPC list in Rusturf Tunnel: " .. gruntLine() end
+    end
+    return true, L.where() .. " " .. partyLine() .. " " .. gruntLine() .. " " .. detail
+  end)
+
+  -- The goods back to Devon: the president on 3F, the PokéNav and the letter.
+  stage("pokenav", function() return flag("FLAG_RECEIVED_POKENAV") end, function()
+    local got = function() return flag("FLAG_RECEIVED_POKENAV") and L.free() end
+    local ok, why = travel("RUSTBORO_CITY", { untilFn = got })
+    if got() then return true, L.where() .. " " .. gruntLine() end
+    if not ok then return false, tostring(why) .. " " .. gruntLine() end
+    advance({ calm = 90 })
+    ok, why = travel("RUSTBORO_CITY_DEVON_CORP_3F", { untilFn = got })
+    if got() then return true, L.where() .. " " .. gruntLine() end
+    if not ok then return false, tostring(why) .. " " .. gruntLine() end
+    advance({ calm = 120 })
+    visit()
+    if not flag("FLAG_RECEIVED_POKENAV") then
+      local talked, text, outcome = talkTo("npcs", "Stone", { calm = 150, limit = 30000 })
+      U.log("DEVON", "the president:", tostring(talked), tostring(outcome), tostring(text):sub(-300), gruntLine())
+      if outcome == "missing" then
+        talked, text, outcome = talkTo("npcs", "President", { calm = 150, limit = 30000 })
+        U.log("DEVON", "the president, second try:", tostring(talked), tostring(outcome), tostring(text):sub(-300))
+      end
+    end
+    advance({ calm = 120 })
+    return flag("FLAG_RECEIVED_POKENAV"), L.where() .. " " .. gruntLine()
+  end)
+
+  -- Mr. Briney's cottage on Route 104 and the boat to Dewford.
+  stage("dewford", function() return flag("FLAG_VISITED_DEWFORD_TOWN") end, function()
+    local there = function() return onMap("DEWFORD_TOWN") and L.free() end
+    local ok, why = travel("ROUTE104_MR_BRINEYS_HOUSE", { untilFn = there })
+    if not ok and not there() then return false, tostring(why) .. " " .. gruntLine() end
+    visit()
+    if not there() then
+      local m = mark()
+      local talked, text, outcome = talkTo("npcs", "Briney", { calm = 150, limit = 40000 })
+      U.log("BRINEY", "Mr. Briney:", tostring(talked), tostring(outcome), tostring(text):sub(-300))
+      advance({ calm = 150, limit = 40000 })
+      U.log("BRINEY", "everything heard:", since(m):sub(1, 2000))
+    end
+    advance({ calm = 90 })
+    return onMap("DEWFORD_TOWN") or flag("FLAG_VISITED_DEWFORD_TOWN"), L.where() .. " " .. gruntLine()
   end)
 
   -- ------------------------------------------------------------ run
