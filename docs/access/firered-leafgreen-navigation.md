@@ -282,9 +282,29 @@ Shared with Hoenn; the account is in `ruby-sapphire-emerald-navigation.md`, "Sec
     Mt. Moon B2F", and Route 10's north half reaches Lavender's edge through Rock Tunnel (five relights). In one
     run with C, N, M and D before it, E did not finish in 50 minutes and its output was lost (most likely the same
     level-up stall; not confirmed).
-- **Left bare (8):** Seafoam Islands' currents and boulders (4) and Route 20's two halves, which join only through
-  them (2); Route 5's Day Care from the south gate (not looked into); Three Island Port to Dunsparce Tunnel's far door
-  (not looked into; the tunnel's two ends may not join until the story digs it through).
+- **Left bare (8)** after the third pass; what became of them is in the fourth, below.
+- **Fourth pass (2026-11-19)**, shared with Hoenn (`ruby-sapphire-emerald-navigation.md`, "Fourth pass"). Run in game
+  by driver, silent, unless a line says otherwise:
+  - **Route 5's Day Care from the south gate.** Route 5 is two strips that join only along Cerulean City's south
+    edge. A target on the player's own map is now also searched for through the maps next door, over an edge and
+    back (`Navigation:wayRoundNextDoor`: this map's neighbours only, no doors of theirs). From the Underground Path's
+    door and from the south gate, one auto-walk each: "CERULEAN CITY | ROUTE 5 | Arrived at Route 5 Pokémon Day Care".
+  - **Three Island Port to Dunsparce Tunnel's far door.** That door's side of the port is reached only through the
+    tunnel, and the tunnel's own far door is not active in a new game's flags (the map is a short dead end until
+    the story digs it through). It says "Not from here: this part is reached from Three Island Dunsparce Tunnel",
+    which is true and does not say the tunnel is unfinished.
+  - **Seafoam Islands and Route 20.** Route 20's halves and the cave's east and west sides join only across B3F and
+    B4F. On a fresh profile with the hide flags a new game sets (66 to 71, 76, 77: the boulders' copies on the
+    floors below), the planner finds no way through, with or without the boulders set aside, so nothing is walked.
+    Guided navigation and auto-walk both say "The way is through Seafoam Islands, past its currents: push the
+    boulders down the holes on each floor first" on Route 20 and "The way is past the currents below: push the
+    boulders down the holes on each floor first" inside, while a boulder copy on B3F is still hidden; after that
+    the plain "Not from here: this part is reached from ..." stands. With every hide flag clear (all boulders
+    down, the harness's own state before this pass) the planner still joins neither half: whether the game does
+    then was not established. Agent's wording, open to the owner.
+  - An item ball chosen from the Area list says which way to face on arrival ("Face left and interact").
+  - **Guided sweep, FireRed**: the after-run stalled in the Champion's room's battle (the harness), and 43 maps after it were not captured; rerun from there on: 611 asked, 0 refused, 0 bare. All 8 bare refusals of the third pass are in that part; the maps before it had none in the stalled run either.
+  - **Regression after it** (each on a fresh profile): `gen3_nav` 15/15, `gen3_nav_more` 13/13, `gen3_nav_gaps` 32/32, `gen3_nav_puzzle` 5/5, no failure (two copies of the chain ran, one on a fresh profile; each log holds one run).
 
 ## Known gaps
 
