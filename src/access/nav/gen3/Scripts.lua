@@ -182,6 +182,9 @@ function Scripts.signLine(text)
     words = ("\n" .. words):gsub("{LEFT_ARROW}{RIGHT_ARROW}", " for ")
       :gsub("\n[ \t]*{(%u[%u_]*)}", function(name) return SIGN_ARROWS[name] and ("\n" .. SIGN_ARROWS[name]) end)
       :gsub("{(%u[%u_]*)}", function(name) return SIGN_ARROW_WORDS[name] end)
+      -- a sentence that is all about what the game fills in (Sootopolis's size records:
+      -- "{STR_VAR_2}'s {STR_VAR_3}-inch giant!" read "'s -inch giant!")
+      :gsub("([.!?])%s*{[^}]*}'s[^.!?]*[.!?]", "%1")
       -- a word the game fills in, with any "'S" or "S" after it ("{STR_VAR_1}S")
       :gsub("{[^}]*}'?S%f[^%w]", " "):gsub("{[^}]*}", " "):gsub("%c", " ")
       -- quotes left empty by a dropped placeholder

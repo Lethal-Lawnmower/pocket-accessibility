@@ -32,7 +32,8 @@ return function(game)
   local World = require("src.access.nav.gen3.World")
 
   local ids = {}
-  for id in pairs(maps) do if id:match("^FR_") then ids[#ids + 1] = id end end
+  -- One Island's maps carry SEVII_ where the rest carry FR_ (upstream's firered profile)
+  for id in pairs(maps) do if id:match("^FR_") or id:match("^SEVII_") then ids[#ids + 1] = id end end
   table.sort(ids)
   local stats = { maps = 0, labels = 0, signposts = 0, bad = 0, warps = 0, unresolved = 0,
     connections = 0, roles = {}, objects = {} }

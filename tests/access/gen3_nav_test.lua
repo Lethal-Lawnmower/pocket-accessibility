@@ -931,4 +931,111 @@ do
   eq(nav:closedForNow(world("EM_ROUTE110"), { { x = 1, y = 1 } }), nil, "anywhere else says nothing")
 end
 
+do
+  -- Ruby, Sapphire, FireRed and LeafGreen name things Emerald's sheets name differently
+  local Snapshot = require("src.access.nav.gen3.WorldSnapshot")
+  local Scripts = require("src.access.nav.gen3.Scripts")
+  local trainersModule = package.loaded["src.core.game3.scripting.trainers"]
+  package.loaded["src.core.game3.scripting.trainers"] = { info = function(id)
+    return ({ [7] = { className = "TWINS" }, [8] = { className = "POK\195\169MON TRAINER" },
+      [9] = { className = "YOUNG COUPLE" } })[id]
+  end }
+  Scripts.setSource({
+    twin = { { op = "trainerbattle", trainer = 7 } },
+    titled = { { op = "trainerbattle", trainer = 8 } },
+    couple = { { op = "trainerbattle", trainer = 9 } },
+  })
+  Snapshot.setGraphicsNames({ [95] = "OBJ_EVENT_GFX_MACHOKE_CARRYING_BOX", [96] = "OBJ_EVENT_GFX_MACHOKE_FACING_AWAY",
+    [20] = "OBJ_EVENT_GFX_LITTLE_GIRL_1", [23] = "OBJ_EVENT_GFX_MAN_5" })
+  eq(Snapshot.objectLabel({ graphicsId = 95, def = {} }, {}), "Machoke", "Ruby and Sapphire's mover, as Emerald's Vigoroth")
+  eq(Snapshot.objectLabel({ graphicsId = 96, def = {} }, {}), "Machoke", "the mover facing away")
+  eq(Snapshot.objectLabel({ graphicsId = 20, def = { scriptKey = "twin" } }, {}), "Twin", "one of the twins, as Emerald's sheet says it")
+  eq(Snapshot.objectLabel({ graphicsId = 23, def = { scriptKey = "titled" } }, {}), "Man",
+    "the title as the class table spells it is no better than the sheet")
+  eq(Snapshot.objectLabel({ graphicsId = 23, def = { scriptKey = "couple" } }, {}), "Young Couple", "a couple's class stays")
+  Scripts.setSource(nil)
+  Snapshot.setGraphicsNames(nil)
+  package.loaded["src.core.game3.scripting.trainers"] = trainersModule
+end
+
+do
+  -- a buried trainer met through the journey planner is named as one met on this floor is
+  -- (Ruby and Sapphire's Lavaridge Gym reaches four of its 1F holes through B1F)
+  local Navigation3 = require("src.access.nav.gen3.Navigation")
+  local nav = setmetatable({}, { __index = Navigation3 })
+  local function journey(trainerType)
+    local buried = { cellX = 3, cellY = 4, invisible = true, graphicsId = 66, def = { trainerType = trainerType } }
+    return { legs = { { mapId = "RU_LAVARIDGE_TOWN_GYM_B1F", steps = { { x = 3, y = 3 }, { x = 3, y = 4 } } } },
+      maps = { RU_LAVARIDGE_TOWN_GYM_B1F = { world = { npcs = { buried } } } } }
+  end
+  eq((nav:journeyBlocker(journey(3), "RU_LAVARIDGE_TOWN_GYM_B1F")), "a hidden trainer", "a buried trainer on the way")
+  eq((nav:journeyBlocker(journey(0), "RU_LAVARIDGE_TOWN_GYM_B1F")), "something hidden", "anything else unseen keeps its words")
+end
+
+do
+  -- One Island's maps carry SEVII_ where the rest of FireRed and LeafGreen carry FR_
+  local GameData = require("src.access.nav.gen3.GameData")
+  local Snapshot = require("src.access.nav.gen3.WorldSnapshot")
+  local Navigation3 = require("src.access.nav.gen3.Navigation")
+  eq(GameData.bareMapId("SEVII_ONE_ISLAND_KINDLE_ROAD"), "ONE_ISLAND_KINDLE_ROAD", "SEVII_ comes off as FR_ does")
+  eq(GameData.bareMapId("FR_ONE_ISLAND_KINDLE_ROAD_EMBER_SPA"), "ONE_ISLAND_KINDLE_ROAD_EMBER_SPA", "FR_ as before")
+  eq(Navigation3.areaKey("SEVII_ONE_ISLAND_KINDLE_ROAD"), Navigation3.areaKey("FR_ONE_ISLAND_KINDLE_ROAD_EMBER_SPA"),
+    "Kindle Road and its Ember Spa are one area")
+  eq(Navigation3.areaKey("SEVII_ONE_ISLAND_POKECENTER"), Navigation3.areaKey("SEVII_ONE_ISLAND_POKECENTER_2F"),
+    "the Center's two floors are one area")
+  check(Navigation3.areaKey("SEVII_ONE_ISLAND_POKECENTER") ~= Navigation3.areaKey("SEVII_ONE_ISLAND_KINDLE_ROAD"),
+    "and not the whole island's")
+  eq(Snapshot.mapIdName("SEVII_ONE_ISLAND_POKECENTER"), "One Island Pok\195\169mon Center 1F", "named as every other Center")
+  eq(Snapshot.mapIdName("SEVII_ONE_ISLAND_POKECENTER_2F"), "One Island Pok\195\169mon Center 2F", "and its upper floor")
+  local profile = GameData.profile
+  GameData.profile = function() return { map = { enginePrefix = "FR_", prefixes = { "FR_", "SEVII_" } } } end
+  check(GameData.ownsMap("SEVII_ONE_ISLAND"), "a SEVII_ map is the cartridge's own")
+  check(GameData.ownsMap("FR_PALLET_TOWN"), "an FR_ map is")
+  check(not GameData.ownsMap("EM_ROUTE101"), "another game's map is not")
+  GameData.profile = profile
+
+  -- Ruby and Sapphire's sheets read by the names Emerald gives the same pictures
+  local id = GameData.id
+  Snapshot.setGraphicsNames({ [116] = "OBJ_EVENT_GFX_MAN_7", [28] = "OBJ_EVENT_GFX_WOMAN_6", [21] = "OBJ_EVENT_GFX_OLD_MAN_1",
+    [18] = "OBJ_EVENT_GFX_WOMAN_2", [6] = "OBJ_EVENT_GFX_LITTLE_GIRL_1", [20] = "OBJ_EVENT_GFX_WOMAN_3" })
+  GameData.id = function() return "ruby" end
+  eq(Snapshot.objectLabel({ graphicsId = 116, def = {} }, {}), "Devon Employee", "Ruby's MAN_7 is Emerald's Devon Employee")
+  eq(Snapshot.objectLabel({ graphicsId = 28, def = {} }, {}), "Receptionist", "WOMAN_6 the link receptionist")
+  eq(Snapshot.objectLabel({ graphicsId = 21, def = {} }, {}), "Expert", "OLD_MAN_1 the Expert")
+  eq(Snapshot.objectLabel({ graphicsId = 18, def = {} }, {}), "Pok\195\169 Fan", "WOMAN_2 the fan")
+  eq(Snapshot.objectLabel({ graphicsId = 6, def = {} }, {}), "Twin", "LITTLE_GIRL_1 a twin")
+  eq(Snapshot.objectLabel({ graphicsId = 20, def = {} }, {}), "Woman", "a sheet with no other name keeps its own")
+  GameData.id = function() return "firered" end
+  eq(Snapshot.objectLabel({ graphicsId = 18, def = {} }, {}), "Woman", "FireRed's WOMAN_2 is its own sheet")
+  GameData.id = id
+  Snapshot.setGraphicsNames(nil)
+end
+
+do
+  -- FireRed and LeafGreen's sheet MAN (no number) has an entry of its own in the label table
+  -- ("Man"), which answered before the trainer class was asked: Fuchsia Gym's Tamers and
+  -- the man of each Young Couple stayed "Man"
+  local Snapshot = require("src.access.nav.gen3.WorldSnapshot")
+  local Scripts = require("src.access.nav.gen3.Scripts")
+  local trainersModule = package.loaded["src.core.game3.scripting.trainers"]
+  package.loaded["src.core.game3.scripting.trainers"] = { info = function(id)
+    return ({ [7] = { className = "TAMER" } })[id]
+  end }
+  Scripts.setSource({ tamer = { { op = "trainerbattle", trainer = 7 } }, talker = { { op = "msgbox" } } })
+  Snapshot.setGraphicsNames({ [30] = "OBJ_EVENT_GFX_MAN", [31] = "OBJ_EVENT_GFX_HOT_SPRINGS_OLD_WOMAN" })
+  eq(Snapshot.objectLabel({ graphicsId = 30, def = { scriptKey = "tamer" } }, {}), "Tamer", "the sheet MAN takes the class")
+  eq(Snapshot.objectLabel({ graphicsId = 30, def = { scriptKey = "talker" } }, {}), "Man", "and is Man with no battle")
+  eq(Snapshot.objectLabel({ graphicsId = 31, def = { scriptKey = "talker" } }, {}), "Old Woman", "a sheet's own plain label stays")
+  Scripts.setSource(nil)
+  Snapshot.setGraphicsNames(nil)
+  package.loaded["src.core.game3.scripting.trainers"] = trainersModule
+end
+
+do
+  -- Sootopolis's size records: the second sentence is only what the game fills in
+  local Scripts = require("src.access.nav.gen3.Scripts")
+  eq(Scripts.signLine("The biggest SHROOMISH in history!\n{STR_VAR_2}'s {STR_VAR_3}-inch giant!"),
+    "The biggest SHROOMISH in history!", "a sentence of placeholders is left out")
+end
+
 T.finish("gen3 navigation")

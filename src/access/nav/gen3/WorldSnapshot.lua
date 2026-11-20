@@ -62,6 +62,9 @@ function Snapshot.mapIdName(mapId)
   if type(mapId) ~= "string" then return nil end
   local id = GameData.bareMapId(mapId):gsub("^SEVII_", "")
   id = GameData.RS_UNDERWATER[id] and ("UNDERWATER_" .. GameData.RS_UNDERWATER[id]) or id
+  -- One Island's Center is the one map named POKECENTER, with no floor on its ground floor:
+  -- "One Island Pokecenter" beside every other town's "Pok\195\169mon Center 1F"
+  id = id:gsub("_POKECENTER$", "_POKEMON_CENTER_1F"):gsub("_POKECENTER_", "_POKEMON_CENTER_")
   local words = {}
   for word in id:gmatch("[^_]+") do
     -- Meteor Falls' and Magma Hideout's rooms: METEOR_FALLS_1F_2R
@@ -153,6 +156,8 @@ local GFX_LABELS = {
   KYOGRE_ASLEEP = "Kyogre", KYOGRE_FRONT = "Kyogre", KYOGRE_SIDE = "Kyogre",
   RAYQUAZA_STILL = "Rayquaza", KECLEON_BRIDGE_SHADOW = "Kecleon",
   VIGOROTH_CARRYING_BOX = "Vigoroth", VIGOROTH_FACING_AWAY = "Vigoroth",
+  -- Ruby and Sapphire's movers (Emerald's are the Vigoroth above)
+  MACHOKE_CARRYING_BOX = "Machoke", MACHOKE_FACING_AWAY = "Machoke",
   TRICK_HOUSE_STATUE = "Statue", DEOXYS_TRIANGLE = "Triangle", SUBMARINE_SHADOW = "Submarine",
   SS_TIDAL = "S.S. Tidal", UNION_ROOM_NURSE = "Nurse", MYSTERY_GIFT_MAN = "Delivery Man",
   QUINTY_PLUMP = "Man", GIDDY = "Man", HIPSTER = "Man", MAN = "Man",
@@ -160,6 +165,27 @@ local GFX_LABELS = {
   DEOXYS_D = "Deoxys", DEOXYS_A = "Deoxys", DEOXYS_N = "Deoxys", SS_ANNE = "S.S. Anne",
   OLD_AMBER = "Old Amber", POKEDEX = "Pok\195\169dex",
 }
+
+-- Ruby and Sapphire's sheets under the names Emerald's constants give the same pictures.
+-- Upstream's Ruby table has the older names ("MAN_7", "OLD_MAN_1"); the numbers are the
+-- same in both tables, and each of these is used for the same people in the same places
+-- (read from both games' map data, 2026-11-19: sheet 116 is the same four people in
+-- Rustboro, two of them on Devon's ground floor; 28 the Contest Hall's and the link rooms'
+-- receptionists; 189 the same eight children on the same four maps; the rest are the
+-- sheets Ruby draws its Ninja Boys, Twins, Rich Boys, Pok\195\169 Fans and Experts with).  So the
+-- Devon worker who stands in the way is "Devon Employee" on all three games, not "Man" on
+-- two.  Sheets Emerald replaced (the Machoke movers, Poochyena, the Mauville old men) keep
+-- Ruby's own names.
+local RS_SHEET = {
+  MAN_7 = "DEVON_EMPLOYEE", WOMAN_6 = "LINK_RECEPTIONIST", BOY_5 = "GAMEBOY_KID",
+  LITTLE_BOY_1 = "NINJA_BOY", LITTLE_GIRL_1 = "TWIN", BOY_4 = "RICH_BOY",
+  WOMAN_2 = "POKEFAN_F", MAN_3 = "POKEFAN_M", OLD_MAN_1 = "EXPERT_M", OLD_WOMAN_1 = "EXPERT_F",
+}
+local function sheetName(name)
+  local game = GameData.id()
+  if game == "ruby" or game == "sapphire" then return RS_SHEET[name] or name end
+  return name
+end
 
 -- The graphics an object is drawn with.  A live object's variable sprite
 -- (OBJ_EVENT_GFX_VAR_*, 240 and up) was resolved by the game when it
@@ -193,9 +219,15 @@ end
 local PLAIN_SHEETS = { Man = true, Woman = true, Boy = true, Girl = true, ["Fat Man"] = true,
   ["Old Man"] = true, ["Old Woman"] = true, ["Little Boy"] = true, ["Little Girl"] = true,
   ["Balding Man"] = true }
--- Classes that are a title, not a kind of person: the sheet says more.
-local PLAIN_CLASSES = { ["PKMN TRAINER"] = true, LEADER = true, ["ELITE FOUR"] = true,
-  CHAMPION = true, RIVAL = true, [""] = true }
+-- Classes that are a title, not a kind of person: the sheet says more.  The class table
+-- spells the first one out on all five cartridges ("POK\195\169MON TRAINER", read from each
+-- game's imported trainer data); the short form alone never matched.
+local PLAIN_CLASSES = { ["PKMN TRAINER"] = true, ["POK\195\169MON TRAINER"] = true, LEADER = true,
+  ["ELITE FOUR"] = true, CHAMPION = true, RIVAL = true, [""] = true }
+-- A class that names two people, on one of them.  Emerald draws the twins with a sheet
+-- of their own ("Twin"); Ruby, Sapphire, FireRed and LeafGreen draw each as a little
+-- girl, and "Twins" on one girl read as two people on one cell.
+local ONE_OF_CLASS = { TWINS = "Twin" }
 
 -- "BIRD KEEPER" as "Bird Keeper"; the ROM's short forms spelt out.
 function Snapshot.classLabel(className)
@@ -220,7 +252,7 @@ local function trainerClassLabel(def, actor)
   local okInfo, info = pcall(Trainers.info, trainer)
   local className = okInfo and type(info) == "table" and info.className or nil
   if type(className) ~= "string" or PLAIN_CLASSES[className] then return nil end
-  return Snapshot.classLabel(className)
+  return ONE_OF_CLASS[className] or Snapshot.classLabel(className)
 end
 
 -- Graphics that are things, not someone to talk to (decision 35): the object
@@ -242,7 +274,7 @@ function Snapshot.isThing(actor)
   local gfx = resolvedGraphics(actor, def)
   local name = gfx and gfxName(gfx)
   if not name then return false end
-  name = name:gsub("^OBJ_EVENT_GFX_", "")
+  name = sheetName(name:gsub("^OBJ_EVENT_GFX_", ""))
   return THING_GRAPHICS[name] == true or name:match("_DOLL$") ~= nil or name:match("_CUSHION$") ~= nil
 end
 
@@ -258,9 +290,12 @@ function Snapshot.objectLabel(actor, opts)
   end
   local name = gfxName(gfx)
   if not name then return nil end
-  name = name:gsub("^OBJ_EVENT_GFX_", "")
-  -- a sheet with its own label first: LINK_RECEPTIONIST is no link partner
-  if GFX_LABELS[name] then return GFX_LABELS[name] end
+  name = sheetName(name:gsub("^OBJ_EVENT_GFX_", ""))
+  -- a sheet with its own label first: LINK_RECEPTIONIST is no link partner.  One whose
+  -- own label is plain ("Man": FireRed and LeafGreen's sheet MAN, the Mauville old men)
+  -- goes on to ask for a trainer class, as MAN_5 does: answered here, Fuchsia Gym's
+  -- Tamers and the man of each Young Couple stayed "Man"
+  if GFX_LABELS[name] and not PLAIN_SHEETS[GFX_LABELS[name]] then return GFX_LABELS[name] end
   local sheet = name:match("^(%u+)_") or name
   if PLAYER_SHEETS[name] or PLAYER_SHEETS[sheet] or name:match("^RED_") or name:match("^GREEN_") then
     return "Trainer"
