@@ -80,13 +80,26 @@ function BattleItems.isBattleUsable(id)
   return pocket == "POKE_BALLS" or pocket == "BERRY_POUCH"
 end
 
+-- pokeemerald/src/data/items.h:1018
+local ITEM_POKE_DOLL = 80
+
+-- pokeemerald/src/item_use.c:1035
+function BattleItems.isEscapeItem(id)
+  local num = ItemsData.toNumericId(id) or tonumber(id)
+  if num == ITEM_POKE_DOLL then return true end
+  local info = ItemsData.info(id)
+  local doll = ItemsData.info(ITEM_POKE_DOLL)
+  local fn = info and tonumber(info.battleUseFunc) or 0
+  return fn ~= 0 and doll ~= nil and fn == tonumber(doll.battleUseFunc)
+end
+
 function BattleItems.needsPartySelect(id)
   if not id then return false end
   if Catching.isBall(id) then return false end
   local modRecord = ItemUse.modEffect(id)
   if modRecord then return modRecord.needsTarget == true end
   local num = ItemsData.toNumericId(id) or tonumber(id)
-  if num == 80 then return false end -- POKE_DOLL
+  if BattleItems.isEscapeItem(id) then return false end
   if BattleItems.isStatBooster(id) then return false end
   local use = ItemUse.fieldUseKind(id, nil, true)
   local info = ItemsData.info(id)
@@ -221,7 +234,7 @@ end
 function BattleItems.canUseOn(st, itemId, partySlot, mon, moveSlot)
   local session = st and st.session
   if not mon or not itemId then return false, wont_have_effect() end
-  if mon.isEgg then return false, Strings("An EGG can't be used on.") end
+  if mon.isEgg then return false end
   if ItemUse.modEffect(itemId) then return true end
   if (ItemsData.toNumericId(itemId) or tonumber(itemId)) == 175 and require("src.core.game3.rs.enigma").matches(session) then
     if ItemUse.fieldUseKind(itemId, session, true) == "none" then return false, wont_have_effect() end
@@ -302,8 +315,64 @@ local function sync_player_battler(st, battlerId)
   b.status = b.mon.status
 end
 
+local ITEM_POKE_FLUTE = 350
+-- pokefirered/include/constants/abilities.h:47
+local ABILITY_SOUNDPROOF = 43
+
+-- pokefirered/include/constants/party_menu.h:11 AILMENT_FNT
+local function party_mon_asleep(mon)
+  local s = mon.status
+  local n = tonumber(s)
+  if n then return bit.band(n, 7) ~= 0 end
+  if s ~= nil and s ~= "" then return Adapter.normStatus(s) == "SLP" end
+  return (tonumber(mon.sleep) or 0) > 0
+end
+
+local function flute_party(st, side)
+  if side == "player" then return st.playerParty or {} end
+  if st.foeParty then return st.foeParty end
+  local out = {}
+  for _, id in ipairs({ 1, 3 }) do
+    local b = require("src.core.game3.battle.state").battler(st, id)
+    if b and b.mon then out[#out + 1] = b.mon end
+  end
+  return out
+end
+
+-- pokefirered/src/battle_script_commands.c:6157 VARIOUS_CHECK_POKEFLUTE
+function BattleItems.pokeFlute(st, adapter)
+  local State = require("src.core.game3.battle.state")
+  local Policy = require("src.core.game3.battle.party_status_rs")
+  local woke = false
+  for _, side in ipairs({ "player", "enemy" }) do
+    for _, mon in ipairs(flute_party(st, side)) do
+      local species = Pokemon.speciesOf(mon) or 0
+      if species ~= 0 and not (mon.isEgg or mon.egg) and party_mon_asleep(mon)
+          and Policy.benchAbility(mon, species) ~= ABILITY_SOUNDPROOF then
+        mon.status = nil
+        mon.sleep = nil
+        woke = true
+      end
+    end
+  end
+  local present = {}
+  for id = 0, st.double and 3 or 1 do
+    local b = State.battler(st, id)
+    if b and adapter:abilityOf(b) ~= "SOUNDPROOF" then
+      if adapter:status(b) == "SLP" or (tonumber(b.sleepTurns) or 0) > 0 then
+        adapter:clearStatus(b)
+        if b.mon then b.mon.sleep = nil end
+      end
+      b.expNightmare = nil
+    end
+    -- pokefirered/src/battle_script_commands.c:7325
+    if b and not State.isAbsent(st, id) then present[#present + 1] = id end
+  end
+  return woke, present
+end
+
 --- Use a battle item. Returns:
---   result: "catch"|"fail_catch"|"heal"|"xitem"|"doll"|"cancel"|"error"
+--   result: "catch"|"fail_catch"|"heal"|"xitem"|"doll"|"flute"|"cancel"|"error"
 --   msgs: string list
 --   endsTurn: bool (enemy may still move unless endsBattle)
 --   endsBattle: bool
@@ -374,16 +443,33 @@ function BattleItems.use(st, adapter, bag, session, itemId, partySlot, battlerId
     return "heal", msgs, true, false, text
   end
 
-  -- Poké Doll → flee wild
-  if num == 80 then
+  if BattleItems.isEscapeItem(itemId) then
     if not st.wild then
-      say(Strings("This can't be used right now."))
+      -- pokefirered/src/item_use.c:830
+      -- pokeemerald/src/item_use.c:1048
+      say(ItemUse.notTheTimeText(session))
       return "error", msgs, false, false
     end
     Bag.remove(bag, itemId, 1)
     -- pokefirered/src/item_use.c:821
     say(player_used(session, itemId))
     return "doll", msgs, true, true
+  end
+
+  -- pokefirered/src/battle_main.c:4165
+  if num == ITEM_POKE_FLUTE then
+    local woke, present = BattleItems.pokeFlute(st, adapter)
+    local fill = Adapter.fill(st, { lastItem = itemId, playerName = (session and session.name) or st.playerName })
+    if woke then
+      -- pokefirered/data/battle_scripts_2.s:200
+      msgs[1] = BattleText.get("STRINGID_POKEFLUTE", fill)
+      -- pokefirered/data/battle_scripts_2.s:204
+      msgs[2] = BattleText.get("STRINGID_MONHEARINGFLUTEAWOKE", fill)
+    else
+      -- pokefirered/data/battle_scripts_2.s:195
+      msgs[1] = BattleText.get("STRINGID_POKEFLUTECATCHY", fill)
+    end
+    return "flute", msgs, true, false, { woke = woke, battlers = present }
   end
 
   -- Balls
@@ -542,7 +628,8 @@ function BattleItems.use(st, adapter, bag, session, itemId, partySlot, battlerId
     return "heal", msgs, true, false, ItemUse.medicineText(mon, hpBefore, cured)
   end
 
-  say(Strings("This can't be used right now."))
+  -- pokeemerald/src/item_use.c:1123
+  say(ItemUse.notTheTimeText(session))
   return "error", msgs, false, false
 end
 

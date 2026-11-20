@@ -213,6 +213,10 @@ function SaveConvert.setGen2DataStub(stub)
   gen2Data = {}
 end
 
+function SaveConvert.gen2Constants(gameVersion)
+  return loadCacheTable(gameVersion, "data/generated/constants.lua")
+end
+
 function SaveConvert.gen2DataFromDir(dir)
   local out = {}
   for _, name in ipairs(GEN2_TABLES) do
@@ -713,9 +717,9 @@ local function exportRaw(saveTable, gameVersion, cartImage)
   local serr
   saveTable, serr = gen1Sealed(saveTable, data, gameVersion)
   if not saveTable then return nil, serr end
-  local ok, bytes = pcall(GenSave.encode, saveTable, data, saveTable.rawImport or cartImage)
+  local ok, bytes, note = pcall(GenSave.encode, saveTable, data, saveTable.rawImport or cartImage)
   if not ok then return nil, "encode failed: " .. tostring(bytes) end
-  return bytes
+  return bytes, note
 end
 
 function SaveConvert.exportSav(saveTable, gameVersion, cartImage)

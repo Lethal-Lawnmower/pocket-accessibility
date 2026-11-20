@@ -981,19 +981,38 @@ do not.
 
 | field | type | required |
 |---|---|---|
+| `allowEscaping` | integer 0..1 | no |
+| `allowRunning` | integer 0..1 | no |
+| `battleType` | integer >= 0 | no |
+| `bikingAllowed` | integer 0..1 | no |
+| `blocks` | list of integer 0..65535 \| {collision?, elevation?, metatile} | no |
+| `border` | list of integer 0..1023 | no |
+| `borderHeight` | integer 1..255 | no |
+| `borderWidth` | integer 1..255 | no |
+| `cave` | integer >= 0 | no |
+| `cells` | list of {collision?, elevation?, metatile, x, y} | no |
 | `connections` | any value | no |
-| `height` | integer >= 0 | no |
+| `floorNum` | integer | no |
+| `height` | integer >= 1 | no |
 | `id` | string | no |
+| `mapType` | integer >= 0 | no |
+| `music` | integer >= 0 | no |
 | `name` | string | no |
 | `objects` | list of any value | no |
+| `pair` | string | no |
+| `regionMapSectionId` | integer >= 0 | no |
+| `showMapName` | integer 0..1 | no |
 | `tileset` | any value | no |
 | `warps` | list of any value | no |
-| `width` | integer >= 0 | no |
+| `weather` | integer >= 0 | no |
+| `width` | integer >= 1 | no |
 
 <!-- snippet: illustrative -->
 ```lua
 mod.content.maps:patch("FR_PALLET_TOWN", { weather = 2 })
 ```
+
+`blocks` is a full row-major grid of width*height pret map.bin words (metatile | collision << 10 | elevation << 12) or { metatile, collision?, elevation? } records. A register or override with `blocks` needs width, height and `pair` copied from an existing map (`maps:get("FR_VIRIDIAN_FOREST").pair`), and a new id given `blocks` must keep the game's prefix (FR_, EM_, ...). A `blocks` patch on an existing map keeps its width, height, pair and border unless the patch gives them. A map registered without `blocks` gets no grid from the mod and is drawn only when the cache already holds a layout for that id; neither its grid nor its id prefix is checked. `cells` patches single map cells ({ x, y, metatile, collision?, elevation? }); an omitted collision is passable and an omitted elevation keeps the cell's own, so emit collision for blocked cells. A patch repaints one map id only, even where the cartridge shares the layout. `border` lists metatile ids (1x1 by default on FireRed and LeafGreen, always 2x2 on Ruby, Sapphire and Emerald). Patching an id no map has is an error. When a mod's `blocks`, `cells` or `border` are invalid, only that mod's layout writes to that map are dropped. Example: mod.content.maps:patch("FR_ROUTE_1", { cells = { { x = 10, y = 5, metatile = 0x00D, collision = 1 } } })
 
 ## marts
 
@@ -1270,6 +1289,7 @@ accepted and merged as-is.
 | key | type |
 |---|---|
 | `battleObjects` | map of string -> list of list of integer 0..255 |
+| `battleText` | list of list of integer 0..255 |
 | `bg` | list of list of list of integer 0..255 |
 | `daytimes` | list of string |
 | `environments` | map of string -> map of one of "MORN" \| "DAY" \| "NITE" \| "DARK" -> list of integer >= 0 |
@@ -1283,6 +1303,7 @@ accepted and merged as-is.
 | `roofs` | map of integer >= 0 -> {mornDay, nite} |
 | `slotNames` | list of string |
 | `source` | string |
+| `specialTilesets` | map of string -> list of list of list of integer 0..255 |
 | `trainers` | map of string -> list of list of integer 0..255 |
 
 <!-- snippet: illustrative -->
@@ -1498,15 +1519,21 @@ A write here is dropped and reported on a Gen 3 boot.
 
 | field | type | required |
 |---|---|---|
+| `actors` | any value | no |
 | `available` | function | no |
+| `defaultLevel` | number | no |
 | `drawWorld` | function | no |
 | `gate` | function | no |
+| `gen3` | boolean | no |
 | `hotkey` | string | no |
 | `invalidate` | function | no |
+| `keepTilt` | boolean | no |
 | `label` | string | yes |
 | `levels` | list of string | no |
+| `ownsField` | boolean | no |
 | `present` | function | no |
 | `priority` | number | no |
+| `required` | boolean | no |
 | `update` | function | no |
 | `worldPresent` | function | no |
 

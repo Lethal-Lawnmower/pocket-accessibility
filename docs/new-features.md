@@ -6,6 +6,7 @@ Features intentionally added to the games themselves, beyond what the original c
 * **Gen 2 mod shop stock**, regular shelves and bargain prices
 * **Gen 2 mod phone contacts**, caller scripts and rematch events
 * **Gen 2 mod Fly destinations**, new or moved fly points and Pokemon Center spawns
+* **Gen 3 mod map layouts**, repaint metatiles on vanilla maps and give new maps their own grid
 * **Survey zoom** with connected-map rendering and configurable void fill
 * **UI LAYOUT DYNAMIC** on Gen 1 and Gen 2, docking the START menu and save panel to the window's right edge while the text box stays centered
 * **Perspective tilt mode** for an HD-2D-style overworld
@@ -20,6 +21,7 @@ Features intentionally added to the games themselves, beyond what the original c
 * **Optional widescreen battle layout**
 * **Pokédex diploma and printer image exports**
 * **Fast-forward locks to 1X in link play**, every link or online battle, link session and the FireRed/LeafGreen Union Room on every game
+* **Forfeit confirm on link RUN** in every Gen 3 link and online battle, a YES/NO before the match ends
 * **40-player Union Room** on FireRed and LeafGreen online, a larger square room where every trainer keeps a fixed spot and anyone can be talked to
 * **Name badges over trainers** in Gen 3 link rooms (Union Room, Trade Center, Colosseum, Record Corner, Berry Blender), your own included
 * **Chat, trade and battle icons** on those badges, so a busy trainer is visible at a glance
@@ -33,6 +35,7 @@ Features intentionally added to the games themselves, beyond what the original c
 * **Button remapping** on every game: OPTION -> CONTROLS (keys, pads, L/R on FireRed/LeafGreen/Emerald, fast-forward buttons)
 * **Full controller support**: both thumbsticks move and navigate menus, and stick directions, triggers, stick clicks and extra SDL buttons can be bound in CONTROLS
 * **Duplicate a save slot** from the launcher, a one-tap independent copy for backups or trimming a save before export
+* **Q / E switch games in the launcher**, a one-press keyboard twin of the controller shoulders, in the GAMES dropdown's order
 * **Bank-style Box migration** from Gen 1 and 2 to Gen 3: nature from EXP, IVs from DVs (Special fills both Sp. Atk and Sp. Def), EVs reset, second ability when there is one
 * **EXP-to-nature helper** in Box migration, showing how much EXP each nature needs before a Gen 1 or 2 Pokémon moves to Gen 3
 * **Box item stash**: store bag items in Box, send them to another game's bag, give or take held items and change a Gen 3 Pokémon's ball

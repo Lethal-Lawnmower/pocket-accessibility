@@ -7,6 +7,7 @@
 -- Pure Lua, no love.* at require time, same as GenSave.
 
 local Gen2Layout = require("src.save_convert.Gen2Layout")
+local Gen2EngineFlags = require("src.save_convert.Gen2EngineFlags")
 local Gender = require("src.core.gen2.Gender")
 
 local Gen2Save = {}
@@ -34,9 +35,15 @@ Gen2Save.MSG = {
     .. "items cannot be named; import the %s ROM before importing a save for it",
   foreign = "this is a %s save; only English-region Gold, Silver and Crystal "
     .. "saves can be imported",
-  bothCopies = "the cartridge image beside this save fails its checksum in both "
-    .. "the primary and the backup copy, so it cannot be written over",
+  rebuilt = "the cartridge image kept with this save was damaged, so the cartridge "
+    .. "save was rebuilt from this playthrough and anything the port does not "
+    .. "track starts over as in a new game",
 }
+
+function Gen2Save.templateIntact(bytes, gameVersion)
+  local L = Gen2Save.layoutFor(gameVersion)
+  return L ~= nil and Gen2Save.liveImage(bytes, L) ~= nil
+end
 
 function Gen2Save.layoutFor(gameVersion)
   if gameVersion == "crystal" then return Gen2Layout.crystal end
@@ -676,13 +683,24 @@ end
 
 -- data/events/engine_flags.asm:11-40, :65-72
 local ENGINE_FLAG_BITS = {
-  wPokegearFlags = { { 1, 0 }, { 0, 1 }, { 2, 2 }, { 3, 3 }, { 4, 7 } },
-  wStatusFlags = { { 11, 0 }, { 12, 1 }, { 13, 3 }, { 14, 4 }, { 15, 6 } },
+  wPokegearFlags = {
+    { "ENGINE_MAP_CARD", 0 }, { "ENGINE_RADIO_CARD", 1 }, { "ENGINE_PHONE_CARD", 2 },
+    { "ENGINE_EXPN_CARD", 3 }, { "ENGINE_POKEGEAR", 7 },
+  },
+  wStatusFlags = {
+    { "ENGINE_POKEDEX", 0 }, { "ENGINE_UNOWN_DEX", 1 }, { "ENGINE_CAUGHT_POKERUS", 3 },
+    { "ENGINE_ROCKET_SIGNAL_ON_CH20", 4 }, { "ENGINE_CREDITS_SKIP", 6 },
+  },
   wStatusFlags2 = {
-    { 18, 0 }, { 17, 1 }, { 19, 4 }, { 20, 5 }, { 21, 6 }, { 22, 7 },
+    { "ENGINE_ROCKETS_IN_RADIO_TOWER", 0 }, { "ENGINE_SAFARI_ZONE", 1 },
+    { "ENGINE_BIKE_SHOP_CALL_ENABLED", 4 }, { "ENGINE_UNUSED_STATUSFLAGS2_5", 5 },
+    { "ENGINE_REACHED_GOLDENROD", 6 }, { "ENGINE_ROCKETS_IN_MAHOGANY", 7 },
   },
   wUnlockedUnowns = {
-    { 42, 0 }, { 43, 1 }, { 44, 2 }, { 45, 3 }, { 46, 4 }, { 47, 5 }, { 48, 6 }, { 49, 7 },
+    { "ENGINE_UNLOCKED_UNOWNS_A_TO_K", 0 }, { "ENGINE_UNLOCKED_UNOWNS_L_TO_R", 1 },
+    { "ENGINE_UNLOCKED_UNOWNS_S_TO_W", 2 }, { "ENGINE_UNLOCKED_UNOWNS_X_TO_Z", 3 },
+    { "ENGINE_UNLOCKED_UNOWNS_UNUSED_4", 4 }, { "ENGINE_UNLOCKED_UNOWNS_UNUSED_5", 5 },
+    { "ENGINE_UNLOCKED_UNOWNS_UNUSED_6", 6 }, { "ENGINE_UNLOCKED_UNOWNS_UNUSED_7", 7 },
   },
 }
 
@@ -692,19 +710,17 @@ local FLYPOINT_BITS = {
   0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
   18, 19, 20, 21, 22, 23, 24, 25, 26, 28,
 }
-local FLYPOINT_FIRST_ID = 50
 
--- pokecrystal constants/engine_flags.asm:25 ENGINE_MOBILE_SYSTEM
-local function engineId(gold, gameVersion)
-  if gameVersion == "crystal" and gold >= 16 then return gold + 1 end
-  return gold
+local function engineId(name, gameVersion)
+  return Gen2EngineFlags.id(gameVersion, name)
 end
 
 -- engine/pokegear/pokegear.asm:2189 HasVisitedSpawn
-local function eachSpawnBit(L, fn)
+local function eachSpawnBit(L, gameVersion, fn)
   if not L.wVisitedSpawns then return end
+  local first = engineId("ENGINE_FLYPOINT_PLAYERS_HOUSE", gameVersion)
   for i, b in ipairs(FLYPOINT_BITS) do
-    fn(FLYPOINT_FIRST_ID + i - 1, L.wVisitedSpawns + math.floor(b / 8),
+    fn(first + i - 1, L.wVisitedSpawns + math.floor(b / 8),
        2 ^ (b % 8))
   end
 end
@@ -722,9 +738,9 @@ local function decodeEngineFlags(t, L, gameVersion)
       end
     end
   end
-  eachSpawnBit(L, function(id, at, mask)
+  eachSpawnBit(L, gameVersion, function(id, at, mask)
     if math.floor(u8(t, at) / mask) % 2 == 1 then
-      out[engineId(id, gameVersion)] = true
+      out[id] = true
     end
   end)
   return out
@@ -1599,10 +1615,10 @@ local function putEngineFlags(t, L, flags, gameVersion)
       t[at] = byte
     end
   end
-  eachSpawnBit(L, function(id, at, mask)
+  eachSpawnBit(L, gameVersion, function(id, at, mask)
     local cur = t[at] or 0
     local on = math.floor(cur / mask) % 2 == 1
-    local want = flags[engineId(id, gameVersion)] == true
+    local want = flags[id] == true
     if on ~= want then t[at] = want and (cur + mask) or (cur - mask) end
   end)
 end
@@ -1945,19 +1961,18 @@ local function encodeImpl(save, gameVersion, template, data)
     template = save.rawImport
   end
   local fresh = type(template) ~= "string"
-  local base, tail
+  local base, tail, note
+  if not fresh then
+    base = Gen2Save.liveImage(template, L)
+    if base then
+      tail = template:sub(Gen2Save.SAVE_SIZE + 1)
+    else
+      fresh, note = true, Gen2Save.MSG.rebuilt
+    end
+  end
   if fresh then
     base = blankImpl(gameVersion, save, data)
     tail = ""
-  else
-    if #template < Gen2Save.SAVE_SIZE then
-      refuse(("the cartridge image beside this save is %d bytes and a Gen 2 "
-        .. "save file is %d; it is truncated or is not a save file")
-        :format(#template, Gen2Save.SAVE_SIZE))
-    end
-    base = Gen2Save.liveImage(template, L)
-    if not base then refuse(Gen2Save.MSG.bothCopies) end
-    tail = template:sub(Gen2Save.SAVE_SIZE + 1)
   end
 
   if type(data) == "table" and redSpecies(data) then
@@ -2103,7 +2118,7 @@ local function encodeImpl(save, gameVersion, template, data)
   end
   if type(save.engineFlags) == "table" then
     local flags = save.engineFlags
-    local bikeId = engineId(19, gameVersion)
+    local bikeId = engineId("ENGINE_BIKE_SHOP_CALL_ENABLED", gameVersion)
     if flags[bikeId] == nil and save.bikeShopCall == true then
       flags = setmetatable({ [bikeId] = true }, { __index = save.engineFlags })
     end
@@ -2258,7 +2273,7 @@ local function encodeImpl(save, gameVersion, template, data)
   -- Whatever followed the 32 KiB of SRAM is the cart's RTC footer. Dropping it
   -- resets the clock, which costs the player daily events and the bug contest
   -- and earns them the clock-adjustment penalty.
-  return pack(t, Gen2Save.SAVE_SIZE) .. tail
+  return pack(t, Gen2Save.SAVE_SIZE) .. tail, note
 end
 
 Gen2Save.util = {

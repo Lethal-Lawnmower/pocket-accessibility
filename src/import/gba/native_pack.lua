@@ -344,10 +344,14 @@ local DYNAMIC_MIDS_BY_PAIR = {
 }
 
 -- pokefirered/src/field_specials.c:283
-NativePack.PC_ON_BY_OFF = {
-  [0x062] = 0x063, -- pokefirered/include/constants/metatile_labels.h:6
-  [0x28F] = 0x28A, -- pokefirered/include/constants/metatile_labels.h:75
-}
+function NativePack.pcOnByOff()
+  local C = require("src.core.game3.constants").of("firered")
+  local out = {}
+  for _, row in pairs(require("src.core.game3.pc_anim").PC_LABELS) do
+    out[C:require("metatile_labels", row.off)] = C:require("metatile_labels", row.on)
+  end
+  return out
+end
 
 function NativePack.addDynamicMids(seen, pairName)
   local spec = Versions.TILESET_PAIRS and Versions.TILESET_PAIRS[pairName]
@@ -364,7 +368,7 @@ function NativePack.addDynamicMids(seen, pairName)
 end
 
 function NativePack.addPcOnMids(seen)
-  for off, on in pairs(NativePack.PC_ON_BY_OFF) do
+  for off, on in pairs(NativePack.pcOnByOff()) do
     if seen[off] then seen[on] = true end
   end
   return seen
@@ -470,9 +474,12 @@ local function addVoidFillMids(seen, borders, pairName)
   end
 end
 
---- Collect unique mids used by grids + borders for a pair.
-function NativePack.collectMidsForPair(grids, borders, pairName, scriptMids)
+--- Collect the unique mids a pair atlas packs.
+function NativePack.collectMidsForPair(grids, borders, pairName, scriptMids, bundle)
   local seen = {}
+  for _, mid in ipairs(bundle and NativePack.fullMidsForPair(bundle) or {}) do
+    seen[mid] = true
+  end
   for mid in pairs(scriptMids and scriptMids[pairName] or {}) do
     seen[mid] = true
   end
@@ -525,7 +532,7 @@ function NativePack.writeExtract(cache, root, bundles, grids, borders, pairNames
     local bundle = bundles[pairName]
     if bundle then
       local midList = midLists and midLists[pairName]
-        or NativePack.collectMidsForPair(grids, borders, pairName, scriptMids)
+        or NativePack.collectMidsForPair(grids, borders, pairName, scriptMids, bundle)
       local underTbl, overTbl, middleTbl = NativePack.buildLayeredIdx(bundle, midList)
       local palBlob = NativePack.encodePalettes(bundle.mapPals)
       local pairDir = NativeRoot .. "/" .. pairName

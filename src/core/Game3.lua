@@ -119,7 +119,6 @@ function Game3:_enterField(session, reason, opts)
     end
   end
   session._questNewScene=true
-  if reason == "continue" then session._questMap=session.map end
   local Map = lazyReq("src.core.game3.map")
   Map._announced = nil
   Map._nextEnterVia = (reason == "continue") and "continue" or "new_game"
@@ -918,6 +917,10 @@ function Game3:_hotkey(key)
     if self:zoomGateOK() then
       local Tilt = lazyReq("src.render.Tilt")
       Tilt.cycle()
+      -- tilt and a world pipeline are two answers to the same question
+      if Tilt.level > 0 and not lazyReq("src.render.Pipelines").yieldToTilt(self.options) then
+        Tilt.setLevel(0)
+      end
       if type(self.options) == "table" then
         self.options.tilt = Tilt.level
         self:writeOptions()
@@ -1220,7 +1223,7 @@ function Game3:gamepadaxis(joystick, axis, value)
         return
       end
     end
-    local stickEvents = self.input and self.input.stickAxisEvents and self.input:stickAxisEvents(axis, value)
+    local stickEvents = self.input and self.input.stickAxisEvents and self.input:stickAxisEvents(axis, value, joystick)
     if stickEvents then
       for i = 1, #stickEvents do
         local ev = stickEvents[i]
@@ -1454,6 +1457,8 @@ local SOFT_RESET = {
   { "src.ui.game3.rse.item_storage", "reset" },
   { "src.ui.game3.rse.mail", "reset" },
   { "src.ui.game3.rse.mailbox", "reset" },
+  { "src.ui.game3.mail", "reset" },
+  { "src.ui.game3.mailbox", "reset" },
   { "src.ui.game3.rse.pokenav.init", "reset" },
   { "src.ui.game3.rse.pokenav.call_window", "reset" },
   { "src.ui.game3.rse.cable_car", "reset" },

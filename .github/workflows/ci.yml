@@ -440,13 +440,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
           cache: gradle
       - name: install ccache
         run: sudo apt-get install -y --no-install-recommends ccache
+      - name: test companion scaling, filtering and backend routing
+        run: python3 tests/android_companion_scaling_test.py
       - name: restore native build cache
         uses: actions/cache@v6
         with:
@@ -646,7 +648,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: set up Java 17 for Android picker copy tests
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'

@@ -310,6 +310,17 @@ An edited vanilla map becomes a `mod.content.maps:patch` carrying only the
 fields that moved; a new map becomes a `:register`. See
 `docs/new-features.md` and the extension's own README.
 
+On Gen 3 the same registry takes metatile grids: `blocks` (a full grid of
+pret `map.bin` words; a register or override with it also needs `width`,
+`height` and a `pair` copied from an existing map, while a patch keeps the
+map's own size, pair and border), and `cells`
+(`{ x, y, metatile, collision?, elevation? }`) to repaint single cells of a
+vanilla map. A map registered without `blocks` draws only when the cache
+already holds a layout for its id. An editor feature-detects both
+with `mod:supports("content", "maps.blocks")` and
+`mod:supports("content", "maps.cells")`; an engine without them answers
+`false`. The rules are in `CONTRIBUTING-mods.md` section 4c.
+
 ## Read-only map overviews
 
 `mod.world:mapOverview()` returns collision `rows` at map-cell resolution,
@@ -619,6 +630,15 @@ end)
 
 Return `"set"` or `"shift"`; anything else reads as the vanilla answer.
 
+The hook runs in every generation. Red, Blue and Yellow ask it on every
+trainer replacement; the other games ask at the point the cart reads the option
+bit, after its own link, party-size and fainted-mon gates, so a battle that
+would never offer the switch never calls it there. `battle` is the generation's battle
+state (the Gen 2 battle screen in Gold, Silver and Crystal, the Gen 3 battle
+state in FireRed, LeafGreen, Ruby, Sapphire and Emerald), and `next(battle)`
+answers in lowercase everywhere even though Gen 2 stores the option as
+`"SHIFT"`/`"SET"` and Gen 3 as a number.
+
 `catch.nickname` wraps the `AskName` prompt after a capture (party or box),
 the same question `pokemon.before_give`'s `gift.nickname` already answers for
 script gifts:
@@ -635,6 +655,17 @@ end)
 `false` keeps the species name with no prompt. A string is the nickname with
 no prompt, clipped to the naming grid's ten characters (an empty string names
 nothing). Anything else queues the prompt.
+
+The hook fires on wild captures in every generation, after the mon is stored
+and at the moment the cart would ask. In Gold, Silver and Crystal ctx is the
+same `{ battle, name, game }`, `mon` is the native Gen 2 mon, and the hook
+runs before `pokemon.caught`. In FireRed, LeafGreen, Ruby, Sapphire and
+Emerald it runs after the new-dex page, `mon.species` is the numeric species,
+and ctx adds `species` (name) and `speciesId` (number); the party
+`pokemon.caught` has already fired, the PC one fires after the hook. Under API
+3, `mon` is the portable mon record on every game. A skipped question on a
+full party still prints the sent-to-PC line, naming the mon by the nickname
+the hook gave it.
 
 ## Party-full custody at a catch
 
@@ -656,8 +687,57 @@ end)
 
 A truthy return skips the box entirely -- the mon is neither in the party nor
 in any box, and `pokemon.caught` reports `destination = "mod"` so the mode can
-find its own custody again. Anything falsy deposits as always, "But every BOX
-is full!" included.
+find its own custody again. Anything falsy deposits into the current box as
+always.
+
+The hook runs in every generation, only when the party is full. A claimed
+catch is still marked in the #DEX, but nothing asks for a nickname and no
+sent-to-PC line prints. On Red, Blue, Yellow, Gold, Silver and Crystal the
+cart refuses to throw a ball when the party and the current box are both full,
+before any catch, so the hook never sees that case whatever a mod would
+answer. In Gold, Silver and Crystal ctx is the same `{ battle, mon, name, game }`
+with `battle` the Gen 2 battle screen. In FireRed, LeafGreen, Ruby,
+Sapphire and Emerald `mon.species` is the numeric species and ctx adds
+`species` (name) and `speciesId` (number), as `catch.nickname` does. Under API
+3, `ctx.mon` is the portable mon record.
+
+## Gifts
+
+`pokemon.before_give` fires just before a scripted gift is built, and a
+listener may rewrite it:
+
+```lua
+mod.events:on("pokemon.before_give", function(gift)
+  -- gift = { ctx = <script ctx>, species = <species>, level = <n>,
+  --          isEgg = <bool>, nickname = <string or nil> }
+  if gift.isEgg then return end
+  gift.species, gift.level = "MEW", 5
+  gift.nickname = "LUCKY"   -- names it and skips the nickname prompt
+end)
+```
+
+`species`, `level` and `nickname` are read back; an unknown species or a
+non-number level keeps the script's value, and the nickname is clipped to ten
+characters. On Gen 1 and Gen 2 any string in `nickname` skips the nickname
+prompt. Eggs fire too with
+`isEgg = true`; their nickname stays `EGG` and only the species (and on Gen 2
+the level) is read back.
+
+- Red, Blue and Yellow: every `give_pokemon` script row. `ctx` is the script
+  ctx and `species` the Gen 1 species id. There are no eggs.
+- Gold, Silver and Crystal: `givepoke` (starters, Eevee, Tyrogue, Dratini,
+  Spearow and the Game Corner prizes), Shuckie, and the eggs (`giveegg`, the
+  Odd Egg and the Day-Care egg). `ctx` is `{ game, save, world }` (plus
+  `runner` from a special); the Day-Care egg sends `{ game, save }` with no
+  `world`. `species` is the Gen 2 species id, and a trainer
+  gift (Kenya, Shuckie) arrives with its own `nickname` already set.
+- FireRed, LeafGreen, Ruby, Sapphire and Emerald: `givemon`, `giveegg` and the
+  Day-Care egg. `species` is the species name, `speciesId` the number, and an
+  egg's `level` is always 5.
+
+Under API 3, `species` is the portable id on every game. The script's own
+"received X" line prints before the gift is built, so it names the species
+the script asked for.
 
 ## Effective wild-encounter distribution
 
@@ -751,6 +831,67 @@ Three rules worth knowing:
 
 Returning `nil` from `drawWorld` is a normal answer meaning "not this
 frame"; the engine draws the vanilla world instead.
+
+### Gen 3 field
+
+On Gen 3 a pipeline's `drawWorld` stays inert unless its record says it
+understands Gen 3's `ctx`, with `gen3 = true`. With no such pipeline switched
+on, the engine draws the Gen 3 field exactly as before. More record fields
+matter on Gen 3:
+
+| field | meaning |
+| --- | --- |
+| `gen3` | `drawWorld` may claim the Gen 3 field |
+| `required` | always on: never below level 1, and an optional world pipeline cannot switch on over it. Higher levels stay reachable. A one-label ladder (`levels = { "ON" }`) is fine |
+| `defaultLevel` | level before the player has chosen one (default 0, OFF) |
+| `keepTilt` | being on leaves the engine's Tilt alone, for a pipeline projecting through it. Without it, a world pipeline and Tilt switch each other off, and a `required` one refuses Tilt from the Gen 1 and Gen 3 options menus and the Gen 3 Tilt hotkey |
+| `actors` | `"engine"` (default) or `"mod"`, or `(level) -> string`. See below |
+| `ownsField` | while on, the pipeline owns the field outright: every field frame is its own, battle transitions included, and a frame it does not draw is black, never the engine's own map. See below |
+
+The Gen 3 options menu lists a pipeline only when it has `present`, so a
+world-only pipeline is switched by its `hotkey`, `defaultLevel` or `required`.
+
+The claim is decided before anything draws, so `available` must answer from
+state it already has. On a claimed frame:
+
+- The engine runs `FieldView.prepareFrame` in place of its ground pass: map
+  connections, camera, tile animation and caches stay current, but nothing is
+  drawn as ground.
+- `ctx.worldCanvas` starts transparent and still receives what the engine
+  draws over the ground: the screen-space field effects (heal machine, Sweet
+  Scent, Itemfinder), world-layer sprites and BG, and screen wipes. Draw it
+  over your image to keep them, with `love.graphics.setBlendMode("alpha",
+  "premultiplied")` since it starts transparent. Flash's glow still arrives
+  as `Renderer.screenVeil`.
+- With `actors = "engine"` the engine draws the characters into
+  `ctx.renderer.uprightCanvas`, and your pipeline composites it. With `"mod"`
+  it does not, and your pipeline draws them, for example with
+  `FieldView.draw(ctx.game, ctx.vw, ctx.vh, { actorsOnly = true, billboard = true })`.
+- The returned canvas is the whole world: the engine's compositor blits it
+  and skips `worldCanvas` and `uprightCanvas`. A `render.compose` hook can
+  tell a claimed frame from `ctx.worldOverride`.
+
+On Gen 3, `ctx` carries `claimed = true`, `level`, `actorMode`, `transition`, `game`,
+`vw`/`vh` (the field view in GBA pixels), `cam` (`x`, `y`: the field camera)
+and `generation = 3`, plus the frame metrics `render.compose` gets: `renderer`,
+`rects`, `worldCanvas`, `uiCanvas`, `width`/`height`, `scale`, `Sx`/`Sy`,
+`dpiX`/`dpiY` and `viewX`/`viewY`/`viewWidth`/`viewHeight`.
+
+Returning `nil` from `drawWorld` hands that frame back, and the engine draws
+the vanilla ground (and the characters, when the pipeline owned them). Battle
+transitions, battles, full-screen menus and shop views never reach the claim.
+
+With `ownsField = true` the engine's own map never shows while the pipeline is
+on (a `required` one counts as on from the moment it is registered), including
+the display's error fallback. Battle transitions are claimed too: `ctx.transition`
+is true then, and the engine's transition effect still draws into
+`ctx.worldCanvas` (some effects clear it to black first), so skip that canvas
+or bring your own transition. A frame the pipeline does not draw, because
+`drawWorld` returned `nil`, `available` said no, or it threw and was retired,
+is a black field with no characters, and `Display.blankFrames` counts it. A
+retired pipeline is tried again the next time options are applied; until then
+the field stays black, with its error in the mod manager. Battles, full-screen
+menus and the map behind a shop's lists are unchanged.
 
 ## Variable-size overworld sprites
 
@@ -1229,6 +1370,30 @@ On process-capable Windows, Linux and macOS hosts without a native display
 bridge, enabling this facade opens a second resizable app window instead. It
 uses the same `available`, `detected`, `push`, `pollTouch` and `setEnabled`
 contract, so a mod does not need a desktop-specific rendering path.
+
+  Companion sizing can be selected explicitly with a preference of
+  `auto:fit`, `handheld:fit`, `secondary:fit`, or the corresponding `:integer`
+  form. `fit` preserves the complete frame at one proportional physical-pixel
+  scale. `integer` floors enlargements to a whole-number scale; smaller targets
+  still fit the complete frame. The image origin is aligned to physical pixels,
+  and touch coordinates use the same placement, including desktop DPI scaling.
+  Check `secondScreen.scalingAvailable()` before submitting these preferences:
+  updating Lua alone cannot add their native bridge to an older Android APK.
+
+  An optional third component selects companion sampling: `:auto`, `:nearest`,
+  `:bilinear`, or `:sharp`, for example `secondary:integer:auto`. Auto uses
+  nearest sampling at whole-number enlargement, sharp bilinear at fractional
+  enlargement, and bilinear when shrinking. Check
+  `secondScreen.filteringAvailable()` before requesting a filter. Omitting the
+  filter retains nearest sampling. Android creates the on-demand GLES output
+  only after an explicit fit/integer submission; legacy preferences and the
+  original push entry point retain the original Bitmap output. These policies
+  affect the submitted companion frame, independently of game-screen sampling.
+
+  ROM-free checks for the Android placement, filter policy and output routing
+  run with `python3 tests/android_companion_scaling_test.py` (JDK 17). The
+  corresponding Lua bridge, desktop DPI/touch and legacy compatibility suites
+  are included in `luajit tests/run_engine.lua`.
 
 `render.output_enabled` and `render.output` are the later, whole-window seam
 for mods that need the engine's normal composite rather than its separate
@@ -1728,7 +1893,7 @@ local hasEvent = mod:supports("events", "world.stepped")
 
 Surfaces are `content`, `world`, `hooks` and `events`. Every content handle also has `supports()` and an `available` boolean. Content and world answers describe implemented interfaces; game state may still refuse a call.
 
-For `hooks` and `events` the answer is **native per version**: a name returns true only on the versions that have a call site. Names with a call site in every generation (`pokemon.level_visible`, `battle.field_residual`, `core.logic_speed`, `trainer.before_battle`) are true on every game, and a name raised in only some generations answers true for those generations alone (`battle.style`, `catch.nickname` and `catch.party_full` are Gen 1 only; `transition.style` is Gen 1 and Gen 2; `mod.options_changed` is true everywhere); Gen 2 additions follow the cart (`phone.call_received`, `radio.channel`, `phone.contact_list` and the intro cinema are Gold, Silver and Crystal only; `shiny.roll`, `gender.roll`, `held_item.trigger`, `breeding.compatibility`, `egg.hatched`, `happiness.changed`, `pokerus.infected` and the roamer events are true on Gen 2 and Gen 3). Custom `mod.<id>.*` events are always true.
+For `hooks` and `events` the answer is **native per version**: a name returns true only on the versions that have a call site. Names with a call site in every generation (`pokemon.level_visible`, `battle.field_residual`, `core.logic_speed`, `trainer.before_battle`, `catch.nickname`, `battle.style`, `catch.party_full`, `pokemon.before_give`, `item.use`, `world.talk`) are true on every game, and a name raised in only some generations answers true for those generations alone (`transition.style` is Gen 1 and Gen 2; `mod.options_changed` is true everywhere); Gen 2 additions follow the cart (`phone.call_received`, `radio.channel`, `phone.contact_list` and the intro cinema are Gold, Silver and Crystal only; `shiny.roll`, `gender.roll`, `held_item.trigger`, `breeding.compatibility`, `egg.hatched`, `happiness.changed`, `pokerus.infected` and the roamer events are true on Gen 2 and Gen 3). Custom `mod.<id>.*` events are always true.
 
 `hooks:wrap`, `events:on` and `events:once` accept any catalogued name on any game, so one source file loads everywhere; a subscription to a name the game does not raise simply never fires. Unknown names raise. Check `mod:supports` before relying on a callback.
 
@@ -1749,7 +1914,8 @@ end)
 - `party()` returns detached Pokémon with `nickname`, `stats.special`, string IDs, short statuses (`SLP`, `PSN`, `BRN`, `FRZ`, `PAR`) and moves as `{ id, pp, maxPp }`.
 - `activeBlockAt(mapId, x, y)` returns a native block ID plus `tileSize`, `cellSize`, `coordinateBase` and `kind`. Blocks are 32 px on Gen 1 and 2 and 16 px on Gen 3, zero-based. It is never a collision byte.
 - `spawnNpc(mapId, objDef)` takes a detached `maps[].objects` shape and returns a session ID `mapId .. "_obj_" .. index`; `npc(mapId, id)` resolves it. Handles expose movement, facing, placement, passability and `setAppearance(spriteId)`. `removeNpc` removes only the calling mod's runtime NPCs. Runtime NPCs survive map reloads in a session but are not saved; respawn on load. A permanent NPC belongs in a map content patch.
-- `world.talk` receives the native game or overworld and the target; call `next(gameOrWorld, target)` for the normal interaction (it runs at most once). On Gen 3 `scriptKey` runs the native script VM; Gen 1 talk scripts through this path are refused with an error.
+- `world.talk` receives the native game (Gen 3), overworld (Gen 1) or World (Gen 2) and the target; call `next(gameOrWorld, target)` for the normal interaction (it runs at most once). A claimed press is consumed and still raises `world.interacted` with kind `npc`. On Gen 2 and Gen 3 `scriptKey` runs the native script VM; Gen 1 talk scripts through this path are refused with an error.
+- `item.use` receives `(game, battle, itemId, target, ...)`. Gen 1 fires it once per use from the bag, field and battle, after the party pick (`target` is the mon). Gen 2 fires it once per USE from the field PACK (`battle` nil, `target` nil, the PACK screen fifth), once per battle use with the battle screen second and `target` nil (the party pick runs inside `next`), and once per SELECT use (`battle`, `target` and the pack all nil); the mart SELL and item PC packs and the catch tutorial raise nothing. Gen 3 fires it from the field bag with a party slot number as `target`. Not calling `next` claims the use: the item does nothing and is not spent.
 
 ### Portable scripts
 
@@ -1791,7 +1957,9 @@ Use a fresh, increasing intent ID per mod; native prompt, stale-revision and rep
 
 ### Hooks and events
 
-`mod.hooks:wrap(name, function(next, ...) end)` and `mod.events:on/once` keep their forms. API 3 converts record-valued payloads at the boundary (including mutable `pokemon.before_give`). Priorities, unsubscribe closures, owner rollback and the run-vanilla-at-most-once rule are unchanged. Game, battle and context handles stay native. A mod may subscribe to another mod's events but only emit under its own `mod.<id>.*` prefix; engine events cannot be forged. The start-menu hook exposes executable `onSelect` rows on every generation.
+`mod.hooks:wrap(name, function(next, ...) end)` and `mod.events:on/once` keep their forms. API 3 converts record-valued payloads at the boundary (including mutable `pokemon.before_give`). Priorities, unsubscribe closures, owner rollback and the run-vanilla-at-most-once rule are unchanged. Game, battle and context handles stay native. A mod may subscribe to another mod's events but only emit under its own `mod.<id>.*` prefix; engine events cannot be forged. The start-menu hook exposes executable `onSelect` rows on every generation. `fieldmove.eligibility` returns nil or a member of `ctx.party` (or the matching `ctx.save.party` entry); any other table is an error and the downstream answer stands. A `trainer.party` row the mod builds needs `species`.
+
+`ui.party.submenu` receives `(game, items, mon, ctx)` and returns the rows to show. On the field list (`ctx.battle` false) a row `{ label = "CUT", move = "CUT" }` runs that field move for the selected Pokémon on all three generations, whether or not the Pokémon knows it; the badge, terrain and map checks still apply. `move` takes the move name with or without the `MOVE_` prefix. `label` defaults to the move's name, and a row that also carries `onSelect` stays an `onSelect` row (the move key is ignored). Gen 3 also accepts `{ label, action = <the game's field-move label> }`, and only takes moves that version's party menu has a field-move slot for (no DIVE or SECRET POWER on FireRed and LeafGreen). Battle and choose lists stay strict: they keep vanilla rows and `onSelect` rows, and on Gen 3 any other row makes the engine keep the vanilla list.
 
 ### Screens on Gen 3
 

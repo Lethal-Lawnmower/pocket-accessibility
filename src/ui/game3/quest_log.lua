@@ -40,8 +40,8 @@ local function tiles(scene,frame,over)
       if tile then
         local ts=textures[tile[2]] or T.get(tile[2])
         if tile[2] then textures[tile[2]]=ts end
-        if ts then
-          local slot=T.slotFor(ts,tile[1])
+        local slot=ts and T.slotFor(ts,tile[1])
+        if slot then
           local quad
           if over then quad=T.overQuad(ts,slot) else quad=T.quad(ts,slot) end
           local image
@@ -70,6 +70,11 @@ function UI.draw(playback,session)
   table.sort(actors,actorOrder)
   local Ow=owSprites()
   local cx=math.floor(frame.x+8-120);local cy=math.floor(frame.y+8-80)
+  local blobStep=math.floor(playback.ticks/require('src.core.game3.surf_bob').FRLG_FRAME_DURATION)%2
+  for _,a in ipairs(actors) do
+    -- pokefirered/src/quest_log_player.c:152
+    if a.surf then require('src.core.game3.field_effects').drawSurfBlob(a.surf.x-cx,a.surf.y-cy,a.facing,blobStep) end
+  end
   for _,a in ipairs(actors) do
     if a.graphicsId then Ow.draw(a.graphicsId,a.x,a.y,cx,cy,a.facing,a.walkPhase,a.stepFlip,{frame=a.frame,bow=a.bow,fieldMove=a.fieldMove}) end
   end

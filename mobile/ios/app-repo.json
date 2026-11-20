@@ -13,6 +13,62 @@
       "category": "games",
       "versions": [
         {
+          "version": "0.4.7",
+          "date": "2026-11-15",
+          "size": 44801142,
+          "downloadURL": "https://github.com/bryanthaboi/gen1recomp/releases/download/v0.4.7/gen1recomp++-0.4.7-ios.ipa",
+          "localizedDescription": "fixes gen 2 mods that reach into engine internals dying on boot since 0.4.6 (engine flags werent bound before game.ready)\n\nheads up mod authors, 0.4.6 moved a bunch of gen 2 stuff onto the cache so if ur mod pokes at engine internals u may need to update:\n- gen 2 engine flags are names now, read from the cache. src.core.gen2.FlagNames is gone, use src.core.gen2.FlagIds.events(constants) instead\n- gen 2 ui text, landmarks and swarm data are required cache reads now, theres no hand typed fallback anymore\n- if ur mod tests build a fake game.data u need to feed it real rom_text, text, landmarks and encounters or those screens will throw\n\n## Contributors\n\n- @bryanthaboi"
+        },
+        {
+          "version": "0.4.6",
+          "date": "2026-11-15",
+          "size": 44804672,
+          "downloadURL": "https://github.com/bryanthaboi/gen1recomp/releases/download/v0.4.6/gen1recomp++-0.4.6-ios.ipa",
+          "localizedDescription": "ripped out hand typed rom text and fallbacks, fixed crystal engine flags, odd egg ids, frlg mail, quest log, link names and transitions\n\n## Contributors\n\n- @bryanthaboi"
+        },
+        {
+          "version": "0.4.5",
+          "date": "2026-11-14",
+          "size": 44742127,
+          "downloadURL": "https://github.com/bryanthaboi/gen1recomp/releases/download/v0.4.5/gen1recomp++-0.4.5-ios.ipa",
+          "localizedDescription": "Download the right version for your device below.\n\n## Issues closed\n\n- #3138 Battle Bag in Battle Pyramid doesn't work in Battle\n- #3139 when using a controller and navigating though menus and such, sometimes when navigating through them, one dpad click or joystick move move through two options instead of one and skip one of them, and its very annoying.\n- #3140 Gift Castform in Gen 3 isn't holding the Mystic Water like it should\n\n## Contributors\n\n- @bryanthaboi"
+        },
+        {
+          "version": "0.4.4",
+          "date": "2026-11-12",
+          "size": 44750328,
+          "downloadURL": "https://github.com/bryanthaboi/gen1recomp/releases/download/v0.4.4/gen1recomp++-0.4.4-ios.ipa",
+          "localizedDescription": "Bingo\n\n## Issues closed\n\n- #3132 [GB audio] Emulation bugs\n- #3133 A nickname on a trainer.party row shows in Gold, Silver and Crystal but is dropped in Red, Blue, Yellow and the Gen 3 games\n- #3134 Opponent held items fail\n\n## Contributors\n\n- @bryanthaboi\n- @Nexhas28"
+        },
+        {
+          "version": "0.4.3",
+          "date": "2026-11-11",
+          "size": 44747096,
+          "downloadURL": "https://github.com/bryanthaboi/gen1recomp/releases/download/v0.4.3/gen1recomp++-0.4.3-ios.ipa",
+          "localizedDescription": "Download the right version for your device below.\n\n## Issues closed\n\n- #3121 Mod API 3 returns broken mon with fieldmove.eligibility\n- #3122 Gen 3: a mod can't change which metatiles a map shows\n- #3124 [Red/Android/0.4.1] Professor Oak missing after Champion\n- #3126 Quest Log recap doesn’t draw the surf blob or the Fly bird\n- #3127 Pokemon emerald wild encounter transition\n- #3128 catch.nickname never fires in Gen 2 or Gen 3, so mods can't answer the nickname question after a catch\n\n## Contributors\n\n- @bryanthaboi"
+        },
+        {
+          "version": "0.4.2",
+          "date": "2026-11-08",
+          "size": 44739710,
+          "downloadURL": "https://github.com/bryanthaboi/gen1recomp/releases/download/v0.4.2/gen1recomp++-0.4.2-ios.ipa",
+          "localizedDescription": "fox me silly\n\n## Contributors\n\n- @AverageConsumer\n- @bryanthaboi\n- @Nexhas28"
+        },
+        {
+          "version": "0.4.1",
+          "date": "2026-11-06",
+          "size": 44734536,
+          "downloadURL": "https://github.com/bryanthaboi/gen1recomp/releases/download/v0.4.1/gen1recomp++-0.4.1-ios.ipa",
+          "localizedDescription": "squashed some shiz tyvm iykyk\n\n## Issues closed\n\n- #3099 Patch notes aren't working on switch\n- #3112 cartridge failing checksum prevening save exports???\n- #3113 Keep Update button Visible without scroll\n- #3116 bunch of emerald bugs, missing text and battle freeze\n- #3117 Poke flute gen 3 not working in battle\n- #3118 [Feature Request] Keyboard hotkeys to change game in the Launcher menu\n\n## Contributors\n\n- @bryanthaboi"
+        },
+        {
+          "version": "0.4.0",
+          "date": "2026-11-02",
+          "size": 44727368,
+          "downloadURL": "https://github.com/bryanthaboi/gen1recomp/releases/download/v0.4.0/gen1recomp++-0.4.0-ios.ipa",
+          "localizedDescription": "bugs and some switch stuff\n\n## Issues closed\n\n- #3083 Whitescreen on Trendy Phrase/Gabbys Interview screen\n- #3088 Scrolling issues on iOS\n- #3089 Missing phone jingle\n- #3090 Gen2 Bug-Catching Contest ignores the encounters registry\n- #3091 Gold: script.command's ctx.mapId is never the map label\n- #3092 Gen 2: mods can't add Fly destinations\n- #3094 Pokeball catching animation is skipping CRYSTAL\n- #3096 Asking to press button while trainer send pokemon\n- #3097 Shaders cant be downloaded on switch\n- #3098 No dynamic option UI on crystal\n\n## Contributors\n\n- @booshankles\n- @bryanthaboi"
+        },
+        {
           "version": "0.3.99",
           "date": "2026-10-31",
           "size": 44722207,

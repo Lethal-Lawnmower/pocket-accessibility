@@ -5,7 +5,6 @@
 -- are generated from it, so neither can drift from the engine.
 -- Pure Lua, no love.*, so the headless loader and doc generator run it.
 local Merge = require("src.mods.Merge")
-local Phone = require("src.core.gen2.Phone")
 
 local Schemas = {}
 
@@ -68,6 +67,10 @@ end
 
 function f.list(inner)
   return { kind = "list", inner = inner, desc = "list of " .. inner.desc }
+end
+
+function f.array(inner)
+  return { kind = "list", inner = inner, dense = true, desc = "list of " .. inner.desc }
 end
 
 function f.map(key, value)
@@ -166,6 +169,11 @@ checkValue = function(t, value, path, patchMode, errors, top)
   if kind == "opt" then return checkValue(t.inner, value, path, patchMode, errors, top) end
   if kind == "list" then
     if type(value) ~= "table" then return fail(errors, path, t.desc, value) end
+    if t.dense then
+      local n = 0
+      for _ in pairs(value) do n = n + 1 end
+      if n ~= #value or Merge.isWrapper(value) then return fail(errors, path, t.desc, value) end
+    end
     -- lists replace wholesale, so every row is a complete value even
     -- inside a patch; an extension wrapper carries the same rows and is
     -- typed the same way instead of slipping through unseen
@@ -915,7 +923,13 @@ function Schemas.gen2Index(registry, id, value, data, mode)
     error(registry.name .. ": Gen 2 index collision: " .. index, 0)
   end
   out.index = index
+  if registry.name == "pokemon" and previous == nil and mode ~= "patch"
+      and out.eggMoves == nil then
+    out.eggMoves = {}
+  end
   if phone then
+    local events = data and data.gen2EventTables
+    local scripts = type(events) == "table" and events.phoneScripts or {}
     local effective = mode == "patch"
       and Merge.deepMerge(Merge.deepCopy(registry:get(id) or {}), out, registry.spec.semantics) or out
     if previous == nil and not (type(effective.name) == "string" and effective.name ~= "")
@@ -926,7 +940,7 @@ function Schemas.gen2Index(registry, id, value, data, mode)
       local key = effective[direction .. "Key"]
       if type(effective[direction .. "Time"]) == "number" and effective[direction .. "Time"] > 0
           and not (type(key) == "string" and key ~= "")
-          and not (previous ~= nil and previous <= floor and Phone.scriptKey(effective[direction])) then
+          and not (previous ~= nil and previous <= floor and scripts[effective[direction]]) then
         error("phone_contacts: enabled " .. direction .. " needs a script key", 0)
       end
     end
@@ -2045,6 +2059,38 @@ local function textWrite(target, registry)
   for _, id in ipairs(tombstones) do target[id] = nil end
 end
 
+local MAP_RECORD_FIELDS = {
+  "id", "name", "width", "height", "tileset", "pair", "borderWidth", "borderHeight",
+  "weather", "music", "mapType", "regionMapSectionId", "showMapName", "floorNum",
+  "cave", "allowEscaping", "allowRunning", "bikingAllowed", "battleType",
+  "warps", "objects", "connections",
+}
+
+local function mapRecord(base, id)
+  local def = type(base) == "table" and base[id] or nil
+  if type(def) ~= "table" then return nil end
+  local out = {}
+  for _, key in ipairs(MAP_RECORD_FIELDS) do
+    local value = rawget(def, key)
+    if type(value) == "table" then value = Merge.deepCopy(value) end
+    out[key] = value
+  end
+  return out
+end
+
+local function mapIds(base)
+  local ids = {}
+  for id, def in pairs(type(base) == "table" and base or {}) do
+    if type(id) == "string" and type(def) == "table" then ids[#ids + 1] = id end
+  end
+  table.sort(ids)
+  return ids
+end
+
+local function mapsWrite(target, registry)
+  return require("src.core.game3.mod_layout").write(target, registry)
+end
+
 G3.monRecord, G3.monIds, G3.monWrite = monRecord, monIds, monWrite
 G3.moveRecord, G3.moveIds, G3.moveWrite = moveRecord, moveIds, moveWrite
 G3.itemRecord, G3.itemIds, G3.itemWrite = itemRecord, itemIds, itemWrite
@@ -2053,6 +2099,7 @@ G3.encounterWrite = encounterWrite
 G3.trainerRecord, G3.trainerIds, G3.trainerWrite =
   trainerRecord, trainerIds, trainerWrite
 G3.textWrite = textWrite
+G3.mapRecord, G3.mapIds, G3.mapsWrite = mapRecord, mapIds, mapsWrite
 
 -- ------- shared Gen 2 leaves
 --
@@ -2382,13 +2429,56 @@ R.maps = {
   example = 'mod.content.maps:register("MY_CAVE", { tileset = "CAVERN", ... })',
   gen3Fields = {
     id = f.opt(f.str), name = f.opt(f.str),
-    width = f.opt(f.int(0)), height = f.opt(f.int(0)),
-    tileset = f.opt(f.any),
+    width = f.opt(f.int(1)), height = f.opt(f.int(1)),
+    tileset = f.opt(f.any), pair = f.opt(f.str),
+    -- pokefirered/include/global.fieldmap.h:7
+    blocks = f.opt(f.array(f.union{ f.int(0, 0xFFFF), f.rec{ metatile = f.int(0, 1023),
+      collision = f.opt(f.int(0, 3)), elevation = f.opt(f.int(0, 15)) } })),
+    cells = f.opt(f.array(f.rec{ x = f.int(0), y = f.int(0), metatile = f.int(0, 1023),
+      collision = f.opt(f.int(0, 3)), elevation = f.opt(f.int(0, 15)) })),
+    border = f.opt(f.array(f.int(0, 1023))),
+    borderWidth = f.opt(f.int(1, 255)), borderHeight = f.opt(f.int(1, 255)),
+    -- pokefirered/include/global.fieldmap.h:191
+    weather = f.opt(f.int(0)), music = f.opt(f.int(0)), mapType = f.opt(f.int(0)),
+    regionMapSectionId = f.opt(f.int(0)), showMapName = f.opt(f.int(0, 1)),
+    floorNum = f.opt(f.int()), cave = f.opt(f.int(0)),
+    allowEscaping = f.opt(f.int(0, 1)), allowRunning = f.opt(f.int(0, 1)),
+    bikingAllowed = f.opt(f.int(0, 1)), battleType = f.opt(f.int(0)),
     warps = f.opt(f.list(f.any)), objects = f.opt(f.list(f.any)),
     connections = f.opt(f.any),
   },
-  gen3Extra = false,
+  gen3Extra = function(_, value)
+    if type(value.blocks) ~= "table" then return nil end
+    if type(value.pair) ~= "string" then
+      return "a Gen 3 map needs pair (copy one: maps:get(id).pair)"
+    end
+    if type(value.width) ~= "number" or type(value.height) ~= "number" then
+      return "a Gen 3 map needs width and height"
+    end
+    if #value.blocks ~= value.width * value.height then
+      return ("blocks has %d entries, expected width*height = %d")
+        :format(#value.blocks, value.width * value.height)
+    end
+  end,
+  gen3Write = G3.mapsWrite, gen3BaseAt = G3.mapRecord, gen3BaseIds = G3.mapIds,
   gen3Example = 'mod.content.maps:patch("FR_PALLET_TOWN", { weather = 2 })',
+  gen3Notes = "`blocks` is a full row-major grid of width*height pret map.bin words "
+    .. "(metatile | collision << 10 | elevation << 12) or { metatile, collision?, elevation? } "
+    .. "records. A register or override with `blocks` needs width, height and `pair` copied "
+    .. "from an existing map (`maps:get(\"FR_VIRIDIAN_FOREST\").pair`), and a new id given `blocks` "
+    .. "must keep the game's prefix (FR_, EM_, ...). A `blocks` patch on an existing map keeps its "
+    .. "width, height, pair and border unless the patch gives them. A map registered without "
+    .. "`blocks` gets no grid from the mod and is drawn only when the cache already holds a "
+    .. "layout for that id; neither its grid nor its id prefix is checked. `cells` patches "
+    .. "single map cells ({ x, y, metatile, collision?, elevation? }); an omitted collision is "
+    .. "passable and an omitted elevation keeps the cell's own, so emit collision for blocked "
+    .. "cells. A patch repaints one map id only, even where the cartridge shares the layout. "
+    .. "`border` lists metatile ids (1x1 by default on FireRed and LeafGreen, always 2x2 on "
+    .. "Ruby, Sapphire and Emerald). Patching an id no map has is an error. When a mod's "
+    .. "`blocks`, `cells` or `border` are invalid, only that mod's layout writes to that map "
+    .. "are dropped. "
+    .. 'Example: mod.content.maps:patch("FR_ROUTE_1", { cells = { { x = 10, y = 5, '
+    .. "metatile = 0x00D, collision = 1 } } })",
 }
 
 R.tilesets = {
@@ -3165,6 +3255,24 @@ R.render_pipelines = {
     present = f.opt(f.fn),
     -- drop GPU objects (window resize, hot reload, mode switch)
     invalidate = f.opt(f.fn),
+    -- true: drawWorld understands Gen 3's ctx and runs on the Gen 3 field.
+    -- Without it the world half stays inert there.
+    gen3 = f.opt(f.bool),
+    -- level before the player has chosen one (default 0, OFF)
+    defaultLevel = f.opt(f.num),
+    -- true: always on, with no OFF level (for a mod whose look depends on it)
+    required = f.opt(f.bool),
+    -- true: being on leaves the engine's Tilt alone, for a pipeline that
+    -- projects through it
+    keepTilt = f.opt(f.bool),
+    -- Gen 3: who draws the field's actors, "engine" or "mod", or
+    -- (level) -> either.  See Pipelines.actorMode.
+    actors = f.opt(f.any),
+    -- Gen 3, true: while on, this pipeline owns the field outright.  Every
+    -- field frame is its own, battle transitions included, and a frame it
+    -- does not draw (declined, not available, retired) is black: the
+    -- engine's own map never shows.
+    ownsField = f.opt(f.bool),
   },
   -- a pipeline that does neither half is dead weight and would silently
   -- occupy an options row and a hotkey
@@ -3345,6 +3453,8 @@ R.palettes = {
     roofSlot = f.int(0, 7),
     hpBar = f.map(f.enum{ "green", "yellow", "red", "blue" }, gen2PaletteRow),
     expBar = gen2PaletteRow,
+    battleText = gen2PaletteRow,
+    specialTilesets = f.map(f.str, f.list(gen2PaletteRow)),
     partyMenu = f.list(gen2PaletteRow),
     battleObjects = f.map(f.str, gen2PaletteRow),
     -- the ordered name lists the numeric indices above resolve through
@@ -3816,7 +3926,7 @@ R.phone_contacts = {
     map = f.opt(f.id("maps")),
     -- the SCRIPT1 / SCRIPT2 time masks: MORN | DAY | NITE, 0 for "never"
     calleeTime = f.opt(f.int(0, 7)), callerTime = f.opt(f.int(0, 7)),
-    -- the script LABEL (Phone.SCRIPT_KEYS resolves it) and, once the cache
+    -- the script LABEL (events.lua phoneScripts resolves it) and, once the cache
     -- has been read, the "<bank>:<addr>" pointer it resolved to
     callee = f.opt(f.str), caller = f.opt(f.str),
     calleeKey = f.opt(f.str), callerKey = f.opt(f.str),

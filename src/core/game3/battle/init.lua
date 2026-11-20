@@ -237,7 +237,7 @@ local function link_mon_from(foe)
   return Damage.ensureStats(mon, mon.level)
 end
 
-local function foe_mon_from(foe, link, trainerPolicy)
+local function foe_mon_from(foe, link, trainerPolicy, wild)
   if link then return link_mon_from(foe) end
   if type(foe) ~= "table" then
     return Damage.ensureStats({
@@ -273,8 +273,11 @@ local function foe_mon_from(foe, link, trainerPolicy)
       spd = math.floor(iv2 / 1024) % 32,
     }
   end
+  -- pokeemerald/src/battle_main.c:2046
   local item = foe.item
-  if item == nil and BattleProfile.get(nil).family ~= "rse" then
+  if item == nil then item = foe.heldItem end
+  -- pokefirered/src/pokemon.c:6034
+  if item == nil and wild and BattleProfile.get(nil).family ~= "rse" then
     local meta = Pokemon.speciesMeta and Pokemon.speciesMeta(species)
     if meta then
       local common = tonumber(meta.itemCommon) or 0
@@ -578,12 +581,12 @@ function Battle.start(opts)
       and BattleProfile.get(opts.session).trainerParty
     local nativeTrainer = trainerPolicy
       and opts.foe and opts.foe.nativeNpcTrainer and opts.foe.party and not opts.foeParty
-    if not nativeTrainer then foeMon = foe_mon_from(opts.foe, nil, trainerPolicy) end
+    if not nativeTrainer then foeMon = foe_mon_from(opts.foe, nil, trainerPolicy, opts.wild) end
     foeParty = opts.foeParty
     if not foeParty and opts.foe and opts.foe.party then
       foeParty = {}
       for _, fm in ipairs(opts.foe.party) do
-        foeParty[#foeParty + 1] = foe_mon_from(fm, nil, trainerPolicy)
+        foeParty[#foeParty + 1] = foe_mon_from(fm, nil, trainerPolicy, opts.wild)
       end
     end
     if foeParty and foeParty[1] and (nativeTrainer
@@ -2034,6 +2037,22 @@ local function award_catch_exp(catchRes, onDone)
   return true
 end
 
+local function style_from_options()
+  local okO, Options = pcall(require, "src.core.game3.options")
+  local okR, Runtime = pcall(require, "src.core.game3.runtime")
+  local session = okR and Runtime.getSession and Runtime.getSession()
+  return (okO and session and Options.battleStyle and Options.battleStyle(session)) or "shift"
+end
+
+-- pokefirered/data/battle_scripts_1.s:2843
+-- pokeemerald/data/battle_scripts_1.s:2852
+function Battle.battleStyle(st)
+  if not ModRuntime.wantsHook("battle.style") then return style_from_options() end
+  local style = ModRuntime.call("battle.style", style_from_options, st)
+  if style == "set" or style == "shift" then return style end
+  return style_from_options()
+end
+
 local function handle_enemy_faint(opts)
   opts = opts or {}
   local st = Battle._st
@@ -2073,21 +2092,17 @@ local function handle_enemy_faint(opts)
       begin_trainer_win(st)
     else
       if opts.onFinished then return opts.onFinished(nextEnemyIdx) end
-      local okO, Options = pcall(require, "src.core.game3.options")
-      local okR, Runtime = pcall(require, "src.core.game3.runtime")
-      local session = okR and Runtime.getSession and Runtime.getSession()
-      local battleStyle = (okO and session and Options.battleStyle and Options.battleStyle(session)) or "shift"
       -- pokefirered/data/battle_scripts_1.s:2839 a link battle never offers the shift
       if Battle._headless or Battle._auto or opts.mutual or st.link or fixedOrder
-          or battleStyle == "set" or State.isFainted(st.player) then
+          or State.isFainted(st.player) or Battle.battleStyle(st) == "set" then
         with_link_replacement(st, nextEnemyIdx, send_out_enemy_next)
       else
         local nextMon = st.foeParty[nextEnemyIdx]
         local nextSp = nextMon and (nextMon.species or nextMon.speciesId)
-        local Pokemon = require("src.core.game3.pokemon")
-        local nextName = Pokemon.name(nextSp)
+        -- pokefirered/src/battle_script_commands.c:4953
+        local nextName = State.displayName({ mon = nextMon, species = nextSp })
         -- pokefirered/data/battle_scripts_1.s:2846
-        Ui.push(BattleText.get("STRINGID_ENEMYABOUTTOSWITCHPKMN", Adapter.fill(st, { buff2 = nextName })))
+        Battle._shiftText = BattleText.get("STRINGID_ENEMYABOUTTOSWITCHPKMN", Adapter.fill(st, { buff2 = nextName }))
         Battle._shiftEnemyIdx = nextEnemyIdx
         Battle._shiftAsked = false
         Battle._phase = "shift_prompt"
@@ -2274,6 +2289,31 @@ local function safari_out_of_balls(st)
 end
 
 local SAFARI_BALL_ITEM = 5
+
+-- pokefirered/data/battle_scripts_2.s:192 BattleScript_UsePokeFlute
+local function push_poke_flute(st, msgs, plan)
+  if not (plan and plan.woke) then return Ui.push(msgs[1]) end
+  local frames, started = 0, false
+  Ui.pushGated(msgs[1], function()
+    frames = frames + 1
+    -- pokefirered/include/constants/battle.h:308 B_WAIT_TIME_LONG
+    if frames < 64 then return true end
+    if not started then
+      started = true
+      -- pokefirered/data/battle_scripts_2.s:202
+      Audio.playFanfare("MUS_POKE_FLUTE")
+      return true
+    end
+    return not Audio.isFanfareFinished()
+  end, 1)
+  Ui.push(msgs[2], function()
+    -- pokefirered/data/battle_scripts_2.s:206
+    for _, id in ipairs(plan.battlers or {}) do
+      local b, p = State.battler(st, id), Anim.present(id)
+      if b and p then p.displayStatus = b.status or (b.mon and b.mon.status) or false end
+    end
+  end)
+end
 
 -- pokefirered/src/battle_main.c:4371
 local function catch_push(text, wait, o)
@@ -2617,8 +2657,9 @@ local function step_action()
         end
       else
         local BattleItems = require("src.core.game3.battle.items")
-        local result, _msgs, endsTurn, endsBattle = BattleItems.use(
+        local result, itemMsgs, endsTurn, endsBattle, detail = BattleItems.use(
           st, ad, bag, session, meta.itemId, meta.partySlot, nil, meta.moveSlot)
+        if result == "flute" then push_poke_flute(st, itemMsgs, detail) end
         if endsBattle then
           Battle._actions = {}
           if result == "catch" then
@@ -3639,7 +3680,9 @@ function D.useBag(act)
     Anim.syncDisplayFromState(st)
     return D.afterEach()
   end
-  local result = BattleItems.use(st, ad, bag, session, act.itemId, act.partySlot, act.battler, act.moveSlot)
+  local result, itemMsgs, _, _, detail = BattleItems.use(st, ad, bag, session, act.itemId, act.partySlot,
+    act.battler, act.moveSlot)
+  if result == "flute" then push_poke_flute(st, itemMsgs, detail) end
   if result == "heal" then
     for _, id in ipairs(SEL_ORDER) do
       local b = State.battler(st, id)
@@ -3724,6 +3767,33 @@ local function finish_catch_flow(catchRes, ename, nicknamed)
   Battle._phase = "ending"
 end
 
+local CAUGHT_NICK_LENGTH = 10
+
+-- pokefirered/src/battle_script_commands.c:9852
+local function apply_caught_nick(mon, nick, ename)
+  if mon and nick and nick ~= "" and nick ~= ename then
+    mon.nickname = nick
+    return true
+  end
+  return false
+end
+
+-- pokefirered/src/battle_script_commands.c:9789
+-- pokeemerald/src/battle_script_commands.c:10220
+local function catch_nickname_verdict(mon, ename, sp)
+  if not ModRuntime.wantsHook("catch.nickname") then return nil end
+  local G3 = require("src.mods.Gen3Compat")
+  local R = package.loaded["src.core.game3.runtime"]
+  local verdict = ModRuntime.call("catch.nickname", function() return true end, mon, {
+    battle = Battle._st, name = ename, game = R and R._game or nil,
+    species = G3.speciesName(sp), speciesId = tonumber(sp),
+  })
+  if verdict == false then return ename end
+  if type(verdict) ~= "string" then return nil end
+  local nick = require("src.core.TextClip").clip(verdict, CAUGHT_NICK_LENGTH)
+  return apply_caught_nick(mon, nick, ename) and nick or ename
+end
+
 local function start_post_catch_flow(catchRes)
   if award_catch_exp(catchRes, function() start_post_catch_flow(catchRes) end) then return end
   Ui.clearCaughtDexScene()
@@ -3755,6 +3825,10 @@ local function start_post_catch_flow(catchRes)
   local caughtState = Battle._st
 
   local function prompt_nickname()
+    if catchRes and catchRes.location == "mod" then return finish_catch_flow(catchRes, ename) end
+    local shown = catch_nickname_verdict(mon, ename, sp)
+    -- pokefirered/src/battle_script_commands.c:9856
+    if shown then return finish_catch_flow(catchRes, shown) end
     Battle._phase = "catch_nickname_prompt"
     -- pokefirered/src/battle_message.c:477
     Ui.askYesNo(BattleText.get("STRINGID_GIVENICKNAMECAPTURED", { opponentMon1 = ename }), function(yes)
@@ -3766,7 +3840,7 @@ local function start_post_catch_flow(catchRes)
           Battle._phase = "catch_naming"
           Naming.open({
             template = "CAUGHT_MON",
-            maxLen = 10,
+            maxLen = CAUGHT_NICK_LENGTH,
             species = sp,
             gender = gender,
             personality = personality,
@@ -3779,9 +3853,7 @@ local function start_post_catch_flow(catchRes)
             title = Naming.monTitle(Pokemon.name(sp)),
             onDone = function(nick)
               if not Battle._active or Battle._st ~= caughtState or Battle._phase ~= "catch_naming" then return end
-              if nick and nick ~= "" and nick ~= ename then
-                if mon then mon.nickname = nick end
-              end
+              apply_caught_nick(mon, nick, ename)
               -- pokefirered/src/battle_script_commands.c:9853
               finish_catch_flow(catchRes, ename, true)
             end,
@@ -4116,7 +4188,7 @@ update_body = function(dt, game)
     return
   end
 
-  -- Shift prompt: after dialog dismissed, open Yes/No box
+  -- pokefirered/data/battle_scripts_1.s:2848
   if Battle._phase == "shift_prompt" then
     if not Ui.pump() then return end
     if Ui.choiceActive and Ui.choiceActive() then
@@ -4125,7 +4197,9 @@ update_body = function(dt, game)
     end
     if not Battle._shiftAsked then
       Battle._shiftAsked = true
-      Ui.askYesNo(function(yes)
+      local prompt = Battle._shiftText
+      Battle._shiftText = nil
+      Ui.askYesNo(prompt, function(yes)
         Battle._shiftAsked = false
         local nextEnemyIdx = Battle._shiftEnemyIdx
         Battle._shiftEnemyIdx = nil
