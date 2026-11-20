@@ -227,6 +227,77 @@ Run in game by driver, silent, unless a line says otherwise; nobody has heard it
 - **Regression after this pass** (drivers, silent; unit suites pass, 261 checks in `gen3_nav_test` after main was
   merged). Emerald: `rse_nav_sweep` 3/3, `rse_dive_spots` failures=0, `dark_maps` and `npc_category` with no failure, `rse_story` H 22 arrived with its four known blocks (Shoal Cave's Ice Room left out at high tide), W 6 arrived and 1 failed: Route 133's Max Revive, refused by this pass's own sandbar rule and since dropped from the driver. These ran on ce91fdfc, whose planner the branch has again after a revert; not on fresh profiles. FireRed: `firered-leafgreen-navigation.md`.
 
+## Ruby and Sapphire against Emerald (2026-11-19)
+
+The three passes above were made and measured on Emerald. This is the same code on Ruby 1.0 and Sapphire 1.0
+(the only revisions the test runner holds), run in game by driver, silent; nobody has heard it.
+
+- **Guided sweep.** `gen3_guided_sweep.lua` as committed stops on both games at the Battle Tower's battle room
+  ("RS Tower challenge is not initialized": its skip list names Emerald's Battle Frontier only). Run from a copy
+  that skips the Tower's battle room, corridor and elevator: 832 targets, 9 bare refusals on each game, the same
+  nine. Eight are Emerald's places (the Abandoned Ship's locked rooms 3, Route 112's pocket 2, Route 123, Route
+  125, Safari Zone Southeast to Northeast, which Emerald calls South to North). The ninth is theirs: Route 131's
+  west edge asked from Sky Pillar's door. On these two games Route 131 keeps Sky Pillar's islet closed off until
+  the Hall of Fame (its transition script changes the layout once FLAG_SYS_GAME_CLEAR is set), and until then
+  the door is not in the list at all (probed from the west edge, before and after); the sweep stands on the
+  door, where no player can be. Emerald's ninth, Magma Hideout 2F Room 3, is a map they do not have.
+- **Every answer, not only the refusals,** compared target by target with Emerald's (the copy logs them all):
+  - Lavaridge Gym: their 1F reaches four of its holes through B1F, so the journey planner named the buried
+    trainer, as "Blocked by something hidden". It now says "a hidden trainer" as the one-map answer does, with
+    the floor when it is another one. Emerald's B1F said the same for three of its ways up. `journeyBlocker`.
+  - Devon Corp 1F to 2F was "Blocked by Man" (Emerald: "Devon Employee"), Sootopolis's Cave of Origin "Blocked by
+    Old Man" (Emerald: "Expert"). See sheets, below.
+  - Seafloor Cavern's entrance to Room 1 is a route here and "Entrance is currently blocked" on Emerald: their
+    entrance map has no object at all (Emerald added the grunt). The "Unexplained" note under Known gaps was
+    this: the harness stood on the water door, and A there is the game's own Dive question.
+  - Sky Pillar 2F to 5F says "Needs Mach Bike" in a new game's state (their cracked floors are always there;
+    Emerald's come with the story). Seafloor Cavern Room 3 says "Boulders in the way: use auto walk" where
+    Emerald has a route (the rooms differ). Grunts are named by the team the game draws.
+- **Checked and right as written** (`probe_ru1.log`): Lilycove's "Blocked by a group of Wailmer" (the same cells
+  and the same story flag as Emerald; with the flag set every door and edge has a route); Mossdeep Gym's
+  "Switches change this floor: use auto walk" to Liza and to Tate; Trick House 7 the same sentence;
+  Pacifidlog's Area list has "Dive Spot to Underwater Sealed Chamber, Route 134"; the numbered seabeds
+  (`GameData.RS_UNDERWATER`: 1 to 4 are Routes 124, 126, 127, 128, by the cartridge's own emerge links) are
+  named and grouped as Emerald's; the dive spot labels are Emerald's for every map both have (76 on 20 maps).
+  The Mystery Events House is Emerald's alone. The tide flag, New Mauville's variable and the Basement Key
+  exist under the same names.
+- **Lilycove's hideout.** Ruby draws Magma Hideout's door at 71,5 from the city's load script; Sapphire's map has
+  Aqua Hideout's at 70,5. Both wall the door up once the seventh badge is won, and it leaves the list then
+  (probed on Ruby with and without the badge). The Wailmer do not close the cove on any of the three games,
+  only the way east: the note in "Third pass" that they close the cove is wrong.
+- **Sheets.** Upstream's Ruby constants name the sprite sheets by older names (MAN_7, OLD_MAN_1, WOMAN_6) where
+  Emerald's name the same pictures by who they are. The numbers are the same and the same people stand on the
+  same maps in both games' data, so ten sheets are read by Emerald's names on Ruby and Sapphire
+  (`WorldSnapshot.RS_SHEET`): "Devon Employee", "Receptionist", "Kid", "Expert", "Poké Fan", "Ninja Boy",
+  "Rich Boy", "Twin". Their movers are "Machoke" (were "Machoke Carrying Box", "Machoke Facing Away").
+  Sheets Emerald replaced keep Ruby's names (Poochyena, the Mauville old men).
+- **Trainer classes.** The classes a plain sheet takes on these two games: Aroma Lady, Battle Girl, Bird
+  Keeper, Cooltrainer, Dragon Tamer, Guitarist, Kindler, Lady, Parasol Lady, Pokémon Breeder, School Kid, Young
+  Couple (read by running the label code over each game's map data, `labels_offline.lua` in the agents'
+  scratch folder; Ruby and Sapphire agree row for row). "Twins" on one girl is "Twin", as Emerald's own sheet
+  says. The title class is spelt "POKéMON TRAINER" in every game's table, not "PKMN TRAINER"; no object has it
+  on a plain sheet today. Not changed, and the same on Emerald: a sheet that names a class keeps its name, so
+  Ruin Maniacs are "Hiker", Pokémon Rangers "Camper" or "Picnicker", Collectors and Bug Maniacs "Maniac"; each
+  of a Young Couple is "Young Couple". Open to the owner.
+- **After the fixes** (Ruby, guided sweep again): 832 targets, the same 9 bare refusals; the only answers that
+  changed are the Lavaridge, Devon Corp and Cave of Origin ones above, and five targets that ran out of the
+  sweep's frames before now answer ("Blocked by Youngster" twice on Route 110, where Emerald's Cycling Road has a
+  Triathlete; Scorched Slab "Blocked by something hidden", the Kecleon; Slateport's museum "Blocked by Team Magma
+  Grunt"; Route 124's east edge from the treasure hunters' door "Could not plan a route ... in time", as on
+  Emerald).
+- **Signs.** Sootopolis's two size-record signs read "The biggest SHROOMISH in history! 's -inch giant!" in the
+  list on all three games; the second sentence is only what the game fills in at the sign and is left out.
+- **Other drivers, both games:** `rse_nav_sweep` 3 of 3 (395 maps, 3599 labels, 0 bad, 0 generic), `rse_dive_spots`
+  passed (20 maps, 76 spots), `dark_maps` and `npc_category` no failure, `rse_story` all parts 40 walks arrived and
+  the 4 known failures (Magma and Aqua Hideout grunts, New Mauville's key, Sky Pillar on foot), Shoal Cave's Ice
+  Room arrived at low tide. `rse_nav_reach`: 1832 listed, 119 with no cell any flood entered (was 1756, 117): the
+  two new are Underwater Route 127's far way-ups at 79,45 and 79,50, listed since the third pass, which Emerald's
+  reach misses too; the rest of the list is the same targets. Ruby and Sapphire agree target for target.
+- **Emerald after all this:** `rse_nav_sweep` 3 of 3 (519 maps, 4493 labels, 0 bad, 0 generic), `rse_dive_spots`
+  passed (25 maps, 88 spots). Its Lavaridge Gym 1F says "Blocked by Man" for four holes whose cell is a buried
+  trainer's own: the journey names the first person on its way, the gym's man. Not changed; Ruby and Sapphire's
+  matching holes say "Blocked by a hidden trainer".
+
 ## Tiles and field moves
 
 | Thing | Treatment | Source |
@@ -296,6 +367,11 @@ because the game's tide follows the clock (`UpdateShoalTideFlag`); low tide arri
 - **Other games on this code:** FireRed `gen3_nav` 15/15, `gen3_nav_more` 13/13, `gen3_nav_gaps` 38/38, `gen3_nav_puzzle` 5/5, `gen3_boulders` (Seafoam, Tanoby 32, Victory Road 19, 25, 34), `gen3_nav_sweep` 7/7, `gen3_switches`. Crystal `gen2_nav`, `gen2_switches`: finished, no FAIL lines. Red `journeys`: finished, no FAIL lines; `gen1_puzzles`: no FAIL lines, but stopped by my 500 second limit before its end, so not a full pass.
 - **Heard:** nothing. Every run was silent.
 
+
+- **Harness pass (2026-11-19, run in game by driver, silent).** Emerald `rse_story` all parts: 40 arrived, 4
+  failed, 55 battles; the four failures are the known blocks (Aqua Hideout and Seafloor Cavern grunts, New
+  Mauville's key, Sky Pillar on foot). Part H rerun at low tide: 23 arrived, the same 4 failed, and the Shoal Cave
+  Ice Room arrived.
 
 ## Known gaps
 

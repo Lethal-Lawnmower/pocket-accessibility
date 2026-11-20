@@ -313,6 +313,54 @@ Shared with Hoenn; the account is in `ruby-sapphire-emerald-navigation.md`, "Sec
   - **Guided sweep, FireRed**: the after-run stalled in the Champion's room's battle (the harness), and 43 maps after it were not captured; rerun from there on: 611 asked, 0 refused, 0 bare. All 8 bare refusals of the third pass are in that part; the maps before it had none in the stalled run either.
   - **Regression after it** (each on a fresh profile): `gen3_nav` 15/15, `gen3_nav_more` 13/13, `gen3_nav_gaps` 32/32, `gen3_nav_puzzle` 5/5, no failure (two copies of the chain ran, one on a fresh profile; each log holds one run).
 
+- **Harness pass (2026-11-19, run in game by driver, silent).** The harness's battle presses used upstream's
+  auto-fight, which leaves the level-up window, the learn-a-move question and the forget list without input, so a
+  trainer battle never ended after a level-up; `battleStep` now presses through them, declining a new move. Healing
+  now restores HP, PP and status, also on the battle's copy of the party, and a stalled walk ends its battle before
+  the next test. `gen3_story` all parts: FireRed and LeafGreen each 37 arrived, 2 failed, 37 battles ended. The two
+  failures: Cinnabar Gym (quiz doors shut on a new game, a story block) and the Victory Road 2F exit to Route 23
+  (from a fresh 2F at 34,9 the journey is planned past the boulders into 3F, the boulders are pushed, then "No route
+  to Route 23" at 3F 32,18: a journey-planning fault, not fixed). Part A: 65 areas, 278 floor entries, 248 journeys
+  planned, 30 refused by story blockers or no regional path. `gen3_nav` 15/15, `gen3_nav_more` 13/13,
+  `gen3_nav_gaps` 32/32, `gen3_nav_sweep` 7/7, `gen3_nav_puzzle` 5/5 (one FireRed run 4/5: a wild battle on the
+  arrival step took the Strength presses), `gen3_boulders`, `gen3_switches`, `dark_maps`, `npc_category` without a
+  failure, in both games.
+
+## LeafGreen against FireRed (2026-11-19)
+
+The three polish passes were measured on FireRed. LeafGreen 1.0 (the only revision the test runner holds) has
+the same maps, warps and connections; its imported events, scripts and trainers differ from FireRed's only in
+script addresses (compared file by file). Run in game by driver, silent; nobody has heard it.
+
+- **One Island (both games).** Its eight maps (the town, Kindle Road, Treasure Beach, the Center's two floors,
+  the harbor, two houses) carry `SEVII_` where every other map carries `FR_`. The Area list asked for the
+  engine's prefix, so it was empty on all eight: One Island's Center listed nothing where Two Island's lists its
+  2F, and Kindle Road and its Ember Spa did not list each other (probed on LeafGreen). The eight maps were also
+  one area of their own, "SEVII_ONE". `GameData.bareMapId` now takes `SEVII_` off and `GameData.ownsMap` reads
+  the profile's own prefix list; `Navigation:areaFloors` asks it. The Center is "One Island Pokémon Center 1F",
+  as every other town's (was "One Island Pokecenter"). The two FireRed sweeps (`gen3_nav_sweep`,
+  `gen3_reach_sweep`) and the guided sweep listed `FR_` maps only and had never looked at One Island; the first
+  two now do.
+- **The sheet named MAN.** The third pass names a trainer drawn with a plain sheet by the class the battle shows.
+  These games' plainest sheet is called just MAN, which has a label of its own in the table, and that answered
+  before the class was asked: Fuchsia Gym's six Tamers and the man of each Young Couple (3) stayed "Man". Fixed
+  (`WorldSnapshot.objectLabel`). The label code run over each game's map data: "Man" 29 to 20, "Tamer" 0 to 6,
+  "Young Couple" 0 to 3, the same on both games.
+- **Twins.** Each of the eight twins was "Twins"; now "Twin", as Emerald's own sheet says.
+- **Trainer classes a plain sheet takes here:** Aroma Lady, Engineer, Gamer, Lady, Pokémon Breeder, Psychic,
+  Tamer, Twin, Young Couple. Not changed (a sheet that names a class keeps its name, as on Hoenn): the 18 Bird
+  Keepers and 9 Jugglers are "Rocker", their sheet; Burglars "Poké Maniac", Super Nerds "Scientist", Cue Balls
+  "Biker", Painters "Lass", four Psychics "Cooltrainer". Open to the owner.
+- **Guided sweep.** The Champion's room starts its battle as the harness arrives. FireRed's run lost two rooms
+  to it; LeafGreen's first run never got out of the battle and every map after it was skipped. The sweep should
+  skip that room as it skips Hoenn's League rooms.
+- **Measured on LeafGreen:** guided sweep (a copy skipping the Champion's room) 996 targets, 8 bare refusals,
+  FireRed's count and FireRed's eight places; with One Island's eight maps 1011 and 8 (its 15 targets all have
+  routes). `gen3_nav_sweep` 7 of 7: 426 maps, 3150 labels, 0 bad (418 and 3074 without One Island).
+  `npc_category` and `dark_maps` no failure. One Island's Area lists probed after the fix: the Center lists its
+  2F, Kindle Road and the Ember Spa list each other, and every warp and edge of the town, Kindle Road and
+  Treasure Beach has a route.
+
 ## Known gaps
 
 - Victory Road 2F to Route 23 from 2F's 34,9: the journey past boulders goes into 3F and ends there with "No route" (fourth pass; from 36,17 it arrives).

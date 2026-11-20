@@ -267,6 +267,32 @@ skew 2 days 4000 s behind; the day count moved by the whole days only; the save 
 view-mode wall clock showed the device's time). Without the mod, Emerald and Ruby 5 of 10. Not played, not
 heard, not run through the house script's own `StartWallClock`; Android and iOS not tried.
 
+## Real-walk playthrough (2026-11-19)
+
+`tests/access/drivers/rse_walkthrough.lua` plays Emerald forward from the title screen with only what a blind
+player has: real button presses, the game's own menus and questions, movement through the object list and
+auto-walk by the controller commands, and battles through the battle menu and move list, chosen by what is read.
+No teleports, flag writes, gifted party or harness healing; a weak party walks to a Pokémon Center, and the game is
+saved from the start menu after each stage. 16 stages, each checked against the game's flags: intro and name,
+truck, house and wall clock, the neighbour's house, Birch's bag and the starter, the Route 103 battle, the
+Pokédex, the Running Shoes, Petalburg, the catching lesson, Petalburg Woods, Rustboro, Roxanne, the Devon Goods in
+Rusturf Tunnel, the PokéNav, and Mr. Briney's boat to Dewford. `FRESH=1` starts a new game; `WALK_CONTINUE=1`
+continues from the save. Every utterance is logged with its screen; problems are logged as `FINDING`.
+
+Results (run in game by driver, silent): from a new game, 15 of 16 stages in one run, 30 battles; Dewford reached
+when continued from the PokéNav save. Emerald only: Ruby and Sapphire use other variable names and scenes.
+
+Findings open:
+- The arrival's "Face ... and interact" goes stale for a person who walks about: Mr. Briney moved before the
+  press, four times in a row, and A did nothing (the press moved the player instead). Needs a design: say the
+  facing only while the person is still beside the player, or turn the player on arrival.
+- Mr. Briney, Mr. Stone and Peeko are listed by their sprite ("Expert", "Gentleman", "Wingull"), while the game
+  tells the player to find MR. BRINEY.
+- In Emerald's forced Match Call lesson the first A on MR. STONE is not taken and nothing is said; a second A
+  works. The first Down after the PokéNav opens is also lost. Cause not traced.
+- Smaller: gender menu presses are lost while the picture slides; arriving at a connection gives no hint that one
+  more step crosses it; Misc items read with a comma ("PC, 1 up 7 left") where other categories use a colon.
+
 ## Verification
 
 Level reached for everything here: run in game, silent, read from logs. Not
