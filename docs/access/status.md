@@ -36,7 +36,7 @@ and recorded in the topic file.
   not reached by any driver. Not heard; no owner test.
 - **Upstream v0.4.8, merged 2026-11-20 on branch `upstream-v0.4.8`** (decision 78; `2ac4162d`,
   only `README.md` conflicted, ours kept). Brought into `main` by fast-forward the same day at the
-  owner's word ("to main."); `main` not pushed. Test IPA at the owner's request ("Build another IPA with
+  owner's word ("to main."); `main` pushed to GitHub at the owner's word ("push.", 2026-11-20, 69bf8c1e..3718487b, with this note after). Test IPA at the owner's request ("Build another IPA with
   our latest stuff."): `dd937a33` pushed to `ios-build`, iOS run 44811222682 passed (simulator smoke
   test), delivered to the owner's Downloads as `PocketAccessibility-unsigned-2026-11-20-v048.ipa`.
   Not installed or heard on a device. Cache formats changed for
