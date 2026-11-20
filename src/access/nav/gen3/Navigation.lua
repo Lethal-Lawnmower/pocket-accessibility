@@ -3319,15 +3319,28 @@ function Navigation:regionalNextLeg(navigation)
       if locked then return nil, locked end
       -- people the story moves later (the grunts at a hideout's door): the journey with
       -- them set aside names the one in the way here, or says they are further on
-      self.routeIgnoringPeople = true
-      local okAside, aside = pcall(self.journeySearch, self, start, target, 2, allowed, nil, true)
-      self.routeIgnoringPeople = nil
-      if okAside and aside then
+      -- (then with the boulders set aside as well: Magma Hideout's far rooms from its
+      -- door are past 1F's boulders and, on 4F, the people the story stands in the one
+      -- corridor; with the boulders in the plan no one was named and it said nothing)
+      local aside, asideFree
+      for _, free in ipairs({ false, "all" }) do
+        self.routeIgnoringPeople, self.journeyBoulderFree = true, free or nil
+        local okAside, found = pcall(self.journeySearch, self, start, target, 2, allowed, nil, true)
+        self.routeIgnoringPeople, self.journeyBoulderFree = nil, nil
+        if okAside and found then
+          aside, asideFree = found, free or nil
+          break
+        end
+      end
+      if aside then
         local way = aside.firstTransition
         local here = (way and self:routeNeeds({ { x = way.x, y = way.y } }))
           or (aside.final and self:routeNeeds(target.goals)) or nil
         local who = not here and self:essentialBlocker(function()
-          return self:journeySearch(start, target, 2, allowed, nil, true)
+          self.journeyBoulderFree = asideFree
+          local okAgain, again = pcall(self.journeySearch, self, start, target, 2, allowed, nil, true)
+          self.journeyBoulderFree = nil
+          return okAgain and again or nil
         end, aside, mapId) or nil
         return nil, here or (who and ("Blocked by " .. who)) or "Blocked by someone further on"
       end
