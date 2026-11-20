@@ -3158,7 +3158,9 @@ function Navigation:journeyBlocker(result, currentMapId)
         if found and found.kind == "object" then
           local name
           if found.actor.invisible then
-            name = "something hidden"
+            -- a buried trainer (Lavaridge Gym), as routeNeeds says it on the player's own floor
+            local hiddenDef = type(found.actor.def) == "table" and found.actor.def or {}
+            name = tonumber(hiddenDef.trainerType) == 3 and "a hidden trainer" or "something hidden"
           else
             local okLabel, label = pcall(Snapshot.objectLabel, found.actor, {})
             name = okLabel and label or "someone"
@@ -3648,9 +3650,9 @@ function Navigation:areaFloors(world)
   local items = {}
   if not key then return items end
   local members = {}
-  local prefix = GameData.mapPrefix()
   for mapId in pairs(maps) do
-    if type(mapId) == "string" and mapId:sub(1, #prefix) == prefix and areaKey(mapId) == key then
+    -- (ownsMap: One Island's maps carry SEVII_, not FR_, and were never members)
+    if type(mapId) == "string" and GameData.ownsMap(mapId) and areaKey(mapId) == key then
       members[#members + 1] = mapId
     end
   end
