@@ -19,7 +19,9 @@
 local Common = require("src.access.screens.gen2.Common")
 local GameVersion = require("src.core.GameVersion")
 local Runtime = require("src.mods.Runtime")
-local Strings = require("src.core.Strings")
+-- Upstream v0.4.x screens hold cartridge text labels where they once held
+-- Strings literals ("InitGender.MenuData#1"); Common.tr reads either.
+local Strings = Common.tr
 
 local Menus = {}
 

@@ -75,9 +75,11 @@ local DATA = {
   moves = MOVES,
   text = require("tests.gen2_battle_text_fixture")(),
   type_chart = { battleRules = require("tests.gen2_battle_rules_fixture")(),
-    types = { NORMAL = { id = "NORMAL", name = "NORMAL", index = 0 },
-      FIRE = { id = "FIRE", name = "FIRE", index = 20 },
-      FLYING = { id = "FLYING", name = "FLYING", index = 2 } },
+    -- `category`: upstream v0.4.x reads physical / special from the type
+    -- chart (index below 20 is physical on the cartridge).
+    types = { NORMAL = { id = "NORMAL", name = "NORMAL", index = 0, category = "physical" },
+      FIRE = { id = "FIRE", name = "FIRE", index = 20, category = "special" },
+      FLYING = { id = "FLYING", name = "FLYING", index = 2, category = "physical" } },
     matchups = {} },
   items = { POKE_BALL = { id = "POKE_BALL", pocket = "BALL", name = "POKé BALL", index = 5 } },
 }

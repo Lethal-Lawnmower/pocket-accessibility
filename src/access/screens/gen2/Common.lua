@@ -47,6 +47,9 @@ function Common.speakable(text)
   text = text:gsub("#", "POKé")
   text = text:gsub("<NEXT>", " "):gsub("<LINE>", " "):gsub("<CONT>", " "):gsub("<PARA>", " ")
   text = text:gsub("<[%u_]+>", "")
+  -- Cartridge text endings and unfilled slots ({DONE}, {PROMPT}, {STRBUF}).
+  text = text:gsub("{[%u_:%d]+}", " ")
+  text = text:gsub("\r", " ")
   text = text:gsub("№", "number ")
   return (presenters().speakable(text):gsub("^%s+", ""):gsub("%s+$", ""))
 end
@@ -89,11 +92,50 @@ function Common.listRow(list)
   return Common.speakable(item.label)
 end
 
+-- The cartridge text for `label` as src/core/RomText.lua gives it to the
+-- screens (game.data.text of the running game), else nil.  `game` may be
+-- passed; otherwise the running game (src/access/CurrentGame.lua).
+function Common.romFor(game, label, ...)
+  if type(label) ~= "string" then return nil end
+  local RomText = package.loaded["src.core.RomText"]
+  if type(RomText) ~= "function" then return nil end
+  local data = type(game) == "table" and game.data or nil
+  local ok, text = pcall(RomText, data, label, nil, ...)
+  if ok and type(text) == "string" then return text end
+  return nil
+end
+
+function Common.rom(label, ...)
+  local CurrentGame = package.loaded["src.access.CurrentGame"]
+  local game = CurrentGame and CurrentGame.get and CurrentGame.get() or nil
+  return Common.romFor(game, label, ...)
+end
+
+-- One line (1-based) of a multi-line cartridge text, as the screens pick a
+-- row out of a label ("Pokedex_DrawOptionScreenBG.Modes", line 2).
+function Common.romLine(label, line, game)
+  local text = game and Common.romFor(game, label) or Common.rom(label)
+  if text == nil then return nil end
+  local i = 0
+  for row in (text:gsub("{[%u_]+}", "") .. "\n"):gmatch("([^\n\v\f\r]*)[\n\v\f\r]") do
+    i = i + 1
+    if i == line then return row end
+  end
+  return nil
+end
+
 -- An engine string as the screens draw it: through src/core/Strings.lua, so
 -- a translation catalog changes speech the same way it changes the screen.
 -- The English source (formatted with the arguments) when that fails.
+--
+-- Since upstream v0.4.x most Gen 2 screens hold the cartridge's text label
+-- instead ("MenuHeader_BuySell.MenuData#1", "_PlayersPCAskWhatDoText") and
+-- draw it through src/core/RomText.lua from the imported text; a source that
+-- is such a label is read the same way (Common.rom).
 function Common.tr(source, ...)
   if source == nil then return nil end
+  local fromRom = Common.rom(source, ...)
+  if fromRom ~= nil then return fromRom end
   local Strings = package.loaded["src.core.Strings"]
   if Strings and Strings.get then
     local ok, text = pcall(Strings.get, source, ...)

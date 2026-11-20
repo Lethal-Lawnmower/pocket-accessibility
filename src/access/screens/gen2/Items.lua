@@ -217,11 +217,18 @@ local function packMode(pack)
   return "list"
 end
 
--- The pocket's title (POCKETS[i].label, drawn through Strings).
+-- The pocket's title.  Older upstream code drew POCKETS[i].label through
+-- Strings; since v0.4.x the pocket is only a picture tab (an `id`), so the
+-- spoken name is ours, keyed by that id and translatable through Strings.
+local POCKET_NAMES = {
+  ITEM = "ITEMS", BALL = "BALLS", KEY_ITEM = "KEY ITEMS", TM_HM = "TM/HM",
+}
 function Pack.pocket(pack)
   local pocket = call(pack, "pocket")
-  if type(pocket) ~= "table" or pocket.label == nil then return nil end
-  return Common.speakable(S(pocket.label)) .. " pocket"
+  if type(pocket) ~= "table" then return nil end
+  local name = pocket.label or POCKET_NAMES[pocket.id]
+  if name == nil then return nil end
+  return Common.speakable(S(name)) .. " pocket"
 end
 
 -- One row as PackMenu:drawList draws it: the name (a TM/HM row draws its
@@ -291,9 +298,16 @@ end
 local function submenuLabel(pack, menu)
   local id = menu.rows and menu.rows[menu.index]
   if id == nil then return nil end
-  -- PackMenu:drawSubmenu prints Strings(SUBMENU_LABEL[id] or id).
+  -- Upstream v0.4.x: PackMenu:submenuLabel(id), the cartridge's row.
+  if type(pack.submenuLabel) == "function" then
+    local ok, label = pcall(pack.submenuLabel, pack, id)
+    if ok and type(label) == "string" then return Common.speakable(label) end
+  end
+  -- Older code: PackMenu:drawSubmenu printed Strings(SUBMENU_LABEL[id] or id).
   local labels = screenLocal(classOf(pack).drawSubmenu, "SUBMENU_LABEL")
-  return Common.speakable(S((labels and labels[id]) or id))
+  local label = labels and labels[id]
+  if label == nil then return Common.speakable(tostring(id):upper()) end
+  return Common.speakable(S(label))
 end
 
 -- how: "enter" (the screen or its holder's phase just opened: pocket name
@@ -517,9 +531,14 @@ local function itemPcMode(pc)
   return "menu"
 end
 
--- ItemPcMenu:drawPanel prints `entry.builtin and Strings(entry.label) or entry.label`.
-local function entryLabel(entry)
+-- ItemPcMenu and PcMenu print an entry's `romLabel` from the cartridge text
+-- (first line), else `entry.builtin and Strings(entry.label) or entry.label`.
+local function entryLabel(entry, state)
   if type(entry) ~= "table" then return nil end
+  if entry.romLabel then
+    local text = Common.romLine(entry.romLabel, 1, state and state.game)
+    return text and Common.speakable(text) or nil
+  end
   return Common.speakable(entry.builtin and S(entry.label) or entry.label)
 end
 
@@ -579,16 +598,16 @@ Items.itemPcMenu = {
     elseif mode == "menu" then
       local entries = type(state.entries) == "table" and state.entries or {}
       if fresh then
-        local label = entryLabel(entries[state.index or 1])
+        local label = entryLabel(entries[state.index or 1], state)
         text = sentences(itemPcPrompt(state),
           label and (label .. ", " .. position(state.index or 1, #entries)))
       elseif state.index ~= memo.index then
-        text = entryLabel(entries[state.index])
+        text = entryLabel(entries[state.index], state)
       end
     elseif mode == "list" then
       if fresh then
         local context = (entering or from == "menu" or from == nil)
-          and entryLabel(state.entries and state.entries[state.index or 1]) or nil
+          and entryLabel(state.entries and state.entries[state.index or 1], state) or nil
         text = sentences(context, itemPcRowPosition(state), itemPcDescription(state))
       elseif state.listIndex ~= memo.listIndex then
         text = sentences(itemPcRow(state, state.listIndex), itemPcDescription(state))
@@ -606,7 +625,7 @@ Items.itemPcMenu = {
       if fresh then
         local enter = entering or from == "menu" or memo.pack ~= state.pack
         local packText = heldPack(memo, state.pack, enter and "enter" or "return")
-        text = sentences(enter and entryLabel(state.entries and state.entries[state.index or 1]) or nil,
+        text = sentences(enter and entryLabel(state.entries and state.entries[state.index or 1], state) or nil,
           packText)
       else
         text = heldPack(memo, state.pack, nil)
@@ -635,7 +654,10 @@ Items.heldItemMenu = {
     else
       local entries = classOf(state).ENTRIES or {}
       local entry = entries[state.index or 1]
-      local label = entry and Common.speakable(S(entry.label)) or nil
+      -- Upstream v0.4.x: `entry.rom` is the cartridge row; older `label`.
+      local label = entry and (entry.rom and Common.romLine(entry.rom, 1, state.game)
+        or (entry.label and S(entry.label)))
+      label = label and Common.speakable(label) or nil
       if fresh then
         local name = call(state, "monName")
         text = sentences(name and Common.speakable(name) or nil,
@@ -760,7 +782,7 @@ Items.pcMenu = {
       end
     else
       local entries = type(state.entries) == "table" and state.entries or {}
-      local label = entryLabel(entries[state.index or 1])
+      local label = entryLabel(entries[state.index or 1], state)
       if fresh then
         -- PcMenu:drawPanel prints Strings("What?") in the box under the menu.
         text = sentences(Common.speakable(S("What?")),
@@ -868,7 +890,14 @@ local function submenuText(box, index, withPosition)
   local rows = call(box, "submenuRows")
   local label = type(rows) == "table" and rows[index]
   if not label then return nil end
-  local text = Common.speakable(S(label))
+  -- Upstream v0.4.x rows are { id, label = cartridge label }; older ones text.
+  if type(label) == "table" then
+    label = label.label and Common.romLine(label.label, 1, box.game) or label.id
+    if not label then return nil end
+  else
+    label = S(label)
+  end
+  local text = Common.speakable(label)
   if withPosition then text = text .. ", " .. position(index, #rows) end
   return text
 end
@@ -985,15 +1014,25 @@ local function partyPrompt(list)
   local PartyMenu = classOf(list)
   local prompts = PartyMenu and PartyMenu.PROMPTS or {}
   local party = type(list.party) == "table" and list.party or {}
+  -- Upstream v0.4.x: PROMPTS are cartridge text labels drawn through
+  -- PartyMenu:rom; older code held literals for S.
+  local function builtin(key)
+    if key == nil then return nil end
+    if type(list.rom) == "function" then
+      local ok, text = pcall(list.rom, list, key)
+      return ok and text or nil
+    end
+    return S(key)
+  end
   local text
   if #party == 0 then
-    text = S(prompts.none)
+    text = builtin(prompts.none)
   elseif list.switchFrom then
-    text = S(prompts.moveTo)
+    text = builtin(prompts.moveTo)
   elseif list.softboiledFrom then
-    text = S(prompts.useItem)
+    text = builtin(prompts.useItem)
   elseif list.promptIsBuiltin then
-    text = S(list.prompt)
+    text = builtin(list.prompt)
   else
     text = list.prompt
   end

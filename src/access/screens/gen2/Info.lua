@@ -144,18 +144,31 @@ end
 Info.partyRow = partyRow
 
 -- The bottom prompt, chosen the way drawPanel chooses it.
+-- Since upstream v0.4.x PartyMenu.PROMPTS holds the cartridge's text labels
+-- ("ChooseAMonString") and the screen draws them through PartyMenu:rom;
+-- older code held the literal, which `tr` resolves.
+local function builtinPrompt(state, key)
+  if key == nil then return nil end
+  if type(state.rom) == "function" then
+    local ok, text = pcall(state.rom, state, key)
+    if ok and type(text) == "string" then return text end
+    return nil
+  end
+  return tr(key)
+end
+
 local function partyPrompt(state)
   local PartyMenu = class("PartyMenu")
   local prompts = (PartyMenu and PartyMenu.PROMPTS) or {}
   local text
   if #(state.party or {}) == 0 then
-    text = tr(prompts.none)
+    text = builtinPrompt(state, prompts.none)
   elseif state.switchFrom then
-    text = tr(prompts.moveTo)
+    text = builtinPrompt(state, prompts.moveTo)
   elseif state.softboiledFrom then
-    text = tr(prompts.useItem)
+    text = builtinPrompt(state, prompts.useItem)
   elseif state.promptIsBuiltin then
-    text = tr(state.prompt)
+    text = builtinPrompt(state, state.prompt)
   else
     text = state.prompt
   end
@@ -427,11 +440,22 @@ Info.summaryMenu = {
 
 -- ------------------------------------------------------------- Pokédex
 
+-- An OPTION_MODES row's name.  Upstream v0.4.x rows name a cartridge text
+-- and its line (`label`, `line`) and a `description` label; older rows held
+-- the literal `label` and `lines`.
+local function dexOptionName(state, row)
+  if row.line then
+    local text = Common.romLine(row.label, row.line, state and state.game)
+    return text and speakable(text) or nil
+  end
+  return speakable(tr(row.label))
+end
+
 local function dexModeLabel(state)
   local PokedexMenu = class("PokedexMenu")
   local mode = call(state, "mode")
   for _, row in ipairs((PokedexMenu and PokedexMenu.OPTION_MODES) or {}) do
-    if row.mode == mode then return speakable(tr(row.label)) end
+    if row.mode == mode then return dexOptionName(state, row) end
   end
   return nil
 end
@@ -548,7 +572,11 @@ local function dexOptionRow(state, withPosition)
   if not row then return nil end
   local lines = {}
   for i, line in ipairs(row.lines or {}) do lines[i] = tr(line) end
-  local text = speakable(tr(row.label))
+  if row.description then
+    local text = Common.romFor(state.game, row.description)
+    if text then lines = { text } end
+  end
+  local text = dexOptionName(state, row)
   if withPosition then text = join({ text, position(state.optionIndex, #rows) }) end
   -- the two-line description Pokedex_DisplayModeDescription prints under it
   return join({ text, Common.lines(lines) }, ". ")
@@ -558,7 +586,9 @@ end
 -- TYPE2 with their wheel value, BEGIN SEARCH!! and CANCEL.
 local function dexSearchValue(state, slot)
   local name = call(state, "searchTypeName", slot)
-  if not name or name:match("^%-+$") then return "none" end
+  -- The cartridge's strings are padded ("  ----  ", " NORMAL ").
+  name = type(name) == "string" and name:match("^%s*(.-)%s*$") or nil
+  if not name or name == "" or name:match("^%-+$") then return "none" end
   return speakable(name)
 end
 
@@ -597,10 +627,10 @@ local function dexUnownRow(state, withPosition)
   return text
 end
 
-local function dexUnownTitle()
+local function dexUnownTitle(state)
   local PokedexMenu = class("PokedexMenu")
   for _, row in ipairs((PokedexMenu and PokedexMenu.OPTION_MODES) or {}) do
-    if row.unown then return speakable(tr(row.label)) end
+    if row.unown then return dexOptionName(state, row) end
   end
   return nil
 end
@@ -673,7 +703,7 @@ Info.pokedexMenu = {
       end
     elseif view == "unown" then
       if newView then
-        text = join({ dexUnownTitle(), dexUnownRow(state, true) }, ". ")
+        text = join({ dexUnownTitle(state), dexUnownRow(state, true) }, ". ")
       elseif memo.unown ~= state.unownIndex then
         text = dexUnownRow(state)
       end
@@ -843,11 +873,25 @@ local function cardDetails(state, id)
   return nil
 end
 
+-- A Pokégear card's spoken name.  Older upstream code had
+-- Pokegear:cardLabel (CLOCK, MAP, PHONE, RADIO; FLY on the fly map); since
+-- v0.4.x the strip shows icons only, so the names are ours, by card id.
+local CARD_NAMES = { clock = "CLOCK", map = "MAP", phone = "PHONE", radio = "RADIO" }
+local function cardName(state, card)
+  local label = call(state, "cardLabel", card)
+  if type(label) == "string" and label ~= "" then return speakable(label) end
+  card = card or call(state, "card")
+  if type(card) ~= "table" then return "" end
+  if state.fly and card.id == "map" then return speakable(tr("FLY")) end
+  local name = CARD_NAMES[card.id]
+  return name and speakable(tr(name)) or ""
+end
+
 -- A card arriving: its label, what it shows and, on the card strip, its
 -- place among the cards owned.  The strip shows each card's face (clock,
 -- map, radio) even before A is pressed, so the details are said there too.
 local function cardIntro(state, card)
-  local label = speakable(call(state, "cardLabel", card) or "")
+  local label = cardName(state, card)
   local id = card and card.id
   local text = join({ label, cardDetails(state, id) }, ". ")
   if state.mode == "strip" then
@@ -906,7 +950,7 @@ local function flyPoll(state, memo, entering)
   local text
   if first then
     -- the card label (FLY), then the bubble: "Where?" over the row name
-    text = join({ speakable(call(state, "cardLabel") or ""),
+    text = join({ cardName(state),
       join({ speakable(tr("Where?")), flyText(state, true) }, " ") }, ". ")
   else
     text = flyText(state, entering)
@@ -920,7 +964,7 @@ local function townMapPoll(state, memo, entering)
   local first = not memo.seen
   memo.seen, memo.mapCursor = true, state.mapCursor
   local text = mapText(state)
-  if first then text = join({ speakable(call(state, "cardLabel") or ""), text }, ". ") end
+  if first then text = join({ cardName(state), text }, ". ") end
   if not text or text == "" then return nil end
   return text, true
 end
@@ -1004,7 +1048,13 @@ local function trainerCardPage(state)
   elseif state.page == 2 then
     text = badgeText(state, TrainerCard.JOHTO_BADGES, "JOHTO BADGES")
   else
-    text = badgeText(state, TrainerCard.KANTO_BADGES, "KANTO BADGES")
+    -- Upstream v0.4.x draws page 3 as the Johto page again, as the cartridge
+    -- does (TrainerCard_JohtoBadgesOAM reused); older code had KANTO_BADGES.
+    if TrainerCard.KANTO_BADGES then
+      text = badgeText(state, TrainerCard.KANTO_BADGES, "KANTO BADGES")
+    else
+      text = badgeText(state, TrainerCard.JOHTO_BADGES, "JOHTO BADGES")
+    end
   end
   return join({ text, "page " .. position(state.page or 1, pages) })
 end

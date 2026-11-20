@@ -6,6 +6,7 @@
 -- setting fields or calling the screen's own methods the way its update
 -- would.  Speech goes to a fake backend through the real ScreenReader.
 package.path = "./?.lua;./?/init.lua;" .. package.path
+require("tests.access.gen2_rom_text").install() -- upstream text lookup falls back to its fixtures
 if not _G.love then _G.love = require("tests.love_stub") end
 
 local T = require("tests.harness")
@@ -37,7 +38,9 @@ local save = {
   playTime = { hours = 3, minutes = 7 },
   options = {},
 }
-local game = { data = {}, save = save, options = {} }
+-- The naming screen needs the cartridge's menu graphics and diploma palette
+-- (upstream v0.4.x errors without them); upstream's fixture fills them.
+local game = { data = require("tests.fixtures.gen2_naming").fill({}), save = save, options = {} }
 
 GameVersion.set("crystal")
 
@@ -109,10 +112,15 @@ reset()
 local InitClock = gen2("InitClock")
 local clock = InitClock.new(game, { mode = "clock" })
 SR.update(clock)
-eq(last(), "Zzz... Hm? Wha...? You woke me up!", "Oak's first page")
-clock:accept() -- second page of the same question
+-- Upstream v0.4.x prints the cartridge's own _OakTimeWokeUpText, which
+-- opens with a page of dots before "Zzz…".
+eq(last(), "……………………………… ………………………………", "Oak's first page: the cartridge's dots")
+clock:accept()
 SR.update(clock)
-eq(last(), "Will you check the clock for me?", "second page only")
+eq(last(), "Zzz… Hm? Wha…? You woke me up!", "Oak's second page")
+clock:accept() -- third page of the same question
+SR.update(clock)
+eq(last(), "Will you check the clock for me?", "third page only")
 clock:accept() -- the hour picker
 SR.update(clock)
 eq(last(), "What time is it? DAY 10 o'clock", "question and picker value (10 is DAY on the cart's ladder)")
@@ -151,7 +159,7 @@ SR.update(wheel)
 eq(last(), "MONDAY", "day change")
 wheel:accept()
 SR.update(wheel)
-eq(last(), "MONDAY, is that right? YES", "day confirmation")
+eq(last(), "MONDAY, is it? YES", "day confirmation (the cartridge's _OakTimeIsItText)")
 
 reset()
 local fading = InitClock.new(game, { mode = "clock" })

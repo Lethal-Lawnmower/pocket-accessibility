@@ -5,6 +5,7 @@
 -- are the real upstream classes, built with their own constructors where
 -- that needs no game data, otherwise bare tables with the real metatables.
 package.path = "./?.lua;./?/init.lua;" .. package.path
+require("tests.access.gen2_rom_text").install() -- upstream text lookup falls back to its fixtures
 if not _G.love then _G.love = require("tests.love_stub") end
 
 local T = require("tests.harness")
@@ -43,6 +44,9 @@ local data = {
   },
   items = { FLOWER_MAIL = { name = "FLOWER MAIL" } },
   moves = { TACKLE = { name = "TACKLE" } },
+  -- Upstream v0.4.x: the Unown puzzle's tiles come from the cartridge
+  -- (menu_gfx.lua); upstream's fixture stands in.
+  gen2MenuGfx = { unownPuzzle = require("tests.fixture_data.gen2_unown_puzzle_gfx_s7_f2") },
 }
 local game = { data = data, save = { player = { name = "KRIS", id = 1234, coins = 10 } } }
 
@@ -52,7 +56,7 @@ do
   local CardFlip = require("src.ui.gen2.CardFlip")
   local flip = CardFlip.new(game, { random = rolls({ 5, 9, 2, 17, 30, 11, 3 }) })
   SR.update(flip)
-  eq(last(), "Card flip. Coins 10. Play with 3 coins? YES", "card flip entry")
+  eq(last(), "Card flip. Coins 10. Play with three coins? YES", "card flip entry")
   flip.choice = 2
   SR.update(flip)
   eq(last(), "NO", "card flip yes/no moves")
@@ -94,7 +98,7 @@ do
   eq(last(), "Coins 19", "coin total after the count-up")
   flip:enterAgain()
   SR.update(flip)
-  eq(last(), "Play again? YES", "play again")
+  eq(last(), "Want to play again? YES", "play again")
   flip:continue()
   SR.update(flip)
   flip:enterBet()
@@ -111,11 +115,11 @@ do
   flip.played = CardFlip.HANDS_PER_DECK - 1
   flip:continue()
   SR.update(flip)
-  eq(last(), "The cards shuffled.", "the twelfth hand reshuffles")
+  eq(last(), "The cards have been shuffled.", "the twelfth hand reshuffles")
   game.save.player.coins = 1
   flip.after()
   SR.update(flip)
-  eq(last(), "Not enough coins.", "too few coins for a hand")
+  eq(last(), "Not enough coins…", "too few coins for a hand")
 end
 
 -- ------------------------------------------------------------ slots
@@ -134,7 +138,7 @@ do
   SR.update(slots)
   eq(last(), "1 coin, middle row", "one coin")
   check(lastInterrupts(), "bet moves interrupt")
-  slots.message = SM.TEXTS.notEnough
+  slots.message = slots:text("notEnough") -- upstream v0.4.x: the cartridge's lines
   SR.update(slots)
   eq(last(), "Not enough coins.", "a refused bet")
   slots.message = nil
@@ -164,7 +168,7 @@ do
   eq(last(), "Another GOLEM drops", "second golem")
   slots.golemAnim = nil
   slots.stopped[3] = { SM.CHERRY, SM.PIKACHU, SM.CHERRY }
-  slots.phase, slots.matched, slots.message = "payoutText", SM.NO_MATCH, SM.TEXTS.darn
+  slots.phase, slots.matched, slots.message = "payoutText", SM.NO_MATCH, slots:text("darn")
   SR.update(slots)
   eq(last(), "Reel 3: top CHERRY, middle PIKACHU, bottom CHERRY. Darn!", "last reel and the loss together")
   slots.matched = SM.SEVEN
@@ -233,7 +237,11 @@ end
 -- ------------------------------------------------------------ contest switch
 do
   reset()
+  -- ContestMenu.new keeps the cartridge's texts on the instance (upstream
+  -- v0.4.x); built bare here, so they are made the same way.
+  local CM = require("src.ui.gen2.ContestMenu")
   local menu = gen2("ContestMenu", { game = game, choice = 1,
+    TEXT = CM.texts(require("tests.fixtures.gen2_common_text").text()),
     stock = { nickname = "CATERPIE", level = 7, maxHp = 25 },
     caught = { species = "SCYTHER", level = 13, stats = { hp = 40 } } })
   SR.update(menu)
@@ -248,13 +256,16 @@ end
 do
   reset()
   local BT = require("src.ui.gen2.BattleTowerMenu")
-  local menu = BT.new(game, { rows = { { group = 1 }, { group = 2 } }, party = {} })
+  -- Four level groups, as BattleTower.levelGroupRows gives before the
+  -- L:50+ unlock: upstream v0.4.x draws row i as Strings_Ll0ToL40's line,
+  -- so CANCEL is the fifth row.
+  local menu = BT.new(game, { rows = { { group = 1 }, { group = 2 }, { group = 3 }, { group = 4 } }, party = {} })
   SR.update(menu)
-  eq(last(), "What level do you want to challenge? level 10, 1 of 3. Up raises the level", "tower entry")
+  eq(last(), "What level do you want to challenge? level 10, 1 of 5. Up raises the level", "tower entry")
   menu.cursor = 2
   SR.update(menu)
   eq(last(), "level 20", "level up")
-  menu.cursor = 3
+  menu.cursor = 5
   SR.update(menu)
   eq(last(), "CANCEL", "cancel row")
   menu:refuse("A party POKéMON\ntops this level.")
@@ -262,7 +273,7 @@ do
   eq(last(), "A party POKéMON tops this level.", "refusal")
   menu.phase, menu.cursor, menu.message = "pick", 1, "What level do you\nwant to challenge?"
   SR.update(menu)
-  eq(last(), "What level do you want to challenge? level 10, 1 of 3", "picker after a refusal, hint not repeated")
+  eq(last(), "What level do you want to challenge? level 10, 1 of 5", "picker after a refusal, hint not repeated")
   check(not lastInterrupts(), "picker after a refusal queues")
   menu.phase, menu.message, menu.yes = "quit", "Cancel your BATTLE\nROOM challenge?", true
   SR.update(menu)
@@ -363,7 +374,7 @@ do
   end
   deco.mode, deco.sideIndex, deco.pendingDeco = "side", 1, 30
   SR.update(deco)
-  eq(last(), "PIKACHU DOLL. " .. sides[1].label .. ", 1 of 3", "side picker entry")
+  eq(last(), "PIKACHU DOLL. " .. (sides[1].label or "RIGHT SIDE") .. ", 1 of 3", "side picker entry")
   eq(sides[1].id, "right", "the first side row applies to the right side")
   check(last():find("RIGHT SIDE", 1, true) ~= nil, "first side row is spoken as the right side")
   deco.sideIndex = 2
@@ -496,7 +507,15 @@ do
   eq(last(), "Magnet Train to Saffron City", "magnet train to Saffron")
 
   reset()
-  SR.update(gen2("Diploma", { game = game, playerName = "KRIS" }))
+  -- Diploma.new keeps the cartridge's lines on the instance (upstream
+  -- v0.4.x); built bare here, so they are filled from the fixture text.
+  local fixtureText = require("tests.access.gen2_rom_text").text()
+  local certification = {}
+  for line in (fixtureText["PlaceDiplomaOnScreen.Certification"] .. "\n"):gmatch("(.-)\n") do
+    certification[#certification + 1] = line
+  end
+  SR.update(gen2("Diploma", { game = game, playerName = "KRIS",
+    player = fixtureText["PlaceDiplomaOnScreen.Player"], certification = certification }))
   eq(last(), "Diploma. PLAYER KRIS. This certifies that you have completed the new POKéDEX. Congratulations! Press A",
     "diploma")
 
@@ -508,7 +527,14 @@ end
 -- ------------------------------------------------------------ trade animation
 do
   reset()
-  local anim = gen2("TradeAnim", { game = game, eventTables = {}, beat = { id = "givemon_scroll" },
+  -- Upstream v0.4.x reads a beat's line from the cartridge's trade texts
+  -- (events.lua tradeTexts / tradeBuffers); the sent line as pokecrystal has
+  -- it, with its two name buffers.
+  local eventTables = {
+    tradeTexts = { _MonWasSentToText = "{STRBUF} was sent\nto {STRBUF}." },
+    tradeBuffers = { _MonWasSentToText = { "wPlayerTrademonSpeciesName", "wOTTrademonSenderName" } },
+  }
+  local anim = gen2("TradeAnim", { game = game, eventTables = eventTables, beat = { id = "givemon_scroll" },
     give = { dex = 63, name = "ABRA", otName = "KRIS", id = 1234, senderName = "KRIS" },
     get = { dex = 66, name = "MACHOP", otName = "MIKE", id = 37460, senderName = "MIKE" } })
   SR.update(anim)
@@ -528,7 +554,10 @@ end
 do
   reset()
   local mon = { species = "TYPHLOSION", nickname = "BLAZE", level = 50, gender = "male", otId = 1234 }
-  local hof = gen2("HallOfFame", { game = game, mode = "induct", phase = "backpic", index = 1,
+  -- HallOfFame.new keeps the world's text (upstream v0.4.x reads its header
+  -- from it); upstream's common text fixture stands in.
+  local hofText = require("tests.fixtures.gen2_common_text").text()
+  local hof = gen2("HallOfFame", { game = game, textData = hofText, mode = "induct", phase = "backpic", index = 1,
     pokemon = data.pokemon, entry = { mons = { mon } },
     save = { player = { name = "KRIS", id = 1234 }, playTime = { hours = 25, minutes = 3 } } })
   SR.update(hof)
@@ -544,7 +573,7 @@ do
   eq(last(), "KRIS. ID 01234. play time 25:03", "player card")
 
   reset()
-  local view = gen2("HallOfFame", { game = game, mode = "view", phase = "display", team = 1, index = 1,
+  local view = gen2("HallOfFame", { game = game, textData = hofText, mode = "view", phase = "display", team = 1, index = 1,
     pokemon = data.pokemon, entry = { winCount = 3, mons = { mon, { species = "CHIKORITA", level = 9, otId = 5 } } } })
   SR.update(view)
   eq(last(), "Hall of Fame. 3-Time Famer. Number 157, TYPHLOSION, male, BLAZE, level 50, ID 01234. 1 of 2. A next, START next team, B leave",

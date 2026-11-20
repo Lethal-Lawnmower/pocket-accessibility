@@ -4,6 +4,7 @@
 -- upstream metatables (src/ui/gen2/...) and a small fake game, polled
 -- through the presenters directly so the interrupt flag can be checked.
 package.path = "./?.lua;./?/init.lua;" .. package.path
+require("tests.access.gen2_rom_text").install() -- upstream text lookup falls back to its fixtures
 if not _G.love then _G.love = require("tests.love_stub") end
 local T = require("tests.harness")
 local check, eq = T.check, T.eq
@@ -264,7 +265,9 @@ do
   menu.view, menu.searchIndex = "search", 1
   eq(poll(), "SEARCH. TYPE1, NORMAL, 1 of 4", "SEARCH entry")
   menu.searchType[1] = 2
-  eq(poll(), "FIGHTING", "type wheel change says the value")
+  -- Index 2 is the cartridge's third search string (upstream v0.4.x reads
+  -- PokedexTypeSearchStrings: ----, NORMAL, FIRE, ...).
+  eq(poll(), "FIRE", "type wheel change says the value")
   menu.searchIndex = 2
   eq(poll(), "TYPE2, none", "a blank wheel reads none")
   menu.searchIndex = 3
@@ -425,8 +428,10 @@ do
   eq(pollCard(), "JOHTO BADGES. 2 badges: ZEPHYR, HIVE, page 2 of 2", "Johto badge page (index or name keys)")
   save.player.kantoBadges = { BOULDER = true }
   card.page = 3
-  eq(pollCard(), "KANTO BADGES. 1 badge: BOULDER, page 3 of 3",
-    "page 3 mirrors drawPlain: Kanto names over the Johto flags (index keys only)")
+  -- Upstream v0.4.x draws page 3 as the Johto page again (the cartridge reuses
+  -- TrainerCard_JohtoBadgesOAM); speech follows the screen.
+  eq(pollCard(), "JOHTO BADGES. 2 badges: ZEPHYR, HIVE, page 3 of 3",
+    "page 3 mirrors the screen: the Johto page again")
   save.player.kantoBadges = nil
 end
 

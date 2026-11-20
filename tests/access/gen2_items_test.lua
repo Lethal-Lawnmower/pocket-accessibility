@@ -6,6 +6,7 @@
 -- the move deleter layouts; the move tutor's held party.  States carry the
 -- real upstream metatables and only the fields the screens set.
 package.path = "./?.lua;./?/init.lua;" .. package.path
+require("tests.access.gen2_rom_text").install() -- upstream text lookup falls back to its fixtures
 if not _G.love then _G.love = require("tests.love_stub") end
 
 local T = require("tests.harness")

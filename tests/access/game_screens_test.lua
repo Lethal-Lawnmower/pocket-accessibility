@@ -32,7 +32,9 @@ local game = {
     },
     moves = { THUNDERSHOCK = { name = "THUNDERSHOCK", pp = 30 }, GROWL = { name = "GROWL", pp = 40 } },
     -- no trailing {DONE}, so the entry gets DexEntryMenu's closing period
-    text = { DEX_PIKA = "When several of\nthese gather,\fits electricity\ncan build" },
+    -- _PartyMenuNormalText: upstream v0.4.x prints the party prompt only
+    -- from the cartridge's text (tests/fixture_data/text.lua has the same).
+    text = { _PartyMenuNormalText = "Choose a POKéMON.{DONE}", DEX_PIKA = "When several of\nthese gather,\fits electricity\ncan build" },
     statuses = {},
   },
   save = { player = { name = "RED", id = 12345 }, money = 3000, playTime = 3725,

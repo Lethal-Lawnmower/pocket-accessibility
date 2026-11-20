@@ -342,8 +342,29 @@ Special.cardFlip = {
 
 -- --------------------------------------------------------------- slot machine
 
--- The slot messages are { source, english[, args] } (SlotMachine.TEXTS,
--- linedUpLines), translated the way its private localizedLines does.
+-- A fixed slot message by key ("betHowMany", "start", ...).  Older upstream
+-- code kept SlotMachine.TEXTS ({ source, english } records); since v0.4.x
+-- SlotMachine:text(key) gives the cartridge's lines, a new table each call.
+local function slotText(SM, state, key)
+  if SM.TEXTS then return SM.TEXTS[key] end
+  if type(state.text) == "function" then
+    local ok, lines = pcall(state.text, state, key)
+    if ok and type(lines) == "table" then return lines end
+  end
+  return nil
+end
+
+-- Two messages are the same when they are the same record or, for the
+-- v0.4.x line lists, hold the same lines.
+local function sameMessage(a, b)
+  if a == b then return true end
+  if type(a) ~= "table" or type(b) ~= "table" or a.source or b.source then return false end
+  return table.concat(a, "\n") == table.concat(b, "\n")
+end
+
+-- The slot messages are { source, english[, args] } (older SlotMachine.TEXTS,
+-- linedUpLines), translated the way its private localizedLines did, or (since
+-- upstream v0.4.x) plain lists of the lines drawn.
 local function slotMessage(SM, state, message)
   if type(message) ~= "table" then return nil end
   local text
@@ -398,6 +419,9 @@ end
 local function betText(SM, state)
   local rows = screenLocal(SM, "BET_ROWS")
   local label = rows and rows[state.betIndex]
+  -- Upstream v0.4.x rows are cartridge labels ("Slots_AskBet.MenuData#1",
+  -- drawn " 3"); older rows held the text itself.
+  label = label and tr(label)
   local bet = label and tonumber((tostring(label):gsub("%s", "")))
   if not bet then return nil end
   return join({ string.format("%d %s", bet, bet == 1 and "coin" or "coins"), betLines(SM, bet) }, ", ")
@@ -464,7 +488,7 @@ Special.slotMachine = {
     if phase == "bet" then
       if newPhase then
         memo.bet, memo.message = state.betIndex, state.message
-        local prompt = slotMessage(SM, state, SM.TEXTS and SM.TEXTS.betHowMany)
+        local prompt = slotMessage(SM, state, slotText(SM, state, "betHowMany"))
         local row = betText(SM, state)
         local rows = screenLocal(SM, "BET_ROWS") or {}
         local text = join({ coinsText(state), prompt,
@@ -487,7 +511,7 @@ Special.slotMachine = {
     if phase == "again" then
       if newPhase then
         memo.again, memo.message = state.againChoice, state.message
-        local prompt = slotMessage(SM, state, SM.TEXTS and SM.TEXTS.playAgain)
+        local prompt = slotMessage(SM, state, slotText(SM, state, "playAgain"))
         return join({ coinsText(state), prompt }) .. " " .. yesNo(state.againChoice == 1), false
       end
       if state.againChoice ~= memo.again then
@@ -504,8 +528,8 @@ Special.slotMachine = {
     local message = state.message
     local newMessage = message ~= memo.message
     memo.message = message
-    local start = SM.TEXTS and SM.TEXTS.start
-    if newMessage and message ~= nil and message == start then
+    local start = slotText(SM, state, "start")
+    if newMessage and message ~= nil and sameMessage(message, start) then
       interrupt = true
       parts[#parts + 1] = slotMessage(SM, state, message)
     end
@@ -519,7 +543,7 @@ Special.slotMachine = {
       end
     end
     for _, tell in ipairs(slotTells(SM, state, memo)) do parts[#parts + 1] = tell end
-    if newMessage and message ~= nil and message ~= start then
+    if newMessage and message ~= nil and not sameMessage(message, start) then
       parts[#parts + 1] = slotMessage(SM, state, message)
     end
     if #parts == 0 then return nil end
@@ -645,9 +669,19 @@ Special.contestMenu = {
     if not entering and memo.choice == state.choice then return nil end
     memo.choice = state.choice
     if not entering then return yesNo(state.choice == 1), true end
-    local ok, stockLabel, thisLabel = pcall(CM.labels)
-    if not ok then return nil end
-    local text = CM.TEXT or {}
+    -- Upstream v0.4.x keeps the cartridge's texts on the instance
+    -- (state.TEXT: stock, this, health, askSwitch); older code had the
+    -- class's labels() and TEXT.
+    local text, stockLabel, thisLabel
+    if type(state.TEXT) == "table" and rawget(state, "TEXT") then
+      text = state.TEXT
+      stockLabel, thisLabel = text.stock, text.this
+    else
+      local ok
+      ok, stockLabel, thisLabel = pcall(CM.labels)
+      if not ok then return nil end
+      text = CM.TEXT or {}
+    end
     return join({ say(tr(text.askSwitch)), contestBox(stockLabel, state.stock, text.health),
       contestBox(thisLabel, state.caught, text.health) }) .. ". " .. yesNo(state.choice == 1), true
   end,
@@ -661,6 +695,13 @@ Special.contestMenu = {
 -- once because a list usually moves forward with DOWN.  A refusal clears
 -- itself after 128 frames, so the picker that follows it is queued.
 local function towerRow(BT, state)
+  -- Upstream v0.4.x draws the row through BattleTowerMenu:rowLabel(cursor)
+  -- (levels and CANCEL); older code had the static levelLabel(group).
+  if type(state.rowLabel) == "function" then
+    local ok, label = pcall(state.rowLabel, state, state.cursor)
+    if not ok or type(label) ~= "string" then return nil end
+    return say((label:gsub("L:%s*(%d+)", "level %1")))
+  end
   local row = state.rows and state.rows[state.cursor]
   if not row then return say(tr("CANCEL")) end
   local ok, label = pcall(BT.levelLabel, row.group)
@@ -783,7 +824,7 @@ local function roomText(state)
       local name = say(D.name(id))
       local side = tostring(slot):match("^(%l+)Ornament$")
       for _, entry in ipairs(sides or {}) do
-        if side and entry.id == side then name = name .. ", " .. say(tr(entry.label)) end
+        if side and entry.id == side then name = name .. ", " .. say(tr(entry.label or entry.rom)) end
       end
       if name ~= "" then names[#names + 1] = name end
     end
@@ -800,7 +841,7 @@ local function decorationRow(state)
     local sides = screenLocal(getmetatable(state), "SIDES")
     local entry = sides and sides[state.sideIndex]
     if not entry then return nil end
-    return say(tr(entry.label)), #sides, say(call(state, "rowName", state.pendingDeco) or "")
+    return say(tr(entry.label or entry.rom)), #sides, say(call(state, "rowName", state.pendingDeco) or "")
   elseif mode == "items" then
     local rows = state.rows or {}
     local id = rows[state.index]
@@ -900,6 +941,18 @@ local function composeCell(state)
     local labels = screenLocal(MC, state.lower and "BOTTOM_UPPER_LABELS" or "BOTTOM_LABELS")
     local label = labels and target and labels[target]
     if label then return glyphName(say(tr(label))) end
+    -- Upstream v0.4.x prints the strip as one cartridge line ("lower  DEL
+    -- END", MailEntry_*#6, rows().bottom); its words are the three targets.
+    local grid = call(state, "rows")
+    if type(grid) == "table" and type(grid.bottom) == "string" and target then
+      local words = {}
+      for word in grid.bottom:gmatch("%S+") do words[#words + 1] = word end
+      local word = words[target]
+      if word then
+        if target == 1 then return say(word:upper()) end
+        return glyphName(say(word))
+      end
+    end
     return say(call(state, "cursorCharacter") or "")
   end
   return glyphName(call(state, "characterAt", state.col, state.row))
@@ -992,7 +1045,7 @@ Special.mailMenu = {
     local entries = getmetatable(state).ENTRIES or {}
     local entry = entries[state.index]
     if not entry then return nil end
-    local label = say(tr(entry.label))
+    local label = say(tr(entry.label or entry.rom))
     if entering or back then
       return "Mail. " .. label .. ", " .. position(state.index, #entries), true
     end
@@ -1036,7 +1089,7 @@ Special.mailboxMenu = {
       local entries = getmetatable(state).SUB_ENTRIES or {}
       local entry = entries[submenu.index]
       if not entry then return nil end
-      local label = say(tr(entry.label))
+      local label = say(tr(entry.label or entry.rom))
       if back or opened then label = label .. ", " .. position(submenu.index, #entries) end
       return label, true
     end
@@ -1263,11 +1316,19 @@ Special.diploma = {
   poll = function(state, memo)
     if memo.said then return nil end
     memo.said = true
+    -- Upstream v0.4.x keeps the cartridge's lines on the instance
+    -- (state.player, state.certification); older code had the local
+    -- CERTIFICATION and a Strings "PLAYER".
     local lines = {}
-    for i, line in ipairs(screenLocal(getmetatable(state), "CERTIFICATION") or {}) do
-      lines[i] = tr(line)
+    if type(state.certification) == "table" then
+      for i, line in ipairs(state.certification) do lines[i] = line end
+    else
+      for i, line in ipairs(screenLocal(getmetatable(state), "CERTIFICATION") or {}) do
+        lines[i] = tr(line)
+      end
     end
-    return join({ "Diploma", say(tr("PLAYER")) .. " " .. say(state.playerName or ""),
+    local player = type(state.player) == "string" and state.player or tr("PLAYER")
+    return join({ "Diploma", say(player) .. " " .. say(state.playerName or ""),
       #lines > 0 and Common.lines(lines) or nil, "Press A" }), true
   end,
 }

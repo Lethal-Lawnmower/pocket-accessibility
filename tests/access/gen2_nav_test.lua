@@ -6,6 +6,7 @@
 -- src/world/gen2/Map and Permissions; no cartridge data (that half is
 -- gen2_nav_cart_test.lua).  Run: luajit tests/access/gen2_nav_test.lua
 package.path = "./?.lua;./?/init.lua;" .. package.path
+require("tests.access.gen2_rom_text").install() -- upstream text lookup falls back to its fixtures
 if not _G.love then _G.love = require("tests.love_stub") end
 local T = require("tests.harness")
 local check, eq = T.check, T.eq
