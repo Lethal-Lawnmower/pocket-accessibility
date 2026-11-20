@@ -293,8 +293,26 @@ return function(game)
 
   step("museum fossil by its script", function()
     local MapCatalog = require("src.import.gba.map_catalog")
-    goTo(MapCatalog.pretToEngine("PewterCity_Museum_1F"), 4, 5, "up")
-    runScript(scriptNamed("Museum_1F", "AerodactylFossil") or scriptNamed("Museum_1F", "Fossil"), 6)
+    local mapId = MapCatalog.pretToEngine("PewterCity_Museum_1F")
+    goTo(mapId, 4, 5, "up")
+    local label = scriptNamed("Museum_1F", "AerodactylFossil") or scriptNamed("Museum_1F", "Fossil")
+    if label then runScript(label, 6) return end
+    -- FireRed and LeafGreen have no script label names (only the Hoenn games define
+    -- SCRIPT_LABELS), so start each of the map's own object scripts in turn: the
+    -- fossils are among them, and the screens they open are logged as they come.
+    local def = game.data.maps[mapId] or {}
+    for index, obj in ipairs(def.objects or {}) do
+      if obj.scriptKey then
+        U.log("OBJECT", tostring(index), tostring(obj.graphicsId or obj.gfx), tostring(obj.scriptKey))
+        Space.startScript(obj.scriptKey, tonumber(obj.localId or obj.index) or index)
+        for _ = 1, 8 do
+          wait(40)
+          if not busy() and not Stack.top() then break end
+          tap("a", 20)
+        end
+        settle()
+      end
+    end
   end)
 
   step("Berry Powder man by his script", function()
