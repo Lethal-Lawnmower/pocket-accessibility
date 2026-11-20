@@ -206,45 +206,53 @@ return function(game)
 
   -- ------------------------------------------------------------ battle, by the menu
   local battles, battleKey = 0, nil
-  local preferMoves = { "MUD SHOT", "WATER GUN", "MUD-SLAP", "EMBER", "PECK", "ABSORB", "TACKLE", "SCRATCH", "POUND" }
+  local preferMoves = { "MUD SHOT", "WATER GUN", "EMBER", "ABSORB", "TACKLE", "PECK", "SCRATCH", "POUND", "MUD-SLAP" }
   local function battleUi()
     local Ui = package.loaded["src.core.game3.battle.ui"]
     return Ui and Ui._mode or nil
   end
-  -- The moves box is two by two and has no cursor on an empty cell: go to the top
-  -- left, read the cells by moving (right, back, down, right), then make the same
-  -- moves again as far as the best one heard.
+  -- The move list: the cartridge's box is two by two; with a mod loaded upstream steps
+  -- through it up and down instead.  Either way: listen to every move by moving the
+  -- cursor (up, left, then down three times, right, up, left covers both), then make
+  -- the same presses again as far as the best one heard.
+  local TOUR = { "up", "left", "down", "down", "down", "right", "up", "left" }
+  local function moveName(text) return (tostring(text):match("^[^,]+") or ""):upper() end
   local function pickMove()
-    local opening = since(math.max(0, #spoken - 1))
-    local home = opening
-    for _, button in ipairs({ "up", "left" }) do
-      local said = press(button, 12)
-      if said ~= "" then home = said end
-    end
-    local tour = { "right", "left", "down", "right" }
-    local heardMoves, best, bestRank = {}, nil, nil
-    local function consider(text)
-      if text == "" then return end
-      heardMoves[#heardMoves + 1] = text
-      local upper = text:upper()
-      if upper:find("PP 0 OF", 1, true) then return end
-      for rank, name in ipairs(preferMoves) do
-        if upper:find(name, 1, true) and (not bestRank or rank < bestRank) then best, bestRank = text, rank end
+    local now = since(math.max(0, #spoken - 1))
+    if not now:find("PP %d+ of") then
+      -- the list has just opened: its first words come a frame or two later
+      for _ = 1, 20 do
+        wait(1)
+        now = since(math.max(0, #spoken - 1))
+        if now:find("PP %d+ of") then break end
       end
     end
-    consider(home)
-    for _, button in ipairs(tour) do
+    local heardMoves, seen, best, bestRank = {}, {}, nil, nil
+    local function consider(text)
+      local name = moveName(text)
+      if text == "" or seen[name] then return end
+      seen[name] = true
+      heardMoves[#heardMoves + 1] = text
+      if text:upper():find("PP 0 OF", 1, true) then return end
+      for rank, wanted in ipairs(preferMoves) do
+        if name == wanted and (not bestRank or rank < bestRank) then best, bestRank = name, rank end
+      end
+    end
+    consider(now)
+    for _, button in ipairs(TOUR) do
       if battleUi() ~= "moves" then return end
-      consider(press(button, 12))
+      local said = press(button, 10)
+      if said ~= "" then now = said consider(said) end
     end
     if #heardMoves == 0 then finding("battle", "the move list opened and no move was read") end
-    for _, button in ipairs({ "up", "left" }) do press(button, 12) end
-    if best and best ~= home then
-      for _, button in ipairs(tour) do
-        if press(button, 12) == best then break end
+    if best and moveName(now) ~= best then
+      for _, button in ipairs(TOUR) do
+        local said = press(button, 10)
+        if said ~= "" then now = said end
+        if moveName(now) == best then break end
       end
     end
-    U.log("MOVE", best or "(none preferred: the top left move)", "of", table.concat(heardMoves, " / "):sub(1, 300))
+    U.log("MOVE", "chose", moveName(now), "wanted", tostring(best), "of", table.concat(heardMoves, " / "):sub(1, 300))
     L.tap("a", 12)
   end
 
@@ -262,43 +270,59 @@ return function(game)
     local mode = battleUi()
     if k and k ~= "battle" and k ~= "message" then
       -- a layer over the battle (level-up moves, nickname keyboard, Pokédex page, evolution)
-      if warnedLayer ~= k then warnedLayer = k U.log("BATTLE", "layer over the battle:", k) end
-      L.tap("a", 12)
+      if warnedLayer ~= k then
+        warnedLayer = k
+        U.log("BATTLE", "layer over the battle:", k, "ui", tostring(mode), "phase", tostring(Battle and Battle._phase), "at", L.where())
+      end
+      -- the party or its summary is not wanted (one Pokémon): B backs out
+      L.tap((k == "party" or k == "summary") and "b" or "a", 12)
       return
     end
     if mode == "menu" then
+      -- the menu's words (both sides, then the command under the cursor) follow its opening
       local said = since(math.max(0, #spoken - 3))
+      if not said:find("What will", 1, true) then
+        for _ = 1, 40 do
+          wait(1)
+          said = since(math.max(0, #spoken - 3))
+          if said:find("What will", 1, true) or battleUi() ~= "menu" then break end
+        end
+      end
+      if battleUi() ~= "menu" then return end
       if not menuHeard[battleKey] then
         menuHeard[battleKey] = true
         U.log("BATTLE", "first menu heard:", said:sub(-300))
         if not said:upper():find("FIGHT", 1, true) then finding("battle", "the battle menu opened without FIGHT being read; heard: " .. said:sub(-200)) end
       end
-      -- nearly out: RUN (bottom right), unless this battle has refused it
-      local mon = lead()
-      if mon and not noRun[battleKey] and (tonumber(mon.hp) or 0) > 0 and (tonumber(mon.hp) or 0) / monMaxHp(mon) < 0.25 then
-        press("up", 10) press("left", 10)
-        local bag = press("right", 15)
-        local run = press("down", 15)
-        if run:upper():find("RUN", 1, true) then
+      -- move round the menu until the wanted command is the last thing read
+      local function command(wanted)
+        local now = since(math.max(0, #spoken - 1))
+        local read = { now }
+        for _, button in ipairs(TOUR) do
+          if now:upper():match(wanted .. "%s*$") then return true end
+          local heardNow = press(button, 10)
+          if heardNow ~= "" then now = heardNow read[#read + 1] = heardNow end
+        end
+        if now:upper():match(wanted .. "%s*$") then return true end
+        finding("battle", wanted .. " was not read while moving round the battle menu; heard: " .. table.concat(read, " / "):sub(-200))
+        return false
+      end
+      -- nearly out (by the HP the menu read): RUN, once a battle
+      local hp, max = said:match("HP (%d+) of (%d+)")
+      if hp and not noRun[battleKey] and tonumber(hp) / math.max(1, tonumber(max)) < 0.25 then
+        noRun[battleKey] = true
+        if command("RUN") then
           local m = mark()
           L.tap("a", 30)
           for _ = 1, 120 do
             if not battleOn() or since(m) ~= "" then break end
             wait(1)
           end
-          U.log("BATTLE", "RUN at", partyLine(), "heard:", since(m):sub(1, 160))
-          noRun[battleKey] = true -- once per battle: a failed or refused escape goes on by fighting
-          return
+          U.log("BATTLE", "RUN at HP", hp, "of", max, "heard:", since(m):sub(1, 160))
         end
-        finding("battle", "RUN was not read at the bottom right of the battle menu; heard: " .. bag .. " / " .. run)
-        noRun[battleKey] = true
         return
       end
-      if not said:upper():find("FIGHT", 1, true) then
-        -- the cursor remembers; go to FIGHT (top left)
-        press("up", 10) press("left", 10)
-      end
-      L.tap("a", 12)
+      if command("FIGHT") then L.tap("a", 12) end
     elseif mode == "moves" then
       pickMove()
     elseif mode == "party" then
