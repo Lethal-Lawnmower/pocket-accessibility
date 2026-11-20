@@ -136,6 +136,10 @@ return function(game)
       end
       if first then
         arrive(first)
+        -- a trainer who sees the player stops the field a few seconds after the
+        -- teleport (Tanoby Ruins' Ruin Maniac): wait until the field has stayed free
+        -- for five seconds, the battle played through, before the Area list is read
+        L.settle(1800, true, 300)
         local listed = {}
         for _, item in ipairs(L.browse("area")) do
           if item.floorEntry then listed[item.mapId] = item end
