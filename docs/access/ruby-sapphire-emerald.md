@@ -137,9 +137,11 @@ are built from, not as a length. Run since (2026-11-19, Emerald): a turn the
 player's Pokémon cannot take, with a move that misses the next turn put in its first
 slot by the driver ("MUDKIP can't appeal next turn…", the order row ending "cannot
 appeal", "Appeal no. 2! But it can't participate!", "MUDKIP was watching the others.").
-Not run: link contest and link blender text, a contest entered from the reception
-script (the driver opens the modules the natives open, with the same options), the
-blender's YES path and its two refusals.
+The blender's YES path and its two refusals also ran (2026-11-19, Emerald): a second
+game after YES, "Your POKéBLOCK CASE is full." with the case filled by the driver, and
+"You've run out of BERRIES for blending in the BERRY BLENDER." with the bag emptied by
+the driver. Not run: link contest and link blender text, a contest entered from the
+reception script (the driver opens the modules the natives open, with the same options).
 
 Labels our words stand for in those screens: contest category and rank, hearts,
 stars, status and judge symbols (protected, nervous, cannot appeal, judge's
@@ -163,8 +165,11 @@ are not said again as they are used); a doll placed in the bedroom and put away 
 room searched with the game's own `Decor.canPlace`: "7 right, 1 down, can be placed",
 "PICHU DOLL, in use in your room", then "7 right, 1 down, PICHU DOLL" under the
 put-away cursor); PUT AWAY with nothing out ("There are no decorations in use.").
-Not run: Trendy phrase and interview editors from their scripts (only the modules),
-the Mail composer's blank-mail refusal, Rayquaza's Ruby and Sapphire counterpart (they have none).
+Also run (2026-11-19): Ruby and Sapphire's Mail composer refusing a blank letter
+("Please enter a phrase or word.", Ruby), and the trendy phrase editor from Dewford's
+boy's own script (Sapphire: NO to his question, the editor with his phrase, "Quit
+giving information?" YES, his closing line). Not run: the interview editors from their
+scripts (only the modules), Rayquaza's Ruby and Sapphire counterpart (they have none).
 Trick House: its entrance script read as dialogue; the rooms are ordinary field
 text, not walked. Multichoice in Hoenn reads through FireRed's choice presenter
 (Emerald's coins clerk, Ruby and Sapphire's prize clerk ran by their scripts).
@@ -210,9 +215,13 @@ says nothing about which places can be flown to. Emerald's graph, list and map
 read fields once the screen's own animation allows, so entry speech starts as
 the fade ends. An incoming call ran by the game's own step queue and window
 (`MatchCall.startCall`, 2026-11-19, Emerald); the random trigger that decides to
-call (`tryStartMatchCall`) was not run. The tutorial reached from its script and
-gift ribbon text in a real save were not run: the driver opens the same shell and
-fields directly, with the options the native passes.
+call (`tryStartMatchCall`) was not run. The tutorial also ran from the game's own
+script (`RustboroCity_EventScript_MatchCallTutorial`, 2026-11-19, Emerald): the script's
+start menu on POKéNAV, the Pokénav it opens, MATCH CALL, MR. STONE's call page by page,
+and the closing line after it. Ribbons ran with the ribbons and the gift ribbon set by
+the driver in the party and the save's gift fields ("2003 REGIONAL TOURNEY CHAMPION
+RIBBON. 2 of 2", 2026-11-19, Emerald); a gift ribbon received in a real save (by a
+link or event distribution) was not run.
 
 ## Battle
 
@@ -267,8 +276,9 @@ playing there; each row above and the known gaps say what is not run.
 
 | Check | Result |
 |---|---|
-| `drivers/rse_menus`, `rse_screens`, `rse_battle` | Emerald, 2026-11-19: no BAD, FAIL or driver error; all eight battle scenes TALLY missed=0; spoken lines read. Before that: the 2026-11-04 sweep on Emerald, Sapphire and Ruby |
-| `drivers/rse_screens_pokenav`, `rse_screens_frontier` | Emerald, 2026-11-19: ran to their end, no BAD or FAIL, spoken lines read |
+| `drivers/rse_menus`, `rse_screens`, `rse_battle` | Emerald, Ruby and Sapphire, 2026-11-19: no BAD, FAIL or driver error; all eight battle scenes TALLY missed=0 in each game; spoken lines read. Before that: the 2026-11-04 sweep on the same three |
+| `drivers/rse_screens_pokenav`, `rse_screens_frontier` | Emerald, Ruby and Sapphire, 2026-11-19: ran to their end, no BAD or FAIL, spoken lines read (Ruby and Sapphire's Frontier driver has only the tower record board). The Pokénav tutorial by its script first did nothing: the driver did not answer the script's own start menu; repaired, it ran (`RSE_ONLY=menus,tutorial_script`, Emerald) |
+| `drivers/pc_clock_hoenn` | Emerald, Ruby and Sapphire, 2026-11-19: 10 of 10 PASS each |
 | `drivers/rse_screens_contest` | Emerald, 2026-11-19: every section to the blender ran, no BAD or FAIL; the run met its 1800 second limit there because a second contest was added (give it 3600) |
 | `drivers/rse_screens_field` | Emerald, 2026-11-19: the first run showed the driver itself broken (the Easy Chat editor was never closed, so roulette and slots did not run; the tutor never finished; the mailbox did not open). Repaired; the repaired sections then ran with no BAD or FAIL |
 | FireRed and LeafGreen `gen3_menus`, `gen3_menus_more`, `gen3_screens_more`, `gen3_items`, `gen3_special`, `gen3_battle` | 2026-11-19, both games: ran to their end, no failure; battle TALLY missed=0 in all seven scenes; spoken lines read (`firered-leafgreen.md`) |
