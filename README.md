@@ -38,6 +38,12 @@ Playing through every game myself isn't realistic, so here's how far I've gotten
 
 All of them have been through automated tests and scripted runs. If you run into a problem, open an issue here or post in the [Discord server](https://discord.gg/8NNev6PsB6).
 
+### Randomizers and ROM Hacks
+
+Randomized ROMs and ROM hacks aren't supported, and they won't import. This isn't an emulator. The games don't run from your ROM: when you import one, the game reads its maps, Pokémon, text and scripts out of it once, using the known layout of each original cartridge, and then plays from that. To make sure that layout is right, the importer only accepts the exact original dumps, checked by their SHA-1 fingerprint. A randomizer or a ROM hack changes the file, so the fingerprint no longer matches, and even if it got past that, the data wouldn't be where the game expects it.
+
+Crystal already has a randomizer built in. Turn on Crystal Randomizer in the launcher's Mods window, then start a new game. If enough people want it, I'll make a randomizer for the other games too.
+
 ## What It Does
 
 - **Speech:** menus, dialogue, the Pokémon screens and battles all go through [Prism](https://github.com/ethindp/prism), so it works with your screen reader without any extra setup. Gone are the days of hunting down the right NVDA DLL or `Tolk.dll`. F7 turns on the navigation keys, and F8 is help.
