@@ -54,6 +54,10 @@ and recorded in the topic file.
   LeafGreen, Blue and Silver not run. New wording heard from the cartridge: card flip ("Play with
   three coins?"), Oak's clock (a page of dots first, "MONDAY, is it?"), Trainer Card page 3 shows
   the Johto badges as the screen now does. Not heard; no owner test.
+- **README: randomizers and ROM hacks (2026-11-23).** At the owner's request a section says randomized ROMs
+  and ROM hacks are not supported (the importer accepts only known SHA-1 dumps and reads the original
+  layout), points to the bundled Crystal Randomizer, and says a randomizer for other games may follow if
+  enough people want one. The owner approved the wording and the push ("Yep, push it.").
 - `POKEPORT_IMPORT_ONLY` with a current cache starts the game instead of quitting (old code
   too): scripted imports need a timeout.
 - Driver runs: `gen2_menus` needs `POKEPORT_BOOT_CINEMA=1`; many drivers log speech only with
